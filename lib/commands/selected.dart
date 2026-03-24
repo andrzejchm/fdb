@@ -4,9 +4,9 @@ import 'package:fdb/vm_service.dart';
 
 Future<int> runSelected(List<String> args) async {
   try {
-    final isolateId = await findMainIsolateId();
+    final isolateId = await findFlutterIsolateId();
     if (isolateId == null) {
-      stderr.writeln('ERROR: No isolate found');
+      stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
     }
 
@@ -15,15 +15,15 @@ Future<int> runSelected(List<String> args) async {
       params: {'isolateId': isolateId, 'objectGroup': 'fdb_selected'},
     );
 
-    final result = response['result'] as Map<String, dynamic>?;
-    if (result == null || result.isEmpty) {
+    final widget = unwrapExtensionResult(response);
+    if (widget == null || widget is! Map<String, dynamic>) {
       stdout.writeln('NO_WIDGET_SELECTED');
       return 0;
     }
 
-    final description = result['description'] as String? ?? 'Unknown';
+    final description = widget['description'] as String? ?? 'Unknown';
     final creationLocation =
-        result['creationLocation'] as Map<String, dynamic>?;
+        widget['creationLocation'] as Map<String, dynamic>?;
 
     if (creationLocation != null) {
       final file = (creationLocation['file'] as String? ?? '').split('/').last;

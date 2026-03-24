@@ -17,9 +17,8 @@ Future<Map<String, dynamic>> vmServiceCall(
     throw StateError('VM service URI not found. Is the app running?');
   }
 
-  final wsUri = uri
-      .replaceFirst('http://', 'ws://')
-      .replaceFirst('https://', 'wss://');
+  final wsUri =
+      uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
 
   final ws = await WebSocket.connect(
     wsUri,
@@ -70,18 +69,58 @@ Future<Map<String, dynamic>> vmServiceCall(
   }
 }
 
-/// Finds the first isolate with a valid response from the VM service.
-Future<String?> findMainIsolateId() async {
+/// Returns all isolate IDs from the VM service.
+Future<List<String>> findAllIsolateIds() async {
   final vmResponse = await vmServiceCall('getVM');
   final result = vmResponse['result'] as Map<String, dynamic>?;
-  if (result == null) return null;
+  if (result == null) return [];
 
   final isolates = result['isolates'] as List<dynamic>?;
-  if (isolates == null || isolates.isEmpty) return null;
+  if (isolates == null || isolates.isEmpty) return [];
 
-  for (final isolate in isolates) {
-    final id = (isolate as Map<String, dynamic>)['id'] as String?;
-    if (id != null) return id;
+  return isolates
+      .map((i) => (i as Map<String, dynamic>)['id'] as String?)
+      .where((id) => id != null)
+      .cast<String>()
+      .toList();
+}
+
+/// Finds the Flutter UI isolate by trying each isolate until one returns
+/// a non-null widget tree. Returns the isolate ID or null.
+Future<String?> findFlutterIsolateId() async {
+  final ids = await findAllIsolateIds();
+  for (final id in ids) {
+    try {
+      final response = await vmServiceCall(
+        'ext.flutter.inspector.isWidgetTreeReady',
+        params: {'isolateId': id},
+        timeout: const Duration(seconds: 5),
+      );
+      final result = response['result'] as Map<String, dynamic>?;
+      if (result != null && response['error'] == null) return id;
+    } catch (_) {
+      // This isolate doesn't have Flutter inspector, try next
+    }
   }
-  return null;
+  // Fallback: return last isolate (often the UI one)
+  return ids.isNotEmpty ? ids.last : null;
+}
+
+/// Unwraps the VM service extension response.
+/// Extension responses have the shape: {"result": {"result": "<json string>", "type": "_extensionType"}}
+/// The inner "result" is a JSON-encoded string that needs to be decoded.
+dynamic unwrapExtensionResult(Map<String, dynamic> response) {
+  final outer = response['result'] as Map<String, dynamic>?;
+  if (outer == null) return null;
+
+  final inner = outer['result'];
+  if (inner == null) return null;
+  if (inner is String) {
+    try {
+      return jsonDecode(inner);
+    } catch (_) {
+      return inner;
+    }
+  }
+  return inner;
 }

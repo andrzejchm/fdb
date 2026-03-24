@@ -17,9 +17,9 @@ Future<int> runSelect(List<String> args) async {
   final enabled = mode == 'on';
 
   try {
-    final isolateId = await findMainIsolateId();
+    final isolateId = await findFlutterIsolateId();
     if (isolateId == null) {
-      stderr.writeln('ERROR: No isolate found');
+      stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
     }
 

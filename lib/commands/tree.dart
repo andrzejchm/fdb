@@ -16,24 +16,25 @@ Future<int> runTree(List<String> args) async {
   }
 
   try {
-    final isolateId = await findMainIsolateId();
+    final isolateId = await findFlutterIsolateId();
     if (isolateId == null) {
-      stderr.writeln('ERROR: No isolate found');
+      stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
     }
 
     final response = await vmServiceCall(
       'ext.flutter.inspector.getRootWidgetSummaryTree',
       params: {'isolateId': isolateId, 'objectGroup': 'fdb_tree'},
+      timeout: const Duration(seconds: 60),
     );
 
-    final result = response['result'] as Map<String, dynamic>?;
-    if (result == null) {
+    final tree = unwrapExtensionResult(response);
+    if (tree == null || tree is! Map<String, dynamic>) {
       stderr.writeln('ERROR: No widget tree returned');
       return 1;
     }
 
-    _printTree(result, 0, maxDepth, userOnly);
+    _printTree(tree, 0, maxDepth, userOnly);
     return 0;
   } catch (e) {
     stderr.writeln('ERROR: $e');
