@@ -1,0 +1,307 @@
+version: '3'
+
+silent: true
+
+vars:
+  FDB: 'dart run {{.ROOT_DIR}}/bin/fdb.dart'
+  TEST_APP: '{{.ROOT_DIR}}/example/test_app'
+
+tasks:
+  # ---------------------------------------------------------------------------
+  # Setup
+  # ---------------------------------------------------------------------------
+  setup:
+    desc: Install dependencies and prepare the test app
+    cmds:
+      - dart pub get
+      - cmd: flutter pub get
+        dir: '{{.TEST_APP}}'
+
+  # ---------------------------------------------------------------------------
+  # Device detection
+  # ---------------------------------------------------------------------------
+  detect-device:
+    desc: Auto-detect a connected device ID (iOS Simulator or Android emulator)
+    cmds:
+      - |
+        DEVICE=$(flutter devices --machine 2>/dev/null | python3 -c '
+        import json, sys
+        devices = json.load(sys.stdin)
+        skip = {"macos", "linux", "windows", "chrome"}
+        for d in devices:
+            did = d["id"]
+            name = d.get("name", "").lower()
+            if did in skip or "chrome" in name:
+                continue
+            print(did)
+            sys.exit(0)
+        sys.exit(1)
+        ' 2>/dev/null)
+        if [ -z "$DEVICE" ]; then
+          echo "ERROR: No mobile device or simulator found. Start a simulator or connect a device." >&2
+          exit 1
+        fi
+        echo "$DEVICE"
+
+  # ---------------------------------------------------------------------------
+  # Individual fdb command tests
+  # ---------------------------------------------------------------------------
+  test:launch:
+    desc: "Launch the test app on a device (set DEVICE or auto-detect)"
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        echo "==> Launching test app on device: {{.DEVICE}}"
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" --project "{{.TEST_APP}}" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "APP_STARTED"; then
+          echo "PASS: fdb launch"
+        else
+          echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
+          exit 1
+        fi
+
+  test:status:
+    desc: Check app status (expects a running app)
+    cmds:
+      - |
+        echo "==> Checking app status"
+        OUTPUT=$({{.FDB}} status 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "RUNNING=true"; then
+          echo "PASS: fdb status"
+        else
+          echo "FAIL: fdb status - expected RUNNING=true" >&2
+          exit 1
+        fi
+
+  test:reload:
+    desc: Hot reload the running app
+    cmds:
+      - |
+        echo "==> Hot reloading"
+        OUTPUT=$({{.FDB}} reload 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb reload exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "RELOADED"; then
+          echo "PASS: fdb reload"
+        else
+          echo "FAIL: fdb reload - RELOADED not found in output" >&2
+          exit 1
+        fi
+
+  test:restart:
+    desc: Hot restart the running app
+    cmds:
+      - |
+        echo "==> Hot restarting"
+        OUTPUT=$({{.FDB}} restart 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb restart exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "RESTARTED"; then
+          echo "PASS: fdb restart"
+        else
+          echo "FAIL: fdb restart - RESTARTED not found in output" >&2
+          exit 1
+        fi
+
+  test:logs:
+    desc: Read app logs
+    cmds:
+      - |
+        echo "==> Reading logs (last 10)"
+        OUTPUT=$({{.FDB}} logs --last 10 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb logs exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        echo "PASS: fdb logs"
+
+  test:logs-tag:
+    desc: Read app logs filtered by tag
+    cmds:
+      - |
+        echo "==> Reading logs with --tag fdb_test"
+        OUTPUT=$({{.FDB}} logs --tag fdb_test --last 10 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb logs --tag exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        echo "PASS: fdb logs --tag"
+
+  test:tree:
+    desc: Inspect widget tree
+    cmds:
+      - |
+        echo "==> Inspecting widget tree"
+        OUTPUT=$({{.FDB}} tree --depth 5 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tree exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qi "Scaffold\|MaterialApp\|FdbTest"; then
+          echo "PASS: fdb tree"
+        else
+          echo "FAIL: fdb tree - no recognizable widgets in output" >&2
+          exit 1
+        fi
+
+  test:screenshot:
+    desc: Take a screenshot
+    cmds:
+      - |
+        echo "==> Taking screenshot"
+        OUTPUT=$({{.FDB}} screenshot --output /tmp/fdb_test_screenshot.png 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb screenshot exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCREENSHOT_SAVED"; then
+          echo "PASS: fdb screenshot"
+        else
+          echo "FAIL: fdb screenshot - SCREENSHOT_SAVED not found" >&2
+          exit 1
+        fi
+
+  test:select:
+    desc: Toggle widget selection mode on and off
+    cmds:
+      - |
+        echo "==> Enabling selection mode"
+        OUTPUT=$({{.FDB}} select on 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb select on exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SELECTION_MODE=ON"; then
+          echo "PASS: fdb select on"
+        else
+          echo "FAIL: fdb select on - SELECTION_MODE=ON not found" >&2
+          exit 1
+        fi
+
+        echo "==> Disabling selection mode"
+        OUTPUT=$({{.FDB}} select off 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb select off exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SELECTION_MODE=OFF"; then
+          echo "PASS: fdb select off"
+        else
+          echo "FAIL: fdb select off - SELECTION_MODE=OFF not found" >&2
+          exit 1
+        fi
+
+  test:kill:
+    desc: Kill the running app
+    cmds:
+      - |
+        echo "==> Killing app"
+        OUTPUT=$({{.FDB}} kill 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb kill exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "APP_KILLED"; then
+          echo "PASS: fdb kill"
+        else
+          echo "FAIL: fdb kill - APP_KILLED not found" >&2
+          exit 1
+        fi
+
+  test:status-stopped:
+    desc: Verify status shows not running after kill
+    cmds:
+      - |
+        echo "==> Checking app is stopped"
+        OUTPUT=$({{.FDB}} status 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "RUNNING=false"; then
+          echo "PASS: fdb status (stopped)"
+        else
+          echo "FAIL: fdb status - expected RUNNING=false after kill" >&2
+          exit 1
+        fi
+
+  # ---------------------------------------------------------------------------
+  # Cleanup
+  # ---------------------------------------------------------------------------
+  cleanup:
+    desc: Force-kill any running fdb app and clean up temp files
+    cmds:
+      - |
+        {{.FDB}} kill 2>/dev/null || true
+        rm -f /tmp/fdb.pid /tmp/fdb_logs.txt /tmp/fdb_vm_uri.txt /tmp/fdb_launcher.sh
+        rm -f /tmp/fdb_screenshot.png /tmp/fdb_test_screenshot.png
+        echo "Cleanup done"
+
+  # ---------------------------------------------------------------------------
+  # Full smoke test — runs all commands in sequence
+  # ---------------------------------------------------------------------------
+  smoke:
+    desc: "Full end-to-end smoke test of all fdb commands"
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - task: cleanup
+      - task: setup
+      - defer:
+          task: cleanup
+      - task: test:launch
+        vars:
+          DEVICE: '{{.DEVICE}}'
+      - task: test:status
+      - task: test:reload
+      - task: test:restart
+      - task: test:logs
+      - task: test:logs-tag
+      - task: test:tree
+      - task: test:screenshot
+      - task: test:select
+      - task: test:kill
+      - task: test:status-stopped
+
+  # ---------------------------------------------------------------------------
+  # Static analysis for fdb itself
+  # ---------------------------------------------------------------------------
+  analyze:
+    desc: Run dart analyze on the fdb package
+    cmds:
+      - dart analyze
+      - dart format --set-exit-if-changed .
+
+  test:unit:
+    desc: Run dart unit tests (when they exist)
+    cmds:
+      - dart test
