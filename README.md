@@ -21,6 +21,21 @@ fdb bridges that gap:
 
 Zero dependencies. Pure Dart. Works on macOS and Linux.
 
+### Why not the official Flutter MCP server?
+
+The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) is a great tool for code analysis, pub.dev search, and formatting. fdb solves a different problem -- **running and interacting with apps on real devices** -- and takes a fundamentally different approach:
+
+| | fdb | Flutter MCP server |
+|---|---|---|
+| **Architecture** | CLI -- plain bash commands | MCP protocol -- requires a compatible client |
+| **Context cost** | Minimal. Agent runs a command, gets text output. | MCP tool schemas and responses are injected into context on every call, eating tokens even when unused. |
+| **Works with** | Any agent that can run bash (Claude Code, OpenCode, Cursor, custom scripts, CI) | Only MCP-compatible clients |
+| **Progressive disclosure** | Ships a [skill file](docs/skills/interacting-with-flutter-apps/SKILL.md) -- agent loads best practices on demand, not upfront | All tools exposed at once |
+| **Device interaction** | Launch, hot reload, screenshot, logs, widget tree, widget selection | Limited runtime introspection |
+| **Setup** | `dart pub global activate` -- done | Per-client MCP config (JSON, YAML, or GUI depending on client) |
+
+**tl;dr:** Use the Flutter MCP server for code analysis and package management. Use fdb when your agent needs to *run the app, see it, and interact with it*.
+
 ## Install
 
 **Tell your AI agent:**
