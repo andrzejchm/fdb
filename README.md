@@ -21,13 +21,15 @@ fdb bridges that gap:
 
 Zero dependencies. Pure Dart. Works on macOS and Linux.
 
-## For AI Agents
+## Install
+
+**Tell your AI agent:**
 
 ```
 Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/README.agents.md
 ```
 
-## Install
+**Or install manually:**
 
 ```bash
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
