@@ -2,6 +2,12 @@
 
 CLI for AI agents to interact with running Flutter apps on device.
 
+## For AI Agents
+
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/README.agents.md
+```
+
 ## Install
 
 ```bash
