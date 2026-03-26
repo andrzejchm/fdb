@@ -1,33 +1,38 @@
 # fdb for AI Agents
 
-Complete guide for using fdb (Flutter Debug Bridge) with [OpenCode](https://opencode.ai).
+Guide for using fdb (Flutter Debug Bridge) with AI coding agents.
 
-## Quick Install
-
-Tell OpenCode:
-
-```
-Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/README.agents.md
-```
+fdb is a CLI that lets AI agents launch, reload, screenshot, inspect, and kill Flutter apps running on physical devices and simulators.
 
 ## Installation
 
 ### 1. Install the CLI
 
 ```bash
-# Dart (recommended)
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 ```
 
-Requires Dart SDK >= 3.0.0.
+Requires Dart SDK >= 3.0.0. Ensure `~/.pub-cache/bin` is in your `PATH`.
 
-### 2. Install the skill file
+### 2. Install the skill file (optional)
 
+If your agent supports skill files (OpenCode, Claude Code, or similar), install for automatic discoverability:
+
+**OpenCode:**
 ```bash
 mkdir -p ~/.config/opencode/skills/interacting-with-flutter-apps
 curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
 ```
+
+**Claude Code:**
+```bash
+mkdir -p ~/.claude/skills/interacting-with-flutter-apps
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+  -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
+```
+
+For other agents, place the SKILL.md file wherever your agent reads skill definitions from, or simply use the commands below directly.
 
 ### 3. Verify
 
@@ -35,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 fdb status   # CLI installed and on PATH
 ```
 
-Restart OpenCode after installing. The skill is now discoverable via the `skill` tool.
+Restart your agent after installing the skill file.
 
 ## Updating
 
@@ -43,9 +48,13 @@ Restart OpenCode after installing. The skill is now discoverable via the `skill`
 # Update the CLI
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
-# Update the skill file
+# Update the skill file (OpenCode)
 curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
+
+# Update the skill file (Claude Code)
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+  -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
 ## Prerequisites
@@ -160,12 +169,12 @@ fdb select off       # disable overlay
 
 ## Troubleshooting
 
-**fdb: command not found** — Ensure `~/.pub-cache/bin` is in your `PATH`.
+**fdb: command not found** -- Ensure `~/.pub-cache/bin` is in your `PATH`.
 
-**Launch hangs** — Check that the device ID is correct (`flutter devices`) and the project path is valid.
+**Launch hangs** -- Check that the device ID is correct (`flutter devices`) and the project path is valid.
 
-**Empty widget tree** — Fall back to raw websocat commands (see the skill file for details).
+**Empty widget tree** -- Fall back to raw websocat commands (see the skill file for details).
 
-**Screenshot fails** — Ensure `adb` (Android) or `xcrun` (iOS) is available and the device is connected.
+**Screenshot fails** -- Ensure `adb` (Android) or `xcrun` (iOS) is available and the device is connected.
 
-**Status shows RUNNING=false after launch** — The Flutter process may have crashed. Check `fdb logs --last 50` for errors.
+**Status shows RUNNING=false after launch** -- The Flutter process may have crashed. Check `fdb logs --last 50` for errors.
