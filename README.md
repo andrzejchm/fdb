@@ -110,37 +110,9 @@ AI Agent                    fdb                         Device/Simulator
 - Widget inspection via VM Service Protocol over WebSocket
 - All state in `/tmp/fdb_*` files -- no config, no database, no daemon
 
-## Development & Testing
-
-A minimal Flutter app lives in `example/test_app/` and is used as the target
-for integration testing. All test scripts are defined in `Taskfile.yml`
-(requires [Task](https://taskfile.dev)).
-
-```bash
-# Full smoke test -- launches the app, runs every fdb command, then kills it
-task smoke
-
-# Or pass a specific device ID
-task smoke DEVICE=iPhone-16
-
-# Static analysis
-task analyze
-
-# Individual command tests (app must already be running via test:launch)
-task test:launch DEVICE=iPhone-16
-task test:status
-task test:reload
-task test:restart
-task test:logs
-task test:tree
-task test:screenshot
-task test:select
-task test:kill
-```
-
 ## Contributing
 
-Contributions welcome. The codebase is intentionally simple: pure Dart, no classes, no frameworks, no dependencies. See [AGENTS.md](AGENTS.md) for coding conventions.
+Contributions welcome. See [AGENTS.md](AGENTS.md) for coding conventions and the [testing skill](.agents/skills/testing-fdb/SKILL.md) for how to run the test suite.
 
 ## License
 
