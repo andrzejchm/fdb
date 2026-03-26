@@ -1,5 +1,7 @@
 version: '3'
 
+silent: true
+
 vars:
   FDB: 'dart run {{.ROOT_DIR}}/bin/fdb.dart'
   TEST_APP: '{{.ROOT_DIR}}/example/test_app'
@@ -20,7 +22,6 @@ tasks:
   # ---------------------------------------------------------------------------
   detect-device:
     desc: Auto-detect a connected device ID (iOS Simulator or Android emulator)
-    silent: true
     cmds:
       - |
         DEVICE=$(flutter devices --machine 2>/dev/null | python3 -c '
