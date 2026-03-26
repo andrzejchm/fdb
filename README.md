@@ -1,6 +1,25 @@
 # fdb - Flutter Debug Bridge
 
-CLI for AI agents to interact with running Flutter apps on device.
+> Give your AI agent eyes and hands on your Flutter app.
+
+**fdb** is a CLI that lets AI coding agents launch, hot reload, screenshot, inspect, and kill Flutter apps running on real devices and simulators -- all from the terminal, no IDE required.
+
+Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenCode](https://opencode.ai), and any AI agent that can run bash commands.
+
+## Why fdb?
+
+AI agents are great at writing Flutter code. But they can't *see* what the app looks like, *read* runtime logs, or *inspect* the widget tree -- unless you give them the tools.
+
+fdb bridges that gap:
+
+- **Launch** a Flutter app on any connected device or simulator
+- **Hot reload / restart** after code changes, without restarting the session
+- **Screenshot** the device screen so the agent can see the UI
+- **Read logs** filtered by tag, so the agent can debug runtime issues
+- **Inspect the widget tree** to understand the live UI hierarchy
+- **Select widgets** by tapping on device, then retrieve the widget info
+
+Zero dependencies. Pure Dart. Works on macOS and Linux.
 
 ## For AI Agents
 
@@ -14,6 +33,30 @@ Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 ```
 
+Requires Dart SDK >= 3.0.0. Make sure `~/.pub-cache/bin` is in your `PATH`.
+
+## Quick Start
+
+```bash
+# Launch your app on a connected device
+fdb launch --device <device_id> --project /path/to/your/flutter/app
+
+# See what it looks like
+fdb screenshot
+
+# Make a code change, then hot reload
+fdb reload
+
+# Check the widget hierarchy
+fdb tree --depth 5 --user-only
+
+# Read filtered logs
+fdb logs --tag "MyFeature" --last 30
+
+# Done? Kill the app
+fdb kill
+```
+
 ## Commands
 
 | Command | Description |
@@ -21,13 +64,34 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload (SIGUSR1) |
 | `fdb restart` | Hot restart (SIGUSR2) |
-| `fdb screenshot` | Device screenshot |
+| `fdb screenshot [--output <path>]` | Device screenshot |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
-| `fdb tree --depth <n>` | Widget tree |
+| `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb select on/off` | Widget selection mode |
-| `fdb selected` | Get selected widget |
+| `fdb selected` | Get selected widget info |
 | `fdb status` | Check if app is running |
-| `fdb kill` | Stop app |
+| `fdb kill` | Stop app, clean up |
+
+## How It Works
+
+```
+AI Agent                    fdb                         Device/Simulator
+   |                         |                               |
+   |-- fdb launch ---------->|-- flutter run (detached) ---->|
+   |                         |   saves PID, VM URI to /tmp   |
+   |-- fdb reload ---------->|-- SIGUSR1 ------------------->|
+   |-- fdb screenshot ------>|-- adb/xcrun --------------->  |
+   |<- SCREENSHOT_SAVED=/tmp/fdb_screenshot.png              |
+   |-- fdb tree ------------>|-- VM Service (WebSocket) ---->|
+   |<- widget tree output    |                               |
+   |-- fdb kill ------------>|-- SIGTERM ------------------->|
+```
+
+- Launches `flutter run` as a detached process with `--pid-file`
+- Hot reload/restart via POSIX signals (SIGUSR1/SIGUSR2)
+- Screenshots via `adb screencap` (Android) or `xcrun simctl io` (iOS)
+- Widget inspection via VM Service Protocol over WebSocket
+- All state in `/tmp/fdb_*` files -- no config, no database, no daemon
 
 ## Development & Testing
 
@@ -36,38 +100,31 @@ for integration testing. All test scripts are defined in `Taskfile.yml`
 (requires [Task](https://taskfile.dev)).
 
 ```bash
-# Prerequisites: a running iOS Simulator or Android emulator
-
-# Full smoke test — launches the app, runs every fdb command, then kills it
+# Full smoke test -- launches the app, runs every fdb command, then kills it
 task smoke
 
 # Or pass a specific device ID
 task smoke DEVICE=iPhone-16
 
-# Run individual command tests (app must already be running via test:launch)
+# Static analysis
+task analyze
+
+# Individual command tests (app must already be running via test:launch)
 task test:launch DEVICE=iPhone-16
 task test:status
 task test:reload
 task test:restart
 task test:logs
-task test:logs-tag
 task test:tree
 task test:screenshot
 task test:select
 task test:kill
-task test:status-stopped
-
-# Cleanup temp files and kill any leftover app
-task cleanup
-
-# Static analysis
-task analyze
 ```
 
-## How it works
+## Contributing
 
-- Launches `flutter run` as a detached process with `--pid-file`
-- Hot reload/restart via POSIX signals (SIGUSR1/SIGUSR2)
-- Screenshots via `adb screencap` (Android) or `xcrun simctl io` (iOS)
-- Widget inspection via VM Service Protocol over WebSocket
-- All state in `/tmp/fdb_*` files
+Contributions welcome. The codebase is intentionally simple: pure Dart, no classes, no frameworks, no dependencies. See [AGENTS.md](AGENTS.md) for coding conventions.
+
+## License
+
+MIT
