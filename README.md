@@ -79,8 +79,8 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
-| `fdb reload` | Hot reload (SIGUSR1) |
-| `fdb restart` | Hot restart (SIGUSR2) |
+| `fdb reload` | Hot reload |
+| `fdb restart` | Hot restart |
 | `fdb screenshot [--output <path>]` | Device screenshot |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
@@ -105,7 +105,7 @@ AI Agent                    fdb                         Device/Simulator
 ```
 
 - Launches `flutter run` as a detached process with `--pid-file`
-- Hot reload/restart via POSIX signals (SIGUSR1/SIGUSR2)
+- Hot reload/restart via POSIX signals to the Flutter process
 - Screenshots via `adb screencap` (Android) or `xcrun simctl io` (iOS)
 - Widget inspection via VM Service Protocol over WebSocket
 - All state in `/tmp/fdb_*` files -- no config, no database, no daemon
