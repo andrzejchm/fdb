@@ -91,24 +91,37 @@ fdb kill
 
 ## How It Works
 
-```
-AI Agent                    fdb                         Device/Simulator
-   |                         |                               |
-   |-- fdb launch ---------->|-- flutter run (detached) ---->|
-   |                         |   saves PID, VM URI to /tmp   |
-   |-- fdb reload ---------->|-- SIGUSR1 ------------------->|
-   |-- fdb screenshot ------>|-- adb/xcrun --------------->  |
-   |<- SCREENSHOT_SAVED=/tmp/fdb_screenshot.png              |
-   |-- fdb tree ------------>|-- VM Service (WebSocket) ---->|
-   |<- widget tree output    |                               |
-   |-- fdb kill ------------>|-- SIGTERM ------------------->|
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant fdb
+    participant Device as Device / Simulator
+
+    Agent->>fdb: fdb launch
+    fdb->>Device: flutter run (detached)
+    fdb-->>fdb: save PID & VM URI to /tmp
+    fdb-->>Agent: APP_STARTED
+
+    Agent->>fdb: fdb reload
+    fdb->>Device: POSIX signal
+    fdb-->>Agent: RELOADED
+
+    Agent->>fdb: fdb screenshot
+    fdb->>Device: adb screencap / xcrun simctl
+    fdb-->>Agent: SCREENSHOT_SAVED=/tmp/fdb_screenshot.png
+
+    Agent->>fdb: fdb tree
+    fdb->>Device: VM Service (WebSocket)
+    fdb-->>Agent: widget tree
+
+    Agent->>fdb: fdb kill
+    fdb->>Device: SIGTERM
+    fdb-->>Agent: APP_KILLED
 ```
 
-- Launches `flutter run` as a detached process with `--pid-file`
-- Hot reload/restart via POSIX signals to the Flutter process
-- Screenshots via `adb screencap` (Android) or `xcrun simctl io` (iOS)
-- Widget inspection via VM Service Protocol over WebSocket
 - All state in `/tmp/fdb_*` files -- no config, no database, no daemon
+- Screenshots auto-detect Android (`adb`) vs iOS (`xcrun`)
+- Widget inspection via VM Service Protocol over WebSocket
 
 ## Contributing
 
