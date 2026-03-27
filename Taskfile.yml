@@ -196,6 +196,25 @@ tasks:
           exit 1
         fi
 
+  test:deeplink:
+    desc: Open a deep link URL on the device
+    cmds:
+      - |
+        echo "==> Opening deep link"
+        OUTPUT=$({{.FDB}} deeplink "fdbtest://test/hello?param=value&other=123" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb deeplink exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "DEEPLINK_OPENED="; then
+          echo "PASS: fdb deeplink"
+        else
+          echo "FAIL: fdb deeplink - DEEPLINK_OPENED= not found in output" >&2
+          exit 1
+        fi
+
   test:select:
     desc: Toggle widget selection mode on and off
     cmds:
@@ -299,6 +318,7 @@ tasks:
       - task: test:logs-tag
       - task: test:tree
       - task: test:screenshot
+      - task: test:deeplink
       - task: test:select
       - task: test:kill
       - task: test:status-stopped

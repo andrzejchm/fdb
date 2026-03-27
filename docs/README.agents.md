@@ -69,6 +69,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
+| `fdb deeplink <url>` | Open deep link on device |
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload (SIGUSR1) |
 | `fdb restart` | Hot restart (SIGUSR2) |

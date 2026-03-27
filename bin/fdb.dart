@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
@@ -17,6 +18,7 @@ Usage: fdb <command> [args]
 
 Commands:
   devices     List connected devices
+  deeplink    Open a deep link URL on the device
   launch      Launch a Flutter app
   reload      Hot reload the running app
   restart     Hot restart the running app
@@ -51,6 +53,8 @@ Future<int> _runCommand(String command, List<String> args) {
   switch (command) {
     case 'devices':
       return runDevices(args);
+    case 'deeplink':
+      return runDeeplink(args);
     case 'launch':
       return runLaunch(args);
     case 'reload':

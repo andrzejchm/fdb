@@ -27,10 +27,19 @@ Future<int> runLaunch(List<String> args) async {
   }
 
   // Clean up previous state
-  for (final path in [pidFile, logFile, vmUriFile, launcherScript]) {
+  for (final path in [
+    pidFile,
+    logFile,
+    vmUriFile,
+    launcherScript,
+    deviceFile
+  ]) {
     final f = File(path);
     if (f.existsSync()) f.deleteSync();
   }
+
+  // Persist device ID for other commands to use
+  File(deviceFile).writeAsStringSync(device);
 
   // Build the flutter run command string
   final flutterArgs = [
@@ -48,8 +57,7 @@ Future<int> runLaunch(List<String> args) async {
 
   // Write a launcher script that runs flutter in the foreground (nohup keeps
   // it alive after the parent exits, and & backgrounds it from our perspective)
-  final script =
-      '''
+  final script = '''
 #!/bin/bash
 cd ${_shellEscape(project)}
 exec $flutterCmd > $logFile 2>&1
@@ -94,9 +102,8 @@ exec $flutterCmd > $logFile 2>&1
       final logExists = File(logFile).existsSync();
       if (logExists) {
         final lines = File(logFile).readAsLinesSync();
-        final tail = lines.length > 10
-            ? lines.sublist(lines.length - 10)
-            : lines;
+        final tail =
+            lines.length > 10 ? lines.sublist(lines.length - 10) : lines;
         stderr.writeln('ERROR: flutter process exited unexpectedly');
         for (final line in tail) {
           stderr.writeln(line);
