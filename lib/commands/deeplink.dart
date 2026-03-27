@@ -16,14 +16,20 @@ Future<int> runDeeplink(List<String> args) async {
     return 1;
   }
 
-  // Detect platform by checking adb devices
+  // Detect platform: Android first, then iOS simulator, else unsupported
   final isAndroid = await _isAndroidDevice();
-
   if (isAndroid) {
     return _openAndroid(url);
-  } else {
+  }
+
+  final isIos = await _isIosSimulatorBooted();
+  if (isIos) {
     return _openIos(url);
   }
+
+  stderr.writeln(
+      'ERROR: Deep links are only supported on Android devices and iOS simulators');
+  return 1;
 }
 
 Future<int> _openAndroid(String url) async {
@@ -82,6 +88,19 @@ Future<bool> _isAndroidDevice() async {
     final lines =
         output.split('\n').where((l) => l.contains('\tdevice')).toList();
     return lines.isNotEmpty;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Returns true if at least one iOS simulator is currently booted.
+Future<bool> _isIosSimulatorBooted() async {
+  try {
+    final result =
+        await Process.run('xcrun', ['simctl', 'list', 'devices', 'booted']);
+    final output = result.stdout as String;
+    // A booted device entry contains a UUID in parentheses, e.g. (A1B2C3D4-...)
+    return RegExp(r'\([\dA-F-]{36}\)').hasMatch(output);
   } catch (_) {
     return false;
   }

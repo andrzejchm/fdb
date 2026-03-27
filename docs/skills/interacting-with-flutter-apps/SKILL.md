@@ -94,7 +94,7 @@ fdb kill      # stop app, clean up temp files
 fdb deeplink <url>
 ```
 
-Opens a deep link URL on the connected device. Auto-detects Android vs iOS simulator.
+Opens a deep link URL on the connected device. Works with Android devices and iOS simulators only.
 
 ```bash
 # Custom scheme
@@ -106,7 +106,10 @@ fdb deeplink "https://example.com/products/123?ref=home"
 
 Output on success: `DEEPLINK_OPENED=<url>`
 
-**Note:** On iOS simulator, Universal Links (`https://`) may open Safari instead of the app. Use a custom scheme (e.g. `myapp://`) for reliable deep link testing on iOS simulator.
+**Limitations:**
+- Physical iOS devices are not supported (Apple does not expose a CLI for opening URLs on physical devices)
+- Desktop and web targets are not supported
+- On iOS simulator, Universal Links (`https://`) may open Safari instead of the app. Use a custom URL scheme for reliable testing
 
 ## Adding investigative logging
 
