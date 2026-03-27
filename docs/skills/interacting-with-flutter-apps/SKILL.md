@@ -15,6 +15,19 @@ Verify: `fdb status`
 
 ## Commands
 
+### List devices
+
+```bash
+fdb devices
+```
+
+Output (one line per device):
+```
+DEVICE_ID=<id> NAME=<name> PLATFORM=<targetPlatform> EMULATOR=<true|false>
+```
+
+Lists all devices Flutter can target: physical phones, emulators, simulators, desktop, and web.
+
 ### Launch app
 
 ```bash
@@ -23,7 +36,7 @@ fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <
 
 Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 
-Find device IDs: `flutter devices`
+Find device IDs: `fdb devices`
 
 ### Hot reload / restart
 
