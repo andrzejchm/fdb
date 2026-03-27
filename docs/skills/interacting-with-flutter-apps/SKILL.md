@@ -90,18 +90,26 @@ fdb kill      # stop app, clean up temp files
 
 ## Deep links
 
-Not part of fdb. Use platform commands directly:
-
 ```bash
-# Android
-adb -s <serial> shell am start -a android.intent.action.VIEW \
-  -n <package>/<activity> -d "<url>"
-
-# iOS simulator (may open Safari instead of app)
-xcrun simctl openurl <device_uuid> "<url>"
+fdb deeplink <url>
 ```
 
-Find Android package: `adb shell pm list packages | grep <app_name>`
+Opens a deep link URL on the connected device. Works with Android devices and iOS simulators only.
+
+```bash
+# Custom scheme
+fdb deeplink "myapp://products/123"
+
+# Universal Link / App Link
+fdb deeplink "https://example.com/products/123?ref=home"
+```
+
+Output on success: `DEEPLINK_OPENED=<url>`
+
+**Limitations:**
+- Physical iOS devices are not supported (Apple does not expose a CLI for opening URLs on physical devices)
+- Desktop and web targets are not supported
+- On iOS simulator, Universal Links (`https://`) may open Safari instead of the app. Use a custom URL scheme for reliable testing
 
 ## Adding investigative logging
 

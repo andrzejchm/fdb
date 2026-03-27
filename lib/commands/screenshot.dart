@@ -54,10 +54,8 @@ Future<bool> _isAndroidDevice() async {
     final result = await Process.run('adb', ['devices']);
     final output = result.stdout as String;
     // Check if there's at least one device listed (beyond the header line)
-    final lines = output
-        .split('\n')
-        .where((l) => l.contains('\tdevice'))
-        .toList();
+    final lines =
+        output.split('\n').where((l) => l.contains('\tdevice')).toList();
     return lines.isNotEmpty;
   } catch (_) {
     return false;

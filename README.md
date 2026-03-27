@@ -79,6 +79,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
+| `fdb deeplink <url>` | Open deep link on device |
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
