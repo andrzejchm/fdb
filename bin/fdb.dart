@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
 import 'package:fdb/commands/logs.dart';
@@ -15,6 +16,7 @@ const usage = '''
 Usage: fdb <command> [args]
 
 Commands:
+  devices     List connected devices
   launch      Launch a Flutter app
   reload      Hot reload the running app
   restart     Hot restart the running app
@@ -47,6 +49,8 @@ Future<void> main(List<String> args) async {
 
 Future<int> _runCommand(String command, List<String> args) {
   switch (command) {
+    case 'devices':
+      return runDevices(args);
     case 'launch':
       return runLaunch(args);
     case 'reload':
