@@ -21,24 +21,15 @@ tasks:
   # Device detection
   # ---------------------------------------------------------------------------
   detect-device:
-    desc: Auto-detect a connected device ID (iOS Simulator or Android emulator)
+    desc: Auto-detect a connected device ID (first device reported by fdb devices)
     cmds:
       - |
-        DEVICE=$(flutter devices --machine 2>/dev/null | python3 -c '
-        import json, sys
-        devices = json.load(sys.stdin)
-        skip = {"macos", "linux", "windows", "chrome"}
-        for d in devices:
-            did = d["id"]
-            name = d.get("name", "").lower()
-            if did in skip or "chrome" in name:
-                continue
-            print(did)
-            sys.exit(0)
-        sys.exit(1)
-        ' 2>/dev/null)
+        DEVICE=$({{.FDB}} devices 2>/dev/null \
+          | grep '^DEVICE_ID=' \
+          | head -1 \
+          | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
         if [ -z "$DEVICE" ]; then
-          echo "ERROR: No mobile device or simulator found. Start a simulator or connect a device." >&2
+          echo "ERROR: No device found. Start a simulator or connect a device." >&2
           exit 1
         fi
         echo "$DEVICE"
@@ -46,6 +37,25 @@ tasks:
   # ---------------------------------------------------------------------------
   # Individual fdb command tests
   # ---------------------------------------------------------------------------
+  test:devices:
+    desc: "List connected devices"
+    cmds:
+      - |
+        echo "==> Listing devices"
+        OUTPUT=$({{.FDB}} devices 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb devices exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "DEVICE_ID="; then
+          echo "PASS: fdb devices"
+        else
+          echo "FAIL: fdb devices - no DEVICE_ID= lines in output" >&2
+          exit 1
+        fi
+
   test:launch:
     desc: "Launch the test app on a device (set DEVICE or auto-detect)"
     vars:
@@ -278,6 +288,7 @@ tasks:
       - task: setup
       - defer:
           task: cleanup
+      - task: test:devices
       - task: test:launch
         vars:
           DEVICE: '{{.DEVICE}}'

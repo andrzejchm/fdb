@@ -68,6 +68,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 
 | Command | Description |
 |---------|-------------|
+| `fdb devices` | List connected devices |
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload (SIGUSR1) |
 | `fdb restart` | Hot restart (SIGUSR2) |
@@ -87,7 +88,7 @@ fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <
 
 Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 
-Find device IDs: `flutter devices`
+Find device IDs: `fdb devices`
 
 ### Hot reload / restart
 
@@ -137,16 +138,11 @@ fdb kill      # stop app, clean up temp files
 ## Agent Patterns
 
 ```bash
-# Launch app, inspect it, then kill
-DEVICE=$(flutter devices --machine 2>/dev/null | python3 -c '
-import json, sys
-devices = json.load(sys.stdin)
-skip = {"macos", "linux", "windows", "chrome"}
-for d in devices:
-    if d["id"] not in skip:
-        print(d["id"]); sys.exit(0)
-sys.exit(1)
-')
+# List available devices
+fdb devices
+
+# Pick a device ID from the output and launch
+DEVICE=$(fdb devices 2>/dev/null | grep '^DEVICE_ID=' | head -1 | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
 fdb launch --device "$DEVICE" --project /path/to/flutter/app
 fdb tree --depth 5 --user-only
 fdb screenshot
