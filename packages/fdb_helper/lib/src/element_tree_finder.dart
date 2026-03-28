@@ -44,10 +44,12 @@ List<Map<String, dynamic>> findInteractiveElements() {
 
       // Don't recurse into interactive widgets (except GestureDetector/InkWell)
       // to avoid exposing internal sub-widgets.
+      // Widgets that merely have text or a key are NOT pruned — only truly
+      // interactive leaf widgets stop the traversal.
       if (isInteractive &&
           widget.runtimeType != GestureDetector &&
           widget.runtimeType != InkWell) {
-        return;
+        return; // skip children of interactive widgets only
       }
     }
 
@@ -58,15 +60,23 @@ List<Map<String, dynamic>> findInteractiveElements() {
   return results;
 }
 
+/// Result of [findHittableElement].
+///
+/// [element] is the matched element (or null if none found or on error).
+/// [matchCount] is the total number of hittable elements that matched.
+typedef HittableElementResult = ({Element? element, int matchCount});
+
 /// Finds the first (or Nth, if [matcher] has an index) hittable element
 /// matching [matcher].
 ///
-/// Returns null if no matching hittable element is found.
-Element? findHittableElement(WidgetMatcher matcher) {
-  if (matcher is CoordinatesMatcher) return null;
+/// Returns a record with the matched element and total match count.
+/// When [matcher.index] is null and more than one element matches,
+/// [element] is null and [matchCount] reflects the ambiguity.
+HittableElementResult findHittableElement(WidgetMatcher matcher) {
+  if (matcher is CoordinatesMatcher) return (element: null, matchCount: 0);
 
   final root = WidgetsBinding.instance.rootElement;
-  if (root == null) return null;
+  if (root == null) return (element: null, matchCount: 0);
 
   final matches = <Element>[];
 
@@ -81,11 +91,17 @@ Element? findHittableElement(WidgetMatcher matcher) {
 
   root.visitChildren(visit);
 
-  if (matches.isEmpty) return null;
+  if (matches.isEmpty) return (element: null, matchCount: 0);
+
+  // Ambiguous: multiple matches and no index specified — caller must disambiguate.
+  if (matcher.index == null && matches.length > 1) {
+    return (element: null, matchCount: matches.length);
+  }
 
   final targetIndex = matcher.index ?? 0;
-  if (targetIndex >= matches.length) return null;
-  return matches[targetIndex];
+  if (targetIndex >= matches.length)
+    return (element: null, matchCount: matches.length);
+  return (element: matches[targetIndex], matchCount: matches.length);
 }
 
 bool _isInteractiveWidget(Type type) =>

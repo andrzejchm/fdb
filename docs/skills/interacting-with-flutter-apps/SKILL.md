@@ -119,7 +119,7 @@ fdb tap --text "Submit"               # tap by visible text
 fdb tap --type "FloatingActionButton" # tap by widget type
 ```
 
-Output: `TAPPED=<selector>`
+Output: `TAPPED=<type> X=<x> Y=<y>`
 
 ### Enter text
 
@@ -131,7 +131,7 @@ fdb input --text "Search" "query text"     # type into field by label text
 fdb input "fallback text"                  # type into focused field
 ```
 
-Output: `INPUT=<text>`
+Output: `INPUT=<type> VALUE=<text>`
 
 ### Scroll
 
@@ -145,7 +145,7 @@ fdb scroll right             # scroll right
 fdb scroll down --at 200,400 # scroll at specific screen coordinates
 ```
 
-Output: `SCROLLED=<direction>`
+Output: `SCROLLED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 

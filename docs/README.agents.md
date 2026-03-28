@@ -173,7 +173,7 @@ fdb scroll up                             # scroll up
 fdb scroll down --at 200,400              # scroll at specific coordinates
 ```
 
-Output tokens: `TAPPED=<selector>`, `INPUT=<text>`, `SCROLLED=<direction>`
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 

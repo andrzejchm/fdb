@@ -25,16 +25,21 @@ lib/
   vm_service.dart             # WebSocket JSON-RPC to Flutter VM service
   commands/
     devices.dart              # List connected devices
+    input.dart                # Enter text into a widget
     kill.dart                 # Stop running app
     launch.dart               # Launch Flutter app detached
     logs.dart                 # Filtered log viewing + follow mode
     reload.dart               # Hot reload via SIGUSR1
     restart.dart              # Hot restart via SIGUSR2
     screenshot.dart           # Device screenshot (adb / xcrun)
+    scroll.dart               # Scroll / swipe gesture
     select.dart               # Toggle widget selection mode
     selected.dart             # Get selected widget info
     status.dart               # Check if app is running
+    tap.dart                  # Tap a widget by selector or coordinates
     tree.dart                 # Widget tree inspection
+packages/
+  fdb_helper/                 # Flutter package — registers VM service extensions
 ```
 
 ## Build Commands

@@ -35,24 +35,24 @@ Future<int> runScroll(List<String> args) async {
       case '--at':
         at = args[++i];
       case '--distance':
-        distance = int.parse(args[++i]);
+        final rawDistance = args[++i];
+        final parsed = int.tryParse(rawDistance);
+        if (parsed == null) {
+          stderr.writeln('ERROR: Invalid value for --distance: $rawDistance');
+          return 1;
+        }
+        distance = parsed;
     }
   }
 
   try {
-    final helperAvailable = await isFdbHelperAvailable();
-    if (!helperAvailable) {
+    final isolateId = await checkFdbHelper();
+    if (isolateId == null) {
       stderr.writeln(
         'ERROR: fdb_helper not detected in running app. '
         'Add fdb_helper package to your Flutter app and call '
         'FdbBinding.ensureInitialized() in main()',
       );
-      return 1;
-    }
-
-    final isolateId = await findFlutterIsolateId();
-    if (isolateId == null) {
-      stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
     }
 

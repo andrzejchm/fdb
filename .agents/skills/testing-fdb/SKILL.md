@@ -45,6 +45,9 @@ task test:logs-tag
 task test:tree
 task test:screenshot
 task test:select
+task test:tap
+task test:input
+task test:scroll
 task test:kill
 task test:status-stopped
 ```

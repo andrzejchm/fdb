@@ -25,7 +25,12 @@ Future<int> runInput(List<String> args) async {
       case '--type':
         type = args[++i];
       case '--index':
-        index = int.parse(args[++i]);
+        final rawIndex = args[++i];
+        index = int.tryParse(rawIndex);
+        if (index == null) {
+          stderr.writeln('ERROR: Invalid value for --index: $rawIndex');
+          return 1;
+        }
       default:
         // Last positional argument is the text to enter
         if (!args[i].startsWith('--')) {
@@ -40,19 +45,13 @@ Future<int> runInput(List<String> args) async {
   }
 
   try {
-    final helperAvailable = await isFdbHelperAvailable();
-    if (!helperAvailable) {
+    final isolateId = await checkFdbHelper();
+    if (isolateId == null) {
       stderr.writeln(
         'ERROR: fdb_helper not detected in running app. '
         'Add fdb_helper package to your Flutter app and call '
         'FdbBinding.ensureInitialized() in main()',
       );
-      return 1;
-    }
-
-    final isolateId = await findFlutterIsolateId();
-    if (isolateId == null) {
-      stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
     }
 
@@ -78,7 +77,7 @@ Future<int> runInput(List<String> args) async {
       final error = result['error'] as String?;
 
       if (status == 'Success') {
-        final fieldType = result['type'] as String? ?? type ?? 'field';
+        final fieldType = result['widgetType'] as String? ?? type ?? 'field';
         stdout.writeln('INPUT=$fieldType VALUE=$textToEnter');
         return 0;
       }

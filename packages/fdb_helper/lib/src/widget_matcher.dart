@@ -31,6 +31,9 @@ sealed class WidgetMatcher {
       }
       return CoordinatesMatcher(x: x, y: y, index: index);
     }
+    if (params.containsKey('focused')) {
+      return FocusedMatcher(index: index);
+    }
     throw ArgumentError(
       'params must contain at least one of: key, text, type, or both x and y',
     );
@@ -77,6 +80,18 @@ class TypeMatcher extends WidgetMatcher {
   bool matches(Element element, {String? Function(Widget)? extractText}) {
     return element.widget.runtimeType.toString() == typeName;
   }
+}
+
+/// Matches the currently focused element (no selector needed).
+///
+/// Used when `fdb input` is called without any selector — types into whatever
+/// field currently holds focus via [FocusManager.instance.primaryFocus].
+class FocusedMatcher extends WidgetMatcher {
+  const FocusedMatcher({super.index});
+
+  @override
+  bool matches(Element element, {String? Function(Widget)? extractText}) =>
+      false; // Resolved via FocusManager, not tree traversal.
 }
 
 /// Bypasses tree search and taps at the given global coordinates.

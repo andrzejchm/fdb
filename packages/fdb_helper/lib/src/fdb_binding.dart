@@ -103,8 +103,14 @@ class FdbBinding extends WidgetsFlutterBinding {
         );
       }
 
-      final element = findHittableElement(matcher);
+      final (:element, :matchCount) = findHittableElement(matcher);
       if (element == null) {
+        if (matchCount > 1) {
+          return _errorResponse(
+            'Found $matchCount elements matching the selector. '
+            'Use --index to specify which one (0-based).',
+          );
+        }
         return _errorResponse('No hittable element found for matcher');
       }
 
@@ -117,9 +123,11 @@ class FdbBinding extends WidgetsFlutterBinding {
       final globalCenter = renderObject.localToGlobal(center);
       await dispatchTap(globalCenter);
 
+      final widgetType = element.widget.runtimeType.toString();
       return developer.ServiceExtensionResponse.result(
         jsonEncode({
           'status': 'Success',
+          'widgetType': widgetType,
           'x': globalCenter.dx,
           'y': globalCenter.dy,
         }),
@@ -142,8 +150,56 @@ class FdbBinding extends WidgetsFlutterBinding {
       }
 
       final matcher = WidgetMatcher.fromParams(params);
-      final element = findHittableElement(matcher);
+
+      if (matcher is FocusedMatcher) {
+        // Type into the currently focused element.
+        final focusContext = FocusManager.instance.primaryFocus?.context;
+        if (focusContext == null) {
+          return _errorResponse('No focused element found');
+        }
+
+        // Walk descendants to find the nearest EditableText element.
+        // EditableText is a child of TextField, not a parent.
+        Element? editableElement;
+
+        void findEditableText(Element el) {
+          if (editableElement != null) return;
+          if (el.widget is EditableText) {
+            editableElement = el;
+            return;
+          }
+          el.visitChildElements(findEditableText);
+        }
+
+        if (focusContext is Element) {
+          findEditableText(focusContext);
+        }
+
+        if (editableElement == null) {
+          return _errorResponse(
+            'Focused element is not an editable text field',
+          );
+        }
+
+        await enterText(editableElement!, input);
+
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({
+            'status': 'Success',
+            'input': input,
+            'widgetType': editableElement!.widget.runtimeType.toString(),
+          }),
+        );
+      }
+
+      final (:element, :matchCount) = findHittableElement(matcher);
       if (element == null) {
+        if (matchCount > 1) {
+          return _errorResponse(
+            'Found $matchCount elements matching the selector. '
+            'Use --index to specify which one (0-based).',
+          );
+        }
         return _errorResponse('No hittable element found for matcher');
       }
 
@@ -153,7 +209,7 @@ class FdbBinding extends WidgetsFlutterBinding {
         jsonEncode({
           'status': 'Success',
           'input': input,
-          'type': element.widget.runtimeType.toString(),
+          'widgetType': element.widget.runtimeType.toString(),
         }),
       );
     } on ArgumentError catch (e) {
@@ -192,10 +248,15 @@ class FdbBinding extends WidgetsFlutterBinding {
         final at = params['at'];
         if (at != null) {
           final parts = at.split(',');
-          if (parts.length == 2) {
-            centerX = double.tryParse(parts[0]) ?? centerX;
-            centerY = double.tryParse(parts[1]) ?? centerY;
+          final atX = parts.length == 2 ? double.tryParse(parts[0]) : null;
+          final atY = parts.length == 2 ? double.tryParse(parts[1]) : null;
+          if (atX == null || atY == null) {
+            return _errorResponse(
+              'Invalid --at value: "$at". Expected format: x,y (e.g. 200,400).',
+            );
           }
+          centerX = atX;
+          centerY = atY;
         }
 
         startX = centerX;
@@ -203,16 +264,20 @@ class FdbBinding extends WidgetsFlutterBinding {
 
         switch (direction) {
           case 'up':
-            endX = startX;
-            endY = startY - distance;
-          case 'down':
+            // Finger moves down → content scrolls up (reveals content above).
             endX = startX;
             endY = startY + distance;
+          case 'down':
+            // Finger moves up → content scrolls down (reveals content below).
+            endX = startX;
+            endY = startY - distance;
           case 'left':
-            endX = startX - distance;
+            // Finger moves right → content scrolls left.
+            endX = startX + distance;
             endY = startY;
           case 'right':
-            endX = startX + distance;
+            // Finger moves left → content scrolls right.
+            endX = startX - distance;
             endY = startY;
           default:
             return _errorResponse(

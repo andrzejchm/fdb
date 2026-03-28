@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:fdb/vm_service.dart';
@@ -29,18 +28,44 @@ Future<int> runTap(List<String> args) async {
       case '--type':
         type = args[++i];
       case '--index':
-        index = int.parse(args[++i]);
+        final rawIndex = args[++i];
+        index = int.tryParse(rawIndex);
+        if (index == null) {
+          stderr.writeln('ERROR: Invalid value for --index: $rawIndex');
+          return 1;
+        }
       case '--x':
-        x = int.parse(args[++i]);
+        final rawX = args[++i];
+        x = int.tryParse(rawX);
+        if (x == null) {
+          stderr.writeln('ERROR: Invalid value for --x: $rawX');
+          return 1;
+        }
       case '--y':
-        y = int.parse(args[++i]);
+        final rawY = args[++i];
+        y = int.tryParse(rawY);
+        if (y == null) {
+          stderr.writeln('ERROR: Invalid value for --y: $rawY');
+          return 1;
+        }
       case '--timeout':
-        timeoutSeconds = int.parse(args[++i]);
+        final rawTimeout = args[++i];
+        final parsed = int.tryParse(rawTimeout);
+        if (parsed == null) {
+          stderr.writeln('ERROR: Invalid value for --timeout: $rawTimeout');
+          return 1;
+        }
+        timeoutSeconds = parsed;
     }
   }
 
   final hasCoords = x != null && y != null;
   final hasSelector = text != null || key != null || type != null;
+
+  if ((x == null) != (y == null)) {
+    stderr.writeln('ERROR: Both --x and --y are required together');
+    return 1;
+  }
 
   if (!hasSelector && !hasCoords) {
     stderr.writeln('ERROR: Provide --text, --key, --type, or --x/--y');
@@ -48,19 +73,13 @@ Future<int> runTap(List<String> args) async {
   }
 
   try {
-    final helperAvailable = await isFdbHelperAvailable();
-    if (!helperAvailable) {
+    final isolateId = await checkFdbHelper();
+    if (isolateId == null) {
       stderr.writeln(
         'ERROR: fdb_helper not detected in running app. '
         'Add fdb_helper package to your Flutter app and call '
         'FdbBinding.ensureInitialized() in main()',
       );
-      return 1;
-    }
-
-    final isolateId = await findFlutterIsolateId();
-    if (isolateId == null) {
-      stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
     }
 
@@ -83,7 +102,8 @@ Future<int> runTap(List<String> args) async {
         final error = result['error'] as String?;
 
         if (status == 'Success') {
-          final tappedType = result['type'] as String? ?? type ?? 'widget';
+          final tappedType =
+              result['widgetType'] as String? ?? type ?? 'widget';
           final tappedX = result['x'] ?? x ?? '';
           final tappedY = result['y'] ?? y ?? '';
           stdout.writeln('TAPPED=$tappedType X=$tappedX Y=$tappedY');
@@ -91,7 +111,9 @@ Future<int> runTap(List<String> args) async {
         }
 
         if (error != null) {
-          if (DateTime.now().isBefore(deadline)) {
+          final isRetryable = error.contains('not found') ||
+              error.contains('No hittable element');
+          if (isRetryable && DateTime.now().isBefore(deadline)) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
             continue;
           }

@@ -157,17 +157,20 @@ dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
 }
 
 /// Checks if fdb_helper extensions are registered in the running app.
-Future<bool> isFdbHelperAvailable() async {
+///
+/// Returns the Flutter isolate ID if fdb_helper is available, or null if not.
+/// Callers can reuse the returned isolate ID to avoid a second round-trip.
+Future<String?> checkFdbHelper() async {
   try {
     final isolateId = await findFlutterIsolateId();
-    if (isolateId == null) return false;
+    if (isolateId == null) return null;
     await vmServiceCall(
       'ext.fdb.elements',
       params: {'isolateId': isolateId},
       timeout: const Duration(seconds: 3),
     );
-    return true;
+    return isolateId;
   } catch (_) {
-    return false;
+    return null;
   }
 }
