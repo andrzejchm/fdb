@@ -78,6 +78,9 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget |
+| `fdb tap --text/--key/--type <selector>` | Tap a widget |
+| `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
+| `fdb scroll <direction> [--at x,y]` | Scroll screen |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app |
 
@@ -129,6 +132,49 @@ fdb select off    # disable overlay
 fdb selected      # get what widget was tapped
 ```
 
+### Widget interaction (tap, input, scroll)
+
+These commands require `fdb_helper` to be added to your Flutter app. Add it to `pubspec.yaml`:
+
+```yaml
+dev_dependencies:
+  fdb_helper:
+    git:
+      url: https://github.com/andrzejchm/fdb.git
+      path: packages/fdb_helper
+```
+
+Initialize it in `main.dart`:
+
+```dart
+import 'package:fdb_helper/fdb_helper.dart';
+import 'package:flutter/foundation.dart';
+
+void main() {
+  if (!kReleaseMode) {
+    FdbBinding.ensureInitialized();
+  }
+  runApp(MyApp());
+}
+```
+
+Then use the commands:
+
+```bash
+fdb tap --key "increment_button"          # tap by widget key
+fdb tap --text "Submit"                   # tap by visible text
+fdb tap --type "FloatingActionButton"     # tap by widget type
+
+fdb input --key "test_input" "hello fdb"  # type into a field by key
+fdb input --text "Search" "query text"    # type into a field by label text
+
+fdb scroll down                           # scroll down
+fdb scroll up                             # scroll up
+fdb scroll down --at 200,400              # scroll at specific coordinates
+```
+
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`
+
 ### Status / Kill
 
 ```bash
@@ -162,6 +208,13 @@ fdb select on        # enable tap-to-select on device
 # (user taps a widget on the device)
 fdb selected         # get what was tapped
 fdb select off       # disable overlay
+
+# Widget interaction workflow (requires fdb_helper in the app)
+fdb tap --key "submit_button"             # tap a button by key
+fdb input --key "search_field" "flutter"  # type into a text field
+fdb screenshot                            # verify the result visually
+fdb scroll down                           # scroll to reveal more content
+fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 ```
 
 ## Troubleshooting

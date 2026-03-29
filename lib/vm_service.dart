@@ -124,3 +124,53 @@ dynamic unwrapExtensionResult(Map<String, dynamic> response) {
   }
   return inner;
 }
+
+/// Unwraps a raw service extension response (from dart:developer.registerExtension).
+/// These are NOT double-encoded like Flutter inspector extensions.
+/// Shape: {"result": {"type": "_extensionType", "method": "...", ...actual fields...}}
+///
+/// Also handles error responses from ServiceExtensionResponse.error(),
+/// which arrive as: {"error": {"code": -32000, "data": "{\"error\": \"msg\"}", ...}}
+dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
+  // Check for error response first
+  final error = response['error'] as Map<String, dynamic>?;
+  if (error != null) {
+    final data = error['data'];
+    if (data is String) {
+      try {
+        return jsonDecode(data);
+      } catch (_) {
+        return {'error': data};
+      }
+    }
+    final message = error['message'] as String?;
+    return {'error': message ?? 'Unknown error'};
+  }
+
+  final result = response['result'] as Map<String, dynamic>?;
+  if (result == null) return null;
+  // Remove protocol fields, return the rest
+  final copy = Map<String, dynamic>.from(result);
+  copy.remove('type');
+  copy.remove('method');
+  return copy;
+}
+
+/// Checks if fdb_helper extensions are registered in the running app.
+///
+/// Returns the Flutter isolate ID if fdb_helper is available, or null if not.
+/// Callers can reuse the returned isolate ID to avoid a second round-trip.
+Future<String?> checkFdbHelper() async {
+  try {
+    final isolateId = await findFlutterIsolateId();
+    if (isolateId == null) return null;
+    await vmServiceCall(
+      'ext.fdb.elements',
+      params: {'isolateId': isolateId},
+      timeout: const Duration(seconds: 3),
+    );
+    return isolateId;
+  } catch (_) {
+    return null;
+  }
+}

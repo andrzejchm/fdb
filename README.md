@@ -88,6 +88,9 @@ fdb kill
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
+| `fdb tap --text/--key/--type <selector>` | Tap a widget |
+| `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
+| `fdb scroll <direction> [--at x,y]` | Scroll screen |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
 
@@ -124,6 +127,32 @@ sequenceDiagram
 - All state in `/tmp/fdb_*` files -- no config, no database, no daemon
 - Screenshots auto-detect Android (`adb`) vs iOS (`xcrun`)
 - Widget inspection via VM Service Protocol over WebSocket
+
+### Widget Interaction (tap, input, scroll)
+
+These commands require adding `fdb_helper` to your Flutter app:
+
+```yaml
+# pubspec.yaml
+dev_dependencies:
+  fdb_helper:
+    git:
+      url: https://github.com/andrzejchm/fdb.git
+      path: packages/fdb_helper
+```
+
+```dart
+// main.dart
+import 'package:fdb_helper/fdb_helper.dart';
+import 'package:flutter/foundation.dart';
+
+void main() {
+  if (!kReleaseMode) {
+    FdbBinding.ensureInitialized();
+  }
+  runApp(MyApp());
+}
+```
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 ---
 name: interacting-with-flutter-apps
-description: Interacts with running Flutter apps on physical devices and simulators via fdb (Flutter Debug Bridge) CLI. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, and toggles widget selection. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, or killing a running Flutter app.
+description: Interacts with running Flutter apps on physical devices and simulators via fdb (Flutter Debug Bridge) CLI. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, toggles widget selection, taps widgets, enters text, and scrolls. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, tapping widgets, entering text into fields, scrolling the screen, or killing a running Flutter app.
 license: MIT
 compatibility: opencode
 ---
@@ -12,6 +12,34 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 ```
 
 Verify: `fdb status`
+
+## fdb_helper setup (required for tap, input, scroll)
+
+The `tap`, `input`, and `scroll` commands require `fdb_helper` to be added to the Flutter app under test.
+
+**`pubspec.yaml`:**
+```yaml
+dev_dependencies:
+  fdb_helper:
+    git:
+      url: https://github.com/andrzejchm/fdb.git
+      path: packages/fdb_helper
+```
+
+**`main.dart`:**
+```dart
+import 'package:fdb_helper/fdb_helper.dart';
+import 'package:flutter/foundation.dart';
+
+void main() {
+  if (!kReleaseMode) {
+    FdbBinding.ensureInitialized();
+  }
+  runApp(MyApp());
+}
+```
+
+After adding `fdb_helper`, run `flutter pub get` and relaunch the app.
 
 ## Commands
 
@@ -80,6 +108,44 @@ fdb select on     # enable tap-to-select overlay on device
 fdb select off    # disable overlay
 fdb selected      # get what widget was tapped
 ```
+
+### Tap a widget
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb tap --key "increment_button"      # tap by widget key
+fdb tap --text "Submit"               # tap by visible text
+fdb tap --type "FloatingActionButton" # tap by widget type
+```
+
+Output: `TAPPED=<type> X=<x> Y=<y>`
+
+### Enter text
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb input --key "search_field" "flutter"   # type into field by key
+fdb input --text "Search" "query text"     # type into field by label text
+fdb input "fallback text"                  # type into focused field
+```
+
+Output: `INPUT=<type> VALUE=<text>`
+
+### Scroll
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb scroll down              # scroll down
+fdb scroll up                # scroll up
+fdb scroll left              # scroll left
+fdb scroll right             # scroll right
+fdb scroll down --at 200,400 # scroll at specific screen coordinates
+```
+
+Output: `SCROLLED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 
@@ -155,6 +221,32 @@ echo '{"jsonrpc":"2.0","method":"ext.flutter.inspector.getSelectedSummaryWidget"
 ```
 
 Key gotcha: apps have multiple isolates. Try each until one returns a non-null widget tree. Use `-B 10485760` for large responses.
+
+## Agent patterns
+
+```bash
+# Standard launch + inspect workflow
+DEVICE=$(fdb devices 2>/dev/null | grep '^DEVICE_ID=' | head -1 | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
+fdb launch --device "$DEVICE" --project /path/to/flutter/app
+fdb tree --depth 5 --user-only
+fdb screenshot
+
+# Widget interaction workflow (requires fdb_helper in the app)
+fdb tap --key "submit_button"              # tap a button
+fdb screenshot                             # verify result visually
+fdb input --key "search_field" "flutter"   # type into a text field
+fdb tap --text "Search"                    # tap the search button
+fdb scroll down                            # scroll to reveal more content
+fdb logs --tag "fdb_test" --last 20        # check logs after interaction
+
+# Form fill workflow
+fdb tap --key "username_field"
+fdb input --key "username_field" "testuser"
+fdb tap --key "password_field"
+fdb input --key "password_field" "secret"
+fdb tap --text "Login"
+fdb screenshot
+```
 
 ## State files
 

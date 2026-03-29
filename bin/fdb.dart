@@ -2,15 +2,18 @@ import 'dart:io';
 
 import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/devices.dart';
+import 'package:fdb/commands/input.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
 import 'package:fdb/commands/logs.dart';
 import 'package:fdb/commands/reload.dart';
 import 'package:fdb/commands/restart.dart';
 import 'package:fdb/commands/screenshot.dart';
+import 'package:fdb/commands/scroll.dart';
 import 'package:fdb/commands/select.dart';
 import 'package:fdb/commands/selected.dart';
 import 'package:fdb/commands/status.dart';
+import 'package:fdb/commands/tap.dart';
 import 'package:fdb/commands/tree.dart';
 
 const usage = '''
@@ -25,6 +28,9 @@ Commands:
   screenshot  Take a device screenshot
   logs        Get filtered app logs
   tree        Get the widget tree
+  tap         Tap a widget by selector
+  input       Enter text into a field
+  scroll      Scroll in a direction
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   status      Check if the app is running
@@ -67,6 +73,12 @@ Future<int> _runCommand(String command, List<String> args) {
       return runLogs(args);
     case 'tree':
       return runTree(args);
+    case 'tap':
+      return runTap(args);
+    case 'input':
+      return runInput(args);
+    case 'scroll':
+      return runScroll(args);
     case 'select':
       return runSelect(args);
     case 'selected':

@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:fdb_helper/fdb_helper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  if (!kReleaseMode) {
+    FdbBinding.ensureInitialized();
+  }
   runApp(const FdbTestApp());
 }
 
@@ -31,13 +36,13 @@ class FdbTestHomePage extends StatefulWidget {
 
 class _FdbTestHomePageState extends State<FdbTestHomePage> {
   int _counter = 0;
+  final _textController = TextEditingController();
   late final Timer _heartbeat;
 
   @override
   void initState() {
     super.initState();
     developer.log('FdbTestApp initialized', name: 'fdb_test');
-    // Periodic log so we can test `fdb logs --tag fdb_test --follow`
     _heartbeat = Timer.periodic(const Duration(seconds: 5), (_) {
       developer.log('heartbeat counter=$_counter', name: 'fdb_test');
     });
@@ -46,6 +51,7 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
   @override
   void dispose() {
     _heartbeat.cancel();
+    _textController.dispose();
     super.dispose();
   }
 
@@ -73,6 +79,29 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               'Counter: $_counter',
               key: const Key('counter_text'),
               style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: TextField(
+                key: const Key('test_input'),
+                controller: _textController,
+                decoration: const InputDecoration(
+                  labelText: 'Test input',
+                  hintText: 'Type something...',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              key: const Key('submit_button'),
+              onPressed: () {
+                developer.log(
+                  'submitted: ${_textController.text}',
+                  name: 'fdb_test',
+                );
+              },
+              child: const Text('Submit'),
             ),
           ],
         ),
