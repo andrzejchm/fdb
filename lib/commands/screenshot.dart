@@ -195,8 +195,11 @@ Future<int> _screenshotMacOs(
       output,
     ]);
     if (result.exitCode != 0) {
-      stderr.writeln('ERROR: screencapture failed: ${result.stderr}');
-      return 1;
+      stderr.writeln(
+        'WARNING: screencapture failed (Screen Recording permission may '
+        'be needed). Falling back to fdb_helper.',
+      );
+      return _screenshotViaFdbHelper(vmServiceUri, output);
     }
     return 0;
   } catch (e) {
@@ -205,19 +208,38 @@ Future<int> _screenshotMacOs(
   }
 }
 
-/// Returns the CGWindowID for the on-screen window owned by [pid], or null.
+/// Returns the CGWindowID for the on-screen window owned by [pid] or any of
+/// its child processes. On macOS, `flutter run` (the stored PID) spawns the
+/// actual .app as a child process, so we need to walk the process tree.
 Future<int?> _getMacWindowId(int pid) async {
+  // Collect the stored PID plus all descendant PIDs.
+  final pids = <int>[pid];
+  try {
+    final pgrepResult = await Process.run('pgrep', ['-P', pid.toString()]);
+    if (pgrepResult.exitCode == 0) {
+      for (final line in (pgrepResult.stdout as String).trim().split('\n')) {
+        final childPid = int.tryParse(line.trim());
+        if (childPid != null) pids.add(childPid);
+      }
+    }
+  } catch (_) {
+    // pgrep not available — fall through with just the original PID.
+  }
+
+  final pidsArg = pids.join(',');
   final result = await Process.run('swift', [
     '-e',
     '''
 import Cocoa
-guard CommandLine.arguments.count > 1, let pid = Int32(CommandLine.arguments[1]) else { exit(1) }
+let pidStrs = CommandLine.arguments[1].split(separator: ",")
+let pids = pidStrs.compactMap { Int32(\$0) }
 guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [NSDictionary] else { exit(0) }
-for w in list where w[kCGWindowOwnerPID] as? Int32 == pid {
+for w in list {
+  guard let ownerPid = w[kCGWindowOwnerPID] as? Int32, pids.contains(ownerPid) else { continue }
   if let num = w[kCGWindowNumber] as? Int { print(num); break }
 }
 ''',
-    pid.toString(),
+    pidsArg,
   ]);
   if (result.exitCode != 0) return null;
   return int.tryParse((result.stdout as String).trim());
