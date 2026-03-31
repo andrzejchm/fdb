@@ -345,7 +345,7 @@ class FdbBinding extends WidgetsFlutterBinding {
       // ignore: invalid_use_of_protected_member
       if (view.debugNeedsPaint || view.layer == null) {
         WidgetsBinding.instance.scheduleFrame();
-        await Future.delayed(const Duration(milliseconds: 100));
+        await WidgetsBinding.instance.endOfFrame;
       }
 
       // ignore: invalid_use_of_protected_member

@@ -211,8 +211,8 @@ Future<int?> _getMacWindowId(int pid) async {
     '-e',
     '''
 import Cocoa
-let pid = Int32(CommandLine.arguments[1])!
-let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)! as [NSDictionary]
+guard CommandLine.arguments.count > 1, let pid = Int32(CommandLine.arguments[1]) else { exit(1) }
+guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [NSDictionary] else { exit(0) }
 for w in list where w[kCGWindowOwnerPID] as? Int32 == pid {
   if let num = w[kCGWindowNumber] as? Int { print(num); break }
 }
@@ -251,12 +251,13 @@ Future<int> _screenshotLinuxNative(int pid, String output) async {
   try {
     final xdoResult = await Process.run('xdotool', [
       'search',
+      '--onlyvisible',
       '--pid',
       pid.toString(),
     ]);
     if (xdoResult.exitCode != 0) return -1;
 
-    final windowId = (xdoResult.stdout as String).trim().split('\n').first;
+    final windowId = (xdoResult.stdout as String).trim().split('\n').last;
     if (windowId.isEmpty) return -1;
 
     final importResult = await Process.run('import', [
