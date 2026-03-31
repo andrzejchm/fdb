@@ -192,7 +192,12 @@ tasks:
           exit 1
         fi
         if echo "$OUTPUT" | grep -q "SCREENSHOT_SAVED"; then
-          echo "PASS: fdb screenshot"
+          if [ -f /tmp/fdb_test_screenshot.png ]; then
+            echo "PASS: fdb screenshot"
+          else
+            echo "FAIL: fdb screenshot - SCREENSHOT_SAVED in output but file does not exist" >&2
+            exit 1
+          fi
         else
           echo "FAIL: fdb screenshot - SCREENSHOT_SAVED not found" >&2
           exit 1
@@ -248,6 +253,25 @@ tasks:
           echo "PASS: fdb select off"
         else
           echo "FAIL: fdb select off - SELECTION_MODE=OFF not found" >&2
+          exit 1
+        fi
+
+  test:selected:
+    desc: Get the currently selected widget info
+    cmds:
+      - |
+        echo "==> Getting selected widget info"
+        OUTPUT=$({{.FDB}} selected 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb selected exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "^SELECTED:|^NO_WIDGET_SELECTED$"; then
+          echo "PASS: fdb selected"
+        else
+          echo "FAIL: fdb selected - expected SELECTED: or NO_WIDGET_SELECTED in output" >&2
           exit 1
         fi
 
@@ -345,13 +369,13 @@ tasks:
   # Cleanup
   # ---------------------------------------------------------------------------
   cleanup:
-    desc: Force-kill any running fdb app and clean up temp files
+    desc: Force-kill any running fdb app and clean up session directories
     cmds:
-      - |
-        {{.FDB}} kill 2>/dev/null || true
-        rm -f /tmp/fdb.pid /tmp/fdb_logs.txt /tmp/fdb_vm_uri.txt /tmp/fdb_launcher.sh
-        rm -f /tmp/fdb_screenshot.png /tmp/fdb_test_screenshot.png
-        echo "Cleanup done"
+      - '{{.FDB}} kill{{if .DEVICE}} --device {{.DEVICE}}{{end}} 2>/dev/null || true'
+      - rm -rf ~/.fdb/sessions/
+      - rm -f ~/.fdb/devices.json
+      - rm -f /tmp/fdb_test_screenshot.png
+      - echo "Cleanup done"
 
   # ---------------------------------------------------------------------------
   # Full smoke test — runs all commands in sequence
@@ -363,6 +387,8 @@ tasks:
         sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - task: cleanup
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: setup
       - defer:
           task: cleanup
@@ -379,6 +405,7 @@ tasks:
       - task: test:screenshot
       - task: test:deeplink
       - task: test:select
+      - task: test:selected
       - task: test:tap
       - task: test:input
       - task: test:scroll

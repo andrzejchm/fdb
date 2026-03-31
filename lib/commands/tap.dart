@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/process_utils.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Taps a widget identified by selector or absolute coordinates.
@@ -11,6 +12,7 @@ import 'package:fdb/vm_service.dart';
 ///   fdb tap --x 195 --y 842
 ///   fdb tap --text "Submit" --timeout 5
 Future<int> runTap(List<String> args) async {
+  String? deviceId;
   String? text;
   String? key;
   String? type;
@@ -21,6 +23,8 @@ Future<int> runTap(List<String> args) async {
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case '--device':
+        deviceId = args[++i];
       case '--text':
         text = args[++i];
       case '--key':
@@ -72,8 +76,17 @@ Future<int> runTap(List<String> args) async {
     return 1;
   }
 
+  final session = resolveSession(deviceId);
+  if (session == null) return 1;
+
+  final vmUri = session['vmServiceUri'] as String?;
+  if (vmUri == null) {
+    stderr.writeln('ERROR: No VM service URI in session. Is the app running?');
+    return 1;
+  }
+
   try {
-    final isolateId = await checkFdbHelper();
+    final isolateId = await checkFdbHelper(vmUri);
     if (isolateId == null) {
       stderr.writeln(
         'ERROR: fdb_helper not detected in running app. '
@@ -94,7 +107,8 @@ Future<int> runTap(List<String> args) async {
       if (x != null) params['x'] = x.toString();
       if (y != null) params['y'] = y.toString();
 
-      final response = await vmServiceCall('ext.fdb.tap', params: params);
+      final response =
+          await vmServiceCall(vmUri, 'ext.fdb.tap', params: params);
       final result = unwrapRawExtensionResult(response);
 
       if (result is Map<String, dynamic>) {

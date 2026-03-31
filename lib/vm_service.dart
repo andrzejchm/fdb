@@ -2,28 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
-
 /// Sends a JSON-RPC request to the Flutter VM service over websocket.
 /// Returns the parsed JSON response.
 /// Throws on connection failure or timeout.
 Future<Map<String, dynamic>> vmServiceCall(
+  String uri,
   String method, {
   Map<String, dynamic> params = const {},
   Duration timeout = const Duration(seconds: 30),
 }) async {
-  final uri = readVmUri();
-  if (uri == null || uri.isEmpty) {
-    throw StateError('VM service URI not found. Is the app running?');
-  }
-
   final wsUri =
       uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
 
-  final ws = await WebSocket.connect(
-    wsUri,
-    customClient: HttpClient()..maxConnectionsPerHost = 1,
-  );
+  final httpClient = HttpClient()..maxConnectionsPerHost = 1;
+  final ws = await WebSocket.connect(wsUri, customClient: httpClient);
 
   // Widget trees can be 500KB+, no built-in buffer size limit on dart:io WebSocket
   // but we need to handle large responses properly.
@@ -60,18 +52,16 @@ Future<Map<String, dynamic>> vmServiceCall(
   ws.add(request);
 
   try {
-    final response = await completer.future.timeout(timeout);
+    return await completer.future.timeout(timeout);
+  } finally {
     await ws.close();
-    return response;
-  } on TimeoutException {
-    await ws.close();
-    rethrow;
+    httpClient.close();
   }
 }
 
 /// Returns all isolate IDs from the VM service.
-Future<List<String>> findAllIsolateIds() async {
-  final vmResponse = await vmServiceCall('getVM');
+Future<List<String>> findAllIsolateIds(String uri) async {
+  final vmResponse = await vmServiceCall(uri, 'getVM');
   final result = vmResponse['result'] as Map<String, dynamic>?;
   if (result == null) return [];
 
@@ -87,11 +77,12 @@ Future<List<String>> findAllIsolateIds() async {
 
 /// Finds the Flutter UI isolate by trying each isolate until one returns
 /// a non-null widget tree. Returns the isolate ID or null.
-Future<String?> findFlutterIsolateId() async {
-  final ids = await findAllIsolateIds();
+Future<String?> findFlutterIsolateId(String uri) async {
+  final ids = await findAllIsolateIds(uri);
   for (final id in ids) {
     try {
       final response = await vmServiceCall(
+        uri,
         'ext.flutter.inspector.isWidgetTreeReady',
         params: {'isolateId': id},
         timeout: const Duration(seconds: 5),
@@ -160,11 +151,12 @@ dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
 ///
 /// Returns the Flutter isolate ID if fdb_helper is available, or null if not.
 /// Callers can reuse the returned isolate ID to avoid a second round-trip.
-Future<String?> checkFdbHelper() async {
+Future<String?> checkFdbHelper(String uri) async {
   try {
-    final isolateId = await findFlutterIsolateId();
+    final isolateId = await findFlutterIsolateId(uri);
     if (isolateId == null) return null;
     await vmServiceCall(
+      uri,
       'ext.fdb.elements',
       params: {'isolateId': isolateId},
       timeout: const Duration(seconds: 3),

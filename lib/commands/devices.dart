@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fdb/process_utils.dart';
+
 /// Lists connected devices by running `flutter devices --machine` and
 /// emitting one KEY=VALUE line per device.
 Future<int> runDevices(List<String> args) async {
@@ -14,7 +16,7 @@ Future<int> runDevices(List<String> args) async {
     return 1;
   }
 
-  final json = _extractJson(result.stdout as String);
+  final json = _extractDevicesJson(result.stdout as String);
   if (json == null) {
     stderr.writeln('ERROR: No devices found');
     return 1;
@@ -43,6 +45,14 @@ Future<int> runDevices(List<String> args) async {
       'DEVICE_ID=$id NAME=$name PLATFORM=$platform EMULATOR=$emulator',
     );
   }
+
+  // Write device cache as a secondary concern — failure does not affect exit code.
+  try {
+    writeDeviceCache(devices);
+  } catch (e) {
+    stderr.writeln('WARNING: Failed to write device cache: $e');
+  }
+
   return 0;
 }
 
@@ -51,7 +61,8 @@ Future<int> runDevices(List<String> args) async {
 /// Flutter may prepend non-JSON text (download progress, upgrade banners)
 /// before the actual JSON array. We scan for the first `[` to find the
 /// array start.
-String? _extractJson(String output) {
+// NOTE: duplicated in process_utils.dart to avoid circular import.
+String? _extractDevicesJson(String output) {
   final start = output.indexOf('[');
   if (start == -1) return null;
   // Find the matching closing bracket from the end

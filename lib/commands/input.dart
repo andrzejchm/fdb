@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/process_utils.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Enters text into a field identified by selector or the currently focused field.
@@ -10,6 +11,7 @@ import 'package:fdb/vm_service.dart';
 ///   fdb input --key "email_field" "hello@example.com"
 ///   fdb input --type TextField "hello@example.com"
 Future<int> runInput(List<String> args) async {
+  String? deviceId;
   String? text;
   String? key;
   String? type;
@@ -18,6 +20,8 @@ Future<int> runInput(List<String> args) async {
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case '--device':
+        deviceId = args[++i];
       case '--text':
         text = args[++i];
       case '--key':
@@ -44,8 +48,17 @@ Future<int> runInput(List<String> args) async {
     return 1;
   }
 
+  final session = resolveSession(deviceId);
+  if (session == null) return 1;
+
+  final vmUri = session['vmServiceUri'] as String?;
+  if (vmUri == null) {
+    stderr.writeln('ERROR: No VM service URI in session. Is the app running?');
+    return 1;
+  }
+
   try {
-    final isolateId = await checkFdbHelper();
+    final isolateId = await checkFdbHelper(vmUri);
     if (isolateId == null) {
       stderr.writeln(
         'ERROR: fdb_helper not detected in running app. '
@@ -69,7 +82,8 @@ Future<int> runInput(List<String> args) async {
     if (type != null) params['type'] = type;
     if (index != null) params['index'] = index.toString();
 
-    final response = await vmServiceCall('ext.fdb.enterText', params: params);
+    final response =
+        await vmServiceCall(vmUri, 'ext.fdb.enterText', params: params);
     final result = unwrapRawExtensionResult(response);
 
     if (result is Map<String, dynamic>) {

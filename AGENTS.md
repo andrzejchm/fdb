@@ -7,7 +7,7 @@ Guide for AI coding agents working in this repository.
 **fdb (Flutter Debug Bridge)** — a pure Dart CLI tool that lets AI agents interact
 with running Flutter apps on physical devices and simulators. It launches Flutter apps
 as detached processes, communicates via POSIX signals and the VM Service Protocol
-over WebSocket, and stores all state in `/tmp/fdb_*` files.
+over WebSocket, and stores all state in `~/.fdb/sessions/<hash>/` directories.
 
 - **Language:** Dart 3.x (SDK `>=3.0.0 <4.0.0`)
 - **Runtime:** Dart VM (standalone — not a Flutter app)
@@ -24,6 +24,7 @@ lib/
   process_utils.dart          # PID/process helper functions
   vm_service.dart             # WebSocket JSON-RPC to Flutter VM service
   commands/
+    deeplink.dart             # Open deep link in app
     devices.dart              # List connected devices
     input.dart                # Enter text into a widget
     kill.dart                 # Stop running app
@@ -31,7 +32,7 @@ lib/
     logs.dart                 # Filtered log viewing + follow mode
     reload.dart               # Hot reload via SIGUSR1
     restart.dart              # Hot restart via SIGUSR2
-    screenshot.dart           # Device screenshot (adb / xcrun)
+    screenshot.dart           # Screenshot (all platforms)
     scroll.dart               # Scroll / swipe gesture
     select.dart               # Toggle widget selection mode
     selected.dart             # Get selected widget info
@@ -40,6 +41,14 @@ lib/
     tree.dart                 # Widget tree inspection
 packages/
   fdb_helper/                 # Flutter package — registers VM service extensions
+~/.fdb/
+  sessions/<hash>/
+    session.json              # Active session state (PID, VM URI, device, project)
+    logs.txt                  # Tee'd flutter run output
+    screenshot.png            # Last screenshot
+    launcher.sh               # Generated bash script that runs flutter run
+    flutter.pid               # PID written by flutter run via --pid-file
+  devices.json                # Cached device list
 ```
 
 ## Build Commands

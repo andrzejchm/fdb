@@ -4,15 +4,30 @@ import 'package:fdb/constants.dart';
 import 'package:fdb/process_utils.dart';
 
 Future<int> runKill(List<String> args) async {
-  final pid = readPid();
+  String? deviceId;
+
+  for (var i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '--device':
+        deviceId = args[++i];
+    }
+  }
+
+  final session = resolveSession(deviceId);
+  if (session == null) return 1;
+  final device = session['deviceId'] as String;
+
+  final pidRaw = session['pid'];
+  final pid =
+      pidRaw is int ? pidRaw : (pidRaw is String ? int.tryParse(pidRaw) : null);
   if (pid == null) {
-    stderr.writeln('ERROR: No PID file found. Is the app running?');
+    stderr.writeln('ERROR: No PID found in session. Is the app running?');
     return 1;
   }
 
   if (!isProcessAlive(pid)) {
     stdout.writeln('APP_KILLED');
-    cleanupTempFiles();
+    cleanupSession(device);
     return 0;
   }
 
@@ -24,7 +39,7 @@ Future<int> runKill(List<String> args) async {
   while (stopwatch.elapsed.inSeconds < killTimeoutSeconds) {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     if (!isProcessAlive(pid)) {
-      cleanupTempFiles();
+      cleanupSession(device);
       stdout.writeln('APP_KILLED');
       return 0;
     }
@@ -37,10 +52,10 @@ Future<int> runKill(List<String> args) async {
     // Process may have already exited
   }
 
-  cleanupTempFiles();
+  cleanupSession(device);
 
   if (isProcessAlive(pid)) {
-    stderr.writeln('KILL_FAILED');
+    stderr.writeln('ERROR: KILL_FAILED');
     return 1;
   }
 

@@ -1,24 +1,38 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
+import 'package:fdb/process_utils.dart';
 
 Future<int> runLogs(List<String> args) async {
+  String? deviceId;
   String? tag;
   var last = 50;
   var follow = false;
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case '--device':
+        deviceId = args[++i];
       case '--tag':
         tag = args[++i];
       case '--last':
-        last = int.parse(args[++i]);
+        final parsed = int.tryParse(args[++i]);
+        if (parsed == null) {
+          stderr.writeln('ERROR: --last requires an integer value');
+          return 1;
+        }
+        last = parsed;
       case '--follow':
         follow = true;
     }
   }
 
-  final file = File(logFile);
+  final session = resolveSession(deviceId);
+  if (session == null) return 1;
+  final device = session['deviceId'] as String;
+
+  final file = File(logPath(device));
   if (!file.existsSync()) {
     stderr.writeln('ERROR: Log file not found. Is the app running?');
     return 1;
@@ -47,9 +61,7 @@ Future<int> runLogs(List<String> args) async {
 }
 
 Future<int> _followLogs(File file, String? tag) async {
-  var offset = file.lengthSync();
-
-  // Print existing content first
+  // Print existing content first, then set offset to the actual bytes read
   final existing = file.readAsStringSync();
   if (existing.isNotEmpty) {
     final lines = existing.split('\n');
@@ -59,6 +71,7 @@ Future<int> _followLogs(File file, String? tag) async {
       }
     }
   }
+  var offset = utf8.encode(existing).length;
 
   // Then follow new content
   while (true) {
@@ -67,11 +80,15 @@ Future<int> _followLogs(File file, String? tag) async {
     final currentSize = file.lengthSync();
     if (currentSize > offset) {
       final raf = file.openSync();
-      raf.setPositionSync(offset);
-      final newBytes = raf.readSync(currentSize - offset);
-      raf.closeSync();
+      final List<int> newBytes;
+      try {
+        raf.setPositionSync(offset);
+        newBytes = raf.readSync(currentSize - offset);
+      } finally {
+        raf.closeSync();
+      }
 
-      final newContent = String.fromCharCodes(newBytes);
+      final newContent = utf8.decode(newBytes, allowMalformed: true);
       final lines = newContent.split('\n');
       for (final line in lines) {
         if (line.isEmpty) continue;

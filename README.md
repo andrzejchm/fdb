@@ -80,10 +80,10 @@ fdb kill
 |---------|-------------|
 | `fdb devices` | List connected devices |
 | `fdb deeplink <url>` | Open deep link on device |
-| `fdb launch --device <id> --project <path>` | Launch app, wait for start |
+| `fdb launch --device <id> --project <path>` | Launch app on device, wait for start |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
-| `fdb screenshot [--output <path>]` | Device screenshot |
+| `fdb screenshot [--output <path>]` | Screenshot (all platforms) |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb select on/off` | Widget selection mode |
@@ -104,7 +104,7 @@ sequenceDiagram
 
     Agent->>fdb: fdb launch
     fdb->>Device: flutter run (detached)
-    fdb-->>fdb: save PID & VM URI to /tmp
+    fdb-->>fdb: save PID & VM URI to ~/.fdb/sessions/<hash>/session.json
     fdb-->>Agent: APP_STARTED
 
     Agent->>fdb: fdb reload
@@ -112,8 +112,8 @@ sequenceDiagram
     fdb-->>Agent: RELOADED
 
     Agent->>fdb: fdb screenshot
-    fdb->>Device: adb screencap / xcrun simctl
-    fdb-->>Agent: SCREENSHOT_SAVED=/tmp/fdb_screenshot.png
+    fdb->>Device: adb / xcrun / screencapture / CDP / fdb_helper
+    fdb-->>Agent: SCREENSHOT_SAVED=~/.fdb/sessions/<hash>/screenshot.png
 
     Agent->>fdb: fdb tree
     fdb->>Device: VM Service (WebSocket)
@@ -124,8 +124,8 @@ sequenceDiagram
     fdb-->>Agent: APP_KILLED
 ```
 
-- All state in `/tmp/fdb_*` files -- no config, no database, no daemon
-- Screenshots auto-detect Android (`adb`) vs iOS (`xcrun`)
+- All state in `~/.fdb/sessions/<hash>/` -- no config, no database, no daemon
+- Screenshots support all platforms: Android (`adb`), iOS sim (`xcrun`), macOS (`screencapture`), Linux X11 (`xdotool`+`import`), Web/Chrome (CDP), and physical iOS / Windows / Linux Wayland via `fdb_helper`
 - Widget inspection via VM Service Protocol over WebSocket
 
 ### Widget Interaction (tap, input, scroll)
