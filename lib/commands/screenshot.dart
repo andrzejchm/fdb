@@ -82,8 +82,10 @@ Future<int> _dispatchScreenshot({
 
   if (platform.startsWith('ios') && !emulator) {
     stderr.writeln(
-      'WARNING: No native screenshot tool available for physical iOS devices. '
-      'Falling back to fdb_helper.',
+      'WARNING: No native screenshot tool for physical iOS devices.\n'
+      '  Using fdb_helper fallback (captures Flutter surface only, '
+      'no status bar or home indicator).\n'
+      '  Ensure your app includes the fdb_helper package.',
     );
     return _screenshotViaFdbHelper(vmServiceUri, output);
   }
@@ -98,8 +100,10 @@ Future<int> _dispatchScreenshot({
 
   if (platform.startsWith('windows')) {
     stderr.writeln(
-      'WARNING: No native screenshot CLI available for Windows. '
-      'Falling back to fdb_helper.',
+      'WARNING: No native screenshot CLI for Windows.\n'
+      '  Using fdb_helper fallback (captures Flutter surface only, '
+      'no window chrome).\n'
+      '  Ensure your app includes the fdb_helper package.',
     );
     return _screenshotViaFdbHelper(vmServiceUri, output);
   }
@@ -182,8 +186,9 @@ Future<int> _screenshotMacOs(
     final windowId = await _getMacWindowId(pid);
     if (windowId == null) {
       stderr.writeln(
-        'WARNING: Could not find macOS window for PID $pid. '
-        'Falling back to fdb_helper.',
+        'WARNING: Could not find macOS window for PID $pid.\n'
+        '  Using fdb_helper fallback (captures Flutter surface only, '
+        'no title bar).',
       );
       return _screenshotViaFdbHelper(vmServiceUri, output);
     }
@@ -196,8 +201,12 @@ Future<int> _screenshotMacOs(
     ]);
     if (result.exitCode != 0) {
       stderr.writeln(
-        'WARNING: screencapture failed (Screen Recording permission may '
-        'be needed). Falling back to fdb_helper.',
+        'WARNING: screencapture failed — Screen Recording permission '
+        'likely required.\n'
+        '  Grant permission: System Settings > Privacy & Security > '
+        'Screen Recording > enable your terminal app.\n'
+        '  Using fdb_helper fallback (captures Flutter surface only, '
+        'no title bar).',
       );
       return _screenshotViaFdbHelper(vmServiceUri, output);
     }
@@ -262,8 +271,16 @@ Future<int> _screenshotLinux(
 
   final reason = pid == null
       ? 'No PID in session'
-      : 'Native Linux screenshot (xdotool/import) failed';
-  stderr.writeln('WARNING: $reason. Falling back to fdb_helper.');
+      : 'Native Linux screenshot (xdotool/import) failed.\n'
+          '  For X11: install xdotool and ImageMagick '
+          '(e.g. sudo apt install xdotool imagemagick).\n'
+          '  Wayland: native capture not supported';
+  stderr.writeln(
+    'WARNING: $reason.\n'
+    '  Using fdb_helper fallback (captures Flutter surface only, '
+    'no window chrome).\n'
+    '  Ensure your app includes the fdb_helper package.',
+  );
   return _screenshotViaFdbHelper(vmServiceUri, output);
 }
 
@@ -412,7 +429,12 @@ Future<int> _screenshotViaFdbHelper(
     if (isolateId == null) {
       stderr.writeln(
         'ERROR: fdb_helper not found in app and no native screenshot tool '
-        'available. Add fdb_helper to your Flutter app.',
+        'available.\n'
+        '  Add fdb_helper to your app\'s pubspec.yaml:\n'
+        '    dependencies:\n'
+        '      fdb_helper:\n'
+        '        path: <path-to-fdb>/packages/fdb_helper\n'
+        '  Then call FdbBinding.ensureInitialized() in main().',
       );
       return 1;
     }
