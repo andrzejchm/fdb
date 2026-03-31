@@ -111,4 +111,8 @@ import 'package:fdb/process_utils.dart';
 2. Write errors to `stderr` prefixed with `ERROR: `, status tokens to `stdout`.
 3. Add a `case` to the `switch` in `bin/fdb.dart:_runCommand`.
 4. Add the command to the `usage` string in `bin/fdb.dart`.
-5. Update `README.md` commands table.
+5. Add a `test:your-command` task to `Taskfile.yml`.
+6. Add `test:your-command` to the `smoke` task sequence in `Taskfile.yml`.
+7. Update `README.md` commands table.
+8. Update `docs/skills/interacting-with-flutter-apps/SKILL.md` commands reference.
+9. Update `docs/README.agents.md` commands reference.

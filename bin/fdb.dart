@@ -17,24 +17,30 @@ import 'package:fdb/commands/tap.dart';
 import 'package:fdb/commands/tree.dart';
 
 const usage = '''
-Usage: fdb <command> [args]
+Usage: fdb <command> [options]
 
 Commands:
-  devices     List connected devices
-  deeplink    Open a deep link URL on the device
-  launch      Launch a Flutter app
-  reload      Hot reload the running app
-  restart     Hot restart the running app
-  screenshot  Take a device screenshot
-  logs        Get filtered app logs
-  tree        Get the widget tree
-  tap         Tap a widget by selector
-  input       Enter text into a field
-  scroll      Scroll in a direction
-  select      Toggle widget selection mode
-  selected    Get the currently selected widget
-  status      Check if the app is running
-  kill        Stop the running app
+  devices      List connected Flutter devices
+  launch       Launch a Flutter app (--device, --project required)
+  kill         Stop a running app
+  status       Check if app is running
+  reload       Hot reload
+  restart      Hot restart
+  logs         View app logs (--last N, --follow, --tag TAG)
+  screenshot   Take a screenshot (--output PATH)
+  tree         Dump widget tree
+  tap          Tap a widget (--text, --key, --type, --x/--y)
+  input        Enter text into a focused field
+  scroll       Scroll/swipe gesture
+  select       Toggle widget selection mode
+  selected     Get info about selected widget
+  deeplink     Open a deep link in the app
+
+Global options:
+  --device ID  Target a specific device session (auto-detected if only one)
+
+Session state is stored in ~/.fdb/sessions/<device-hash>/
+Device cache is stored in ~/.fdb/devices.json
 ''';
 
 Future<void> main(List<String> args) async {

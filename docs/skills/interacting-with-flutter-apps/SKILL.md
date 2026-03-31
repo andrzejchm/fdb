@@ -62,9 +62,20 @@ Lists all devices Flutter can target: physical phones, emulators, simulators, de
 fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>]
 ```
 
-Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+Output tokens:
+```
+WAITING...          (repeated heartbeat while waiting for the app to start)
+APP_STARTED
+VM_SERVICE_URI=<uri>
+PID=<pid>
+LOG_FILE=<path>
+```
+
+On failure: `ERROR: Launch timed out after N seconds` (stderr).
 
 Find device IDs: `fdb devices`
+
+The `--device` flag is accepted by all commands that need to identify the active session. When only one session is active it can be omitted.
 
 ### Hot reload / restart
 
@@ -73,13 +84,31 @@ fdb reload    # SIGUSR1 - preserves state
 fdb restart   # SIGUSR2 - resets state
 ```
 
+Output tokens on success: `RELOADED in <ms>ms` / `RESTARTED in <ms>ms`
+
+On failure: `ERROR: RELOAD_FAILED` / `ERROR: RESTART_FAILED` (stderr).
+
 ### Screenshot
 
 ```bash
 fdb screenshot [--output <path>]
 ```
 
-Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `/tmp/fdb_screenshot.png`. Read the file with the Read tool to view it.
+Auto-detects the platform and uses the appropriate native tool:
+- Android: `adb screencap`
+- iOS simulator: `xcrun simctl io screenshot`
+- macOS desktop: `screencapture`
+- Linux X11: `xdotool` + `import`
+- Web/Chrome: Chrome DevTools Protocol (CDP)
+- Physical iOS, Windows, Linux Wayland: `fdb_helper` VM service extension (requires `fdb_helper` in the app)
+
+Default output: `~/.fdb/sessions/<hash>/screenshot.png`. Read the file with the Read tool to view it.
+
+Output tokens on success:
+```
+SCREENSHOT_SAVED=<path>
+SIZE=<size>
+```
 
 ### Logs
 
@@ -107,6 +136,13 @@ NOTE: If this returns empty/unknown, fall back to raw websocat (see Fallback sec
 fdb select on     # enable tap-to-select overlay on device
 fdb select off    # disable overlay
 fdb selected      # get what widget was tapped
+```
+
+`fdb selected` output tokens:
+```
+SELECTED: <widget description> (<file>:<line>)   # when creation location is known
+SELECTED: <widget description>                    # when creation location is unknown
+NO_WIDGET_SELECTED                                # when no widget has been tapped yet
 ```
 
 ### Tap a widget
@@ -151,7 +187,7 @@ Output: `SCROLLED=<DIR> DISTANCE=<n>`
 
 ```bash
 fdb status    # RUNNING=true/false, PID, VM_SERVICE_URI
-fdb kill      # stop app, clean up temp files
+fdb kill      # stop app, clean up session files
 ```
 
 ## Deep links
@@ -174,7 +210,6 @@ Output on success: `DEEPLINK_OPENED=<url>`
 
 **Limitations:**
 - Physical iOS devices are not supported (Apple does not expose a CLI for opening URLs on physical devices)
-- Desktop and web targets are not supported
 - On iOS simulator, Universal Links (`https://`) may open Safari instead of the app. Use a custom URL scheme for reliable testing
 
 ## Adding investigative logging
@@ -250,8 +285,8 @@ fdb screenshot
 
 ## State files
 
-All state lives in `/tmp/`:
-- `/tmp/fdb.pid` - flutter run process ID
-- `/tmp/fdb_logs.txt` - full app output
-- `/tmp/fdb_vm_uri.txt` - VM service websocket URI
-- `/tmp/fdb_screenshot.png` - last screenshot
+All state lives in `~/.fdb/`:
+- `~/.fdb/sessions/<hash>/session.json` - active session state (PID, VM URI, device, project)
+- `~/.fdb/sessions/<hash>/logs.txt` - full app output
+- `~/.fdb/sessions/<hash>/screenshot.png` - last screenshot
+- `~/.fdb/devices.json` - cached device list

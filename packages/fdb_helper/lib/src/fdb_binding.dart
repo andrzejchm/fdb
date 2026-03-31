@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -19,11 +20,12 @@ import 'widget_matcher.dart';
 /// }
 /// ```
 ///
-/// This registers four VM service extensions (in debug and profile mode only):
+/// This registers five VM service extensions (in all modes except release, i.e., debug and profile):
 /// - `ext.fdb.elements` — list all interactive elements with bounds
 /// - `ext.fdb.tap` — tap a widget by key, text, type, or coordinates
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
+/// - `ext.fdb.screenshot` — capture the current Flutter rendering surface as base64 PNG
 class FdbBinding extends WidgetsFlutterBinding {
   FdbBinding._();
 
@@ -53,6 +55,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.tap', _handleTap);
     _registerExtension('ext.fdb.enterText', _handleEnterText);
     _registerExtension('ext.fdb.scroll', _handleScroll);
+    _registerExtension('ext.fdb.screenshot', _handleScreenshot);
   }
 
   /// Registers a VM service extension, silently ignoring double-registration
@@ -320,6 +323,68 @@ class FdbBinding extends WidgetsFlutterBinding {
       );
     } catch (e) {
       return _errorResponse('Scroll failed: $e');
+    }
+  }
+
+  Future<developer.ServiceExtensionResponse> _handleScreenshot(
+    String method,
+    Map<String, String> params,
+  ) async {
+    ui.Scene? scene;
+    ui.Image? image;
+    try {
+      final renderViews = WidgetsBinding.instance.renderViews;
+      if (renderViews.isEmpty) {
+        return _errorResponse('No render views available');
+      }
+
+      final view = renderViews.first;
+      final flutterView = view.flutterView;
+
+      // Wait for paint if needed.
+      // ignore: invalid_use_of_protected_member
+      if (view.debugNeedsPaint || view.layer == null) {
+        WidgetsBinding.instance.scheduleFrame();
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      // ignore: invalid_use_of_protected_member
+      final layer = view.layer;
+      if (layer == null) {
+        return _errorResponse('Render view layer is null');
+      }
+
+      // Capture at device pixel ratio (exact screen pixels).
+      final size = flutterView.physicalSize;
+      final width = size.width.ceil();
+      final height = size.height.ceil();
+
+      if (width <= 0 || height <= 0) {
+        return _errorResponse('Invalid view size: ${width}x$height');
+      }
+
+      final builder = ui.SceneBuilder();
+      layer.addToScene(builder);
+      scene = builder.build();
+      image = await scene.toImage(width, height);
+
+      final byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData == null) {
+        return _errorResponse('Failed to encode image as PNG');
+      }
+
+      final base64 = base64Encode(byteData.buffer.asUint8List());
+
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode({'screenshot': base64}),
+      );
+    } catch (e) {
+      return _errorResponse('Screenshot failed: $e');
+    } finally {
+      scene?.dispose();
+      image?.dispose();
     }
   }
 

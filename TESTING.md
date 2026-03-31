@@ -31,7 +31,9 @@ task test:logs
 task test:logs-tag
 task test:tree
 task test:screenshot
+task test:deeplink
 task test:select
+task test:selected
 task test:tap
 task test:input
 task test:scroll

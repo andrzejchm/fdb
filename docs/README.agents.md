@@ -62,13 +62,17 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 - Dart SDK >= 3.0.0
 - Flutter SDK (for `flutter devices`, `flutter run`)
 - A running iOS Simulator or Android emulator (or physical device)
-- `adb` for Android screenshots, `xcrun` for iOS simulator screenshots
+- `adb` for Android screenshots
+- `xcrun` (Xcode Command Line Tools) for iOS simulator screenshots
+- `screencapture` (Xcode CLT, macOS only) for macOS desktop screenshots
+- `xdotool` + `import` (ImageMagick) for Linux X11 screenshots
+- Physical iOS, Windows, and Linux Wayland screenshots use `fdb_helper` fallback (requires `fdb_helper` in the app)
 
 ## Commands Reference
 
 | Command | Description |
 |---------|-------------|
-| `fdb devices` | List connected devices |
+| `fdb devices` | List connected devices (one `DEVICE_ID=<id> NAME=<name> PLATFORM=<platform> EMULATOR=<true\|false>` line per device) |
 | `fdb deeplink <url>` | Open deep link on device |
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload (SIGUSR1) |
@@ -90,7 +94,16 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>]
 ```
 
-Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+Output tokens:
+```
+WAITING...          (repeated heartbeat while waiting for the app to start)
+APP_STARTED
+VM_SERVICE_URI=<uri>
+PID=<pid>
+LOG_FILE=<path>
+```
+
+On failure: `ERROR: Launch timed out after N seconds` (stderr).
 
 Find device IDs: `fdb devices`
 
@@ -101,13 +114,31 @@ fdb reload    # SIGUSR1 - preserves state
 fdb restart   # SIGUSR2 - resets state
 ```
 
+Output tokens on success: `RELOADED in <ms>ms` / `RESTARTED in <ms>ms`
+
+On failure: `ERROR: RELOAD_FAILED` / `ERROR: RESTART_FAILED` (stderr).
+
 ### Screenshot
 
 ```bash
 fdb screenshot [--output <path>]
 ```
 
-Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `/tmp/fdb_screenshot.png`.
+Auto-detects the platform and uses the appropriate native tool:
+- Android: `adb screencap`
+- iOS simulator: `xcrun simctl io screenshot`
+- macOS desktop: `screencapture`
+- Linux X11: `xdotool` + `import`
+- Web/Chrome: Chrome DevTools Protocol (CDP)
+- Physical iOS, Windows, Linux Wayland: `fdb_helper` VM service extension (requires `fdb_helper` in the app)
+
+Default output: `~/.fdb/sessions/<hash>/screenshot.png`.
+
+Output tokens on success:
+```
+SCREENSHOT_SAVED=<path>
+SIZE=<size>
+```
 
 ### Logs
 
@@ -130,6 +161,13 @@ fdb tree --depth 3 --user-only
 fdb select on     # enable tap-to-select overlay on device
 fdb select off    # disable overlay
 fdb selected      # get what widget was tapped
+```
+
+`fdb selected` output tokens:
+```
+SELECTED: <widget description> (<file>:<line>)   # when creation location is known
+SELECTED: <widget description>                    # when creation location is unknown
+NO_WIDGET_SELECTED                                # when no widget has been tapped yet
 ```
 
 ### Widget interaction (tap, input, scroll)
@@ -179,8 +217,10 @@ Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLL
 
 ```bash
 fdb status    # RUNNING=true/false, PID, VM_SERVICE_URI
-fdb kill      # stop app, clean up temp files
+fdb kill      # stop app, clean up session files
 ```
+
+Session state is stored in `~/.fdb/sessions/<hash>/session.json`. The device list cache is stored in `~/.fdb/devices.json`.
 
 ## Agent Patterns
 
@@ -225,6 +265,6 @@ fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 
 **Empty widget tree** -- Fall back to raw websocat commands (see the skill file for details).
 
-**Screenshot fails** -- Ensure `adb` (Android) or `xcrun` (iOS) is available and the device is connected.
+**Screenshot fails** -- Ensure the required tool is available for your platform: `adb` (Android), `xcrun` (iOS simulator / macOS), `xdotool`+`import` (Linux X11). For physical iOS, Windows, or Linux Wayland, ensure `fdb_helper` is added to the app.
 
 **Status shows RUNNING=false after launch** -- The Flutter process may have crashed. Check `fdb logs --last 50` for errors.
