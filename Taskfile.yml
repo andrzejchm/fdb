@@ -336,9 +336,21 @@ tasks:
           exit 1
         fi
         if echo "$OUTPUT" | grep -q "SCROLLED=RAW"; then
-          echo "PASS: fdb scroll (raw coordinate mode)"
+          echo "PASS: fdb scroll (raw coordinate mode) - SCROLLED=RAW"
         else
           echo "FAIL: fdb scroll --from/--to - SCROLLED=RAW not found in output" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "FROM="; then
+          echo "PASS: fdb scroll (raw coordinate mode) - FROM="
+        else
+          echo "FAIL: fdb scroll --from/--to - FROM= not found in output" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TO="; then
+          echo "PASS: fdb scroll (raw coordinate mode) - TO="
+        else
+          echo "FAIL: fdb scroll --from/--to - TO= not found in output" >&2
           exit 1
         fi
 

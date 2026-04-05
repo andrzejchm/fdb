@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:fdb/vm_service.dart';
 
+const _directions = ['up', 'down', 'left', 'right'];
+
 /// Scrolls in a direction on the device screen, or performs a raw drag gesture.
 ///
 /// Direction mode:
@@ -24,14 +26,14 @@ Future<int> runScroll(List<String> args) async {
     return 1;
   }
 
-  // Detect mode: raw coordinate mode when first arg starts with '--'
-  final isRawMode = args[0].startsWith('--');
+  // Detect mode: raw coordinate mode when --from or --to appear in args
+  final isRawMode = args.contains('--from') || args.contains('--to');
 
-  String? direction;
   String? at;
   var distance = 200;
   String? from;
   String? to;
+  String? direction;
 
   if (isRawMode) {
     // Raw coordinate mode — parse all args as flags
@@ -42,30 +44,27 @@ Future<int> runScroll(List<String> args) async {
         case '--to':
           to = args[++i];
         default:
-          stderr.writeln('ERROR: Unknown flag: ${args[i]}');
+          if (_directions.contains(args[i])) {
+            stderr.writeln(
+              'ERROR: --from/--to cannot be combined with a direction argument. '
+              'Use either "fdb scroll <direction>" or "fdb scroll --from x,y --to x,y".',
+            );
+          } else {
+            stderr.writeln('ERROR: Unknown flag: ${args[i]}');
+          }
           return 1;
       }
     }
   } else {
     // Direction mode — first positional arg is the direction
     direction = args[0].toLowerCase();
-    if (direction != 'up' &&
-        direction != 'down' &&
-        direction != 'left' &&
-        direction != 'right') {
+    if (!_directions.contains(direction)) {
       stderr.writeln('ERROR: Direction must be one of: up, down, left, right');
       return 1;
     }
 
     for (var i = 1; i < args.length; i++) {
       switch (args[i]) {
-        case '--from':
-        case '--to':
-          stderr.writeln(
-            'ERROR: --from/--to cannot be combined with a direction argument. '
-            'Use either "fdb scroll <direction>" or "fdb scroll --from x,y --to x,y".',
-          );
-          return 1;
         case '--at':
           at = args[++i];
         case '--distance':
@@ -76,23 +75,30 @@ Future<int> runScroll(List<String> args) async {
             return 1;
           }
           distance = parsed;
+        default:
+          stderr.writeln('ERROR: Unknown flag: ${args[i]}');
+          return 1;
       }
     }
   }
 
   // Validate raw coordinate mode inputs
+  List<double>? fromCoords;
+  List<double>? toCoords;
   if (isRawMode) {
     if (from == null || to == null) {
       stderr.writeln(
           'ERROR: --from and --to are both required in raw coordinate mode.');
       return 1;
     }
-    if (_parseCoords(from) == null) {
+    fromCoords = _parseCoords(from);
+    if (fromCoords == null) {
       stderr.writeln(
           'ERROR: Invalid --from value: "$from". Expected format: x,y (e.g. 100,400).');
       return 1;
     }
-    if (_parseCoords(to) == null) {
+    toCoords = _parseCoords(to);
+    if (toCoords == null) {
       stderr.writeln(
           'ERROR: Invalid --to value: "$to". Expected format: x,y (e.g. 300,100).');
       return 1;
@@ -112,19 +118,17 @@ Future<int> runScroll(List<String> args) async {
 
     final Map<String, dynamic> params;
     if (isRawMode) {
-      final fromCoords = _parseCoords(from!)!;
-      final toCoords = _parseCoords(to!)!;
       params = {
         'isolateId': isolateId,
-        'startX': fromCoords[0].toString(),
+        'startX': fromCoords![0].toString(),
         'startY': fromCoords[1].toString(),
-        'endX': toCoords[0].toString(),
+        'endX': toCoords![0].toString(),
         'endY': toCoords[1].toString(),
       };
     } else {
       params = {
         'isolateId': isolateId,
-        'direction': direction!,
+        'direction': direction,
         'distance': distance.toString(),
       };
       if (at != null) params['at'] = at;
@@ -139,10 +143,13 @@ Future<int> runScroll(List<String> args) async {
 
       if (status == 'Success') {
         if (isRawMode) {
-          stdout.writeln('SCROLLED=RAW FROM=$from TO=$to');
-        } else {
+          stdout.writeln('SCROLLED=RAW');
           stdout.writeln(
-              'SCROLLED=${direction!.toUpperCase()} DISTANCE=$distance');
+              'FROM=${fromCoords![0].toInt()},${fromCoords[1].toInt()}');
+          stdout.writeln('TO=${toCoords![0].toInt()},${toCoords[1].toInt()}');
+        } else {
+          stdout.writeln('SCROLLED=${direction!.toUpperCase()}');
+          stdout.writeln('DISTANCE=$distance');
         }
         return 0;
       }
