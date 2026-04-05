@@ -308,6 +308,25 @@ tasks:
           exit 1
         fi
 
+  test:back:
+    desc: Navigate back in the running app
+    cmds:
+      - |
+        echo "==> Navigating back"
+        OUTPUT=$({{.FDB}} back 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb back exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "POPPED"; then
+          echo "PASS: fdb back"
+        else
+          echo "FAIL: fdb back - POPPED not found in output" >&2
+          exit 1
+        fi
+
   test:kill:
     desc: Kill the running app
     cmds:
@@ -382,6 +401,7 @@ tasks:
       - task: test:tap
       - task: test:input
       - task: test:scroll
+      - task: test:back
       - task: test:kill
       - task: test:status-stopped
 

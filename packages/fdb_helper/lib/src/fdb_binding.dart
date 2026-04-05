@@ -19,11 +19,12 @@ import 'widget_matcher.dart';
 /// }
 /// ```
 ///
-/// This registers four VM service extensions (in debug and profile mode only):
+/// This registers five VM service extensions (in debug and profile mode only):
 /// - `ext.fdb.elements` — list all interactive elements with bounds
 /// - `ext.fdb.tap` — tap a widget by key, text, type, or coordinates
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
+/// - `ext.fdb.back` — trigger Navigator.maybePop()
 class FdbBinding extends WidgetsFlutterBinding {
   FdbBinding._();
 
@@ -53,6 +54,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.tap', _handleTap);
     _registerExtension('ext.fdb.enterText', _handleEnterText);
     _registerExtension('ext.fdb.scroll', _handleScroll);
+    _registerExtension('ext.fdb.back', _handleBack);
   }
 
   /// Registers a VM service extension, silently ignoring double-registration
@@ -320,6 +322,24 @@ class FdbBinding extends WidgetsFlutterBinding {
       );
     } catch (e) {
       return _errorResponse('Scroll failed: $e');
+    }
+  }
+
+  Future<developer.ServiceExtensionResponse> _handleBack(
+    String method,
+    Map<String, String> params,
+  ) async {
+    try {
+      final rootElement = WidgetsBinding.instance.rootElement;
+      if (rootElement == null) {
+        return _errorResponse('No root element available');
+      }
+      final popped = await Navigator.of(rootElement).maybePop();
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode({'status': 'Success', 'popped': popped}),
+      );
+    } catch (e) {
+      return _errorResponse('Back failed: $e');
     }
   }
 
