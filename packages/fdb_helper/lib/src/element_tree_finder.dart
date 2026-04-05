@@ -86,16 +86,18 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
 
   // For TextMatcher we need to track ancestors so we can walk up when the
   // matched Text element itself is not hittable.
-  final bool needsAncestorWalk = matcher is TextMatcher;
+  final needsAncestorWalk = matcher is TextMatcher;
 
-  // Collect (matchedElement, resolvedHittableElement) pairs.
-  // resolvedHittableElement may differ from matchedElement when we walk up.
+  // Collect resolved hittable elements for each match.
   final matches = <Element>[];
   // Track resolved elements to avoid duplicates (e.g. two Text children of
   // the same button resolving to the same ancestor).
   final seen = <Element>{};
 
-  void visit(Element element, List<Element> ancestors) {
+  // Mutable ancestor stack: push before recursing, pop after (O(depth) memory).
+  final ancestors = <Element>[];
+
+  void visit(Element element) {
     if (matcher.matches(element, extractText: _extractText)) {
       Element? hittable;
       if (isElementHittable(element)) {
@@ -114,12 +116,12 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
       }
     }
 
-    final nextAncestors =
-        needsAncestorWalk ? [...ancestors, element] : const <Element>[];
-    element.visitChildren((child) => visit(child, nextAncestors));
+    if (needsAncestorWalk) ancestors.add(element);
+    element.visitChildren(visit);
+    if (needsAncestorWalk) ancestors.removeLast();
   }
 
-  root.visitChildren((child) => visit(child, const []));
+  root.visitChildren(visit);
 
   if (matches.isEmpty) return (element: null, matchCount: 0);
 
