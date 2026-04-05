@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'hit_test_utils.dart';
 import 'widget_matcher.dart';
@@ -90,9 +91,9 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
 
   // Collect resolved hittable elements for each match.
   final matches = <Element>[];
-  // Track resolved elements to avoid duplicates (e.g. two Text children of
-  // the same button resolving to the same ancestor).
-  final seen = <Element>{};
+  // Track resolved render objects to avoid duplicates (e.g. Text and its child
+  // RichText both resolve to the same render object but are different elements).
+  final seen = <RenderObject>{};
 
   // Mutable ancestor stack: push before recursing, pop after (O(depth) memory).
   final ancestors = <Element>[];
@@ -111,8 +112,11 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
           }
         }
       }
-      if (hittable != null && seen.add(hittable)) {
-        matches.add(hittable);
+      if (hittable != null) {
+        final renderObject = hittable.renderObject;
+        if (renderObject != null && seen.add(renderObject)) {
+          matches.add(hittable);
+        }
       }
     }
 

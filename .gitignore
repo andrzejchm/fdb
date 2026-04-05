@@ -15,3 +15,4 @@ example/test_app/linux/
 example/test_app/windows/
 example/test_app/web/
 example/test_app/.metadata
+.worktrees/

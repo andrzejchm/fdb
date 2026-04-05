@@ -485,14 +485,24 @@ class FdbBinding extends WidgetsFlutterBinding {
       if (rootElement == null) {
         return _errorResponse('No root element available');
       }
-      // Use maybeOf to avoid throwing when no Navigator is present in the tree.
-      // rootNavigator: true targets the root navigator, which also handles
-      // dialog routes — so dialogs opened via showDialog() are dismissible too.
-      final navigator = Navigator.maybeOf(rootElement, rootNavigator: true);
+      // Walk DOWN the tree to find the first NavigatorState.
+      // Navigator.maybeOf(rootElement) walks UP from rootElement, but rootElement
+      // is already the top of the tree — there is nothing above it to find.
+      NavigatorState? navigator;
+      void findNavigator(Element element) {
+        if (navigator != null) return;
+        if (element is StatefulElement && element.state is NavigatorState) {
+          navigator = element.state as NavigatorState;
+          return;
+        }
+        element.visitChildElements(findNavigator);
+      }
+
+      rootElement.visitChildElements(findNavigator);
       if (navigator == null) {
         return _errorResponse('No Navigator found');
       }
-      final popped = await navigator.maybePop();
+      final popped = await navigator!.maybePop();
       return developer.ServiceExtensionResponse.result(
         jsonEncode({'status': 'Success', 'popped': popped}),
       );
