@@ -151,6 +151,7 @@ dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
           return {'error': details};
         }
       }
+      // details absent or wrong type — fall through to generic message below
     } else if (data is String) {
       // Fallback: data itself is a JSON-encoded string
       try {
