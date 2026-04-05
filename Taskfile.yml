@@ -270,6 +270,25 @@ tasks:
           exit 1
         fi
 
+  test:longpress:
+    desc: Long-press a widget by key selector
+    cmds:
+      - |
+        echo "==> Long-pressing increment button by key"
+        OUTPUT=$({{.FDB}} longpress --key "increment_button" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb longpress exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LONG_PRESSED="; then
+          echo "PASS: fdb longpress"
+        else
+          echo "FAIL: fdb longpress - LONG_PRESSED= not found in output" >&2
+          exit 1
+        fi
+
   test:input:
     desc: Enter text into a field
     cmds:
@@ -399,6 +418,7 @@ tasks:
       - task: test:deeplink
       - task: test:select
       - task: test:tap
+      - task: test:longpress
       - task: test:input
       - task: test:scroll
       - task: test:back

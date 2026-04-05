@@ -5,11 +5,15 @@ int _nextPointerId = 1;
 const int _kDeviceId = 1;
 const Duration _kDelay = Duration(milliseconds: 10);
 
-/// Dispatches a synthetic tap at [globalPosition].
+/// Dispatches a synthetic tap (or long-press) at [globalPosition].
 ///
-/// Sends the full Add → Down → (delay) → Up → Remove sequence required for
-/// web platform compatibility.
-Future<void> dispatchTap(Offset globalPosition) async {
+/// Sends the full Add → Down → (holdDuration) → Up → Remove sequence required
+/// for web platform compatibility. Pass a longer [holdDuration] (e.g. 500 ms)
+/// to trigger long-press gesture recognizers.
+Future<void> dispatchTap(
+  Offset globalPosition, {
+  Duration holdDuration = _kDelay,
+}) async {
   final pointerId = _nextPointerId++;
 
   // Batch 1: Add + Down
@@ -21,7 +25,7 @@ Future<void> dispatchTap(Offset globalPosition) async {
         pointer: pointerId, position: globalPosition, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
-  await Future<void>.delayed(_kDelay);
+  await Future<void>.delayed(holdDuration);
 
   // Batch 2: Up + Remove
   GestureBinding.instance.handlePointerEvent(
