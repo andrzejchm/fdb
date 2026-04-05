@@ -130,12 +130,27 @@ dynamic unwrapExtensionResult(Map<String, dynamic> response) {
 /// Shape: {"result": {"type": "_extensionType", "method": "...", ...actual fields...}}
 ///
 /// Also handles error responses from ServiceExtensionResponse.error(),
-/// which arrive as: {"error": {"code": -32000, "data": "{\"error\": \"msg\"}", ...}}
+/// which arrive as:
+/// {"error": {"code": -32000, "message": "Server error",
+///            "data": {"details": "{\"error\": \"actual message\"}"}}}
+/// The actual error detail is in error['data']['details'] as a JSON-encoded string.
 dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
   // Check for error response first
   final error = response['error'] as Map<String, dynamic>?;
   if (error != null) {
     final data = error['data'];
+    if (data is Map) {
+      // ServiceExtensionResponse.error() puts the detail in data['details']
+      // as a JSON-encoded string, e.g. "{\"error\": \"actual message\"}"
+      final details = data['details'];
+      if (details is String) {
+        try {
+          return jsonDecode(details);
+        } catch (_) {
+          return {'error': details};
+        }
+      }
+    }
     if (data is String) {
       try {
         return jsonDecode(data);
