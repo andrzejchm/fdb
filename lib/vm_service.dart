@@ -126,23 +126,41 @@ dynamic unwrapExtensionResult(Map<String, dynamic> response) {
 }
 
 /// Unwraps a raw service extension response (from dart:developer.registerExtension).
-/// These are NOT double-encoded like Flutter inspector extensions.
 /// Shape: {"result": {"type": "_extensionType", "method": "...", ...actual fields...}}
+/// The success path is NOT double-encoded like Flutter inspector extensions.
 ///
 /// Also handles error responses from ServiceExtensionResponse.error(),
-/// which arrive as: {"error": {"code": -32000, "data": "{\"error\": \"msg\"}", ...}}
+/// which arrive as:
+/// {"error": {"code": -32000, "message": "Server error",
+///            "data": {"details": "{\"error\": \"actual message\"}"}}}
+/// The actual error detail is in error['data']['details'] as a JSON-encoded string
+/// (double-encoded — the details value must itself be JSON-decoded).
 dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
   // Check for error response first
   final error = response['error'] as Map<String, dynamic>?;
   if (error != null) {
     final data = error['data'];
-    if (data is String) {
+    if (data is Map<String, dynamic>) {
+      // ServiceExtensionResponse.error() puts the detail in data['details']
+      // as a JSON-encoded string, e.g. "{\"error\": \"actual message\"}"
+      final details = data['details'];
+      if (details is String) {
+        try {
+          return jsonDecode(details);
+        } catch (_) {
+          return {'error': details};
+        }
+      }
+      // details absent or wrong type — fall through to generic message below
+    } else if (data is String) {
+      // Fallback: data itself is a JSON-encoded string
       try {
         return jsonDecode(data);
       } catch (_) {
         return {'error': data};
       }
     }
+    // No usable detail found; return the generic server error message
     final message = error['message'] as String?;
     return {'error': message ?? 'Unknown error'};
   }
