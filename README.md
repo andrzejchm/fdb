@@ -89,6 +89,7 @@ fdb kill
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
 | `fdb tap --text/--key/--type <selector>` | Tap a widget |
+| `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
 | `fdb scroll <direction> [--at x,y]` | Scroll screen |
 | `fdb back` | Navigate back (Navigator.maybePop) |

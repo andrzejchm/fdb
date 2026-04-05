@@ -35,6 +35,39 @@ Future<void> dispatchTap(Offset globalPosition) async {
   await Future<void>.delayed(_kDelay);
 }
 
+/// Dispatches a synthetic long-press at [globalPosition].
+///
+/// Holds PointerDown for [duration] before releasing, which is long enough
+/// for Flutter's [LongPressGestureRecognizer] to fire (default 500 ms).
+Future<void> dispatchLongPress(
+  Offset globalPosition, {
+  Duration duration = const Duration(milliseconds: 500),
+}) async {
+  final pointerId = _nextPointerId++;
+
+  // Add + Down
+  GestureBinding.instance.handlePointerEvent(
+    PointerAddedEvent(position: globalPosition, device: _kDeviceId),
+  );
+  GestureBinding.instance.handlePointerEvent(
+    PointerDownEvent(
+        pointer: pointerId, position: globalPosition, device: _kDeviceId),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(duration);
+
+  // Up + Remove
+  GestureBinding.instance.handlePointerEvent(
+    PointerUpEvent(
+        pointer: pointerId, position: globalPosition, device: _kDeviceId),
+  );
+  GestureBinding.instance.handlePointerEvent(
+    PointerRemovedEvent(position: globalPosition, device: _kDeviceId),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDelay);
+}
+
 /// Dispatches a synthetic swipe gesture from [start] to [end].
 ///
 /// The gesture is split into steps of at most [maxStepSize] pixels to produce

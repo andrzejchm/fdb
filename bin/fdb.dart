@@ -6,6 +6,7 @@ import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/input.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
+import 'package:fdb/commands/longpress.dart';
 import 'package:fdb/commands/logs.dart';
 import 'package:fdb/commands/reload.dart';
 import 'package:fdb/commands/restart.dart';
@@ -30,6 +31,7 @@ Commands:
   logs        Get filtered app logs
   tree        Get the widget tree
   tap         Tap a widget by selector
+  longpress   Long-press a widget by selector
   input       Enter text into a field
   scroll      Scroll in a direction
   back        Navigate back (Navigator.maybePop)
@@ -82,6 +84,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runTree(args);
     case 'tap':
       return runTap(args);
+    case 'longpress':
+      return runLongpress(args);
     case 'input':
       return runInput(args);
     case 'scroll':

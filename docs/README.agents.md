@@ -79,6 +79,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget |
 | `fdb tap --text/--key/--type <selector>` | Tap a widget |
+| `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
 | `fdb scroll <direction> [--at x,y]` | Scroll screen |
 | `fdb back` | Navigate back (Navigator.maybePop) |
@@ -166,6 +167,10 @@ fdb tap --key "increment_button"          # tap by widget key
 fdb tap --text "Submit"                   # tap by visible text
 fdb tap --type "FloatingActionButton"     # tap by widget type
 
+fdb longpress --key "photo_card"          # long-press by widget key (default 500ms)
+fdb longpress --text "Hold me"            # long-press by visible text
+fdb longpress --key "item" --duration 1000  # long-press for 1 second
+
 fdb input --key "test_input" "hello fdb"  # type into a field by key
 fdb input --text "Search" "query text"    # type into a field by label text
 
@@ -174,7 +179,7 @@ fdb scroll up                             # scroll up
 fdb scroll down --at 200,400              # scroll at specific coordinates
 ```
 
-Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 
