@@ -22,7 +22,7 @@ import 'widget_matcher.dart';
 /// This registers five VM service extensions (in debug and profile mode only):
 /// - `ext.fdb.elements` — list all interactive elements with bounds
 /// - `ext.fdb.tap` — tap a widget by key, text, type, or coordinates
-/// - `ext.fdb.longPress` — long-press a widget by key, text, type, or coordinates
+/// - `ext.fdb.longPress` — long-press a widget (same as tap with duration=500ms)
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
 /// - `ext.fdb.back` — trigger Navigator.maybePop()
@@ -53,7 +53,14 @@ class FdbBinding extends WidgetsFlutterBinding {
 
     _registerExtension('ext.fdb.elements', _handleElements);
     _registerExtension('ext.fdb.tap', _handleTap);
-    _registerExtension('ext.fdb.longPress', _handleLongPress);
+    _registerExtension('ext.fdb.longPress', (method, params) {
+      // Long-press is identical to tap but defaults to 500 ms hold duration.
+      final paramsWithDuration = {
+        ...params,
+        if (!params.containsKey('duration')) 'duration': '500',
+      };
+      return _handleTap(method, paramsWithDuration);
+    });
     _registerExtension('ext.fdb.enterText', _handleEnterText);
     _registerExtension('ext.fdb.scroll', _handleScroll);
     _registerExtension('ext.fdb.back', _handleBack);
@@ -98,10 +105,19 @@ class FdbBinding extends WidgetsFlutterBinding {
     Map<String, String> params,
   ) async {
     try {
+      final rawDuration = params['duration'];
+      final durationMs = rawDuration != null ? int.tryParse(rawDuration) : null;
+      if (rawDuration != null && durationMs == null) {
+        return _errorResponse('Invalid duration value: $rawDuration');
+      }
+      final holdDuration = durationMs != null
+          ? Duration(milliseconds: durationMs)
+          : const Duration(milliseconds: 10);
+
       final matcher = WidgetMatcher.fromParams(params);
 
       if (matcher is CoordinatesMatcher) {
-        await dispatchTap(matcher.offset);
+        await dispatchTap(matcher.offset, holdDuration: holdDuration);
         return developer.ServiceExtensionResponse.result(
           jsonEncode({'status': 'Success', 'x': matcher.x, 'y': matcher.y}),
         );
@@ -125,7 +141,7 @@ class FdbBinding extends WidgetsFlutterBinding {
 
       final center = renderObject.size.center(Offset.zero);
       final globalCenter = renderObject.localToGlobal(center);
-      await dispatchTap(globalCenter);
+      await dispatchTap(globalCenter, holdDuration: holdDuration);
 
       final widgetType = element.widget.runtimeType.toString();
       return developer.ServiceExtensionResponse.result(
@@ -140,63 +156,6 @@ class FdbBinding extends WidgetsFlutterBinding {
       return _errorResponse(e.message.toString());
     } catch (e) {
       return _errorResponse('Tap failed: $e');
-    }
-  }
-
-  Future<developer.ServiceExtensionResponse> _handleLongPress(
-    String method,
-    Map<String, String> params,
-  ) async {
-    try {
-      final rawDuration = params['duration'];
-      final durationMs = rawDuration != null ? int.tryParse(rawDuration) : null;
-      if (rawDuration != null && durationMs == null) {
-        return _errorResponse('Invalid duration value: $rawDuration');
-      }
-      final duration = Duration(milliseconds: durationMs ?? 500);
-
-      final matcher = WidgetMatcher.fromParams(params);
-
-      if (matcher is CoordinatesMatcher) {
-        await dispatchLongPress(matcher.offset, duration: duration);
-        return developer.ServiceExtensionResponse.result(
-          jsonEncode({'status': 'Success', 'x': matcher.x, 'y': matcher.y}),
-        );
-      }
-
-      final (:element, :matchCount) = findHittableElement(matcher);
-      if (element == null) {
-        if (matchCount > 1) {
-          return _errorResponse(
-            'Found $matchCount elements matching the selector. '
-            'Use --index to specify which one (0-based).',
-          );
-        }
-        return _errorResponse('No hittable element found for matcher');
-      }
-
-      final renderObject = element.renderObject;
-      if (renderObject is! RenderBox) {
-        return _errorResponse('Element has no RenderBox');
-      }
-
-      final center = renderObject.size.center(Offset.zero);
-      final globalCenter = renderObject.localToGlobal(center);
-      await dispatchLongPress(globalCenter, duration: duration);
-
-      final widgetType = element.widget.runtimeType.toString();
-      return developer.ServiceExtensionResponse.result(
-        jsonEncode({
-          'status': 'Success',
-          'widgetType': widgetType,
-          'x': globalCenter.dx,
-          'y': globalCenter.dy,
-        }),
-      );
-    } on ArgumentError catch (e) {
-      return _errorResponse(e.message.toString());
-    } catch (e) {
-      return _errorResponse('Long press failed: $e');
     }
   }
 

@@ -10,6 +10,10 @@ import 'package:fdb/vm_service.dart';
 ///   fdb longpress --type GestureDetector [--index 0]
 ///   fdb longpress --x 195 --y 842
 ///   fdb longpress --key "item" --duration 1000
+///
+/// The only difference from `fdb tap` is the hold duration between PointerDown
+/// and PointerUp (default 500 ms). All selector/retry logic is shared via the
+/// `ext.fdb.longPress` VM extension, which delegates to the same tap handler.
 Future<int> runLongpress(List<String> args) async {
   String? text;
   String? key;
@@ -18,7 +22,7 @@ Future<int> runLongpress(List<String> args) async {
   int? x;
   int? y;
   var timeoutSeconds = 5;
-  int? durationMs;
+  int durationMs = 500;
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -51,11 +55,16 @@ Future<int> runLongpress(List<String> args) async {
         }
       case '--duration':
         final rawDuration = args[++i];
-        durationMs = int.tryParse(rawDuration);
-        if (durationMs == null) {
+        final parsed = int.tryParse(rawDuration);
+        if (parsed == null) {
           stderr.writeln('ERROR: Invalid value for --duration: $rawDuration');
           return 1;
         }
+        if (parsed <= 0) {
+          stderr.writeln('ERROR: --duration must be a positive integer');
+          return 1;
+        }
+        durationMs = parsed;
       case '--timeout':
         final rawTimeout = args[++i];
         final parsed = int.tryParse(rawTimeout);
@@ -94,14 +103,16 @@ Future<int> runLongpress(List<String> args) async {
     final deadline = DateTime.now().add(Duration(seconds: timeoutSeconds));
 
     while (true) {
-      final params = <String, dynamic>{'isolateId': isolateId};
+      final params = <String, dynamic>{
+        'isolateId': isolateId,
+        'duration': durationMs.toString(),
+      };
       if (text != null) params['text'] = text;
       if (key != null) params['key'] = key;
       if (type != null) params['type'] = type;
       if (index != null) params['index'] = index.toString();
       if (x != null) params['x'] = x.toString();
       if (y != null) params['y'] = y.toString();
-      if (durationMs != null) params['duration'] = durationMs.toString();
 
       final response = await vmServiceCall('ext.fdb.longPress', params: params);
       final result = unwrapRawExtensionResult(response);

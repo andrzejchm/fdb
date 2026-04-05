@@ -5,11 +5,15 @@ int _nextPointerId = 1;
 const int _kDeviceId = 1;
 const Duration _kDelay = Duration(milliseconds: 10);
 
-/// Dispatches a synthetic tap at [globalPosition].
+/// Dispatches a synthetic tap (or long-press) at [globalPosition].
 ///
-/// Sends the full Add → Down → (delay) → Up → Remove sequence required for
-/// web platform compatibility.
-Future<void> dispatchTap(Offset globalPosition) async {
+/// Sends the full Add → Down → (holdDuration) → Up → Remove sequence required
+/// for web platform compatibility. Pass a longer [holdDuration] (e.g. 500 ms)
+/// to trigger long-press gesture recognizers.
+Future<void> dispatchTap(
+  Offset globalPosition, {
+  Duration holdDuration = _kDelay,
+}) async {
   final pointerId = _nextPointerId++;
 
   // Batch 1: Add + Down
@@ -21,42 +25,9 @@ Future<void> dispatchTap(Offset globalPosition) async {
         pointer: pointerId, position: globalPosition, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
-  await Future<void>.delayed(_kDelay);
+  await Future<void>.delayed(holdDuration);
 
   // Batch 2: Up + Remove
-  GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(
-        pointer: pointerId, position: globalPosition, device: _kDeviceId),
-  );
-  GestureBinding.instance.handlePointerEvent(
-    PointerRemovedEvent(position: globalPosition, device: _kDeviceId),
-  );
-  WidgetsBinding.instance.scheduleFrame();
-  await Future<void>.delayed(_kDelay);
-}
-
-/// Dispatches a synthetic long-press at [globalPosition].
-///
-/// Holds PointerDown for [duration] before releasing, which is long enough
-/// for Flutter's [LongPressGestureRecognizer] to fire (default 500 ms).
-Future<void> dispatchLongPress(
-  Offset globalPosition, {
-  Duration duration = const Duration(milliseconds: 500),
-}) async {
-  final pointerId = _nextPointerId++;
-
-  // Add + Down
-  GestureBinding.instance.handlePointerEvent(
-    PointerAddedEvent(position: globalPosition, device: _kDeviceId),
-  );
-  GestureBinding.instance.handlePointerEvent(
-    PointerDownEvent(
-        pointer: pointerId, position: globalPosition, device: _kDeviceId),
-  );
-  WidgetsBinding.instance.scheduleFrame();
-  await Future<void>.delayed(duration);
-
-  // Up + Remove
   GestureBinding.instance.handlePointerEvent(
     PointerUpEvent(
         pointer: pointerId, position: globalPosition, device: _kDeviceId),
