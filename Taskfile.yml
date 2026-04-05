@@ -309,10 +309,10 @@ tasks:
         fi
 
   test:scroll:
-    desc: Scroll the screen
+    desc: Scroll the screen (direction mode and raw coordinate mode)
     cmds:
       - |
-        echo "==> Scrolling down"
+        echo "==> Scrolling down (direction mode)"
         OUTPUT=$({{.FDB}} scroll down 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
@@ -321,9 +321,36 @@ tasks:
           exit 1
         fi
         if echo "$OUTPUT" | grep -q "SCROLLED="; then
-          echo "PASS: fdb scroll"
+          echo "PASS: fdb scroll (direction mode)"
         else
           echo "FAIL: fdb scroll - SCROLLED= not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Scrolling with raw coordinates (--from/--to mode)"
+        OUTPUT=$({{.FDB}} scroll --from 200,400 --to 200,100 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll --from/--to exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED=RAW"; then
+          echo "PASS: fdb scroll (raw coordinate mode) - SCROLLED=RAW"
+        else
+          echo "FAIL: fdb scroll --from/--to - SCROLLED=RAW not found in output" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "FROM="; then
+          echo "PASS: fdb scroll (raw coordinate mode) - FROM="
+        else
+          echo "FAIL: fdb scroll --from/--to - FROM= not found in output" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TO="; then
+          echo "PASS: fdb scroll (raw coordinate mode) - TO="
+        else
+          echo "FAIL: fdb scroll --from/--to - TO= not found in output" >&2
           exit 1
         fi
 
