@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/commands/back.dart';
 import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/input.dart';
@@ -31,6 +32,7 @@ Commands:
   tap         Tap a widget by selector
   input       Enter text into a field
   scroll      Scroll in a direction
+  back        Navigate back (Navigator.maybePop)
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   status      Check if the app is running
@@ -84,6 +86,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runInput(args);
     case 'scroll':
       return runScroll(args);
+    case 'back':
+      return runBack(args);
     case 'select':
       return runSelect(args);
     case 'selected':

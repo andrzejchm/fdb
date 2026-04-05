@@ -1,6 +1,6 @@
 ---
 name: interacting-with-flutter-apps
-description: Interacts with running Flutter apps on physical devices and simulators via fdb (Flutter Debug Bridge) CLI. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, toggles widget selection, taps widgets, enters text, and scrolls. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, tapping widgets, entering text into fields, scrolling the screen, or killing a running Flutter app.
+description: Interacts with running Flutter apps on physical devices and simulators via fdb (Flutter Debug Bridge) CLI. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, toggles widget selection, taps widgets, enters text, scrolls, and navigates back. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, tapping widgets, entering text into fields, scrolling the screen, navigating back to a previous screen, or killing a running Flutter app.
 license: MIT
 compatibility: opencode
 ---
@@ -13,7 +13,7 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 Verify: `fdb status`
 
-## fdb_helper setup (required for tap, input, scroll)
+## fdb_helper setup (required for tap, input, scroll, back)
 
 The `tap`, `input`, and `scroll` commands require `fdb_helper` to be added to the Flutter app under test.
 
@@ -147,6 +147,16 @@ fdb scroll down --at 200,400 # scroll at specific screen coordinates
 
 Output: `SCROLLED=<DIR> DISTANCE=<n>`
 
+### Navigate back
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb back
+```
+
+Calls `Navigator.maybePop()` on the root navigator. Returns `POPPED` on success, or an error if already at the root route.
+
 ### Status / Kill
 
 ```bash
@@ -232,12 +242,13 @@ fdb tree --depth 5 --user-only
 fdb screenshot
 
 # Widget interaction workflow (requires fdb_helper in the app)
-fdb tap --key "submit_button"              # tap a button
-fdb screenshot                             # verify result visually
-fdb input --key "search_field" "flutter"   # type into a text field
-fdb tap --text "Search"                    # tap the search button
-fdb scroll down                            # scroll to reveal more content
-fdb logs --tag "fdb_test" --last 20        # check logs after interaction
+  fdb tap --key "submit_button"              # tap a button
+  fdb screenshot                             # verify result visually
+  fdb input --key "search_field" "flutter"   # type into a text field
+  fdb tap --text "Search"                    # tap the search button
+  fdb scroll down                            # scroll to reveal more content
+  fdb back                                   # navigate back to previous screen
+  fdb logs --tag "fdb_test" --last 20        # check logs after interaction
 
 # Form fill workflow
 fdb tap --key "username_field"
