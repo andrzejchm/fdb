@@ -69,6 +69,12 @@ typedef HittableElementResult = ({Element? element, int matchCount});
 /// Finds the first (or Nth, if [matcher] has an index) hittable element
 /// matching [matcher].
 ///
+/// For [TextMatcher], if the matched element itself is not hittable (e.g. a
+/// [Text] widget inside a button), walks up the ancestor chain to find the
+/// nearest hittable ancestor and uses that for the tap target. This handles
+/// the common case where `InkWell`/`GestureDetector` absorbs the hit instead
+/// of the leaf `Text` render object.
+///
 /// Returns a record with the matched element and total match count.
 /// When [matcher.index] is null and more than one element matches,
 /// [element] is null and [matchCount] reflects the ambiguity.
@@ -78,15 +84,41 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   final root = WidgetsBinding.instance.rootElement;
   if (root == null) return (element: null, matchCount: 0);
 
+  // For TextMatcher we need to track ancestors so we can walk up when the
+  // matched Text element itself is not hittable.
+  final needsAncestorWalk = matcher is TextMatcher;
+
+  // Collect resolved hittable elements for each match.
   final matches = <Element>[];
+  // Track resolved elements to avoid duplicates (e.g. two Text children of
+  // the same button resolving to the same ancestor).
+  final seen = <Element>{};
+
+  // Mutable ancestor stack: push before recursing, pop after (O(depth) memory).
+  final ancestors = <Element>[];
 
   void visit(Element element) {
     if (matcher.matches(element, extractText: _extractText)) {
+      Element? hittable;
       if (isElementHittable(element)) {
-        matches.add(element);
+        hittable = element;
+      } else if (needsAncestorWalk) {
+        // Walk up the ancestor chain (nearest first) to find a hittable one.
+        for (var i = ancestors.length - 1; i >= 0; i--) {
+          if (isElementHittable(ancestors[i])) {
+            hittable = ancestors[i];
+            break;
+          }
+        }
+      }
+      if (hittable != null && seen.add(hittable)) {
+        matches.add(hittable);
       }
     }
+
+    if (needsAncestorWalk) ancestors.add(element);
     element.visitChildren(visit);
+    if (needsAncestorWalk) ancestors.removeLast();
   }
 
   root.visitChildren(visit);
@@ -99,8 +131,9 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   }
 
   final targetIndex = matcher.index ?? 0;
-  if (targetIndex >= matches.length)
+  if (targetIndex >= matches.length) {
     return (element: null, matchCount: matches.length);
+  }
   return (element: matches[targetIndex], matchCount: matches.length);
 }
 
