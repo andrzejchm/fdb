@@ -160,6 +160,23 @@ fdb scroll down --at 200,400 # scroll at specific screen coordinates
 
 Output: `SCROLLED=<DIR> DISTANCE=<n>`
 
+### Swipe (PageView, Dismissible)
+
+Requires `fdb_helper` in the app (see setup section above).
+
+Use `swipe` when you need to trigger PageView page changes, Dismissible dismissals, or any gesture that requires crossing a snap/dismiss threshold. Unlike `scroll`, `swipe` can target a specific widget and automatically uses 60% of the widget's dimension as the default distance — enough to cross most snap thresholds.
+
+```bash
+fdb swipe left --key "photo_card"         # swipe widget left by key
+fdb swipe right --text "Next"             # swipe widget right by text
+fdb swipe up --type "Dismissible"         # swipe widget up by type
+fdb swipe left                            # swipe from screen center (fallback)
+fdb swipe left --at 200,400              # swipe from specific coordinates
+fdb swipe left --distance 400            # swipe with custom pixel distance
+```
+
+Output: `SWIPED=<DIR> DISTANCE=<n>`
+
 ### Navigate back
 
 Requires `fdb_helper` in the app (see setup section above).
@@ -261,6 +278,8 @@ fdb screenshot                             # verify result visually
 fdb input --key "search_field" "flutter"   # type into a text field
 fdb tap --text "Search"                    # tap the search button
 fdb scroll down                            # scroll to reveal more content
+fdb swipe left --key "photo_card"          # swipe a PageView card left
+fdb swipe right                            # swipe from screen center right
 fdb back                                   # navigate back to previous screen
 fdb logs --tag "fdb_test" --last 20        # check logs after interaction
 

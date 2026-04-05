@@ -82,6 +82,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
 | `fdb scroll <direction> [--at x,y]` | Scroll screen |
+| `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app |
@@ -177,9 +178,14 @@ fdb input --text "Search" "query text"    # type into a field by label text
 fdb scroll down                           # scroll down
 fdb scroll up                             # scroll up
 fdb scroll down --at 200,400              # scroll at specific coordinates
+
+fdb swipe left --key "photo_card"         # swipe a widget left (PageView, Dismissible)
+fdb swipe right --text "Next"             # swipe by visible text
+fdb swipe left                            # swipe from screen center
+fdb swipe up --distance 400              # swipe with custom distance
 ```
 
-Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SWIPED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 

@@ -327,6 +327,25 @@ tasks:
           exit 1
         fi
 
+  test:swipe:
+    desc: Swipe the screen
+    cmds:
+      - |
+        echo "==> Swiping left from screen center"
+        OUTPUT=$({{.FDB}} swipe left 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb swipe exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SWIPED="; then
+          echo "PASS: fdb swipe"
+        else
+          echo "FAIL: fdb swipe - SWIPED= not found in output" >&2
+          exit 1
+        fi
+
   test:back:
     desc: Navigate back in the running app
     cmds:
@@ -421,6 +440,7 @@ tasks:
       - task: test:longpress
       - task: test:input
       - task: test:scroll
+      - task: test:swipe
       - task: test:back
       - task: test:kill
       - task: test:status-stopped

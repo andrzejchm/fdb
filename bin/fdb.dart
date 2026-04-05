@@ -15,6 +15,7 @@ import 'package:fdb/commands/scroll.dart';
 import 'package:fdb/commands/select.dart';
 import 'package:fdb/commands/selected.dart';
 import 'package:fdb/commands/status.dart';
+import 'package:fdb/commands/swipe.dart';
 import 'package:fdb/commands/tap.dart';
 import 'package:fdb/commands/tree.dart';
 
@@ -34,6 +35,7 @@ Commands:
   longpress   Long-press a widget by selector
   input       Enter text into a field
   scroll      Scroll in a direction
+  swipe       Swipe a widget or screen (PageView, Dismissible)
   back        Navigate back (Navigator.maybePop)
   select      Toggle widget selection mode
   selected    Get the currently selected widget
@@ -90,6 +92,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runInput(args);
     case 'scroll':
       return runScroll(args);
+    case 'swipe':
+      return runSwipe(args);
     case 'back':
       return runBack(args);
     case 'select':
