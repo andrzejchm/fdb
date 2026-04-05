@@ -91,7 +91,8 @@ fdb kill
 | `fdb tap --text/--key/--type <selector>` | Tap a widget |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
-| `fdb scroll <direction> [--at x,y]` | Scroll screen |
+| `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll screen in a direction |
+| `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
