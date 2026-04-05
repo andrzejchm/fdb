@@ -43,6 +43,11 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
+  if (args[0] == '--help' || args[0] == '-h') {
+    stdout.write(usage);
+    exit(0);
+  }
+
   final command = args[0];
   final commandArgs = args.sublist(1);
 
