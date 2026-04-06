@@ -21,14 +21,14 @@ If your agent supports skill files (OpenCode, Claude Code, or similar), install 
 **OpenCode:**
 ```bash
 mkdir -p ~/.config/opencode/skills/interacting-with-flutter-apps
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/.agents/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
 **Claude Code:**
 ```bash
 mkdir -p ~/.claude/skills/interacting-with-flutter-apps
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/.agents/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
@@ -51,11 +51,11 @@ Restart your agent after installing the skill file.
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 # Update the skill file (OpenCode)
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/.agents/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
 
 # Update the skill file (Claude Code)
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/.agents/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
