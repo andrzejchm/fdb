@@ -14,27 +14,30 @@ Future<int> runScreenshot(List<String> args) async {
   // Detect platform by checking adb devices
   final isAndroid = await _isAndroidDevice();
 
-  ProcessResult result;
-
   if (isAndroid) {
-    result = await Process.run('bash', [
-      '-c',
-      'adb exec-out screencap -p > $output',
-    ]);
+    final result = await Process.run(
+      'adb',
+      ['exec-out', 'screencap', '-p'],
+      stdoutEncoding: null,
+    );
+    if (result.exitCode != 0) {
+      stderr.writeln('ERROR: Screenshot failed: ${result.stderr}');
+      return 1;
+    }
+    File(output).writeAsBytesSync(result.stdout as List<int>);
   } else {
     // Assume iOS simulator
-    result = await Process.run('xcrun', [
+    final result = await Process.run('xcrun', [
       'simctl',
       'io',
       'booted',
       'screenshot',
       output,
     ]);
-  }
-
-  if (result.exitCode != 0) {
-    stderr.writeln('ERROR: Screenshot failed: ${result.stderr}');
-    return 1;
+    if (result.exitCode != 0) {
+      stderr.writeln('ERROR: Screenshot failed: ${result.stderr}');
+      return 1;
+    }
   }
 
   final file = File(output);

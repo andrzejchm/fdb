@@ -15,25 +15,36 @@ Future<void> dispatchTap(
   Duration holdDuration = _kDelay,
 }) async {
   final pointerId = _nextPointerId++;
+  var timeStamp = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
 
   // Batch 1: Add + Down
   GestureBinding.instance.handlePointerEvent(
-    PointerAddedEvent(position: globalPosition, device: _kDeviceId),
+    PointerAddedEvent(
+        timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
   );
+  timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
     PointerDownEvent(
-        pointer: pointerId, position: globalPosition, device: _kDeviceId),
+        timeStamp: timeStamp,
+        pointer: pointerId,
+        position: globalPosition,
+        device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(holdDuration);
+  timeStamp += holdDuration;
 
   // Batch 2: Up + Remove
   GestureBinding.instance.handlePointerEvent(
     PointerUpEvent(
-        pointer: pointerId, position: globalPosition, device: _kDeviceId),
+        timeStamp: timeStamp,
+        pointer: pointerId,
+        position: globalPosition,
+        device: _kDeviceId),
   );
   GestureBinding.instance.handlePointerEvent(
-    PointerRemovedEvent(position: globalPosition, device: _kDeviceId),
+    PointerRemovedEvent(
+        timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);
@@ -53,22 +64,31 @@ Future<void> dispatchScroll({
   final distance = delta.distance;
   final stepCount = (distance / maxStepSize).ceil().clamp(1, 1000);
   final stepDelta = delta / stepCount.toDouble();
+  var timeStamp = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
 
   // Add + Down
   GestureBinding.instance.handlePointerEvent(
-    PointerAddedEvent(position: start, device: _kDeviceId),
+    PointerAddedEvent(
+        timeStamp: timeStamp, position: start, device: _kDeviceId),
   );
+  timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
-    PointerDownEvent(pointer: pointerId, position: start, device: _kDeviceId),
+    PointerDownEvent(
+        timeStamp: timeStamp,
+        pointer: pointerId,
+        position: start,
+        device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);
 
   // Move steps
   for (int i = 1; i <= stepCount; i++) {
+    timeStamp += _kDelay;
     final position = start + stepDelta * i.toDouble();
     GestureBinding.instance.handlePointerEvent(
       PointerMoveEvent(
+        timeStamp: timeStamp,
         pointer: pointerId,
         position: position,
         delta: stepDelta,
@@ -80,11 +100,17 @@ Future<void> dispatchScroll({
   }
 
   // Up + Remove
+  timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(pointer: pointerId, position: end, device: _kDeviceId),
+    PointerUpEvent(
+        timeStamp: timeStamp,
+        pointer: pointerId,
+        position: end,
+        device: _kDeviceId),
   );
   GestureBinding.instance.handlePointerEvent(
-    PointerRemovedEvent(position: end, device: _kDeviceId),
+    PointerRemovedEvent(
+        timeStamp: timeStamp, position: end, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);

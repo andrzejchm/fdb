@@ -105,12 +105,24 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
         hittable = element;
       } else if (needsAncestorWalk) {
         // Walk up the ancestor chain (nearest first) to find a hittable one.
+        // Two-pass: prefer interactive widgets; fall back to any non-private
+        // widget. This filters out framework-internal full-screen overlays like
+        // _Theater, _FocusTrap, and _ModalBarrier that would otherwise absorb
+        // the hit due to their large RenderBox size.
+        Element? fallbackHittable;
         for (var i = ancestors.length - 1; i >= 0; i--) {
-          if (isElementHittable(ancestors[i])) {
+          if (!isElementHittable(ancestors[i])) continue;
+          if (_isInteractiveWidget(ancestors[i].widget.runtimeType)) {
             hittable = ancestors[i];
-            break;
+            break; // best match — stop immediately
+          }
+          // Accept non-private widgets as fallback (skip _Theater, _FocusTrap, etc.)
+          if (fallbackHittable == null &&
+              !ancestors[i].widget.runtimeType.toString().startsWith('_')) {
+            fallbackHittable = ancestors[i];
           }
         }
+        hittable ??= fallbackHittable;
       }
       if (hittable != null) {
         final renderObject = hittable.renderObject;
