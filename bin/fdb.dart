@@ -14,10 +14,12 @@ import 'package:fdb/commands/screenshot.dart';
 import 'package:fdb/commands/scroll.dart';
 import 'package:fdb/commands/select.dart';
 import 'package:fdb/commands/selected.dart';
+import 'package:fdb/commands/skill.dart';
 import 'package:fdb/commands/status.dart';
 import 'package:fdb/commands/swipe.dart';
 import 'package:fdb/commands/tap.dart';
 import 'package:fdb/commands/tree.dart';
+import 'package:fdb/constants.dart';
 
 const usage = '''
 Usage: fdb <command> [args]
@@ -41,6 +43,10 @@ Commands:
   selected    Get the currently selected widget
   status      Check if the app is running
   kill        Stop the running app
+  skill       Print the AI agent skill file (SKILL.md)
+
+Options:
+  --version   Print the fdb version
 ''';
 
 Future<void> main(List<String> args) async {
@@ -55,6 +61,12 @@ Future<void> main(List<String> args) async {
   }
 
   final command = args[0];
+
+  if (command == '--version' || command == '-v') {
+    stdout.writeln('fdb $version');
+    exit(0);
+  }
+
   final commandArgs = args.sublist(1);
 
   try {
@@ -104,6 +116,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runStatus(args);
     case 'kill':
       return runKill(args);
+    case 'skill':
+      return runSkill(args);
     default:
       stderr.writeln('ERROR: Unknown command: $command');
       stderr.writeln(usage);

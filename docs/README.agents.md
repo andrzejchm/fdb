@@ -32,6 +32,8 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
   -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
+Alternatively, run `fdb skill` to print the skill file contents directly.
+
 For other agents, place the SKILL.md file wherever your agent reads skill definitions from, or simply use the commands below directly.
 
 ### 3. Verify
@@ -86,6 +88,8 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app |
+| `fdb skill` | Print the AI agent skill file (SKILL.md) |
+| `fdb --version` | Print the fdb version |
 
 ### Launch
 

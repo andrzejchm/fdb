@@ -1,3 +1,6 @@
+/// fdb version — update this AND pubspec.yaml on every release.
+const version = '0.1.0';
+
 const pidFile = '/tmp/fdb.pid';
 const logFile = '/tmp/fdb_logs.txt';
 const vmUriFile = '/tmp/fdb_vm_uri.txt';

@@ -97,6 +97,8 @@ fdb kill
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
+| `fdb skill` | Print the AI agent skill file (SKILL.md) |
+| `fdb --version` | Print the fdb version |
 
 ## How It Works
 
