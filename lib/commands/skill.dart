@@ -8,7 +8,7 @@ Future<int> runSkill(List<String> args) async {
   final scriptDir = Directory.fromUri(scriptUri).parent;
   final packageRoot = scriptDir.parent;
   final skillFile = File(
-    '${packageRoot.path}/.agents/skills/interacting-with-flutter-apps/SKILL.md',
+    '${packageRoot.path}/skills/interacting-with-flutter-apps/SKILL.md',
   );
 
   if (!skillFile.existsSync()) {
