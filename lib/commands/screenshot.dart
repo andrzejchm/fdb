@@ -6,8 +6,11 @@ Future<int> runScreenshot(List<String> args) async {
   var output = defaultScreenshotPath;
 
   for (var i = 0; i < args.length; i++) {
-    if (args[i] == '--output') {
+    final arg = args[i];
+    if (arg == '--output') {
       output = args[++i];
+    } else if (arg.startsWith('--output=')) {
+      output = arg.substring('--output='.length);
     }
   }
 

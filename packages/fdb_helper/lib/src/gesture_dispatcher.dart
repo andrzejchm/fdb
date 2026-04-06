@@ -5,6 +5,12 @@ int _nextPointerId = 1;
 const int _kDeviceId = 1;
 const Duration _kDelay = Duration(milliseconds: 10);
 
+// Process-relative monotonic clock — produces timestamps in the same epoch
+// range as Flutter's frame timestamps (process uptime), which is required for
+// the pointer resampler and VelocityTracker to work correctly.
+// Using DateTime.now().millisecondsSinceEpoch would produce ~56-year offsets.
+final Stopwatch _clock = Stopwatch()..start();
+
 /// Dispatches a synthetic tap (or long-press) at [globalPosition].
 ///
 /// Sends the full Add → Down → (holdDuration) → Up → Remove sequence required
@@ -15,7 +21,7 @@ Future<void> dispatchTap(
   Duration holdDuration = _kDelay,
 }) async {
   final pointerId = _nextPointerId++;
-  var timeStamp = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
+  var timeStamp = _clock.elapsed;
 
   // Batch 1: Add + Down
   GestureBinding.instance.handlePointerEvent(
@@ -64,7 +70,7 @@ Future<void> dispatchScroll({
   final distance = delta.distance;
   final stepCount = (distance / maxStepSize).ceil().clamp(1, 1000);
   final stepDelta = delta / stepCount.toDouble();
-  var timeStamp = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
+  var timeStamp = _clock.elapsed;
 
   // Add + Down
   GestureBinding.instance.handlePointerEvent(

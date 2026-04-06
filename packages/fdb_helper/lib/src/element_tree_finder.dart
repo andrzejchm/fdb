@@ -85,9 +85,10 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   final root = WidgetsBinding.instance.rootElement;
   if (root == null) return (element: null, matchCount: 0);
 
-  // For TextMatcher we need to track ancestors so we can walk up when the
-  // matched Text element itself is not hittable.
-  final needsAncestorWalk = matcher is TextMatcher;
+  // For TextMatcher, KeyMatcher, and TypeMatcher we need to track ancestors so
+  // we can walk up when the matched element itself is not hittable.
+  final needsAncestorWalk =
+      matcher is TextMatcher || matcher is KeyMatcher || matcher is TypeMatcher;
 
   // Collect resolved hittable elements for each match.
   final matches = <Element>[];
@@ -139,6 +140,15 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
 
   root.visitChildren(visit);
 
+  // Stable-partition: user widgets first, framework widgets after.
+  // List.sort is not guaranteed stable in Dart, so we split and rejoin.
+  final userMatches = matches.where((e) => !_isFrameworkWidget(e)).toList();
+  final frameworkMatches = matches.where((e) => _isFrameworkWidget(e)).toList();
+  matches
+    ..clear()
+    ..addAll(userMatches)
+    ..addAll(frameworkMatches);
+
   if (matches.isEmpty) return (element: null, matchCount: 0);
 
   // Ambiguous: multiple matches and no index specified — caller must disambiguate.
@@ -151,6 +161,32 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
     return (element: null, matchCount: matches.length);
   }
   return (element: matches[targetIndex], matchCount: matches.length);
+}
+
+/// Returns true if [element] is a framework-internal widget that should not be
+/// used as a tap target (e.g. Overlay, Navigator, ModalBarrier).
+///
+/// Private types (starting with `_`) are always considered framework widgets.
+/// A curated set of known public framework container types is also excluded.
+bool _isFrameworkWidget(Element element) {
+  final typeName = element.widget.runtimeType.toString();
+  if (typeName.startsWith('_')) return true;
+  const frameworkTypes = {
+    'Overlay',
+    'Navigator',
+    'IndexedStack',
+    'Offstage',
+    'ModalBarrier',
+    'FocusScope',
+    'FocusTrap',
+    'Semantics',
+    'Actions',
+    'Shortcuts',
+    'DefaultTextEditingShortcuts',
+    'PrimaryScrollController',
+    'ScrollConfiguration',
+  };
+  return frameworkTypes.contains(typeName);
 }
 
 bool _isInteractiveWidget(Type type) =>
