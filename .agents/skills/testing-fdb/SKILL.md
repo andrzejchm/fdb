@@ -1,6 +1,8 @@
 ---
 name: testing-fdb
 description: Testing and developing fdb (Flutter Debug Bridge). Covers running the smoke test suite, individual command tests, static analysis, and the test app. Use when running fdb tests, adding new commands, verifying fdb behavior, or preparing a release.
+metadata:
+  internal: true
 ---
 
 ## Prerequisites
@@ -85,5 +87,5 @@ Each test task prints:
 5. Add a `test:your-command` task to `Taskfile.yml` following the existing pattern.
 6. Add the new task to the `smoke` task's command sequence.
 7. Update `README.md` commands table.
-8. Update `docs/skills/debugging-flutter-apps-on-device/SKILL.md` with the new command.
+8. Update `skills/interacting-with-flutter-apps/SKILL.md` with the new command.
 9. Update `docs/README.agents.md` commands reference table.

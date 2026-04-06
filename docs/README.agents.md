@@ -21,16 +21,18 @@ If your agent supports skill files (OpenCode, Claude Code, or similar), install 
 **OpenCode:**
 ```bash
 mkdir -p ~/.config/opencode/skills/interacting-with-flutter-apps
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
 **Claude Code:**
 ```bash
 mkdir -p ~/.claude/skills/interacting-with-flutter-apps
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
 ```
+
+Alternatively, run `fdb skill` to print the skill file contents directly.
 
 For other agents, place the SKILL.md file wherever your agent reads skill definitions from, or simply use the commands below directly.
 
@@ -49,11 +51,11 @@ Restart your agent after installing the skill file.
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 # Update the skill file (OpenCode)
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
 
 # Update the skill file (Claude Code)
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/interacting-with-flutter-apps/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
   -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
 ```
 
@@ -86,6 +88,8 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/skills/int
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app |
+| `fdb skill` | Print the AI agent skill file (SKILL.md) |
+| `fdb --version` | Print the fdb version |
 
 ### Launch
 

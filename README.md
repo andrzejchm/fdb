@@ -30,7 +30,7 @@ The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) is a gre
 | **Architecture** | CLI -- plain bash commands | MCP protocol -- requires a compatible client |
 | **Context cost** | Minimal. Agent runs a command, gets text output. | MCP tool schemas and responses are injected into context on every call, eating tokens even when unused. |
 | **Works with** | Any agent that can run bash (Claude Code, OpenCode, Cursor, custom scripts, CI) | Only MCP-compatible clients |
-| **Progressive disclosure** | Ships a [skill file](docs/skills/interacting-with-flutter-apps/SKILL.md) -- agent loads best practices on demand, not upfront | All tools exposed at once |
+| **Progressive disclosure** | Ships a [skill file](skills/interacting-with-flutter-apps/SKILL.md) -- agent loads best practices on demand, not upfront | All tools exposed at once |
 | **Device interaction** | Launch, hot reload, screenshot, logs, widget tree, widget selection | Limited runtime introspection |
 | **Setup** | `dart pub global activate` -- done | Per-client MCP config (JSON, YAML, or GUI depending on client) |
 
@@ -97,6 +97,8 @@ fdb kill
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
+| `fdb skill` | Print the AI agent skill file (SKILL.md) |
+| `fdb --version` | Print the fdb version |
 
 ## How It Works
 
