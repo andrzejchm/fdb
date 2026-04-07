@@ -78,9 +78,10 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interact
 | `fdb screenshot [--output <path>]` | Device screenshot |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
+| `fdb describe` | Compact screen snapshot: interactive elements + visible text |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget |
-| `fdb tap --text/--key/--type <selector>` | Tap a widget |
+| `fdb tap --text/--key/--type <selector>` or `fdb tap @N` | Tap a widget or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
 | `fdb scroll <direction> [--at x,y]` | Scroll screen |

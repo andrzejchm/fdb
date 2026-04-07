@@ -2,13 +2,14 @@ import 'dart:io';
 
 import 'package:fdb/vm_service.dart';
 
-/// Taps a widget identified by selector or absolute coordinates.
+/// Taps a widget identified by selector, absolute coordinates, or a describe ref.
 ///
 /// Usage:
 ///   fdb tap --text "Submit"
 ///   fdb tap --key "login_button"
 ///   fdb tap --type ElevatedButton [--index 2]
 ///   fdb tap --x 195 --y 842
+///   fdb tap @3
 ///   fdb tap --text "Submit" --timeout 5
 Future<int> runTap(List<String> args) async {
   String? text;
@@ -17,6 +18,7 @@ Future<int> runTap(List<String> args) async {
   int? index;
   int? x;
   int? y;
+  int? describeRef;
   var timeoutSeconds = 5;
 
   for (var i = 0; i < args.length; i++) {
@@ -56,7 +58,24 @@ Future<int> runTap(List<String> args) async {
           return 1;
         }
         timeoutSeconds = parsed;
+      default:
+        // Support @N ref syntax from fdb describe
+        final arg = args[i];
+        if (arg.startsWith('@')) {
+          final refNum = int.tryParse(arg.substring(1));
+          if (refNum == null || refNum < 1) {
+            stderr
+                .writeln('ERROR: Invalid ref: $arg. Expected @N where N >= 1');
+            return 1;
+          }
+          describeRef = refNum;
+        }
     }
+  }
+
+  // Resolve @N ref to coordinates via ext.fdb.describe
+  if (describeRef != null) {
+    return _tapByRef(describeRef, timeoutSeconds);
   }
 
   final hasCoords = x != null && y != null;
@@ -68,7 +87,7 @@ Future<int> runTap(List<String> args) async {
   }
 
   if (!hasSelector && !hasCoords) {
-    stderr.writeln('ERROR: Provide --text, --key, --type, or --x/--y');
+    stderr.writeln('ERROR: Provide --text, --key, --type, --x/--y, or @N ref');
     return 1;
   }
 
@@ -126,6 +145,86 @@ Future<int> runTap(List<String> args) async {
       stderr.writeln('ERROR: Unexpected response from ext.fdb.tap: $result');
       return 1;
     }
+  } catch (e) {
+    stderr.writeln('ERROR: $e');
+    return 1;
+  }
+}
+
+/// Resolves a describe ref (@N) to coordinates and taps at that position.
+Future<int> _tapByRef(int ref, int timeoutSeconds) async {
+  try {
+    final isolateId = await checkFdbHelper();
+    if (isolateId == null) {
+      stderr.writeln(
+        'ERROR: fdb_helper not detected in running app. '
+        'Add fdb_helper package to your Flutter app and call '
+        'FdbBinding.ensureInitialized() in main()',
+      );
+      return 1;
+    }
+
+    final describeResponse = await vmServiceCall(
+      'ext.fdb.describe',
+      params: {'isolateId': isolateId},
+    );
+    final describeResult = unwrapRawExtensionResult(describeResponse);
+
+    if (describeResult is! Map<String, dynamic>) {
+      stderr.writeln('ERROR: Unexpected response from ext.fdb.describe');
+      return 1;
+    }
+
+    final describeError = describeResult['error'] as String?;
+    if (describeError != null) {
+      stderr.writeln('ERROR: $describeError');
+      return 1;
+    }
+
+    final interactive = describeResult['interactive'] as List<dynamic>? ?? [];
+    final match = interactive.cast<Map<String, dynamic>>().where(
+          (e) => e['ref'] == ref,
+        );
+
+    if (match.isEmpty) {
+      stderr.writeln(
+        'ERROR: No interactive element with ref @$ref. '
+        'Run `fdb describe` to see available refs.',
+      );
+      return 1;
+    }
+
+    final element = match.first;
+    final cx = (element['x'] as num).toDouble();
+    final cy = (element['y'] as num).toDouble();
+
+    final tapParams = <String, dynamic>{
+      'isolateId': isolateId,
+      'x': cx.toString(),
+      'y': cy.toString(),
+    };
+
+    final tapResponse = await vmServiceCall('ext.fdb.tap', params: tapParams);
+    final tapResult = unwrapRawExtensionResult(tapResponse);
+
+    if (tapResult is Map<String, dynamic>) {
+      final status = tapResult['status'] as String?;
+      final tapError = tapResult['error'] as String?;
+
+      if (status == 'Success') {
+        final type = element['type'] as String? ?? 'widget';
+        stdout.writeln('TAPPED=$type X=$cx Y=$cy');
+        return 0;
+      }
+
+      if (tapError != null) {
+        stderr.writeln('ERROR: $tapError');
+        return 1;
+      }
+    }
+
+    stderr.writeln('ERROR: Unexpected response from ext.fdb.tap: $tapResult');
+    return 1;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

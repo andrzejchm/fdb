@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/commands/back.dart';
 import 'package:fdb/commands/deeplink.dart';
+import 'package:fdb/commands/describe.dart';
 import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/input.dart';
 import 'package:fdb/commands/kill.dart';
@@ -33,7 +34,8 @@ Commands:
   screenshot  Take a device screenshot
   logs        Get filtered app logs
   tree        Get the widget tree
-  tap         Tap a widget by selector
+  describe    Describe the current screen (interactive elements + text)
+  tap         Tap a widget by selector or @N ref from describe
   longpress   Long-press a widget by selector
   input       Enter text into a field
   scroll      Scroll in a direction
@@ -96,6 +98,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runLogs(args);
     case 'tree':
       return runTree(args);
+    case 'describe':
+      return runDescribe(args);
     case 'tap':
       return runTap(args);
     case 'longpress':

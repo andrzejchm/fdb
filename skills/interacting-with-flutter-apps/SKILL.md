@@ -107,6 +107,34 @@ Connects to VM service, prints indented widget tree. `--user-only` filters to pr
 
 NOTE: If this returns empty/unknown, fall back to raw websocat (see Fallback section).
 
+### Describe the current screen
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb describe
+```
+
+Returns a compact, text-based snapshot of what's on screen — interactive elements with stable refs and all visible text. Use this instead of a screenshot when you need to understand the UI and interact with it.
+
+Example output:
+```
+SCREEN: HomeScreen
+ROUTE: /home
+
+INTERACTIVE:
+  @1 ElevatedButton "Start" key=start_btn
+  @2 IconButton key=nav_back
+  @3 TextField "Search" key=search_field
+  @4 FloatingActionButton key=fab_add
+
+TEXT:
+  "Welcome"
+  "3 items"
+```
+
+Refs are NOT stable across navigation changes — re-run `fdb describe` after navigating.
+
 ### Widget selection
 
 ```bash
@@ -123,6 +151,7 @@ Requires `fdb_helper` in the app (see setup section above).
 fdb tap --key "increment_button"      # tap by widget key
 fdb tap --text "Submit"               # tap by visible text
 fdb tap --type "FloatingActionButton" # tap by widget type
+fdb tap @3                            # tap by describe ref (from fdb describe)
 ```
 
 Output: `TAPPED=<type> X=<x> Y=<y>`
@@ -274,8 +303,15 @@ Key gotcha: apps have multiple isolates. Try each until one returns a non-null w
 # Standard launch + inspect workflow
 DEVICE=$(fdb devices 2>/dev/null | grep '^DEVICE_ID=' | head -1 | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
 fdb launch --device "$DEVICE" --project /path/to/flutter/app
+fdb describe                               # compact screen snapshot — preferred over screenshot for navigation
 fdb tree --depth 5 --user-only
 fdb screenshot
+
+# Describe-driven interaction workflow (requires fdb_helper in the app)
+fdb describe                               # see what's on screen + get refs
+fdb tap @1                                 # tap the first interactive element by ref
+fdb tap @3                                 # tap the third interactive element by ref
+fdb describe                               # re-describe after navigation to get fresh refs
 
 # Widget interaction workflow (requires fdb_helper in the app)
 fdb tap --key "submit_button"              # tap a button

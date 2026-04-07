@@ -251,6 +251,25 @@ tasks:
           exit 1
         fi
 
+  test:describe:
+    desc: Describe the current screen (interactive elements + text)
+    cmds:
+      - |
+        echo "==> Describing current screen"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "INTERACTIVE:"; then
+          echo "PASS: fdb describe"
+        else
+          echo "FAIL: fdb describe - INTERACTIVE: not found in output" >&2
+          exit 1
+        fi
+
   test:tap:
     desc: Tap a widget by text selector
     cmds:
@@ -460,6 +479,7 @@ tasks:
       - task: test:logs
       - task: test:logs-tag
       - task: test:tree
+      - task: test:describe
       - task: test:screenshot
       - task: test:deeplink
       - task: test:select

@@ -52,6 +52,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     if (kReleaseMode) return;
 
     _registerExtension('ext.fdb.elements', _handleElements);
+    _registerExtension('ext.fdb.describe', _handleDescribe);
     _registerExtension('ext.fdb.tap', _handleTap);
     _registerExtension('ext.fdb.longPress', (method, params) {
       // Long-press is identical to tap but defaults to 500 ms hold duration.
@@ -99,6 +100,205 @@ class FdbBinding extends WidgetsFlutterBinding {
     } catch (e) {
       return _errorResponse('Failed to list elements: $e');
     }
+  }
+
+  Future<developer.ServiceExtensionResponse> _handleDescribe(
+    String method,
+    Map<String, String> params,
+  ) async {
+    try {
+      final root = WidgetsBinding.instance.rootElement;
+      if (root == null) {
+        return _errorResponse('No root element available');
+      }
+
+      final view = WidgetsBinding.instance.platformDispatcher.views.first;
+      final screenSize = view.physicalSize / view.devicePixelRatio;
+      final screenRect = Offset.zero & screenSize;
+
+      final interactive = <Map<String, dynamic>>[];
+      final texts = <String>{};
+      String? screenName;
+      String? routeName;
+
+      void visit(Element element) {
+        final widget = element.widget;
+        final typeName = widget.runtimeType.toString();
+
+        // Collect route name from ModalRoute
+        if (routeName == null && element is StatefulElement) {
+          final route = ModalRoute.of(element);
+          if (route != null) {
+            routeName = route.settings.name;
+          }
+        }
+
+        // Collect Scaffold title as screen name by walking AppBar children
+        if (screenName == null && typeName == 'Scaffold') {
+          // Walk children to find AppBar → title Text
+          void findAppBarTitle(Element el) {
+            if (screenName != null) return;
+            final w = el.widget;
+            final wType = w.runtimeType.toString();
+            if (wType == 'AppBar' || wType == 'SliverAppBar') {
+              // Walk AppBar children to find the title Text
+              void findTitle(Element titleEl) {
+                if (screenName != null) return;
+                final tw = titleEl.widget;
+                if (tw is Text) {
+                  final t = tw.data ?? tw.textSpan?.toPlainText();
+                  if (t != null && t.trim().isNotEmpty) {
+                    screenName = t.trim();
+                  }
+                  return;
+                }
+                titleEl.visitChildren(findTitle);
+              }
+
+              el.visitChildren(findTitle);
+              return;
+            }
+            el.visitChildren(findAppBarTitle);
+          }
+
+          element.visitChildren(findAppBarTitle);
+        }
+
+        final renderObject = element.renderObject;
+        if (renderObject is RenderBox &&
+            renderObject.hasSize &&
+            renderObject.attached) {
+          final offset = renderObject.localToGlobal(Offset.zero);
+          final size = renderObject.size;
+
+          // Skip zero-size or off-screen widgets
+          if (size.isEmpty) {
+            element.visitChildren(visit);
+            return;
+          }
+          final elementRect = offset & size;
+          if (!screenRect.overlaps(elementRect)) {
+            element.visitChildren(visit);
+            return;
+          }
+
+          // Collect visible text
+          if (widget is Text) {
+            final text = widget.data ?? widget.textSpan?.toPlainText();
+            if (text != null && text.trim().isNotEmpty) {
+              texts.add(text.trim());
+            }
+          } else if (widget is RichText) {
+            final text = widget.text.toPlainText().trim();
+            if (text.isNotEmpty) texts.add(text);
+          } else if (widget is EditableText) {
+            final text = widget.controller.text.trim();
+            if (text.isNotEmpty) texts.add(text);
+          }
+
+          // Collect interactive widgets
+          if (_isDescribeInteractiveWidget(typeName)) {
+            final key = widget.key is ValueKey<String>
+                ? (widget.key as ValueKey<String>).value
+                : null;
+            final visibleText = _extractDescribeText(element);
+            interactive.add({
+              'type': typeName,
+              'key': key,
+              'text': visibleText,
+              'x': offset.dx + size.width / 2,
+              'y': offset.dy + size.height / 2,
+            });
+            // Don't recurse into interactive widgets to avoid duplicates
+            return;
+          }
+        }
+
+        element.visitChildren(visit);
+      }
+
+      root.visitChildren(visit);
+
+      // Sort interactive elements top-to-bottom, left-to-right
+      interactive.sort((a, b) {
+        final yA = (a['y'] as double);
+        final yB = (b['y'] as double);
+        if ((yA - yB).abs() > 10) return yA.compareTo(yB);
+        return (a['x'] as double).compareTo(b['x'] as double);
+      });
+
+      // Assign sequential refs
+      for (var i = 0; i < interactive.length; i++) {
+        interactive[i]['ref'] = i + 1;
+      }
+
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode({
+          'status': 'Success',
+          'screen': screenName,
+          'route': routeName,
+          'interactive': interactive,
+          'texts': texts.toList(),
+        }),
+      );
+    } catch (e) {
+      return _errorResponse('describe failed: $e');
+    }
+  }
+
+  /// Returns true for widget types that are interactive and should appear in
+  /// the describe output. Extends [_isInteractiveWidget] with additional
+  /// tappable container types.
+  bool _isDescribeInteractiveWidget(String typeName) => const {
+        'Checkbox',
+        'CheckboxListTile',
+        'DropdownButton',
+        'ElevatedButton',
+        'FilledButton',
+        'FloatingActionButton',
+        'GestureDetector',
+        'IconButton',
+        'InkWell',
+        'ListTile',
+        'OutlinedButton',
+        'PopupMenuButton',
+        'Radio',
+        'RadioListTile',
+        'Slider',
+        'Switch',
+        'SwitchListTile',
+        'Tab',
+        'TextButton',
+        'TextField',
+        'TextFormField',
+      }.contains(typeName);
+
+  /// Extracts visible text from an interactive element by walking its children.
+  String? _extractDescribeText(Element element) {
+    // Check the widget itself first
+    final widget = element.widget;
+    if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
+    if (widget is RichText) return widget.text.toPlainText();
+    if (widget is EditableText) return widget.controller.text;
+
+    // Walk children to find the first Text/RichText
+    String? found;
+    void findText(Element el) {
+      if (found != null) return;
+      final w = el.widget;
+      if (w is Text) {
+        found = w.data ?? w.textSpan?.toPlainText();
+        return;
+      }
+      if (w is RichText) {
+        found = w.text.toPlainText();
+        return;
+      }
+      el.visitChildren(findText);
+    }
+
+    element.visitChildren(findText);
+    return found?.trim().isEmpty == true ? null : found?.trim();
   }
 
   Future<developer.ServiceExtensionResponse> _handleTap(
