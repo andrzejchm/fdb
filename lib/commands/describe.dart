@@ -74,8 +74,17 @@ void _printDescribeOutput(Map<String, dynamic> result) {
       final key = entry['key'] as String?;
       final text = entry['text'] as String?;
 
+      // Clean up text: remove leading/trailing separators from fragment joining
+      var cleanText = text;
+      if (cleanText != null) {
+        cleanText = cleanText
+            .replaceAll(RegExp(r'(^(\s*·\s*)+|(\s*·\s*)+$)'), '')
+            .trim();
+        if (cleanText.isEmpty) cleanText = null;
+      }
+
       final buffer = StringBuffer('  @$ref $type');
-      if (text != null && text.isNotEmpty) buffer.write(' "$text"');
+      if (cleanText != null) buffer.write(' "$cleanText"');
       if (key != null) buffer.write(' key=$key');
       stdout.writeln(buffer.toString());
     }
@@ -88,8 +97,10 @@ void _printDescribeOutput(Map<String, dynamic> result) {
       .whereType<String>()
       .toSet();
 
-  final uniqueTexts =
-      texts.cast<String>().where((t) => !interactiveTexts.contains(t)).toList();
+  final uniqueTexts = texts
+      .cast<String>()
+      .where((t) => t.trim().isNotEmpty && !interactiveTexts.contains(t))
+      .toList();
 
   if (uniqueTexts.isNotEmpty) {
     stdout.writeln('TEXT:');
