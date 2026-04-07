@@ -121,6 +121,9 @@ class FdbBinding extends WidgetsFlutterBinding {
       String? screenName;
       String? routeName;
 
+      // Tracks the nearest enclosing Tooltip message while walking the tree.
+      String? currentTooltip;
+
       void visit(Element element) {
         final widget = element.widget;
         final typeName = widget.runtimeType.toString();
@@ -164,6 +167,18 @@ class FdbBinding extends WidgetsFlutterBinding {
           element.visitChildren(findAppBarTitle);
         }
 
+        // Track Tooltip context so inner interactive widgets can inherit it.
+        String? previousTooltip;
+        if (typeName == 'Tooltip') {
+          previousTooltip = currentTooltip;
+          try {
+            final msg = (widget as dynamic).message as String?;
+            if (msg != null && msg.trim().isNotEmpty) {
+              currentTooltip = msg.trim();
+            }
+          } catch (_) {}
+        }
+
         final renderObject = element.renderObject;
         if (renderObject is RenderBox &&
             renderObject.hasSize &&
@@ -174,11 +189,13 @@ class FdbBinding extends WidgetsFlutterBinding {
           // Skip zero-size or off-screen widgets
           if (size.isEmpty) {
             element.visitChildren(visit);
+            if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             return;
           }
           final elementRect = offset & size;
           if (!screenRect.overlaps(elementRect)) {
             element.visitChildren(visit);
+            if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             return;
           }
 
@@ -201,7 +218,8 @@ class FdbBinding extends WidgetsFlutterBinding {
             final key = widget.key is ValueKey<String>
                 ? (widget.key as ValueKey<String>).value
                 : null;
-            final visibleText = _extractDescribeText(element);
+            final visibleText =
+                _extractDescribeText(element, tooltipHint: currentTooltip);
             interactive.add({
               'type': typeName,
               'key': key,
@@ -209,12 +227,31 @@ class FdbBinding extends WidgetsFlutterBinding {
               'x': offset.dx + size.width / 2,
               'y': offset.dy + size.height / 2,
             });
+
+            // Still collect text from children for the TEXT section even
+            // though we stop recursing for interactive-widget purposes.
+            void collectText(Element el) {
+              final w = el.widget;
+              if (w is Text) {
+                final t = w.data ?? w.textSpan?.toPlainText();
+                if (t != null && t.trim().isNotEmpty) texts.add(t.trim());
+              } else if (w is RichText) {
+                final t = w.text.toPlainText().trim();
+                if (t.isNotEmpty) texts.add(t);
+              }
+              el.visitChildren(collectText);
+            }
+
+            element.visitChildren(collectText);
+
             // Don't recurse into interactive widgets to avoid duplicates
+            if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             return;
           }
         }
 
         element.visitChildren(visit);
+        if (typeName == 'Tooltip') currentTooltip = previousTooltip;
       }
 
       root.visitChildren(visit);
@@ -274,31 +311,79 @@ class FdbBinding extends WidgetsFlutterBinding {
       }.contains(typeName);
 
   /// Extracts visible text from an interactive element by walking its children.
-  String? _extractDescribeText(Element element) {
-    // Check the widget itself first
+  ///
+  /// Collects ALL text fragments (Text, RichText, EditableText), Tooltip
+  /// messages, and Icon semantic labels, joining them with " · ".
+  ///
+  /// [tooltipHint] is the nearest enclosing Tooltip message discovered while
+  /// walking the tree top-down; it is used as a fallback when no other text
+  /// is found inside the widget.
+  String? _extractDescribeText(
+    Element element, {
+    String? tooltipHint,
+  }) {
+    // Check the widget itself first (leaf cases).
     final widget = element.widget;
     if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
     if (widget is RichText) return widget.text.toPlainText();
     if (widget is EditableText) return widget.controller.text;
 
-    // Walk children to find the first Text/RichText
-    String? found;
-    void findText(Element el) {
-      if (found != null) return;
+    // Collect all text fragments from the subtree.
+    final fragments = <String>[];
+
+    void findTextAndIcons(Element el) {
       final w = el.widget;
+
       if (w is Text) {
-        found = w.data ?? w.textSpan?.toPlainText();
-        return;
+        final t = w.data ?? w.textSpan?.toPlainText();
+        if (t != null && t.trim().isNotEmpty) fragments.add(t.trim());
+        return; // Don't recurse into Text children
       }
       if (w is RichText) {
-        found = w.text.toPlainText();
+        final t = w.text.toPlainText().trim();
+        if (t.isNotEmpty) fragments.add(t);
         return;
       }
-      el.visitChildren(findText);
+      if (w is EditableText) {
+        final t = w.controller.text.trim();
+        if (t.isNotEmpty) fragments.add(t);
+        return;
+      }
+
+      final wType = w.runtimeType.toString();
+
+      // Extract Tooltip message (inner Tooltip, distinct from the ancestor one).
+      if (wType == 'Tooltip') {
+        try {
+          final message = (w as dynamic).message as String?;
+          if (message != null && message.trim().isNotEmpty) {
+            fragments.add('[${message.trim()}]');
+          }
+        } catch (_) {}
+      }
+
+      // Extract Icon semantic label.
+      if (wType == 'Icon') {
+        try {
+          final label = (w as dynamic).semanticLabel as String?;
+          if (label != null && label.trim().isNotEmpty) {
+            fragments.add('[icon: ${label.trim()}]');
+          }
+        } catch (_) {}
+      }
+
+      el.visitChildren(findTextAndIcons);
     }
 
-    element.visitChildren(findText);
-    return found?.trim().isEmpty == true ? null : found?.trim();
+    element.visitChildren(findTextAndIcons);
+
+    // Fall back to the ancestor Tooltip hint when the widget has no own text.
+    if (fragments.isEmpty && tooltipHint != null) {
+      return '[${tooltipHint.trim()}]';
+    }
+
+    if (fragments.isEmpty) return null;
+    return fragments.join(' · ');
   }
 
   Future<developer.ServiceExtensionResponse> _handleTap(

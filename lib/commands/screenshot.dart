@@ -4,13 +4,19 @@ import 'package:fdb/constants.dart';
 
 Future<int> runScreenshot(List<String> args) async {
   var output = defaultScreenshotPath;
+  var fullResolution = false;
 
   for (var i = 0; i < args.length; i++) {
     final arg = args[i];
-    if (arg == '--output') {
-      output = args[++i];
-    } else if (arg.startsWith('--output=')) {
-      output = arg.substring('--output='.length);
+    switch (arg) {
+      case '--output':
+        output = args[++i];
+      case '--full':
+        fullResolution = true;
+      default:
+        if (arg.startsWith('--output=')) {
+          output = arg.substring('--output='.length);
+        }
     }
   }
 
@@ -49,10 +55,74 @@ Future<int> runScreenshot(List<String> args) async {
     return 1;
   }
 
+  if (!fullResolution) {
+    final resizeResult = await _resizeToLogicalResolution(output);
+    if (resizeResult != 0) return resizeResult;
+  }
+
   final sizeBytes = file.lengthSync();
   stdout.writeln('SCREENSHOT_SAVED=$output');
   stdout.writeln('SIZE=${_formatSize(sizeBytes)}');
   return 0;
+}
+
+/// Reads the pixel width of [path] via `sips` and downscales to logical
+/// resolution (1x) in-place. Returns 0 on success, 1 on failure.
+Future<int> _resizeToLogicalResolution(String path) async {
+  final queryResult = await Process.run('sips', ['-g', 'pixelWidth', path]);
+  if (queryResult.exitCode != 0) {
+    stderr.writeln(
+        'ERROR: Could not read image dimensions: ${queryResult.stderr}');
+    return 1;
+  }
+
+  final pixelWidth = _parsePixelWidth(queryResult.stdout as String);
+  if (pixelWidth == null) {
+    stderr.writeln('ERROR: Could not parse image width from sips output');
+    return 1;
+  }
+
+  final logicalWidth = _logicalWidth(pixelWidth);
+  if (logicalWidth == pixelWidth) return 0; // already 1x, nothing to do
+
+  final resizeResult = await Process.run('sips', [
+    '--resampleWidth',
+    '$logicalWidth',
+    path,
+    '--out',
+    path,
+  ]);
+  if (resizeResult.exitCode != 0) {
+    stderr.writeln('ERROR: Could not resize image: ${resizeResult.stderr}');
+    return 1;
+  }
+
+  return 0;
+}
+
+/// Parses the pixel width from `sips -g pixelWidth` output.
+///
+/// Example output:
+/// ```
+///   /tmp/fdb_screenshot.png
+///     pixelWidth: 1170
+/// ```
+int? _parsePixelWidth(String sipsOutput) {
+  final match = RegExp(r'pixelWidth:\s*(\d+)').firstMatch(sipsOutput);
+  if (match == null) return null;
+  return int.tryParse(match.group(1)!);
+}
+
+/// Returns the logical (1x) width for a given native [pixelWidth].
+///
+/// Heuristic:
+/// - > 1000 px → 3x Retina device → divide by 3
+/// - > 500 px  → 2x Retina device → divide by 2
+/// - otherwise → already 1x
+int _logicalWidth(int pixelWidth) {
+  if (pixelWidth > 1000) return pixelWidth ~/ 3;
+  if (pixelWidth > 500) return pixelWidth ~/ 2;
+  return pixelWidth;
 }
 
 Future<bool> _isAndroidDevice() async {
