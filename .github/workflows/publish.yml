@@ -1,0 +1,137 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  ci:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Analyze
+        run: dart analyze --fatal-infos
+
+      - name: Run unit tests
+        run: dart test
+
+  publish:
+    name: Publish to pub.dev & create GitHub release
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Dry run
+        run: dart pub publish --dry-run
+
+      - name: Publish to pub.dev
+        run: dart pub publish --force
+
+      - name: Generate release notes
+        id: changelog
+        run: |
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1)
+
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"%s" "${PREV_TAG}..HEAD")
+          fi
+
+          OUT=/tmp/release-notes.md
+          > "$OUT"
+
+          write_section() {
+            local header="$1" type="$2"
+            local lines
+            lines=$(echo "$COMMITS" | grep -E "^${type}(\(.+\))?(!)?:" | sed "s/^${type}[^:]*: /- /" || true)
+            if [ -n "$lines" ]; then
+              echo "$header" >> "$OUT"
+              echo "$lines" >> "$OUT"
+              echo "" >> "$OUT"
+            fi
+          }
+
+          write_section "### Features"      feat
+          write_section "### Bug Fixes"     fix
+          write_section "### Performance"   perf
+          write_section "### Refactoring"   refactor
+          write_section "### Documentation" docs
+          write_section "### Chores"        chore
+          write_section "### CI"            ci
+          write_section "### Tests"         test
+
+          # Uncategorized commits
+          UNCATEGORIZED=$(echo "$COMMITS" | grep -vE "^(feat|fix|perf|refactor|docs|chore|ci|test)(\(.+\))?(!)?:" || true)
+          if [ -n "$UNCATEGORIZED" ]; then
+            echo "### Other" >> "$OUT"
+            echo "$UNCATEGORIZED" | sed 's/^/- /' >> "$OUT"
+            echo "" >> "$OUT"
+          fi
+
+          if [ ! -s "$OUT" ]; then
+            echo "No notable changes." >> "$OUT"
+          fi
+
+          # Contributors (exclude repo owner and bots)
+          OWNER="${{ github.repository_owner }}"
+          if [ -n "$PREV_TAG" ]; then
+            CONTRIBUTORS=$(curl -sf -H "Authorization: token ${{ github.token }}" \
+              "https://api.github.com/repos/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}" \
+              | jq -r "[.commits[].author.login // empty] | unique | .[]" 2>/dev/null \
+              | grep -v '^\s*$' \
+              | grep -vi '\[bot\]' \
+              | grep -vi 'dependabot' \
+              | grep -vi 'github-actions' \
+              | grep -vi "^${OWNER}$" \
+              | sed 's/^/@/' \
+              | sort -u || true)
+          fi
+
+          if [ -n "$CONTRIBUTORS" ]; then
+            echo "### Contributors" >> "$OUT"
+            echo "Thanks to $(echo "$CONTRIBUTORS" | paste -sd, - | sed 's/,/, /g; s/, \([^,]*\)$/ and \1/') for contributing to this release! :tada:" >> "$OUT"
+            echo "" >> "$OUT"
+          fi
+
+          if [ -n "$PREV_TAG" ]; then
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}"
+            echo "**Full diff:** ${COMPARE_URL}" >> "$OUT"
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/release-notes.md
