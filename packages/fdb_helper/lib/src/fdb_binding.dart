@@ -383,7 +383,9 @@ class FdbBinding extends WidgetsFlutterBinding {
     }
 
     if (fragments.isEmpty) return null;
-    return fragments.where((f) => f.isNotEmpty).join(' · ');
+    final cleaned = fragments.where((f) => f.trim().isNotEmpty).toList();
+    if (cleaned.isEmpty) return null;
+    return cleaned.join(' · ');
   }
 
   Future<developer.ServiceExtensionResponse> _handleTap(

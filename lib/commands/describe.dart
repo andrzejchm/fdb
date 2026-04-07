@@ -74,13 +74,17 @@ void _printDescribeOutput(Map<String, dynamic> result) {
       final key = entry['key'] as String?;
       final text = entry['text'] as String?;
 
-      // Clean up text: remove leading/trailing separators from fragment joining
+      // Clean up text: filter empty fragments and icon-only fragments
+      // (Flutter Icon codepoints are Unicode PUA chars U+E000-U+F8FF)
       var cleanText = text;
       if (cleanText != null) {
-        cleanText = cleanText
-            .replaceAll(RegExp(r'(^(\s*·\s*)+|(\s*·\s*)+$)'), '')
-            .trim();
-        if (cleanText.isEmpty) cleanText = null;
+        final parts = cleanText
+            .split(' · ')
+            .map((p) => p.trim())
+            .where((p) =>
+                p.isNotEmpty && p.runes.any((r) => r < 0xE000 || r > 0xF8FF))
+            .toList();
+        cleanText = parts.isEmpty ? null : parts.join(' · ');
       }
 
       final buffer = StringBuffer('  @$ref $type');
@@ -99,7 +103,10 @@ void _printDescribeOutput(Map<String, dynamic> result) {
 
   final uniqueTexts = texts
       .cast<String>()
-      .where((t) => t.trim().isNotEmpty && !interactiveTexts.contains(t))
+      .where((t) =>
+          t.trim().isNotEmpty &&
+          t.runes.any((r) => r < 0xE000 || r > 0xF8FF) &&
+          !interactiveTexts.contains(t))
       .toList();
 
   if (uniqueTexts.isNotEmpty) {
