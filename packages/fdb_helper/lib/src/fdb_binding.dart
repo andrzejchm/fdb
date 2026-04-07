@@ -220,12 +220,14 @@ class FdbBinding extends WidgetsFlutterBinding {
                 : null;
             final visibleText =
                 _extractDescribeText(element, tooltipHint: currentTooltip);
+            final gestures = _extractGestures(widget, typeName);
             interactive.add({
               'type': typeName,
               'key': key,
               'text': visibleText,
               'x': offset.dx + size.width / 2,
               'y': offset.dy + size.height / 2,
+              if (gestures != null) 'gestures': gestures,
             });
 
             // Still collect text from children for the TEXT section even
@@ -386,6 +388,56 @@ class FdbBinding extends WidgetsFlutterBinding {
     final cleaned = fragments.where((f) => f.trim().isNotEmpty).toList();
     if (cleaned.isEmpty) return null;
     return cleaned.join(' · ');
+  }
+
+  /// Extracts the list of registered gestures for a widget.
+  ///
+  /// For [GestureDetector] and [InkWell], checks which callback properties
+  /// are non-null using dynamic access. Returns a short list like
+  /// `["tap", "longPress", "horizontalDrag"]` or null if not applicable.
+  List<String>? _extractGestures(Widget widget, String typeName) {
+    if (typeName != 'GestureDetector' && typeName != 'InkWell') return null;
+
+    final gestures = <String>[];
+    try {
+      final w = widget as dynamic;
+      // Tap gestures
+      if (typeName == 'GestureDetector') {
+        if (w.onTap != null) gestures.add('tap');
+        if (w.onDoubleTap != null) gestures.add('doubleTap');
+        if (w.onLongPress != null) gestures.add('longPress');
+        if (w.onVerticalDragStart != null ||
+            w.onVerticalDragUpdate != null ||
+            w.onVerticalDragEnd != null) {
+          gestures.add('verticalDrag');
+        }
+        if (w.onHorizontalDragStart != null ||
+            w.onHorizontalDragUpdate != null ||
+            w.onHorizontalDragEnd != null) {
+          gestures.add('horizontalDrag');
+        }
+        if (w.onPanStart != null ||
+            w.onPanUpdate != null ||
+            w.onPanEnd != null) {
+          gestures.add('pan');
+        }
+        if (w.onScaleStart != null ||
+            w.onScaleUpdate != null ||
+            w.onScaleEnd != null) {
+          gestures.add('scale');
+        }
+        if (w.onForcePressStart != null || w.onForcePressPeak != null) {
+          gestures.add('forcePress');
+        }
+      } else if (typeName == 'InkWell') {
+        if (w.onTap != null) gestures.add('tap');
+        if (w.onDoubleTap != null) gestures.add('doubleTap');
+        if (w.onLongPress != null) gestures.add('longPress');
+      }
+    } catch (_) {
+      // Dynamic access failed — widget API changed; return what we have.
+    }
+    return gestures.isEmpty ? null : gestures;
   }
 
   Future<developer.ServiceExtensionResponse> _handleTap(

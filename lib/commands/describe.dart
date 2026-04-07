@@ -87,7 +87,12 @@ void _printDescribeOutput(Map<String, dynamic> result) {
         cleanText = parts.isEmpty ? null : parts.join(' · ');
       }
 
+      final gestures = (entry['gestures'] as List<dynamic>?)?.cast<String>();
+
       final buffer = StringBuffer('  @$ref $type');
+      if (gestures != null && gestures.isNotEmpty) {
+        buffer.write('(${gestures.join(',')})');
+      }
       if (cleanText != null) buffer.write(' "$cleanText"');
       if (key != null) buffer.write(' key=$key');
       stdout.writeln(buffer.toString());
