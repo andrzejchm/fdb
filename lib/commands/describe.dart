@@ -100,22 +100,31 @@ void _printDescribeOutput(Map<String, dynamic> result) {
     stdout.writeln('');
   }
 
-  // Deduplicate texts that are already shown in interactive section
-  final interactiveTexts = interactive
-      .map((e) => (e as Map<String, dynamic>)['text'] as String?)
-      .whereType<String>()
-      .toSet();
+  // Deduplicate texts already shown in the interactive section.
+  // Split each interactive text on ' · ' to get individual fragments so that
+  // e.g. "All Photos · 3999 photos" prevents both "All Photos" and
+  // "3999 photos" from appearing in the VISIBLE TEXT section.
+  final interactiveFragments = <String>{};
+  for (final item in interactive) {
+    final text = (item as Map<String, dynamic>)['text'] as String?;
+    if (text != null) {
+      for (final fragment in text.split(' · ')) {
+        final trimmed = fragment.trim();
+        if (trimmed.isNotEmpty) interactiveFragments.add(trimmed);
+      }
+    }
+  }
 
   final uniqueTexts = texts
       .cast<String>()
       .where((t) =>
           t.trim().isNotEmpty &&
           t.runes.any((r) => r < 0xE000 || r > 0xF8FF) &&
-          !interactiveTexts.contains(t))
+          !interactiveFragments.contains(t.trim()))
       .toList();
 
   if (uniqueTexts.isNotEmpty) {
-    stdout.writeln('TEXT:');
+    stdout.writeln('VISIBLE TEXT:');
     for (final text in uniqueTexts) {
       stdout.writeln('  "$text"');
     }

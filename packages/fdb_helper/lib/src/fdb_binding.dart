@@ -128,8 +128,19 @@ class FdbBinding extends WidgetsFlutterBinding {
         final widget = element.widget;
         final typeName = widget.runtimeType.toString();
 
-        // Collect route name from ModalRoute
-        if (routeName == null && element is StatefulElement) {
+        // Skip entire subtrees wrapped in Offstage(offstage: true).
+        // Flutter uses Offstage to hide inactive routes, so this naturally
+        // filters background route content from the describe output.
+        if (typeName == 'Offstage') {
+          try {
+            final offstage = (widget as dynamic).offstage as bool;
+            if (offstage) return;
+          } catch (_) {}
+        }
+
+        // Collect route name from ModalRoute — no guard so the deepest
+        // (topmost visible) route always wins over shallower ancestors.
+        if (element is StatefulElement) {
           final route = ModalRoute.of(element);
           if (route != null) {
             routeName = route.settings.name;
@@ -257,6 +268,31 @@ class FdbBinding extends WidgetsFlutterBinding {
       }
 
       root.visitChildren(visit);
+
+      // Remove interactive entries that provide no useful identity signal:
+      // no text, no key, and no interesting gestures (drag/pan/longPress/scale).
+      // A bare GestureDetector(tap) with no text/key is almost always an icon
+      // or structural element that the agent cannot meaningfully reference.
+      const _interestingGestures = {
+        'horizontalDrag',
+        'verticalDrag',
+        'pan',
+        'longPress',
+        'scale',
+        'doubleTap',
+        'forcePress',
+      };
+      interactive.removeWhere((entry) {
+        final text = entry['text'] as String?;
+        final key = entry['key'] as String?;
+        final gestures =
+            (entry['gestures'] as List<dynamic>?)?.cast<String>() ?? [];
+        final hasText = text != null && text.trim().isNotEmpty;
+        final hasKey = key != null;
+        final hasInterestingGesture =
+            gestures.any((g) => _interestingGestures.contains(g));
+        return !hasText && !hasKey && !hasInterestingGesture;
+      });
 
       // Sort interactive elements top-to-bottom, left-to-right
       interactive.sort((a, b) {
