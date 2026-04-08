@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 
 import 'element_tree_finder.dart';
 import 'gesture_dispatcher.dart';
+import 'hit_test_utils.dart';
 import 'text_input_simulator.dart';
 import 'widget_matcher.dart';
 
@@ -226,6 +227,15 @@ class FdbBinding extends WidgetsFlutterBinding {
 
           // Collect interactive widgets
           if (_isDescribeInteractiveWidget(typeName)) {
+            // Skip widgets obscured by a foreground route (e.g. GoRouter shell
+            // routes where background pages aren't wrapped in Offstage).
+            // If the hit test at this widget's center doesn't reach its render
+            // object, a user can't interact with it — omit it and its children.
+            if (!isElementHittable(element)) {
+              if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+              return;
+            }
+
             final key = widget.key is ValueKey<String>
                 ? (widget.key as ValueKey<String>).value
                 : null;
