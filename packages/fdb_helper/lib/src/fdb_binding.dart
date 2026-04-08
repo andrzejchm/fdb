@@ -297,7 +297,11 @@ class FdbBinding extends WidgetsFlutterBinding {
         final key = entry['key'] as String?;
         final gestures =
             (entry['gestures'] as List<dynamic>?)?.cast<String>() ?? [];
-        final hasText = text != null && text.trim().isNotEmpty;
+        // Text consisting only of Unicode PUA icon codepoints (U+E000-U+F8FF)
+        // is not meaningful — treat it as empty.
+        final hasText = text != null &&
+            text.trim().isNotEmpty &&
+            text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
         final hasKey = key != null;
         final hasInterestingGesture =
             gestures.any((g) => _interestingGestures.contains(g));
@@ -379,22 +383,26 @@ class FdbBinding extends WidgetsFlutterBinding {
     // Collect all text fragments from the subtree.
     final fragments = <String>[];
 
+    // Returns true if the string has at least one non-PUA character.
+    bool hasVisibleText(String s) =>
+        s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+
     void findTextAndIcons(Element el) {
       final w = el.widget;
 
       if (w is Text) {
         final t = w.data ?? w.textSpan?.toPlainText();
-        if (t != null && t.trim().isNotEmpty) fragments.add(t.trim());
+        if (t != null && hasVisibleText(t)) fragments.add(t.trim());
         return; // Don't recurse into Text children
       }
       if (w is RichText) {
         final t = w.text.toPlainText().trim();
-        if (t.isNotEmpty) fragments.add(t);
+        if (hasVisibleText(t)) fragments.add(t);
         return;
       }
       if (w is EditableText) {
         final t = w.controller.text.trim();
-        if (t.isNotEmpty) fragments.add(t);
+        if (hasVisibleText(t)) fragments.add(t);
         return;
       }
 
