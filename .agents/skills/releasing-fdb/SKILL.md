@@ -40,7 +40,8 @@ Copy and track progress:
 ```
 - [ ] Pre-release verification (analyze, unit tests, smoke tests)
 - [ ] Determine version bump type (major / minor / patch)
-- [ ] Update version in all 4 files (lockstep)
+- [ ] Update version in all 5 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, SKILL.md, CHANGELOG.md
+- [ ] Verify no stale OLD_VERSION references remain (grep check)
 - [ ] Commit: `chore: bump version to X.Y.Z`
 - [ ] Tag: `git tag vX.Y.Z`
 - [ ] Push: `git push origin main --tags`
@@ -70,7 +71,7 @@ git pull origin main          # up to date with remote
 
 fdb and fdb_helper are versioned in **lockstep** — always bump both to the same version.
 
-Update the version string in all 4 files:
+**Every release MUST include a version bump.** Update the version string in all 5 files:
 
 | # | File | What to change |
 |---|------|----------------|
@@ -78,14 +79,32 @@ Update the version string in all 4 files:
 | 2 | `pubspec.yaml` | `version: X.Y.Z` |
 | 3 | `packages/fdb_helper/pubspec.yaml` | `version: X.Y.Z` |
 | 4 | `skills/interacting-with-flutter-apps/SKILL.md` | Version in `## Overview` heading and in the version check blockquote |
+| 5 | `CHANGELOG.md` | Add a `## X.Y.Z` section at the top with a summary of changes since the last release |
+
+### CHANGELOG.md format
+
+```markdown
+## X.Y.Z
+
+### New commands
+- `fdb <command>` — description
+
+### Fixes
+- Description of fix
+
+### Breaking changes (major only)
+- Description
+```
+
+Use conventional commit messages from `git log` to build the changelog. Group by: new commands, improvements, fixes, breaking changes. Omit empty groups.
 
 ### Verify consistency
 
-After editing, confirm all 4 files show the same version:
+After editing, confirm all 5 files show the same version and no stale references remain:
 ```bash
-grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml skills/interacting-with-flutter-apps/SKILL.md
+grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml skills/interacting-with-flutter-apps/SKILL.md CHANGELOG.md
 ```
-Replace `OLD_VERSION` with the **previous** version to confirm no stale references remain.
+Replace `OLD_VERSION` with the **previous** version — the command should match ONLY the `CHANGELOG.md` entry for the old release, not any of the 4 source files.
 
 ## Commit, Tag, Push
 
