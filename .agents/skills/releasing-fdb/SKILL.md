@@ -12,26 +12,13 @@ Follow [Semantic Versioning](https://semver.org):
 - **Minor** (0.x.0): new commands, new flags, backward-compatible changes
 - **Major** (x.0.0): breaking changes to CLI interface, fdb_helper API, or file contracts
 
-## One-time Setup
+## One-time Setup (DONE)
 
-Required before the first automated release. Skip if already done.
-
-### pub.dev
-
-1. Authenticate: `dart pub login`
-2. Publish the first version interactively (automated publishing requires at least one manual publish):
-   ```bash
-   dart pub publish --dry-run   # verify, fix any issues
-   dart pub publish              # interactive confirmation
-   ```
-3. Go to <https://pub.dev/packages/fdb/admin> and enable **Automated publishing**:
-   - Provider: GitHub Actions
-   - Repository: `andrzejchm/fdb`
-   - Tag pattern: `v{{version}}`
-
-### GitHub CLI
-
-Verify `gh` is authenticated: `gh auth status`
+All one-time setup is complete:
+- [x] First version (1.0.0) published manually to pub.dev
+- [x] Automated publishing enabled on <https://pub.dev/packages/fdb/admin> (GitHub Actions, tag pattern `v{{version}}`, push events)
+- [x] LICENSE file added (MIT)
+- [x] CHANGELOG.md added
 
 ## Release Checklist
 
@@ -154,4 +141,4 @@ After CI completes:
 
 ### Version mismatch
 
-If any of the 4 version files are out of sync, pub.dev publish may succeed with the wrong version. Always verify with the grep command in the Version Bump section.
+If any of the 5 version files are out of sync, pub.dev publish may succeed with the wrong version. Always verify with the grep command in the Version Bump section.
