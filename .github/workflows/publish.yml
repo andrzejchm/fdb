@@ -13,22 +13,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dart-lang/setup-dart@v1
+      - uses: subosito/flutter-action@v2
         with:
-          sdk: stable
+          channel: stable
 
       - name: Install dependencies
-        run: dart pub get
+        run: |
+          dart pub get
+          cd packages/fdb_helper && flutter pub get && cd ../..
+          cd example/test_app && flutter pub get && cd ../..
 
       - name: Check formatting
-        run: dart format --set-exit-if-changed lib bin
+        run: dart format --set-exit-if-changed .
 
       - name: Analyze
-        run: dart analyze --fatal-infos lib bin
+        run: dart analyze --fatal-infos
 
       - name: Run unit tests
         run: dart test
-        continue-on-error: true
 
   publish:
     name: Publish to pub.dev & create GitHub release
