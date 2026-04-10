@@ -107,7 +107,7 @@ Future<String?> findFlutterIsolateId() async {
 }
 
 /// Unwraps the VM service extension response.
-/// Extension responses have the shape: {"result": {"result": "<json string>", "type": "_extensionType"}}
+/// Extension responses have the shape: `{"result": {"result": "<json string>", "type": "_extensionType"}}`
 /// The inner "result" is a JSON-encoded string that needs to be decoded.
 dynamic unwrapExtensionResult(Map<String, dynamic> response) {
   final outer = response['result'] as Map<String, dynamic>?;

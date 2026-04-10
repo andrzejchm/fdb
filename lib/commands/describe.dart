@@ -9,7 +9,7 @@ import 'package:fdb/vm_service.dart';
 ///
 /// Usage:
 ///   fdb describe
-///   fdb describe --device <id>
+///   fdb describe --device `<id>`
 Future<int> runDescribe(List<String> args) async {
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {

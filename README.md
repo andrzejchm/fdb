@@ -47,6 +47,10 @@ Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/
 **Or install manually:**
 
 ```bash
+# From pub.dev (recommended)
+dart pub global activate fdb
+
+# Or from git (latest main)
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 ```
 
@@ -103,33 +107,7 @@ fdb kill
 
 ## How It Works
 
-```mermaid
-sequenceDiagram
-    participant Agent as AI Agent
-    participant fdb
-    participant Device as Device / Simulator
-
-    Agent->>fdb: fdb launch
-    fdb->>Device: flutter run (detached)
-    fdb-->>fdb: save PID & VM URI to /tmp
-    fdb-->>Agent: APP_STARTED
-
-    Agent->>fdb: fdb reload
-    fdb->>Device: POSIX signal
-    fdb-->>Agent: RELOADED
-
-    Agent->>fdb: fdb screenshot
-    fdb->>Device: adb screencap / xcrun simctl
-    fdb-->>Agent: SCREENSHOT_SAVED=/tmp/fdb_screenshot.png
-
-    Agent->>fdb: fdb tree
-    fdb->>Device: VM Service (WebSocket)
-    fdb-->>Agent: widget tree
-
-    Agent->>fdb: fdb kill
-    fdb->>Device: SIGTERM
-    fdb-->>Agent: APP_KILLED
-```
+![How fdb works - sequence diagram](https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-light.svg)
 
 - All state in `/tmp/fdb_*` files -- no config, no database, no daemon
 - Screenshots auto-detect Android (`adb`) vs iOS (`xcrun`)
