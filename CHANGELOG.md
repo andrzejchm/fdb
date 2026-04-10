@@ -1,3 +1,16 @@
+## 1.0.1
+
+### Fixes
+- Fix dartdoc angle bracket warnings in `describe.dart` and `vm_service.dart`
+- Fix deeplink smoke test — register `fdbtest://` URL scheme in test app Info.plist
+- Fix back smoke test — restart app to reset UI state before navigation test
+
+### Improvements
+- Add `example/example.md` for pub.dev Example tab
+- Replace mermaid code block with pre-rendered SVG diagram (renders on pub.dev)
+- Add `dart pub global activate fdb` install option to README
+- Add release skill and CI publish workflow
+
 ## 1.0.0
 
 ### New commands

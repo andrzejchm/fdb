@@ -396,6 +396,13 @@ tasks:
     desc: Navigate back in the running app
     cmds:
       - |
+        echo "==> Hot restarting to reset UI state"
+        {{.FDB}} restart >/dev/null 2>&1
+        sleep 1
+        echo "==> Navigating to details page first"
+        TAP_OUT=$({{.FDB}} tap --key go_to_details 2>&1)
+        echo "$TAP_OUT"
+        sleep 1
         echo "==> Navigating back"
         OUTPUT=$({{.FDB}} back 2>&1)
         EXIT_CODE=$?
