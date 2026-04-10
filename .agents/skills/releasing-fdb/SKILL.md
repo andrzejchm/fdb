@@ -12,13 +12,12 @@ Follow [Semantic Versioning](https://semver.org):
 - **Minor** (0.x.0): new commands, new flags, backward-compatible changes
 - **Major** (x.0.0): breaking changes to CLI interface, fdb_helper API, or file contracts
 
-## One-time Setup (DONE)
+## Prerequisites
 
-All one-time setup is complete:
-- [x] First version (1.0.0) published manually to pub.dev
-- [x] Automated publishing enabled on <https://pub.dev/packages/fdb/admin> (GitHub Actions, tag pattern `v{{version}}`, push events)
-- [x] LICENSE file added (MIT)
-- [x] CHANGELOG.md added
+- Package published on pub.dev: <https://pub.dev/packages/fdb>
+- Automated publishing enabled on <https://pub.dev/packages/fdb/admin> (GitHub Actions, `andrzejchm/fdb`, tag pattern `v{{version}}`, push events)
+- `LICENSE` (MIT) and `CHANGELOG.md` present in repo root
+- `gh` CLI authenticated: `gh auth status`
 
 ## Release Checklist
 
