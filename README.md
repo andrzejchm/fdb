@@ -41,7 +41,7 @@ The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) is a gre
 **Tell your AI agent:**
 
 ```
-Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/docs/README.agents.md
+Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/README.agents.md
 ```
 
 **Or install manually:**

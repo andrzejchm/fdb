@@ -88,4 +88,4 @@ Each test task prints:
 6. Add the new task to the `smoke` task's command sequence.
 7. Update `README.md` commands table.
 8. Update `skills/interacting-with-flutter-apps/SKILL.md` with the new command.
-9. Update `docs/README.agents.md` commands reference table.
+9. Update `doc/README.agents.md` commands reference table.
