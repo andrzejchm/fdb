@@ -26,7 +26,7 @@ Copy and track progress:
 ```
 - [ ] Pre-release verification (analyze, unit tests, smoke tests)
 - [ ] Determine version bump type (major / minor / patch)
-- [ ] Update version in all 5 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, SKILL.md, CHANGELOG.md
+- [ ] Update version in all 9 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, SKILL.md, CHANGELOG.md, README.md, example/example.md, doc/README.agents.md (fdb_helper version in snippets)
 - [ ] Verify no stale OLD_VERSION references remain (grep check)
 - [ ] Commit: `chore: bump version to X.Y.Z`
 - [ ] Tag: `git tag vX.Y.Z`
@@ -57,7 +57,7 @@ git pull origin main          # up to date with remote
 
 fdb and fdb_helper are versioned in **lockstep** — always bump both to the same version.
 
-**Every release MUST include a version bump.** Update the version string in all 5 files:
+**Every release MUST include a version bump.** Update the version string in all 9 files:
 
 | # | File | What to change |
 |---|------|----------------|
@@ -66,6 +66,10 @@ fdb and fdb_helper are versioned in **lockstep** — always bump both to the sam
 | 3 | `packages/fdb_helper/pubspec.yaml` | `version: X.Y.Z` |
 | 4 | `skills/interacting-with-flutter-apps/SKILL.md` | Version in `## Overview` heading and in the version check blockquote |
 | 5 | `CHANGELOG.md` | Add a `## X.Y.Z` section at the top with a summary of changes since the last release |
+| 6 | `README.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
+| 7 | `example/example.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
+| 8 | `doc/README.agents.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
+| 9 | `skills/interacting-with-flutter-apps/SKILL.md` | `fdb_helper: ^X.Y.Z` in the setup snippet (same file as #4, two separate changes) |
 
 ### CHANGELOG.md format
 
@@ -86,11 +90,11 @@ Use conventional commit messages from `git log` to build the changelog. Group by
 
 ### Verify consistency
 
-After editing, confirm all 5 files show the same version and no stale references remain:
+After editing, confirm all files show the same version and no stale references remain:
 ```bash
-grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml skills/interacting-with-flutter-apps/SKILL.md CHANGELOG.md
+grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml skills/interacting-with-flutter-apps/SKILL.md CHANGELOG.md README.md example/example.md doc/README.agents.md
 ```
-Replace `OLD_VERSION` with the **previous** version — the command should match ONLY the `CHANGELOG.md` entry for the old release, not any of the 4 source files.
+Replace `OLD_VERSION` with the **previous** version — the command should match ONLY the `CHANGELOG.md` entry for the old release, nowhere else.
 
 ## Commit, Tag, Push
 
