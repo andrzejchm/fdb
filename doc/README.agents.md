@@ -146,10 +146,7 @@ These commands require `fdb_helper` to be added to your Flutter app. Add it to `
 
 ```yaml
 dev_dependencies:
-  fdb_helper:
-    git:
-      url: https://github.com/andrzejchm/fdb.git
-      path: packages/fdb_helper
+  fdb_helper: ^1.1.0
 ```
 
 Initialize it in `main.dart`:

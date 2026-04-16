@@ -26,10 +26,7 @@ The `tap`, `longpress`, `input`, and `scroll` commands require `fdb_helper` to b
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper:
-    git:
-      url: https://github.com/andrzejchm/fdb.git
-      path: packages/fdb_helper
+  fdb_helper: ^1.1.0
 ```
 
 **`main.dart`:**

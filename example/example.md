@@ -36,10 +36,7 @@ Add `fdb_helper` to your Flutter app for tap, input, scroll commands:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper:
-    git:
-      url: https://github.com/andrzejchm/fdb.git
-      path: packages/fdb_helper
+  fdb_helper: ^1.1.0
 ```
 
 ```dart
