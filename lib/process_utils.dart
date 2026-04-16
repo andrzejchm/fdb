@@ -22,6 +22,14 @@ String? readDevice() {
   return content.isEmpty ? null : content;
 }
 
+/// Read the log collector PID from its PID file.
+int? readLogCollectorPid() {
+  final file = File(logCollectorPidFile);
+  if (!file.existsSync()) return null;
+  final content = file.readAsStringSync().trim();
+  return int.tryParse(content);
+}
+
 bool isProcessAlive(int pid) {
   try {
     final result = Process.runSync('kill', ['-0', pid.toString()]);
@@ -35,9 +43,11 @@ void cleanupTempFiles() {
   for (final path in [
     pidFile,
     logFile,
+    logCollectorPidFile,
+    logCollectorScript,
     vmUriFile,
     launcherScript,
-    deviceFile
+    deviceFile,
   ]) {
     final file = File(path);
     if (file.existsSync()) {

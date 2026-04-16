@@ -60,13 +60,14 @@ tasks:
 
   test:launch:
     desc: "Launch the test app on a device (set DEVICE or auto-detect)"
+    dir: '{{.TEST_APP}}'
     vars:
       DEVICE:
         sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - |
         echo "==> Launching test app on device: {{.DEVICE}}"
-        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" --project "{{.TEST_APP}}" 2>&1)
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
@@ -82,6 +83,7 @@ tasks:
 
   test:status:
     desc: Check app status (expects a running app)
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Checking app status"
@@ -96,6 +98,7 @@ tasks:
 
   test:reload:
     desc: Hot reload the running app
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Hot reloading"
@@ -115,6 +118,7 @@ tasks:
 
   test:restart:
     desc: Hot restart the running app
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Hot restarting"
@@ -134,6 +138,7 @@ tasks:
 
   test:logs:
     desc: Read app logs
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Reading logs (last 10)"
@@ -148,6 +153,7 @@ tasks:
 
   test:logs-tag:
     desc: Read app logs filtered by tag
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Reading logs with --tag fdb_test"
@@ -162,6 +168,7 @@ tasks:
 
   test:tree:
     desc: Inspect widget tree
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Inspecting widget tree"
@@ -181,10 +188,11 @@ tasks:
 
   test:screenshot:
     desc: Take a screenshot
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Taking screenshot"
-        OUTPUT=$({{.FDB}} screenshot --output /tmp/fdb_test_screenshot.png 2>&1)
+        OUTPUT=$({{.FDB}} screenshot 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
@@ -200,6 +208,7 @@ tasks:
 
   test:deeplink:
     desc: Open a deep link URL on the device
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Opening deep link"
@@ -219,6 +228,7 @@ tasks:
 
   test:select:
     desc: Toggle widget selection mode on and off
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Enabling selection mode"
@@ -253,6 +263,7 @@ tasks:
 
   test:describe:
     desc: Describe the current screen (interactive elements + text)
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Describing current screen"
@@ -272,6 +283,7 @@ tasks:
 
   test:tap:
     desc: Tap a widget by text selector
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Tapping increment button by key"
@@ -291,6 +303,7 @@ tasks:
 
   test:longpress:
     desc: Long-press a widget by key selector
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Long-pressing increment button by key"
@@ -310,6 +323,7 @@ tasks:
 
   test:input:
     desc: Enter text into a field
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Entering text into test input"
@@ -329,6 +343,7 @@ tasks:
 
   test:scroll:
     desc: Scroll the screen (direction mode and raw coordinate mode)
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Scrolling down (direction mode)"
@@ -375,6 +390,7 @@ tasks:
 
   test:swipe:
     desc: Swipe the screen
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Swiping left from screen center"
@@ -394,6 +410,7 @@ tasks:
 
   test:back:
     desc: Navigate back in the running app
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Hot restarting to reset UI state"
@@ -420,6 +437,7 @@ tasks:
 
   test:kill:
     desc: Kill the running app
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Killing app"
@@ -439,6 +457,7 @@ tasks:
 
   test:status-stopped:
     desc: Verify status shows not running after kill
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         echo "==> Checking app is stopped"
@@ -456,11 +475,11 @@ tasks:
   # ---------------------------------------------------------------------------
   cleanup:
     desc: Force-kill any running fdb app and clean up temp files
+    dir: '{{.TEST_APP}}'
     cmds:
       - |
         {{.FDB}} kill 2>/dev/null || true
-        rm -f /tmp/fdb.pid /tmp/fdb_logs.txt /tmp/fdb_vm_uri.txt /tmp/fdb_launcher.sh
-        rm -f /tmp/fdb_screenshot.png /tmp/fdb_test_screenshot.png
+        rm -rf .fdb
         echo "Cleanup done"
 
   # ---------------------------------------------------------------------------

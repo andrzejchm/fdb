@@ -10,6 +10,9 @@ Future<int> runKill(List<String> args) async {
     return 1;
   }
 
+  // Kill the log collector first so it stops writing to the log file.
+  _killLogCollector();
+
   if (!isProcessAlive(pid)) {
     stdout.writeln('APP_KILLED');
     cleanupTempFiles();
@@ -46,4 +49,16 @@ Future<int> runKill(List<String> args) async {
 
   stdout.writeln('APP_KILLED');
   return 0;
+}
+
+void _killLogCollector() {
+  final collectorPid = readLogCollectorPid();
+  if (collectorPid == null) return;
+  if (!isProcessAlive(collectorPid)) return;
+
+  try {
+    Process.killPid(collectorPid, ProcessSignal.sigterm);
+  } catch (_) {
+    // Already gone.
+  }
 }
