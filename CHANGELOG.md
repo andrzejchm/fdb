@@ -1,3 +1,9 @@
+## 1.1.1
+
+### Improvements
+- `fdb_helper` install instructions now reference pub.dev (`fdb_helper: ^X.Y.Z`) instead of a git path reference
+- Releasing skill updated to track all 9 version-bearing files
+
 ## 1.1.0
 
 ### Fixes

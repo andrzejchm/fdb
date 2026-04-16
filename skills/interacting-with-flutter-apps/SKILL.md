@@ -5,9 +5,9 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.1.0
+## Overview - skill version 1.1.1
 
-> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.0,
+> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.1,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
 
@@ -26,7 +26,7 @@ The `tap`, `longpress`, `input`, and `scroll` commands require `fdb_helper` to b
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.0
+  fdb_helper: ^1.1.1
 ```
 
 **`main.dart`:**
