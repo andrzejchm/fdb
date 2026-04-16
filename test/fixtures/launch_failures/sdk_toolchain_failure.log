@@ -1,0 +1,15 @@
+Launching lib/main.dart on sdk gphone64 arm64 in debug mode...
+Running Gradle task 'assembleDebug'...
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [deprecation] this API is deprecated and marked for removal
+warning: [deprecation] another old API use
+warning: Some input files use unchecked or unsafe operations.
+warning: Recompile with -Xlint:unchecked for details.
+Checking the license for package Android SDK Build-Tools 34.0.0 in /Users/me/Library/Android/sdk/licenses
+License for package Android SDK Build-Tools 34.0.0 accepted.
+ERROR: Unable to locate Android SDK.
+Try setting the ANDROID_HOME environment variable.
+Android SDK not found. Install Android Studio and required components.
+Run `flutter doctor -v` for more details.
+Gradle task assembleDebug failed with exit code 1
+Error launching application on sdk gphone64 arm64.

@@ -1,0 +1,22 @@
+Launching lib/main.dart on iPhone 11 in debug mode...
+Running Xcode build...
+Xcode build done.                                           21.4s
+warning: Run script build phase 'Thin Binary' will be run during every build because it does not specify any outputs.
+warning: Run script build phase '[CP] Embed Pods Frameworks' will be run during every build because it does not specify any outputs.
+warning: duplicate output file '/Users/me/Library/Developer/Xcode/DerivedData/.../Runner.app/Info.plist' on task: ProcessInfoPlistFile
+warning: no rule to process file '/Users/me/project/ios/Runner/GoogleService-Info.plist'
+warning: script phase has no output files and will run every time
+warning: Run script build phase '[CP] Copy Pods Resources' has no output dependencies
+Failed to build iOS app
+Could not build the precompiled application for the device.
+Error (Xcode): Failed to codesign /Users/me/project/build/ios/Debug-iphoneos/Flutter.framework/Flutter with identity ABCD1234.
+/Users/me/project/build/ios/Debug-iphoneos/Flutter.framework/Flutter: errSecInternalComponent
+Error launching application on iPhone 11.
+CodeSign /Users/me/project/build/ios/Debug-iphoneos/Runner.app
+    cd /Users/me/project/ios
+    Signing Identity:     "Apple Development: Foo Bar (ABCDE12345)"
+    Provisioning Profile: "iOS Team Provisioning Profile: com.example.app"
+    /usr/bin/codesign --force --sign ABCD1234 --entitlements Runner.app.xcent Runner.app
+Command PhaseScriptExecution failed with a nonzero exit code
+xcodebuild: error: Failed to build project Runner with scheme Runner.
+Build failed :(

@@ -1,0 +1,15 @@
+Launching lib/main.dart on Pixel 7 in debug mode...
+Running Gradle task 'assembleDebug'...                             34.2s
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [deprecation] onBackPressed() in Activity has been deprecated
+warning: [deprecation] getColor(int) in Resources has been deprecated
+warning: [deprecation] setStatusBarColor(int) in Window has been deprecated
+warning: This API is no longer maintained
+Built build/app/outputs/flutter-apk/app-debug.apk.
+Installing build/app/outputs/flutter-apk/app-debug.apk...         5.1s
+adb: failed to install /Users/me/project/build/app/outputs/flutter-apk/app-debug.apk: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.example.app signatures do not match previously installed version; ignoring!]
+Error: ADB exited with exit code 1
+Performing Streamed Install
+Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]
+Error launching application on Pixel 7.

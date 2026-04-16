@@ -1,0 +1,13 @@
+Launching lib/main.dart on iPhone 11 in debug mode...
+Running Xcode build...
+Xcode build done.                                           12.3s
+warning: this line is noisy and not useful
+warning: another warning line
+warning: this warning should not be selected as root cause
+Application launched successfully, waiting for observatory...
+Unhandled exception: socket closed while waiting for VM service URI
+Stack trace:
+#0      WebSocketImpl._fromSocket (dart:_http/websocket_impl.dart:1404:7)
+#1      _RootZone.runUnaryGuarded (dart:async/zone.dart:1778:10)
+#2      _BufferingStreamSubscription._sendData (dart:async/stream_impl.dart:381:11)
+Process finished with exit code 255

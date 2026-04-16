@@ -1,0 +1,21 @@
+Launching lib/main.dart on emulator-5554 in debug mode...
+Running Gradle task 'assembleDebug'...
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [deprecation] old API use
+warning: lint baseline is out of date
+lib/main.dart:42:9: Error: The method 'foo' isn't defined for the class 'Bar'.
+Try correcting the name to the name of an existing method, or defining a method named 'foo'.
+  bar.foo();
+        ^^^
+Target kernel_snapshot_program failed: Exception
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildDebug'.
+> Process 'command '/Users/me/flutter/bin/flutter'' finished with non-zero exit value 1
+
+* Try:
+Run with --stacktrace option to get the stack trace.
+Gradle task assembleDebug failed with exit code 1
+Error launching application on Android SDK built for x86.

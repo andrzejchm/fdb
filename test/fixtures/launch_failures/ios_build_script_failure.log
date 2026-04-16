@@ -1,0 +1,19 @@
+Launching lib/main.dart on iPhone 11 in debug mode...
+Running Xcode build...
+Xcode build done.                                           18.6s
+warning: script phase '[CP] Check Pods Manifest.lock' will be run during every build.
+warning: script phase '[CP] Embed Pods Frameworks' will be run during every build.
+warning: script phase '[CP] Copy Pods Resources' will be run during every build.
+warning: no rule to process file '/Users/me/project/ios/Runner/Config/dev.env'
+warning: no rule to process file '/Users/me/project/ios/Runner/Config/prod.env'
+warning: no rule to process file '/Users/me/project/ios/Runner/Config/stage.env'
+warning: sandbox not in sync with Podfile.lock
+Error (Xcode): /bin/sh -c /Users/me/project/ios/Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks.sh
+PhaseScriptExecution [CP] Embed Pods Frameworks /Users/me/Library/Developer/Xcode/DerivedData/Runner-abc/Build/Intermediates.noindex/Runner.build/Debug-iphoneos/Runner.build/Script-123.sh
+    cd /Users/me/project/ios
+    /bin/sh -c /Users/me/Library/Developer/Xcode/DerivedData/Runner-abc/Build/Intermediates.noindex/Runner.build/Debug-iphoneos/Runner.build/Script-123.sh
+Command PhaseScriptExecution failed with a nonzero exit code
+xcodebuild failed with exit code 65
+Failed to build iOS app
+Could not build the precompiled application for the device.
+Error launching application on iPhone 11.
