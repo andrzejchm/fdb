@@ -1,3 +1,15 @@
+## 1.1.0
+
+### Fixes
+- Fix `developer.log()` output not appearing in `fdb logs` — `flutter run` never forwards `developer.log()` to stdout; a background log collector now subscribes to the VM service `Logging` stream and appends events directly to the log file
+
+### Improvements
+- Session state moved from `/tmp/fdb_*.txt` to `<project>/.fdb/` — multiple projects can run simultaneously without interfering with each other
+- `.fdb/` is automatically added to the project's `.gitignore` on first launch
+- FVM support: `launch` auto-detects `.fvm/flutter_sdk/bin/flutter`; override with `--flutter-sdk <path>`
+- `--project` flag on `launch` is now optional — defaults to CWD (agents running from the project directory need not pass it)
+- Log collector self-cleans on SIGTERM, SIGINT, and when flutter run exits
+
 ## 1.0.1
 
 ### Fixes

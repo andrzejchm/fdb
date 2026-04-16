@@ -5,9 +5,9 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.0.1
+## Overview - skill version 1.1.0
 
-> **Version check:** Run `fdb --version`. If your installed version is older than 1.0.1,
+> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.0,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
 
