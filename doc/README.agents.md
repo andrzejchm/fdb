@@ -196,6 +196,14 @@ fdb status    # RUNNING=true/false, PID, VM_SERVICE_URI
 fdb kill      # stop app, clean up temp files
 ```
 
+### Clean app data (requires fdb_helper)
+
+```bash
+fdb clean
+```
+
+Deletes all files in the app's temporary, support, and documents directories. The app keeps running. Output: `CLEANED`, `DIRS=...`, `DELETED_ENTRIES=<n>`.
+
 ## Agent Patterns
 
 ```bash
@@ -224,6 +232,7 @@ fdb selected         # get what was tapped
 fdb select off       # disable overlay
 
 # Widget interaction workflow (requires fdb_helper in the app)
+fdb clean                                 # reset app data before test
 fdb tap --key "submit_button"             # tap a button by key
 fdb input --key "search_field" "flutter"  # type into a text field
 fdb screenshot                            # verify the result visually

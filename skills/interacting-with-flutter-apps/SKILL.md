@@ -219,6 +219,18 @@ fdb back
 
 Calls `Navigator.maybePop()` on the root navigator. Returns `POPPED` on success, or an error if already at the root route.
 
+### Clean app data
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb clean
+```
+
+Deletes all files inside the app's temporary directory (cache) and application support/documents directories. Useful before running a test scenario that requires a clean slate. The app keeps running — no restart needed.
+
+Output: `CLEANED`, `DIRS=<comma-separated paths>`, `DELETED_ENTRIES=<count>`
+
 ### Status / Kill
 
 ```bash

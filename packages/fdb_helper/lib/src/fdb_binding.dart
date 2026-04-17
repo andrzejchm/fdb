@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'element_tree_finder.dart';
 import 'gesture_dispatcher.dart';
@@ -67,6 +69,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.scroll', _handleScroll);
     _registerExtension('ext.fdb.swipe', _handleSwipe);
     _registerExtension('ext.fdb.back', _handleBack);
+    _registerExtension('ext.fdb.clean', _handleClean);
   }
 
   /// Registers a VM service extension, silently ignoring double-registration
@@ -901,6 +904,60 @@ class FdbBinding extends WidgetsFlutterBinding {
       );
     } catch (e) {
       return _errorResponse('Back failed: $e');
+    }
+  }
+
+  Future<developer.ServiceExtensionResponse> _handleClean(
+    String method,
+    Map<String, String> params,
+  ) async {
+    try {
+      final dirs = <Directory>[];
+
+      // Cache dir — getTemporaryDirectory() on iOS/Android
+      try {
+        dirs.add(await getTemporaryDirectory());
+      } catch (_) {}
+
+      // App support dir — persistent but non-user-facing storage
+      try {
+        dirs.add(await getApplicationSupportDirectory());
+      } catch (_) {}
+
+      // App documents dir — user-facing documents
+      try {
+        dirs.add(await getApplicationDocumentsDirectory());
+      } catch (_) {}
+
+      final cleaned = <String>[];
+      var totalFiles = 0;
+
+      for (final dir in dirs) {
+        if (!dir.existsSync()) continue;
+        final entities = dir.listSync(recursive: false);
+        for (final entity in entities) {
+          try {
+            if (entity is File) {
+              entity.deleteSync();
+              totalFiles++;
+            } else if (entity is Directory) {
+              entity.deleteSync(recursive: true);
+              totalFiles++;
+            }
+          } catch (_) {}
+        }
+        cleaned.add(dir.path);
+      }
+
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode({
+          'status': 'Success',
+          'dirs': cleaned,
+          'deletedEntries': totalFiles,
+        }),
+      );
+    } catch (e) {
+      return _errorResponse('clean failed: $e');
     }
   }
 

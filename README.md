@@ -100,6 +100,7 @@ fdb kill
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
+| `fdb clean` | Clear app cache and data directories |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
 | `fdb skill` | Print the AI agent skill file (SKILL.md) |
