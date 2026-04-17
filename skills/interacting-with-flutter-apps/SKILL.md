@@ -5,9 +5,9 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.1.1
+## Overview - skill version 1.1.2
 
-> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.1,
+> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.2,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
 
@@ -26,7 +26,7 @@ The `tap`, `longpress`, `input`, and `scroll` commands require `fdb_helper` to b
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.1
+  fdb_helper: ^1.1.2
 ```
 
 **`main.dart`:**
@@ -230,6 +230,25 @@ fdb clean
 Deletes all files inside the app's temporary directory (cache) and application support/documents directories. Useful before running a test scenario that requires a clean slate. The app keeps running — no restart needed.
 
 Output: `CLEANED`, `DIRS=<comma-separated paths>`, `DELETED_ENTRIES=<count>`
+
+### SharedPreferences
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb shared-prefs get <key>                          # read one key
+fdb shared-prefs get-all                            # dump all keys+values as JSON
+fdb shared-prefs set <key> <value>                  # write string (default)
+fdb shared-prefs set <key> <value> --type bool      # write bool
+fdb shared-prefs set <key> <value> --type int       # write int
+fdb shared-prefs set <key> <value> --type double    # write double
+fdb shared-prefs remove <key>                       # delete one key
+fdb shared-prefs clear                              # delete all keys
+```
+
+Output tokens: `PREF_VALUE=<v>`, `PREF_NOT_FOUND`, `PREF_ALL=<json>`, `PREF_ENTRY=<key>=<value>`, `PREF_SET=<key>`, `PREF_REMOVED=<key>`, `PREF_CLEARED`
+
+Use `get-all` to inspect current state before a test. Use `set` to seed feature flags or skip onboarding. Use `clear` to reset app state to first-run.
 
 ### Status / Kill
 

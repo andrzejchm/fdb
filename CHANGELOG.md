@@ -1,3 +1,14 @@
+## 1.1.2
+
+### New commands
+- `fdb shared-prefs get|get-all|set|remove|clear` — read/write/clear SharedPreferences from the CLI via a VM service extension in fdb_helper
+
+### Fixes
+- `fdb deeplink` now uses the session device ID to detect platform instead of probing all connected devices — fixes misrouting to Android when both Android and iOS are connected but the session is on iOS
+
+### Improvements
+- Smoke test extended with `test:clean` and `test:shared-prefs` tasks covering all sub-commands
+
 ## 1.1.1
 
 ### Improvements

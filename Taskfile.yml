@@ -435,6 +435,126 @@ tasks:
           exit 1
         fi
 
+  test:clean:
+    desc: Clear app cache and data directories
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Cleaning app data"
+        OUTPUT=$({{.FDB}} clean 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb clean exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "CLEANED"; then
+          echo "PASS: fdb clean"
+        else
+          echo "FAIL: fdb clean - CLEANED not found in output" >&2
+          exit 1
+        fi
+
+  test:shared-prefs:
+    desc: Read/write SharedPreferences
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> SharedPrefs: get-all (should be empty)"
+        OUTPUT=$({{.FDB}} shared-prefs get-all 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb shared-prefs get-all exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "PREF_ALL="; then
+          echo "PASS: fdb shared-prefs get-all"
+        else
+          echo "FAIL: fdb shared-prefs get-all - PREF_ALL= not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: set string"
+        OUTPUT=$({{.FDB}} shared-prefs set fdb_smoke_test passed 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_SET=fdb_smoke_test"; then
+          echo "PASS: fdb shared-prefs set"
+        else
+          echo "FAIL: fdb shared-prefs set - PREF_SET= not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: set bool"
+        OUTPUT=$({{.FDB}} shared-prefs set fdb_bool true --type bool 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_SET=fdb_bool"; then
+          echo "PASS: fdb shared-prefs set --type bool"
+        else
+          echo "FAIL: fdb shared-prefs set --type bool - PREF_SET= not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: set int"
+        OUTPUT=$({{.FDB}} shared-prefs set fdb_int 99 --type int 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_SET=fdb_int"; then
+          echo "PASS: fdb shared-prefs set --type int"
+        else
+          echo "FAIL: fdb shared-prefs set --type int - PREF_SET= not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: get existing"
+        OUTPUT=$({{.FDB}} shared-prefs get fdb_smoke_test 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_VALUE=passed"; then
+          echo "PASS: fdb shared-prefs get"
+        else
+          echo "FAIL: fdb shared-prefs get - PREF_VALUE= not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: get missing key"
+        OUTPUT=$({{.FDB}} shared-prefs get fdb_no_such_key 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_NOT_FOUND"; then
+          echo "PASS: fdb shared-prefs get (missing)"
+        else
+          echo "FAIL: fdb shared-prefs get missing - PREF_NOT_FOUND not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: get-all (populated)"
+        OUTPUT=$({{.FDB}} shared-prefs get-all 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "fdb_smoke_test"; then
+          echo "PASS: fdb shared-prefs get-all (populated)"
+        else
+          echo "FAIL: fdb shared-prefs get-all populated - key not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: remove"
+        OUTPUT=$({{.FDB}} shared-prefs remove fdb_smoke_test 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_REMOVED=fdb_smoke_test"; then
+          echo "PASS: fdb shared-prefs remove"
+        else
+          echo "FAIL: fdb shared-prefs remove - PREF_REMOVED= not found" >&2
+          exit 1
+        fi
+
+        echo "==> SharedPrefs: clear"
+        OUTPUT=$({{.FDB}} shared-prefs clear 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "PREF_CLEARED"; then
+          echo "PASS: fdb shared-prefs clear"
+        else
+          echo "FAIL: fdb shared-prefs clear - PREF_CLEARED not found" >&2
+          exit 1
+        fi
+
   test:kill:
     desc: Kill the running app
     dir: '{{.TEST_APP}}'
@@ -515,6 +635,8 @@ tasks:
       - task: test:scroll
       - task: test:swipe
       - task: test:back
+      - task: test:clean
+      - task: test:shared-prefs
       - task: test:kill
       - task: test:status-stopped
 

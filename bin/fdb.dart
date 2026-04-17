@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/commands/back.dart';
 import 'package:fdb/commands/clean.dart';
+import 'package:fdb/commands/shared_prefs.dart';
 import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/describe.dart';
 import 'package:fdb/commands/devices.dart';
@@ -43,6 +44,7 @@ Commands:
   swipe       Swipe a widget or screen (PageView, Dismissible)
   back        Navigate back (Navigator.maybePop)
   clean       Clear app cache and data directories (requires fdb_helper)
+  shared-prefs get|get-all|set|remove|clear SharedPreferences (requires fdb_helper)
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   status      Check if the app is running
@@ -116,6 +118,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runBack(args);
     case 'clean':
       return runClean(args);
+    case 'shared-prefs':
+      return runSharedPrefs(args);
     case 'select':
       return runSelect(args);
     case 'selected':

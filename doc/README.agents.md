@@ -146,7 +146,7 @@ These commands require `fdb_helper` to be added to your Flutter app. Add it to `
 
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.1
+  fdb_helper: ^1.1.2
 ```
 
 Initialize it in `main.dart`:
@@ -196,6 +196,18 @@ fdb status    # RUNNING=true/false, PID, VM_SERVICE_URI
 fdb kill      # stop app, clean up temp files
 ```
 
+### SharedPreferences (requires fdb_helper)
+
+```bash
+fdb shared-prefs get-all                            # inspect current state
+fdb shared-prefs set onboarding_done true --type bool  # seed a flag
+fdb shared-prefs set launch_count 0 --type int     # reset a counter
+fdb shared-prefs remove <key>                       # delete one key
+fdb shared-prefs clear                              # wipe all prefs
+```
+
+Output: `PREF_VALUE=<v>` / `PREF_NOT_FOUND` / `PREF_ALL=<json>` / `PREF_SET=<key>` / `PREF_REMOVED=<key>` / `PREF_CLEARED`
+
 ### Clean app data (requires fdb_helper)
 
 ```bash
@@ -232,6 +244,7 @@ fdb selected         # get what was tapped
 fdb select off       # disable overlay
 
 # Widget interaction workflow (requires fdb_helper in the app)
+fdb shared-prefs clear                    # wipe all SharedPreferences
 fdb clean                                 # reset app data before test
 fdb tap --key "submit_button"             # tap a button by key
 fdb input --key "search_field" "flutter"  # type into a text field

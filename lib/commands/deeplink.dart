@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:fdb/process_utils.dart';
+
 /// Opens a deep link URL on the connected device (Android or iOS simulator).
 Future<int> runDeeplink(List<String> args) async {
   String? url;
@@ -16,15 +18,23 @@ Future<int> runDeeplink(List<String> args) async {
     return 1;
   }
 
-  // Detect platform: Android first, then iOS simulator, else unsupported
-  final isAndroid = await _isAndroidDevice();
-  if (isAndroid) {
-    return _openAndroid(url);
+  // Use the session device ID to determine platform instead of probing
+  // connected devices — avoids misdetecting Android when both platforms
+  // are connected but the session is on iOS (or vice versa).
+  final deviceId = readDevice();
+  if (deviceId == null) {
+    stderr.writeln('ERROR: No active fdb session found. Run fdb launch first.');
+    return 1;
   }
 
-  final isIos = await _isIosSimulatorBooted();
-  if (isIos) {
+  final isSimulator = await _isIosSimulatorId(deviceId);
+  if (isSimulator) {
     return _openIos(url);
+  }
+
+  final isAndroid = await _isAndroidDeviceId(deviceId);
+  if (isAndroid) {
+    return _openAndroid(url);
   }
 
   stderr.writeln(
@@ -80,27 +90,25 @@ Future<int> _openIos(String url) async {
   return 0;
 }
 
-Future<bool> _isAndroidDevice() async {
+/// Returns true if [deviceId] is a booted iOS simulator UUID.
+Future<bool> _isIosSimulatorId(String deviceId) async {
   try {
-    final result = await Process.run('adb', ['devices']);
-    final output = result.stdout as String;
-    // Check if there's at least one device listed (beyond the header line)
-    final lines =
-        output.split('\n').where((l) => l.contains('\tdevice')).toList();
-    return lines.isNotEmpty;
+    final result =
+        await Process.run('xcrun', ['simctl', 'list', 'devices', 'booted']);
+    return (result.stdout as String).contains(deviceId);
   } catch (_) {
     return false;
   }
 }
 
-/// Returns true if at least one iOS simulator is currently booted.
-Future<bool> _isIosSimulatorBooted() async {
+/// Returns true if [deviceId] is an Android device connected via adb.
+Future<bool> _isAndroidDeviceId(String deviceId) async {
   try {
-    final result =
-        await Process.run('xcrun', ['simctl', 'list', 'devices', 'booted']);
+    final result = await Process.run('adb', ['devices']);
     final output = result.stdout as String;
-    // A booted device entry contains a UUID in parentheses, e.g. (A1B2C3D4-...)
-    return RegExp(r'\([\dA-F-]{36}\)').hasMatch(output);
+    return output.split('\n').any(
+          (l) => l.startsWith(deviceId) && l.contains('\tdevice'),
+        );
   } catch (_) {
     return false;
   }

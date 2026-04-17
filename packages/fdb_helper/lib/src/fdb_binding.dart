@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'element_tree_finder.dart';
 import 'gesture_dispatcher.dart';
@@ -70,6 +71,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.swipe', _handleSwipe);
     _registerExtension('ext.fdb.back', _handleBack);
     _registerExtension('ext.fdb.clean', _handleClean);
+    _registerExtension('ext.fdb.sharedPrefs', _handleSharedPrefs);
   }
 
   /// Registers a VM service extension, silently ignoring double-registration
@@ -904,6 +906,100 @@ class FdbBinding extends WidgetsFlutterBinding {
       );
     } catch (e) {
       return _errorResponse('Back failed: $e');
+    }
+  }
+
+  /// Handles `ext.fdb.sharedPrefs`.
+  ///
+  /// Params:
+  ///   action — `get` | `getAll` | `set` | `remove` | `clear`
+  ///   key    — required for get / set / remove
+  ///   value  — required for set (always a string; type param determines cast)
+  ///   type   — for set: `string` (default) | `bool` | `int` | `double`
+  Future<developer.ServiceExtensionResponse> _handleSharedPrefs(
+    String method,
+    Map<String, String> params,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final action = params['action'] ?? '';
+
+      switch (action) {
+        case 'getAll':
+          final keys = prefs.getKeys();
+          final all = <String, dynamic>{};
+          for (final key in keys) {
+            all[key] = prefs.get(key);
+          }
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({'status': 'Success', 'values': all}),
+          );
+
+        case 'get':
+          final key = params['key'];
+          if (key == null || key.isEmpty) {
+            return _errorResponse('missing key param');
+          }
+          final value = prefs.get(key);
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({
+              'status': 'Success',
+              'key': key,
+              'value': value,
+              'exists': value != null,
+            }),
+          );
+
+        case 'set':
+          final key = params['key'];
+          final raw = params['value'];
+          final type = params['type'] ?? 'string';
+          if (key == null || key.isEmpty) {
+            return _errorResponse('missing key param');
+          }
+          if (raw == null) return _errorResponse('missing value param');
+          switch (type) {
+            case 'bool':
+              await prefs.setBool(key, raw == 'true');
+            case 'int':
+              final n = int.tryParse(raw);
+              if (n == null) return _errorResponse('invalid int: $raw');
+              await prefs.setInt(key, n);
+            case 'double':
+              final d = double.tryParse(raw);
+              if (d == null) return _errorResponse('invalid double: $raw');
+              await prefs.setDouble(key, d);
+            default:
+              await prefs.setString(key, raw);
+          }
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({'status': 'Success', 'key': key, 'value': raw}),
+          );
+
+        case 'remove':
+          final key = params['key'];
+          if (key == null || key.isEmpty) {
+            return _errorResponse('missing key param');
+          }
+          await prefs.remove(key);
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({'status': 'Success', 'key': key}),
+          );
+
+        case 'clear':
+          await prefs.clear();
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({'status': 'Success'}),
+          );
+
+        default:
+          return _errorResponse(
+            'unknown action: $action. '
+            'Use get | getAll | set | remove | clear',
+          );
+      }
+    } catch (e) {
+      return _errorResponse('sharedPrefs failed: $e');
     }
   }
 

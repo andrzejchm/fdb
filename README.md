@@ -101,6 +101,7 @@ fdb kill
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb clean` | Clear app cache and data directories |
+| `fdb shared-prefs get\|get-all\|set\|remove\|clear` | Read/write SharedPreferences |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
 | `fdb skill` | Print the AI agent skill file (SKILL.md) |
@@ -121,7 +122,7 @@ These commands require adding `fdb_helper` to your Flutter app:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper: ^1.1.1
+  fdb_helper: ^1.1.2
 ```
 
 ```dart
