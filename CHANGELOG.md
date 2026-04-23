@@ -1,3 +1,8 @@
+## 1.1.3
+
+### Improvements
+- `fdb_helper` is now published to pub.dev — add it as `fdb_helper: ^1.1.3` instead of a git path reference
+
 ## 1.1.2
 
 ### New commands

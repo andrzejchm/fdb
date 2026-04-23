@@ -122,7 +122,7 @@ These commands require adding `fdb_helper` to your Flutter app:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper: ^1.1.2
+  fdb_helper: ^1.1.3
 ```
 
 ```dart

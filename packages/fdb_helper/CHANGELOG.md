@@ -1,3 +1,8 @@
+## 1.1.3
+
+### Improvements
+- First pub.dev release — package now published to pub.dev as `fdb_helper`
+
 ## 1.1.2
 
 ### New
