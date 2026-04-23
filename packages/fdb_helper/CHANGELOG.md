@@ -1,3 +1,8 @@
+## 1.1.5
+
+### Improvements
+- No functional changes — version bump to match fdb 1.1.5
+
 ## 1.1.4
 
 ### Improvements

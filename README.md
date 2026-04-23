@@ -154,7 +154,7 @@ Requires `fdb_helper` in your app:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper: ^1.1.4
+  fdb_helper: ^1.1.5
 ```
 
 ```dart

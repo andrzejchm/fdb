@@ -1,3 +1,8 @@
+## 1.1.5
+
+### Fixes
+- Fix CI publish: fdb 1.1.4 was published but fdb_helper was not due to missing CHANGELOG entry
+
 ## 1.1.4
 
 ### Improvements
