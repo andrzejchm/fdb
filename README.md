@@ -24,22 +24,22 @@
 
 ## Why fdb?
 
-AI agents are great at writing Flutter code. But they can't *see* what the app looks like, *read* runtime logs, or *inspect* the widget tree -- unless you give them the tools.
+AI agents are great at writing Flutter code. But they can't *see* what the app looks like, *read* runtime logs, or *inspect* the widget tree.
 
-fdb bridges that gap:
+fdb fixes that:
 
 - **Launch** a Flutter app on any connected device or simulator
-- **Hot reload / restart** after code changes, without restarting the session
-- **Screenshot** the device screen so the agent can see the UI
-- **Read logs** filtered by tag, so the agent can debug runtime issues
-- **Inspect the widget tree** to understand the live UI hierarchy
-- **Select widgets** by tapping on device, then retrieve the widget info
+- **Hot reload / restart** after code changes
+- **Screenshot** so the agent can see the UI
+- **Read logs** filtered by tag
+- **Inspect the widget tree**
+- **Select widgets** by tapping on device
 
 Zero dependencies. Pure Dart. Works on macOS and Linux.
 
 ### Why not the official Flutter MCP server?
 
-The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) is a great tool for code analysis, pub.dev search, and formatting. fdb solves a different problem -- **running and interacting with apps on real devices** -- and takes a fundamentally different approach:
+The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) handles code analysis, pub.dev search, and formatting. fdb does something different: **runs the app on a real device and lets the agent interact with it**.
 
 | | fdb | Flutter MCP server |
 |---|---|---|
@@ -147,21 +147,9 @@ fdb kill
 | `fdb skill` | Print the AI agent skill file (SKILL.md) |
 | `fdb --version` | Print the fdb version |
 
-## How It Works
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-light.svg">
-  <img alt="How fdb works - sequence diagram" src="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-light.svg">
-</picture>
-
-- All state in `/tmp/fdb_*` files -- no config, no database, no daemon
-- Screenshots auto-detect Android (`adb`) vs iOS (`xcrun`)
-- Widget inspection via VM Service Protocol over WebSocket
-
 ### Widget Interaction (tap, input, scroll)
 
-These commands require adding `fdb_helper` to your Flutter app:
+Requires `fdb_helper` in your app:
 
 ```yaml
 # pubspec.yaml
@@ -184,21 +172,21 @@ void main() {
 
 ## Troubleshooting
 
-**`fdb: command not found`** — Make sure `~/.pub-cache/bin` is in your `PATH`.
+**`fdb: command not found`** - Add `~/.pub-cache/bin` to your `PATH`.
 
-**Launch hangs** — Verify the device ID with `fdb devices` and confirm the project path is valid.
+**Launch hangs** - Check the device ID (`fdb devices`) and the project path.
 
-**Screenshot fails** — Ensure `adb` (Android) or `xcrun` (iOS) is available and the device is connected.
+**Screenshot fails** - `adb` (Android) or `xcrun` (iOS) must be on your PATH.
 
-**Empty widget tree** — The app may still be starting up. Wait a moment and retry, or fall back to `fdb describe`.
+**Empty widget tree** - App may still be starting. Retry, or use `fdb describe` instead.
 
-**`RUNNING=false` right after launch** — The Flutter process likely crashed. Run `fdb logs --last 50` to see why.
+**`RUNNING=false` right after launch** - The process crashed. Check `fdb logs --last 50`.
 
-**Widget interaction commands fail** — Make sure `fdb_helper` is added to `pubspec.yaml` and `FdbBinding.ensureInitialized()` is called in `main.dart`.
+**Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
 
 ## Contributing
 
-Contributions welcome. See [AGENTS.md](AGENTS.md) for coding conventions and the [testing skill](.agents/skills/testing-fdb/SKILL.md) for how to run the test suite.
+See [AGENTS.md](AGENTS.md) for coding conventions and the [testing skill](.agents/skills/testing-fdb/SKILL.md) for running the test suite.
 
 ## License
 
