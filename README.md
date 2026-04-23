@@ -1,10 +1,24 @@
-# fdb - Flutter Debug Bridge
+<p align="center">
+  <img src="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/fdb-banner.png" alt="fdb - Flutter Debug Bridge" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://pub.dev/packages/fdb"><img src="https://img.shields.io/pub/v/fdb?style=flat-square&label=pub.dev&color=blue" alt="pub.dev version"></a>
+  <a href="https://pub.dev/packages/fdb"><img src="https://img.shields.io/pub/likes/fdb?style=flat-square&label=pub.dev+likes&color=EA4C89" alt="pub.dev likes"></a>
+  <a href="https://github.com/andrzejchm/fdb/stargazers"><img src="https://img.shields.io/github/stars/andrzejchm/fdb?style=flat-square&color=yellow" alt="GitHub stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License: MIT"></a>
+</p>
 
 > Give your AI agent eyes and hands on your Flutter app.
 
 **fdb** is a CLI that lets AI coding agents launch, hot reload, screenshot, inspect, and kill Flutter apps running on real devices and simulators -- all from the terminal, no IDE required.
 
-Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenCode](https://opencode.ai), and any AI agent that can run bash commands.
+<p align="center">
+  <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> &nbsp;·&nbsp;
+  <a href="https://opencode.ai">OpenCode</a> &nbsp;·&nbsp;
+  <a href="https://cursor.com">Cursor</a> &nbsp;·&nbsp;
+  any agent that can run bash
+</p>
 
 ## Why fdb?
 
@@ -38,23 +52,27 @@ The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) is a gre
 
 ## Install
 
-**Tell your AI agent:**
+```bash
+dart pub global activate fdb
+```
+
+Requires Dart SDK >= 3.0.0. Make sure `~/.pub-cache/bin` is in your `PATH`.
+
+**Or from git (latest main):**
+
+```bash
+dart pub global activate --source git https://github.com/andrzejchm/fdb.git
+```
+
+**Using an AI agent?** Just tell it:
 
 ```
 Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/README.agents.md
 ```
 
-**Or install manually:**
+## Demo
 
-```bash
-# From pub.dev (recommended)
-dart pub global activate fdb
-
-# Or from git (latest main)
-dart pub global activate --source git https://github.com/andrzejchm/fdb.git
-```
-
-Requires Dart SDK >= 3.0.0. Make sure `~/.pub-cache/bin` is in your `PATH`.
+![fdb in action](https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/demo.gif)
 
 ## Quick Start
 
@@ -80,36 +98,62 @@ fdb kill
 
 ## Commands
 
+**Device & app lifecycle**
+
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
-| `fdb deeplink <url>` | Open deep link on device |
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
+| `fdb status` | Check if app is running |
+| `fdb kill` | Stop app, clean up |
+
+**Visual inspection**
+
+| Command | Description |
+|---------|-------------|
 | `fdb screenshot [--output <path>]` | Device screenshot |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb describe` | Compact screen snapshot: interactive elements + visible text |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
+
+**Interaction** *(requires `fdb_helper`)*
+
+| Command | Description |
+|---------|-------------|
 | `fdb tap --text/--key/--type <selector>` or `fdb tap @N` | Tap a widget or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
-| `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
-| `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll screen in a direction |
+| `fdb input [--text/--key/--type <selector>] <text>` | Enter text into a field |
+| `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
-| `fdb clean` | Clear app cache and data directories |
+| `fdb deeplink <url>` | Open a deep link |
+
+**Data & state** *(requires `fdb_helper`)*
+
+| Command | Description |
+|---------|-------------|
 | `fdb shared-prefs get\|get-all\|set\|remove\|clear` | Read/write SharedPreferences |
-| `fdb status` | Check if app is running |
-| `fdb kill` | Stop app, clean up |
+| `fdb clean` | Clear app cache and data directories |
+
+**Utility**
+
+| Command | Description |
+|---------|-------------|
 | `fdb skill` | Print the AI agent skill file (SKILL.md) |
 | `fdb --version` | Print the fdb version |
 
 ## How It Works
 
-![How fdb works - sequence diagram](https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-light.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-light.svg">
+  <img alt="How fdb works - sequence diagram" src="https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/how-it-works-light.svg">
+</picture>
 
 - All state in `/tmp/fdb_*` files -- no config, no database, no daemon
 - Screenshots auto-detect Android (`adb`) vs iOS (`xcrun`)
@@ -137,6 +181,20 @@ void main() {
   runApp(MyApp());
 }
 ```
+
+## Troubleshooting
+
+**`fdb: command not found`** — Make sure `~/.pub-cache/bin` is in your `PATH`.
+
+**Launch hangs** — Verify the device ID with `fdb devices` and confirm the project path is valid.
+
+**Screenshot fails** — Ensure `adb` (Android) or `xcrun` (iOS) is available and the device is connected.
+
+**Empty widget tree** — The app may still be starting up. Wait a moment and retry, or fall back to `fdb describe`.
+
+**`RUNNING=false` right after launch** — The Flutter process likely crashed. Run `fdb logs --last 50` to see why.
+
+**Widget interaction commands fail** — Make sure `fdb_helper` is added to `pubspec.yaml` and `FdbBinding.ensureInitialized()` is called in `main.dart`.
 
 ## Contributing
 

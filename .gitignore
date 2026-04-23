@@ -16,3 +16,6 @@ example/test_app/windows/
 example/test_app/web/
 example/test_app/.metadata
 .worktrees/
+
+# fdb session state
+.fdb/
