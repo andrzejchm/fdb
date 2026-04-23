@@ -49,14 +49,27 @@ jobs:
         with:
           sdk: stable
 
-      - name: Install dependencies
-        run: dart pub get
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
 
-      - name: Dry run
+      - name: Install dependencies
+        run: |
+          dart pub get
+          cd packages/fdb_helper && flutter pub get && cd ../..
+
+      - name: Dry run fdb
         run: dart pub publish --dry-run
 
-      - name: Publish to pub.dev
+      - name: Publish fdb to pub.dev
         run: dart pub publish --force
+
+      - name: Dry run fdb_helper
+        run: cd packages/fdb_helper && flutter pub publish --dry-run && cd ../..
+
+      - name: Publish fdb_helper to pub.dev
+        run: cd packages/fdb_helper && flutter pub publish --force && cd ../..
+
 
       - name: Generate release notes
         id: changelog

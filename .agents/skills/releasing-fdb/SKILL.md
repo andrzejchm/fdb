@@ -14,9 +14,12 @@ Follow [Semantic Versioning](https://semver.org):
 
 ## Prerequisites
 
-- Package published on pub.dev: <https://pub.dev/packages/fdb>
-- Automated publishing enabled on <https://pub.dev/packages/fdb/admin> (GitHub Actions, `andrzejchm/fdb`, tag pattern `v{{version}}`, push events)
-- `LICENSE` (MIT) and `CHANGELOG.md` present in repo root
+- `fdb` published on pub.dev: <https://pub.dev/packages/fdb>
+- `fdb_helper` published on pub.dev: <https://pub.dev/packages/fdb_helper>
+- Automated publishing enabled for **both** packages on their respective pub.dev admin pages (GitHub Actions, `andrzejchm/fdb`, tag pattern `v{{version}}`, push events):
+  - <https://pub.dev/packages/fdb/admin>
+  - <https://pub.dev/packages/fdb_helper/admin>
+- `LICENSE`, `CHANGELOG.md`, and `README.md` present in both repo root and `packages/fdb_helper/`
 - `gh` CLI authenticated: `gh auth status`
 
 ## Release Checklist
@@ -116,14 +119,15 @@ The tag push triggers `.github/workflows/publish.yml` which:
 
 After CI completes:
 
-1. **pub.dev**: Check <https://pub.dev/packages/fdb> shows the new version
-2. **Install from pub.dev**:
+1. **fdb on pub.dev**: Check <https://pub.dev/packages/fdb> shows the new version
+2. **fdb_helper on pub.dev**: Check <https://pub.dev/packages/fdb_helper> shows the new version
+3. **Install from pub.dev**:
    ```bash
    dart pub global activate fdb
    fdb --version                 # should print: fdb X.Y.Z
    ```
-3. **GitHub release**: Check <https://github.com/andrzejchm/fdb/releases> for the new release with auto-generated notes
-4. **Git install still works** (for users pinning to a tag):
+4. **GitHub release**: Check <https://github.com/andrzejchm/fdb/releases> for the new release with auto-generated notes
+5. **Git install still works** (for users pinning to a tag):
    ```bash
    dart pub global activate --source git https://github.com/andrzejchm/fdb.git --git-ref vX.Y.Z
    ```
@@ -132,9 +136,11 @@ After CI completes:
 
 ### pub.dev publish fails in CI
 
-- Verify automated publishing is enabled on <https://pub.dev/packages/fdb/admin>
-- Verify tag pattern matches `v{{version}}`
-- Verify `pubspec.yaml` version matches the tag (tag `v0.2.0` requires `version: 0.2.0`)
+- Verify automated publishing is enabled on **both** admin pages:
+  - <https://pub.dev/packages/fdb/admin>
+  - <https://pub.dev/packages/fdb_helper/admin>
+- Verify tag pattern matches `v{{version}}` on both
+- Verify `pubspec.yaml` version in both packages matches the tag
 - Check the `id-token: write` permission is set on the publish job
 
 ### GitHub release not created
