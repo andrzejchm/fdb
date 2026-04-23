@@ -1,3 +1,8 @@
+## 1.1.4
+
+### Improvements
+- Renamed skill from `interacting-with-flutter-apps` to `using-fdb` for better discoverability on skills.sh
+
 ## 1.1.3
 
 ### Improvements

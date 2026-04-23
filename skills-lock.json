@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "using-fdb": {
+      "source": "andrzejchm/fdb",
+      "sourceType": "github",
+      "computedHash": "e77b3b0b0683bfb366ff3b748c7182640472142dfd6fced26612ff6e4db2672d"
+    }
+  }
+}

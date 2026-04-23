@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="200" viewBox="0 0 900 200">
+  <defs>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#54C5F8" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background card -->
+  <rect x="0" y="0" width="900" height="200" rx="12" fill="#0D1117" stroke="#30363D" stroke-width="1"/>
+
+  <!-- Left accent bar -->
+  <rect x="0" y="0" width="4" height="200" rx="2" fill="#54C5F8" opacity="0.6"/>
+
+  <!-- Right accent bar -->
+  <rect x="896" y="0" width="4" height="200" rx="2" fill="#54C5F8" opacity="0.6"/>
+
+  <!-- macOS window control dots -->
+  <circle cx="20" cy="28" r="6" fill="#FF5F57"/>
+  <circle cx="40" cy="28" r="6" fill="#FEBC2E"/>
+  <circle cx="60" cy="28" r="6" fill="#28C840"/>
+
+  <!-- fdb wordmark with glow -->
+  <text
+    x="450"
+    y="115"
+    text-anchor="middle"
+    font-family="'Courier New', Courier, monospace"
+    font-size="72"
+    font-weight="700"
+    fill="#54C5F8"
+    filter="url(#glow)"
+  >fdb</text>
+
+  <!-- Subtitle -->
+  <text
+    x="450"
+    y="145"
+    text-anchor="middle"
+    font-family="'Courier New', Courier, monospace"
+    font-size="16"
+    font-weight="400"
+    fill="#8B949E"
+  >Flutter Debug Bridge</text>
+
+  <!-- Tagline -->
+  <text
+    x="450"
+    y="168"
+    text-anchor="middle"
+    font-family="'Courier New', Courier, monospace"
+    font-size="13"
+    font-weight="400"
+    fill="#6E7681"
+  >Give your AI agent eyes and hands on your Flutter app.</text>
+</svg>

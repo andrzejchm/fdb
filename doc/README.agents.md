@@ -20,16 +20,16 @@ If your agent supports skill files (OpenCode, Claude Code, or similar), install 
 
 **OpenCode:**
 ```bash
-mkdir -p ~/.config/opencode/skills/interacting-with-flutter-apps
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
-  -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
+mkdir -p ~/.config/opencode/skills/using-fdb
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.config/opencode/skills/using-fdb/SKILL.md
 ```
 
 **Claude Code:**
 ```bash
-mkdir -p ~/.claude/skills/interacting-with-flutter-apps
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
-  -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
+mkdir -p ~/.claude/skills/using-fdb
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.claude/skills/using-fdb/SKILL.md
 ```
 
 Alternatively, run `fdb skill` to print the skill file contents directly.
@@ -51,12 +51,12 @@ Restart your agent after installing the skill file.
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 # Update the skill file (OpenCode)
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
-  -o ~/.config/opencode/skills/interacting-with-flutter-apps/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.config/opencode/skills/using-fdb/SKILL.md
 
 # Update the skill file (Claude Code)
-curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/interacting-with-flutter-apps/SKILL.md \
-  -o ~/.claude/skills/interacting-with-flutter-apps/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.claude/skills/using-fdb/SKILL.md
 ```
 
 ## Prerequisites
@@ -146,7 +146,7 @@ These commands require `fdb_helper` to be added to your Flutter app. Add it to `
 
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.3
+  fdb_helper: ^1.1.4
 ```
 
 Initialize it in `main.dart`:

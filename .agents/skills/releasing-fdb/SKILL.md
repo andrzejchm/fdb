@@ -67,12 +67,12 @@ fdb and fdb_helper are versioned in **lockstep** — always bump both to the sam
 | 1 | `lib/constants.dart` | `const version = 'X.Y.Z';` |
 | 2 | `pubspec.yaml` | `version: X.Y.Z` |
 | 3 | `packages/fdb_helper/pubspec.yaml` | `version: X.Y.Z` |
-| 4 | `skills/interacting-with-flutter-apps/SKILL.md` | Version in `## Overview` heading and in the version check blockquote |
+| 4 | `skills/using-fdb/SKILL.md` | Version in `## Overview` heading and in the version check blockquote |
 | 5 | `CHANGELOG.md` | Add a `## X.Y.Z` section at the top with a summary of changes since the last release |
 | 6 | `README.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
 | 7 | `example/example.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
 | 8 | `doc/README.agents.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
-| 9 | `skills/interacting-with-flutter-apps/SKILL.md` | `fdb_helper: ^X.Y.Z` in the setup snippet (same file as #4, two separate changes) |
+| 9 | `skills/using-fdb/SKILL.md` | `fdb_helper: ^X.Y.Z` in the setup snippet (same file as #4, two separate changes) |
 
 ### CHANGELOG.md format
 
@@ -95,7 +95,7 @@ Use conventional commit messages from `git log` to build the changelog. Group by
 
 After editing, confirm all files show the same version and no stale references remain:
 ```bash
-grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml skills/interacting-with-flutter-apps/SKILL.md CHANGELOG.md README.md example/example.md doc/README.agents.md
+grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml skills/using-fdb/SKILL.md CHANGELOG.md README.md example/example.md doc/README.agents.md
 ```
 Replace `OLD_VERSION` with the **previous** version — the command should match ONLY the `CHANGELOG.md` entry for the old release, nowhere else.
 

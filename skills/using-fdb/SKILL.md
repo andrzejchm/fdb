@@ -1,13 +1,13 @@
 ---
-name: interacting-with-flutter-apps
-description: Interacts with running Flutter apps on physical devices and simulators via fdb (Flutter Debug Bridge) CLI. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, toggles widget selection, taps widgets, long-presses widgets, enters text, scrolls, and navigates back. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, tapping widgets, long-pressing widgets, entering text into fields, scrolling the screen, navigating back to a previous screen, or killing a running Flutter app.
+name: using-fdb
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on physical devices and simulators. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, taps/long-presses widgets, enters text, scrolls, and navigates back. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, or interacting with widgets via fdb.
 license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.1.3
+## Overview - skill version 1.1.4
 
-> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.3,
+> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.4,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
 
@@ -26,7 +26,7 @@ The `tap`, `longpress`, `input`, and `scroll` commands require `fdb_helper` to b
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.3
+  fdb_helper: ^1.1.4
 ```
 
 **`main.dart`:**

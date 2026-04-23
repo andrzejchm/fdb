@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'dart:isolate';
 
-/// Prints the interacting-with-flutter-apps SKILL.md to stdout.
+/// Prints the using-fdb SKILL.md to stdout.
 ///
 /// Resolves the file relative to the package root. Handles both
 /// `dart run bin/fdb.dart` and `dart pub global activate` installs
 /// by resolving through the package URI.
 Future<int> runSkill(List<String> args) async {
-  const relativePath = 'skills/interacting-with-flutter-apps/SKILL.md';
+  const relativePath = 'skills/using-fdb/SKILL.md';
 
   // Resolve from the package URI — works for both local and global installs.
   // package:fdb/commands/skill.dart lives in lib/commands/, so ../../ is the
