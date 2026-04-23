@@ -20,6 +20,8 @@
   any agent that can run bash
 </p>
 
+![fdb in action](https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/demo.gif)
+
 ## Why fdb?
 
 AI agents are great at writing Flutter code. But they can't *see* what the app looks like, *read* runtime logs, or *inspect* the widget tree -- unless you give them the tools.
@@ -52,6 +54,14 @@ The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) is a gre
 
 ## Install
 
+**Using an AI agent?** Just tell it:
+
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/README.agents.md
+```
+
+**Or install manually:**
+
 ```bash
 dart pub global activate fdb
 ```
@@ -63,16 +73,6 @@ Requires Dart SDK >= 3.0.0. Make sure `~/.pub-cache/bin` is in your `PATH`.
 ```bash
 dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 ```
-
-**Using an AI agent?** Just tell it:
-
-```
-Fetch and follow instructions from https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/README.agents.md
-```
-
-## Demo
-
-![fdb in action](https://raw.githubusercontent.com/andrzejchm/fdb/main/doc/demo.gif)
 
 ## Quick Start
 
