@@ -79,10 +79,10 @@ fdb restart   # SIGUSR2 - resets state
 ### Screenshot
 
 ```bash
-fdb screenshot [--output <path>]
+fdb screenshot [--output <path>] [--full]
 ```
 
-Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `<project>/.fdb/screenshot.png`. Read the file with the Read tool to view it.
+Dispatches to the right capture tool per platform: `adb` (Android), `xcrun simctl` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11), Chrome DevTools Protocol (web), or `fdb_helper` VM extension (physical iOS, Windows, Wayland). Default output: `<project>/.fdb/screenshot.png`. Output is downscaled so the longest side fits within 1200px — pass `--full` to skip. Read the file with the Read tool to view it.
 
 ### Logs
 
@@ -368,4 +368,6 @@ All state lives in `<project>/.fdb/`:
 - `<project>/.fdb/fdb.pid` - flutter run process ID
 - `<project>/.fdb/logs.txt` - full app output
 - `<project>/.fdb/vm_uri.txt` - VM service websocket URI
+- `<project>/.fdb/device.txt` - device ID used at launch
+- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot)
 - `<project>/.fdb/screenshot.png` - last screenshot
