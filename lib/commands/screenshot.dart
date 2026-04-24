@@ -630,16 +630,43 @@ String? _parseBootedDeviceTypeId(String json) {
 
 /// Parses the `bundlePath` for [deviceTypeId] from
 /// `xcrun simctl list devicetypes --json` output.
+///
+/// Searches for the JSON object whose `identifier` field exactly matches
+/// [deviceTypeId], then extracts `bundlePath` from that same object.
+/// This avoids false matches when one identifier is a prefix of another
+/// (e.g. "iPhone-17-Pro" vs "iPhone-17-Pro-Max").
 String? _parseDeviceTypeBundlePath(String json, String deviceTypeId) {
   final escaped = RegExp.escape(deviceTypeId);
+  // Match the identifier value with a closing quote so "iPhone-17-Pro" does
+  // not accidentally match "iPhone-17-Pro-Max".
   final identifierMatch =
       RegExp('"identifier"\\s*:\\s*"$escaped"').firstMatch(json);
   if (identifierMatch == null) return null;
 
-  final afterIdentifier = json.substring(identifierMatch.end);
+  // Walk backward to find the opening brace of this JSON object so we stay
+  // within the same object when searching for bundlePath.
+  final objectStart = json.lastIndexOf('{', identifierMatch.start);
+  if (objectStart == -1) return null;
+
+  // Find the closing brace of this object.
+  var depth = 0;
+  var objectEnd = objectStart;
+  for (var i = objectStart; i < json.length; i++) {
+    if (json[i] == '{') depth++;
+    if (json[i] == '}') {
+      depth--;
+      if (depth == 0) {
+        objectEnd = i;
+        break;
+      }
+    }
+  }
+
+  final objectJson = json.substring(objectStart, objectEnd + 1);
   final bundleMatch =
-      RegExp(r'"bundlePath"\s*:\s*"([^"]+)"').firstMatch(afterIdentifier);
-  return bundleMatch?.group(1);
+      RegExp(r'"bundlePath"\s*:\s*"([^"]+)"').firstMatch(objectJson);
+  // simctl JSON uses escaped forward slashes (\/); unescape them.
+  return bundleMatch?.group(1)?.replaceAll(r'\/', '/');
 }
 
 /// Parses the effective display density from `adb shell wm density` output.
