@@ -113,7 +113,7 @@ fdb kill
 
 | Command | Description |
 |---------|-------------|
-| `fdb screenshot [--output <path>]` | Device screenshot |
+| `fdb screenshot [--output <path>] [--full]` | Screenshot (all platforms; `--full` skips downscaling) |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)* |
@@ -176,7 +176,7 @@ void main() {
 
 **Launch hangs** - Check the device ID (`fdb devices`) and the project path.
 
-**Screenshot fails** - `adb` (Android) or `xcrun` (iOS) must be on your PATH.
+**Screenshot fails** - check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool` + `import` (Linux X11). Physical iOS, Windows, and Linux Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.
 
 **Empty widget tree** - App may still be starting. Retry, or use `fdb describe` instead.
 

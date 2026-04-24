@@ -31,7 +31,7 @@ lib/
     logs.dart                 # Filtered log viewing + follow mode
     reload.dart               # Hot reload via SIGUSR1
     restart.dart              # Hot restart via SIGUSR2
-    screenshot.dart           # Device screenshot (adb / xcrun)
+    screenshot.dart           # Screenshot (all platforms: adb, xcrun, screencapture, CDP, fdb_helper)
     scroll.dart               # Scroll / swipe gesture
     select.dart               # Toggle widget selection mode
     selected.dart             # Get selected widget info

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fdb/process_utils.dart';
+
 /// Lists connected devices by running `flutter devices --machine` and
 /// emitting one KEY=VALUE line per device.
 Future<int> runDevices(List<String> args) async {
@@ -14,7 +16,7 @@ Future<int> runDevices(List<String> args) async {
     return 1;
   }
 
-  final json = _extractJson(result.stdout as String);
+  final json = extractDevicesJson(result.stdout as String);
   if (json == null) {
     stderr.writeln('ERROR: No devices found');
     return 1;
@@ -35,27 +37,19 @@ Future<int> runDevices(List<String> args) async {
 
   for (final device in devices) {
     final d = device as Map<String, dynamic>;
-    final id = d['id'] as String;
-    final name = d['name'] as String;
-    final platform = d['targetPlatform'] as String;
-    final emulator = d['emulator'] as bool;
+    final id = d['id'] as String?;
+    final name = d['name'] as String?;
+    final platform = d['targetPlatform'] as String?;
+    if (id == null || name == null || platform == null) {
+      stderr.writeln(
+        'WARNING: Skipping device with missing required fields: $d',
+      );
+      continue;
+    }
+    final emulator = d['emulator'] as bool? ?? false;
     stdout.writeln(
       'DEVICE_ID=$id NAME=$name PLATFORM=$platform EMULATOR=$emulator',
     );
   }
   return 0;
-}
-
-/// Extracts the JSON array from `flutter devices --machine` output.
-///
-/// Flutter may prepend non-JSON text (download progress, upgrade banners)
-/// before the actual JSON array. We scan for the first `[` to find the
-/// array start.
-String? _extractJson(String output) {
-  final start = output.indexOf('[');
-  if (start == -1) return null;
-  // Find the matching closing bracket from the end
-  final end = output.lastIndexOf(']');
-  if (end == -1 || end < start) return null;
-  return output.substring(start, end + 1);
 }

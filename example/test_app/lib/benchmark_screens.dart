@@ -21,9 +21,18 @@ class BenchmarkMenuPage extends StatelessWidget {
     const scenarios = [
       ('Baseline (~8 interactable)', benchmarkBaselineRoute),
       ('Medium (~50 interactable)', benchmarkMediumRoute),
-      ('Stress List (200 ListTiles, mostly off-screen)', benchmarkStressListRoute),
-      ('Stress Grid (100 cards × 2 buttons, all visible)', benchmarkStressGridRoute),
-      ('Pathological (300+ interactable, all visible)', benchmarkPathologicalRoute),
+      (
+        'Stress List (200 ListTiles, mostly off-screen)',
+        benchmarkStressListRoute,
+      ),
+      (
+        'Stress Grid (100 cards × 2 buttons, all visible)',
+        benchmarkStressGridRoute,
+      ),
+      (
+        'Pathological (300+ interactable, all visible)',
+        benchmarkPathologicalRoute,
+      ),
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('Benchmarks')),
@@ -211,8 +220,16 @@ class _BenchmarkMediumPageState extends State<BenchmarkMediumPage> {
       appBar: AppBar(
         title: const Text('Medium Screen'),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}, tooltip: 'Search'),
-          IconButton(icon: const Icon(Icons.filter_list), onPressed: () {}, tooltip: 'Filter'),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {},
+            tooltip: 'Search',
+          ),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () {},
+            tooltip: 'Filter',
+          ),
         ],
       ),
       body: ListView(
@@ -231,7 +248,10 @@ class _BenchmarkMediumPageState extends State<BenchmarkMediumPage> {
           for (var g = 0; g < 6; g++) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text('Group ${g + 1}', style: const TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(
+                'Group ${g + 1}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
             RadioGroup<int>(
               groupValue: _radios[g],
@@ -279,7 +299,8 @@ class BenchmarkStressListPage extends StatefulWidget {
   const BenchmarkStressListPage({super.key});
 
   @override
-  State<BenchmarkStressListPage> createState() => _BenchmarkStressListPageState();
+  State<BenchmarkStressListPage> createState() =>
+      _BenchmarkStressListPageState();
 }
 
 class _BenchmarkStressListPageState extends State<BenchmarkStressListPage> {
@@ -350,7 +371,10 @@ class BenchmarkStressGridPage extends StatelessWidget {
                 children: [
                   Text(
                     'Card ${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -394,7 +418,8 @@ class BenchmarkPathologicalPage extends StatefulWidget {
   const BenchmarkPathologicalPage({super.key});
 
   @override
-  State<BenchmarkPathologicalPage> createState() => _BenchmarkPathologicalPageState();
+  State<BenchmarkPathologicalPage> createState() =>
+      _BenchmarkPathologicalPageState();
 }
 
 class _BenchmarkPathologicalPageState extends State<BenchmarkPathologicalPage> {
@@ -440,7 +465,10 @@ class _BenchmarkPathologicalPageState extends State<BenchmarkPathologicalPage> {
             const SizedBox(height: 16),
             const Padding(
               padding: EdgeInsets.all(8),
-              child: Text('GestureDetector rows', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'GestureDetector rows',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             // 50 GestureDetectors with text labels
             for (var i = 0; i < 50; i++)
@@ -449,7 +477,10 @@ class _BenchmarkPathologicalPageState extends State<BenchmarkPathologicalPage> {
                 onTap: () {},
                 onLongPress: () {},
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 2,
+                    horizontal: 8,
+                  ),
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,

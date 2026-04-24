@@ -33,6 +33,7 @@ String get logCollectorScript => '$_sessionDir/log_collector.dart';
 String get vmUriFile => '$_sessionDir/vm_uri.txt';
 String get launcherScript => '$_sessionDir/launcher.sh';
 String get deviceFile => '$_sessionDir/device.txt';
+String get platformFile => '$_sessionDir/platform.txt';
 String get defaultScreenshotPath => '$_sessionDir/screenshot.png';
 
 const launchTimeoutSeconds = 300; // 5 minutes
