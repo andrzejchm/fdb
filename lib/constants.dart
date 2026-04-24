@@ -1,7 +1,7 @@
 import 'dart:io';
 
 /// fdb version — update this AND pubspec.yaml on every release.
-const version = '1.1.6';
+const version = '1.1.7';
 
 /// Name of the session directory created inside the Flutter project.
 const sessionDirName = '.fdb';

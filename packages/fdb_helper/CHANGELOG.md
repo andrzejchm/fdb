@@ -1,3 +1,8 @@
+## 1.1.7
+
+### New
+- `ext.fdb.screenshot` — renders the Flutter surface to PNG at physical pixel resolution and returns it as base64; used by `fdb screenshot` as a fallback on platforms with no native capture CLI (physical iOS, Windows, Linux Wayland)
+
 ## 1.1.6
 
 ### Improvements

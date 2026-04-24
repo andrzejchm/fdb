@@ -1,3 +1,17 @@
+## 1.1.7
+
+### New
+- `fdb screenshot` now supports all platforms: macOS (`screencapture`), Linux X11 (`xdotool`+`import`), physical iOS / Windows / Linux Wayland (via `fdb_helper` VM extension), and web (Chrome DevTools Protocol)
+- `fdb_helper`: new `ext.fdb.screenshot` VM extension — renders the Flutter surface to PNG and returns base64; used as fallback on platforms with no native capture CLI
+- Screenshots are automatically downscaled so the longest side fits within 1200px (preserving aspect ratio), using the pure-Dart `image` package; pass `--full` to get native resolution
+
+### Fixes
+- Screenshot: `fdb launch` now writes `.fdb/platform.txt` so screenshot dispatches to the correct backend without probing live tools at capture time
+- Screenshot: Android and iOS simulator now targeted by explicit device ID (no more `booted` heuristic that breaks with multiple simulators)
+- `devices.dart`: safe cast for `emulator` field (`as bool? ?? false`) to avoid crash on unexpected flutter devices output
+- `extractDevicesJson` deduplicated into `process_utils.dart` (was copied in both `launch.dart` and `devices.dart`)
+- Fix CI release: `fdb_helper/CHANGELOG.md` missing 1.1.6 entry caused GitHub release to not be created despite pub.dev publish succeeding
+
 ## 1.1.6
 
 ### Fixes
