@@ -8,3 +8,5 @@ executables:
   fdb: fdb
 dev_dependencies:
   test: ^1.31.0
+dependencies:
+  image: ^4.8.0

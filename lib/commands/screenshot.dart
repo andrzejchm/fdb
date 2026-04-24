@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:image/image.dart' as img;
+
 import 'package:fdb/constants.dart';
 import 'package:fdb/process_utils.dart';
 import 'package:fdb/vm_service.dart';
@@ -482,51 +484,45 @@ Future<int> _captureViaFdbHelper(String output) async {
 const _maxScreenshotDimension = 1200;
 
 /// Downscales [path] in-place so its longest side does not exceed
-/// [_maxScreenshotDimension] pixels, preserving aspect ratio.
+/// [_maxScreenshotDimension] pixels, preserving aspect ratio, then
+/// re-encodes the PNG with level-6 compression.
 ///
-/// Uses `sips` (macOS built-in) for both measurement and resampling.
-/// No-ops if the image already fits within the limit.
+/// Uses the pure-Dart `image` package — no external tools, cross-platform.
+/// No-ops if the image already fits within the limit (still re-encodes for
+/// better compression than the raw capture output).
 /// Returns 0 on success, 1 on failure.
 Future<int> _resizeToMaxDimension(String path) async {
-  final queryResult =
-      await Process.run('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', path]);
-  if (queryResult.exitCode != 0) {
-    stderr.writeln(
-        'ERROR: Could not read image dimensions: ${queryResult.stderr}');
+  try {
+    final file = File(path);
+    final bytes = await file.readAsBytes();
+
+    final src = img.decodePng(bytes);
+    if (src == null) {
+      stderr.writeln('ERROR: Could not decode PNG for resizing');
+      return 1;
+    }
+
+    final img.Image resized;
+    final longest = src.width > src.height ? src.width : src.height;
+    if (longest > _maxScreenshotDimension) {
+      final scale = _maxScreenshotDimension / longest;
+      resized = img.copyResize(
+        src,
+        width: (src.width * scale).round(),
+        height: (src.height * scale).round(),
+        interpolation: img.Interpolation.linear,
+      );
+    } else {
+      resized = src;
+    }
+
+    final encoded = img.encodePng(resized, level: 6);
+    await file.writeAsBytes(encoded);
+    return 0;
+  } catch (e) {
+    stderr.writeln('ERROR: Could not resize image: $e');
     return 1;
   }
-
-  final width = _parseSipsDimension(queryResult.stdout as String, 'pixelWidth');
-  final height =
-      _parseSipsDimension(queryResult.stdout as String, 'pixelHeight');
-  if (width == null || height == null) {
-    stderr.writeln('ERROR: Could not parse image dimensions from sips output');
-    return 1;
-  }
-
-  final maxSide = width > height ? width : height;
-  if (maxSide <= _maxScreenshotDimension) return 0; // already small enough
-
-  // sips --resampleHeightWidthMax scales the longest side to the given value.
-  final resizeResult = await Process.run('sips', [
-    '--resampleHeightWidthMax',
-    '$_maxScreenshotDimension',
-    path,
-    '--out',
-    path,
-  ]);
-  if (resizeResult.exitCode != 0) {
-    stderr.writeln('ERROR: Could not resize image: ${resizeResult.stderr}');
-    return 1;
-  }
-
-  return 0;
-}
-
-int? _parseSipsDimension(String sipsOutput, String key) {
-  final match = RegExp('$key:\\s*(\\d+)').firstMatch(sipsOutput);
-  if (match == null) return null;
-  return int.tryParse(match.group(1)!);
 }
 
 // ---------------------------------------------------------------------------
