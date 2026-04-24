@@ -64,7 +64,9 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 - Dart SDK >= 3.0.0
 - Flutter SDK (for `flutter devices`, `flutter run`)
 - A running iOS Simulator or Android emulator (or physical device)
-- `adb` for Android screenshots, `xcrun` for iOS simulator screenshots
+- `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS) on PATH for screenshots
+- `xdotool` + ImageMagick `import` for Linux X11 screenshots (optional)
+- Physical iOS / Windows / Linux Wayland screenshots use `fdb_helper` (no extra tool needed)
 
 ## Commands Reference
 
@@ -75,7 +77,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload (SIGUSR1) |
 | `fdb restart` | Hot restart (SIGUSR2) |
-| `fdb screenshot [--output <path>]` | Device screenshot |
+| `fdb screenshot [--output <path>] [--full]` | Screenshot (all platforms; `--full` skips downscaling) |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb describe` | Compact screen snapshot: interactive elements + visible text |
@@ -112,10 +114,10 @@ fdb restart   # SIGUSR2 - resets state
 ### Screenshot
 
 ```bash
-fdb screenshot [--output <path>]
+fdb screenshot [--output <path>] [--full]
 ```
 
-Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `<project>/.fdb/screenshot.png`.
+Dispatches to the right tool per platform: `adb` (Android), `xcrun simctl` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11), Chrome DevTools Protocol (web), or `fdb_helper` VM extension (physical iOS, Windows, Wayland). Output is downscaled so the longest side fits within 1200px — pass `--full` to get native resolution. Default output: `<project>/.fdb/screenshot.png`.
 
 ### Logs
 
@@ -261,6 +263,6 @@ fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 
 **Empty widget tree** -- Fall back to raw websocat commands (see the skill file for details).
 
-**Screenshot fails** -- Ensure `adb` (Android) or `xcrun` (iOS) is available and the device is connected.
+**Screenshot fails** -- Check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11). Physical iOS, Windows, and Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.
 
 **Status shows RUNNING=false after launch** -- The Flutter process may have crashed. Check `fdb logs --last 50` for errors.

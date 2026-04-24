@@ -69,7 +69,7 @@ task test:unit    # dart test (when tests exist)
 ### Cleanup
 
 ```bash
-task cleanup    # kill app, remove /tmp/fdb_* files
+task cleanup    # kill app, remove .fdb/ session directory
 ```
 
 ## Test output conventions
