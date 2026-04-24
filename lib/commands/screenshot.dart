@@ -51,8 +51,7 @@ Future<int> runScreenshot(List<String> args) async {
   }
 
   if (!fullResolution) {
-    final resizeResult =
-        await _resizeToLogicalResolution(output, platformInfo, deviceId);
+    final resizeResult = await _resizeToMaxDimension(output);
     if (resizeResult != 0) return resizeResult;
   }
 
@@ -477,56 +476,41 @@ Future<int> _captureViaFdbHelper(String output) async {
 }
 
 // ---------------------------------------------------------------------------
-// Downscaling to logical (1x) resolution
+// Downscaling
 // ---------------------------------------------------------------------------
 
-/// Reads the pixel width of [path] via `sips`, queries the true device pixel
-/// ratio for the platform, and downscales to logical resolution in-place.
+const _maxScreenshotDimension = 1200;
+
+/// Downscales [path] in-place so its longest side does not exceed
+/// [_maxScreenshotDimension] pixels, preserving aspect ratio.
+///
+/// Uses `sips` (macOS built-in) for both measurement and resampling.
+/// No-ops if the image already fits within the limit.
 /// Returns 0 on success, 1 on failure.
-Future<int> _resizeToLogicalResolution(
-  String path,
-  ({String platform, bool emulator})? platformInfo,
-  String? deviceId,
-) async {
-  final queryResult = await Process.run('sips', ['-g', 'pixelWidth', path]);
+Future<int> _resizeToMaxDimension(String path) async {
+  final queryResult =
+      await Process.run('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', path]);
   if (queryResult.exitCode != 0) {
     stderr.writeln(
         'ERROR: Could not read image dimensions: ${queryResult.stderr}');
     return 1;
   }
 
-  final pixelWidth = _parsePixelWidth(queryResult.stdout as String);
-  if (pixelWidth == null) {
-    stderr.writeln('ERROR: Could not parse image width from sips output');
+  final width = _parseSipsDimension(queryResult.stdout as String, 'pixelWidth');
+  final height =
+      _parseSipsDimension(queryResult.stdout as String, 'pixelHeight');
+  if (width == null || height == null) {
+    stderr.writeln('ERROR: Could not parse image dimensions from sips output');
     return 1;
   }
 
-  final int logicalWidth;
-  if (platformInfo != null && platformInfo.platform.startsWith('android')) {
-    logicalWidth = await _androidLogicalWidth(pixelWidth);
-  } else if (platformInfo == null ||
-      platformInfo.platform.startsWith('ios') ||
-      platformInfo.platform.startsWith('darwin')) {
-    // iOS simulator and macOS both use sips-friendly scale detection.
-    // For macOS the screencapture tool already captures at logical resolution
-    // on Retina displays (it honours the display's backing scale factor), so
-    // sips will report pixelWidth == logicalWidth and no resize happens.
-    //
-    // Pass the stored device UDID so we look up the correct simulator's scale
-    // factor even when multiple simulators are booted simultaneously.
-    logicalWidth = await _iosLogicalWidth(pixelWidth, deviceId);
-  } else {
-    // Linux / Windows / Web: fdb_helper already captures at physical pixels;
-    // we don't have a reliable cross-platform way to get the DPR from the CLI
-    // so skip downscaling for these platforms.
-    return 0;
-  }
+  final maxSide = width > height ? width : height;
+  if (maxSide <= _maxScreenshotDimension) return 0; // already small enough
 
-  if (logicalWidth == pixelWidth) return 0; // already 1x, nothing to do
-
+  // sips --resampleHeightWidthMax scales the longest side to the given value.
   final resizeResult = await Process.run('sips', [
-    '--resampleWidth',
-    '$logicalWidth',
+    '--resampleHeightWidthMax',
+    '$_maxScreenshotDimension',
     path,
     '--out',
     path,
@@ -539,193 +523,10 @@ Future<int> _resizeToLogicalResolution(
   return 0;
 }
 
-/// Returns the logical width for an iOS Simulator (or macOS) screenshot by
-/// reading the true scale factor from the device's `.simdevicetype` bundle.
-///
-/// Steps:
-///   1. `xcrun simctl list devices booted --json` → deviceTypeIdentifier
-///      (matched by [deviceUdid] when provided, otherwise first booted device)
-///   2. `xcrun simctl list devicetypes --json` → bundlePath for that identifier
-///   3. `plutil -extract capabilities.ArtworkTraits.ArtworkDeviceScaleFactor`
-///      → exact scale factor (e.g. `3.000000`)
-///
-/// [deviceUdid] should be the simulator UDID stored in `device.txt` so the
-/// correct scale is used even when multiple simulators are booted.
-///
-/// Falls back to [pixelWidth] (no downscale) if any step fails.
-Future<int> _iosLogicalWidth(int pixelWidth, String? deviceUdid) async {
-  try {
-    final devicesResult = await Process.run(
-      'xcrun',
-      ['simctl', 'list', 'devices', 'booted', '--json'],
-    );
-    if (devicesResult.exitCode != 0) return pixelWidth;
-
-    final deviceTypeId = _parseBootedDeviceTypeId(
-      devicesResult.stdout as String,
-      deviceUdid,
-    );
-    if (deviceTypeId == null) return pixelWidth;
-
-    final typesResult = await Process.run(
-      'xcrun',
-      ['simctl', 'list', 'devicetypes', '--json'],
-    );
-    if (typesResult.exitCode != 0) return pixelWidth;
-
-    final bundlePath =
-        _parseDeviceTypeBundlePath(typesResult.stdout as String, deviceTypeId);
-    if (bundlePath == null) return pixelWidth;
-
-    final capsPlist = '$bundlePath/Contents/Resources/capabilities.plist';
-    final plutilResult = await Process.run('plutil', [
-      '-extract',
-      'capabilities.ArtworkTraits.ArtworkDeviceScaleFactor',
-      'raw',
-      '-o',
-      '-',
-      capsPlist,
-    ]);
-    if (plutilResult.exitCode != 0) return pixelWidth;
-
-    final scale =
-        double.tryParse((plutilResult.stdout as String).trim()) ?? 0.0;
-    if (scale <= 0) return pixelWidth;
-
-    return (pixelWidth / scale).round();
-  } catch (_) {
-    return pixelWidth;
-  }
-}
-
-/// Returns the logical width for an Android screenshot using `adb shell wm density`.
-///
-/// The effective display density in dpi is divided into the mdpi baseline
-/// (160 dpi = 1x):
-///   logical_width = pixel_width * 160 / density
-///
-/// Respects any user-set display-size override (`Override density` line).
-/// Falls back to [pixelWidth] (no downscale) if detection fails.
-Future<int> _androidLogicalWidth(int pixelWidth) async {
-  try {
-    final result = await Process.run('adb', ['shell', 'wm', 'density']);
-    if (result.exitCode != 0) return pixelWidth;
-
-    final density = _parseAndroidDensity(result.stdout as String);
-    if (density == null || density <= 0) return pixelWidth;
-
-    return pixelWidth * 160 ~/ density;
-  } catch (_) {
-    return pixelWidth;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Parsers
-// ---------------------------------------------------------------------------
-
-int? _parsePixelWidth(String sipsOutput) {
-  final match = RegExp(r'pixelWidth:\s*(\d+)').firstMatch(sipsOutput);
+int? _parseSipsDimension(String sipsOutput, String key) {
+  final match = RegExp('$key:\\s*(\\d+)').firstMatch(sipsOutput);
   if (match == null) return null;
   return int.tryParse(match.group(1)!);
-}
-
-/// Parses the `deviceTypeIdentifier` for the booted simulator matching
-/// [deviceUdid] from `xcrun simctl list devices booted --json` output.
-///
-/// When [deviceUdid] is provided, finds the object whose `udid` field matches
-/// and returns its `deviceTypeIdentifier`. Falls back to the first booted
-/// device if no match is found or [deviceUdid] is null.
-String? _parseBootedDeviceTypeId(String json, String? deviceUdid) {
-  if (deviceUdid != null) {
-    // Find the JSON object for this specific UDID and extract its
-    // deviceTypeIdentifier from the same object.
-    final escapedUdid = RegExp.escape(deviceUdid);
-    final udidMatch =
-        RegExp('"udid"\\s*:\\s*"$escapedUdid"').firstMatch(json);
-    if (udidMatch != null) {
-      final objectStart = json.lastIndexOf('{', udidMatch.start);
-      if (objectStart != -1) {
-        var depth = 0;
-        var objectEnd = objectStart;
-        for (var i = objectStart; i < json.length; i++) {
-          if (json[i] == '{') depth++;
-          if (json[i] == '}') {
-            depth--;
-            if (depth == 0) {
-              objectEnd = i;
-              break;
-            }
-          }
-        }
-        final objectJson = json.substring(objectStart, objectEnd + 1);
-        final typeMatch =
-            RegExp(r'"deviceTypeIdentifier"\s*:\s*"([^"]+)"')
-                .firstMatch(objectJson);
-        if (typeMatch != null) return typeMatch.group(1);
-      }
-    }
-  }
-  // Fallback: first booted device
-  final match =
-      RegExp(r'"deviceTypeIdentifier"\s*:\s*"([^"]+)"').firstMatch(json);
-  return match?.group(1);
-}
-
-/// Parses the `bundlePath` for [deviceTypeId] from
-/// `xcrun simctl list devicetypes --json` output.
-///
-/// Searches for the JSON object whose `identifier` field exactly matches
-/// [deviceTypeId], then extracts `bundlePath` from that same object.
-/// This avoids false matches when one identifier is a prefix of another
-/// (e.g. "iPhone-17-Pro" vs "iPhone-17-Pro-Max").
-String? _parseDeviceTypeBundlePath(String json, String deviceTypeId) {
-  final escaped = RegExp.escape(deviceTypeId);
-  // Match the identifier value with a closing quote so "iPhone-17-Pro" does
-  // not accidentally match "iPhone-17-Pro-Max".
-  final identifierMatch =
-      RegExp('"identifier"\\s*:\\s*"$escaped"').firstMatch(json);
-  if (identifierMatch == null) return null;
-
-  // Walk backward to find the opening brace of this JSON object so we stay
-  // within the same object when searching for bundlePath.
-  final objectStart = json.lastIndexOf('{', identifierMatch.start);
-  if (objectStart == -1) return null;
-
-  // Find the closing brace of this object.
-  var depth = 0;
-  var objectEnd = objectStart;
-  for (var i = objectStart; i < json.length; i++) {
-    if (json[i] == '{') depth++;
-    if (json[i] == '}') {
-      depth--;
-      if (depth == 0) {
-        objectEnd = i;
-        break;
-      }
-    }
-  }
-
-  final objectJson = json.substring(objectStart, objectEnd + 1);
-  final bundleMatch =
-      RegExp(r'"bundlePath"\s*:\s*"([^"]+)"').firstMatch(objectJson);
-  // simctl JSON uses escaped forward slashes (\/); unescape them.
-  return bundleMatch?.group(1)?.replaceAll(r'\/', '/');
-}
-
-/// Parses the effective display density from `adb shell wm density` output.
-///
-/// Prefers `Override density` (user-set display size) over `Physical density`.
-int? _parseAndroidDensity(String wmDensityOutput) {
-  final overrideMatch =
-      RegExp(r'Override density:\s*(\d+)').firstMatch(wmDensityOutput);
-  if (overrideMatch != null) return int.tryParse(overrideMatch.group(1)!);
-
-  final physicalMatch =
-      RegExp(r'Physical density:\s*(\d+)').firstMatch(wmDensityOutput);
-  if (physicalMatch != null) return int.tryParse(physicalMatch.group(1)!);
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------
