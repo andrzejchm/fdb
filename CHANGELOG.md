@@ -1,3 +1,15 @@
+## 1.1.6
+
+### Fixes
+- `SKILL.md` state files section corrected: paths are `<project>/.fdb/` (not `/tmp/`) since 1.1.0
+- `SKILL.md` screenshot default path corrected to `<project>/.fdb/screenshot.png`
+- `doc/README.agents.md` screenshot default path corrected to `<project>/.fdb/screenshot.png`
+
+### Improvements
+- README: updated Flutter MCP server description to accurately reflect its current capabilities (runtime introspection, not just static analysis)
+- README: comparison table "Device interaction" row now enumerates fdb's full interactive command set and correctly characterises the MCP server as read-only
+- README: `fdb describe` command annotated with `(requires fdb_helper)` in the commands table
+
 ## 1.1.5
 
 ### Fixes

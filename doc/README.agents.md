@@ -115,7 +115,7 @@ fdb restart   # SIGUSR2 - resets state
 fdb screenshot [--output <path>]
 ```
 
-Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `/tmp/fdb_screenshot.png`.
+Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `<project>/.fdb/screenshot.png`.
 
 ### Logs
 
@@ -146,7 +146,7 @@ These commands require `fdb_helper` to be added to your Flutter app. Add it to `
 
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.5
+  fdb_helper: ^1.1.6
 ```
 
 Initialize it in `main.dart`:

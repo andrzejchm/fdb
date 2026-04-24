@@ -5,9 +5,9 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.1.5
+## Overview - skill version 1.1.6
 
-> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.5,
+> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.6,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
 
@@ -26,7 +26,7 @@ The `tap`, `longpress`, `input`, and `scroll` commands require `fdb_helper` to b
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.1.5
+  fdb_helper: ^1.1.6
 ```
 
 **`main.dart`:**
@@ -82,7 +82,7 @@ fdb restart   # SIGUSR2 - resets state
 fdb screenshot [--output <path>]
 ```
 
-Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `/tmp/fdb_screenshot.png`. Read the file with the Read tool to view it.
+Auto-detects Android (`adb screencap`) vs iOS simulator (`xcrun simctl io screenshot`). Default output: `<project>/.fdb/screenshot.png`. Read the file with the Read tool to view it.
 
 ### Logs
 
@@ -364,8 +364,8 @@ fdb screenshot
 
 ## State files
 
-All state lives in `/tmp/`:
-- `/tmp/fdb.pid` - flutter run process ID
-- `/tmp/fdb_logs.txt` - full app output
-- `/tmp/fdb_vm_uri.txt` - VM service websocket URI
-- `/tmp/fdb_screenshot.png` - last screenshot
+All state lives in `<project>/.fdb/`:
+- `<project>/.fdb/fdb.pid` - flutter run process ID
+- `<project>/.fdb/logs.txt` - full app output
+- `<project>/.fdb/vm_uri.txt` - VM service websocket URI
+- `<project>/.fdb/screenshot.png` - last screenshot

@@ -39,7 +39,7 @@ Zero dependencies. Pure Dart. Works on macOS and Linux.
 
 ### Why not the official Flutter MCP server?
 
-The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) handles code analysis, pub.dev search, and formatting. fdb does something different: **runs the app on a real device and lets the agent interact with it**.
+The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) handles code analysis, pub.dev search, formatting, and can also introspect a running app via the Flutter inspector. fdb does something different: **runs the app on a real device and lets the agent interact with it via a bash-native CLI — no MCP client required**.
 
 | | fdb | Flutter MCP server |
 |---|---|---|
@@ -47,7 +47,7 @@ The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) handles 
 | **Context cost** | Minimal. Agent runs a command, gets text output. | MCP tool schemas and responses are injected into context on every call, eating tokens even when unused. |
 | **Works with** | Any agent that can run bash (Claude Code, OpenCode, Cursor, custom scripts, CI) | Only MCP-compatible clients |
 | **Progressive disclosure** | Ships a [skill file](skills/using-fdb/SKILL.md) -- agent loads best practices on demand, not upfront | All tools exposed at once |
-| **Device interaction** | Launch, hot reload, screenshot, logs, widget tree, widget selection | Limited runtime introspection |
+| **Device interaction** | Launch, hot reload, screenshot, logs, widget tree, tap, input, scroll, swipe, back, deeplink, SharedPreferences, clean | Widget tree inspection and runtime errors via Flutter inspector (read-only) |
 | **Setup** | `dart pub global activate` -- done | Per-client MCP config (JSON, YAML, or GUI depending on client) |
 
 **tl;dr:** Use the Flutter MCP server for code analysis and package management. Use fdb when your agent needs to *run the app, see it, and interact with it*.
@@ -116,7 +116,7 @@ fdb kill
 | `fdb screenshot [--output <path>]` | Device screenshot |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
-| `fdb describe` | Compact screen snapshot: interactive elements + visible text |
+| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)* |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
 
@@ -154,7 +154,7 @@ Requires `fdb_helper` in your app:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper: ^1.1.5
+  fdb_helper: ^1.1.6
 ```
 
 ```dart
