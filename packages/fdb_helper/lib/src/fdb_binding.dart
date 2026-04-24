@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -23,13 +24,14 @@ import 'widget_matcher.dart';
 /// }
 /// ```
 ///
-/// This registers five VM service extensions (in debug and profile mode only):
+/// This registers the following VM service extensions (in debug and profile mode only):
 /// - `ext.fdb.elements` — list all interactive elements with bounds
 /// - `ext.fdb.tap` — tap a widget by key, text, type, or coordinates
 /// - `ext.fdb.longPress` — long-press a widget (same as tap with duration=500ms)
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
 /// - `ext.fdb.back` — trigger Navigator.maybePop()
+/// - `ext.fdb.screenshot` — capture the Flutter rendering surface as base64 PNG
 class FdbBinding extends WidgetsFlutterBinding {
   FdbBinding._();
 
@@ -72,6 +74,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.back', _handleBack);
     _registerExtension('ext.fdb.clean', _handleClean);
     _registerExtension('ext.fdb.sharedPrefs', _handleSharedPrefs);
+    _registerExtension('ext.fdb.screenshot', _handleScreenshot);
   }
 
   /// Registers a VM service extension, silently ignoring double-registration
@@ -1054,6 +1057,72 @@ class FdbBinding extends WidgetsFlutterBinding {
       );
     } catch (e) {
       return _errorResponse('clean failed: $e');
+    }
+  }
+
+  /// Handles `ext.fdb.screenshot`.
+  ///
+  /// Renders the current Flutter surface to a PNG and returns it as a
+  /// base64-encoded string under the `screenshot` key.
+  ///
+  /// Used as a fallback capture backend on platforms that have no native
+  /// screenshot CLI (physical iOS, Windows, Linux Wayland).
+  Future<developer.ServiceExtensionResponse> _handleScreenshot(
+    String method,
+    Map<String, String> params,
+  ) async {
+    ui.Scene? scene;
+    ui.Image? image;
+    try {
+      final renderViews = WidgetsBinding.instance.renderViews;
+      if (renderViews.isEmpty) {
+        return _errorResponse('No render views available');
+      }
+
+      final view = renderViews.first;
+      final flutterView = view.flutterView;
+
+      // Ensure the frame is painted before capturing.
+      // ignore: invalid_use_of_protected_member
+      if (view.debugNeedsPaint || view.layer == null) {
+        WidgetsBinding.instance.scheduleFrame();
+        await WidgetsBinding.instance.endOfFrame;
+      }
+
+      // ignore: invalid_use_of_protected_member
+      final layer = view.layer;
+      if (layer == null) {
+        return _errorResponse('Render view layer is null');
+      }
+
+      // Capture at physical pixel resolution.
+      final size = flutterView.physicalSize;
+      final width = size.width.ceil();
+      final height = size.height.ceil();
+
+      if (width <= 0 || height <= 0) {
+        return _errorResponse('Invalid view size: ${width}x$height');
+      }
+
+      final builder = ui.SceneBuilder();
+      layer.addToScene(builder);
+      scene = builder.build();
+      image = await scene.toImage(width, height);
+
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        return _errorResponse('Failed to encode image as PNG');
+      }
+
+      final base64Data = base64Encode(byteData.buffer.asUint8List());
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode({'screenshot': base64Data}),
+      );
+    } catch (e) {
+      return _errorResponse('Screenshot failed: $e');
+    } finally {
+      scene?.dispose();
+      image?.dispose();
     }
   }
 

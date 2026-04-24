@@ -22,6 +22,23 @@ String? readDevice() {
   return content.isEmpty ? null : content;
 }
 
+/// Stores the Flutter target platform string and emulator flag for the active
+/// session. Written by `fdb launch`, read by `fdb screenshot`.
+///
+/// Format: `<targetPlatform> <emulator>` e.g. `ios true` or `android-arm64 false`.
+void writePlatformInfo(String targetPlatform, bool emulator) {
+  File(platformFile).writeAsStringSync('$targetPlatform $emulator');
+}
+
+/// Returns `(platform, emulator)` from the platform file, or null if absent.
+({String platform, bool emulator})? readPlatformInfo() {
+  final file = File(platformFile);
+  if (!file.existsSync()) return null;
+  final parts = file.readAsStringSync().trim().split(' ');
+  if (parts.length < 2) return null;
+  return (platform: parts[0], emulator: parts[1] == 'true');
+}
+
 /// Read the log collector PID from its PID file.
 int? readLogCollectorPid() {
   final file = File(logCollectorPidFile);
@@ -48,6 +65,7 @@ void cleanupTempFiles() {
     vmUriFile,
     launcherScript,
     deviceFile,
+    platformFile,
   ]) {
     final file = File(path);
     if (file.existsSync()) {

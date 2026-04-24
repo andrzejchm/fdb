@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
@@ -53,6 +54,7 @@ Future<int> runLaunch(List<String> args) async {
     vmUriFile,
     launcherScript,
     deviceFile,
+    platformFile,
   ]) {
     final f = File(path);
     if (f.existsSync()) f.deleteSync();
@@ -65,6 +67,11 @@ Future<int> runLaunch(List<String> args) async {
 
   // Resolve the flutter binary: explicit --flutter-sdk, FVM auto-detect, or PATH.
   final flutter = _resolveFlutter(project, flutterSdk);
+
+  // Resolve and persist the target platform + emulator flag for this device.
+  // Used by `fdb screenshot` to dispatch to the correct capture backend.
+  // Non-fatal: screenshot falls back to the old heuristic if this fails.
+  await _writePlatformInfo(device, flutter);
 
   // Build the flutter run command string
   final flutterArgs = [
@@ -374,4 +381,48 @@ bool _isAlive(int pid) {
   } catch (_) {
     return false;
   }
+}
+
+/// Queries `flutter devices --machine` to find the targetPlatform and emulator
+/// flag for [device], then writes them to [platformFile] via [writePlatformInfo].
+///
+/// Silently no-ops on any failure — screenshot falls back gracefully if the
+/// platform file is absent.
+Future<void> _writePlatformInfo(String device, String flutter) async {
+  try {
+    final result = await Process.run(flutter, ['devices', '--machine']);
+    if (result.exitCode != 0) return;
+
+    final json = _extractDevicesJson(result.stdout as String);
+    if (json == null) return;
+
+    final List<dynamic> devices;
+    try {
+      devices = (jsonDecode(json) as List<dynamic>);
+    } catch (_) {
+      return;
+    }
+
+    for (final d in devices) {
+      final map = d as Map<String, dynamic>;
+      if (map['id'] == device) {
+        final platform = map['targetPlatform'] as String?;
+        final emulator = map['emulator'] as bool? ?? false;
+        if (platform != null) writePlatformInfo(platform, emulator);
+        return;
+      }
+    }
+  } catch (_) {
+    // Non-fatal: screenshot will work without platform info.
+  }
+}
+
+/// Extracts the JSON array from `flutter devices --machine` output.
+/// Flutter may prepend non-JSON text before the array.
+String? _extractDevicesJson(String output) {
+  final start = output.indexOf('[');
+  if (start == -1) return null;
+  final end = output.lastIndexOf(']');
+  if (end == -1 || end < start) return null;
+  return output.substring(start, end + 1);
 }
