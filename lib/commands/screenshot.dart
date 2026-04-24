@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:image/image.dart' as img;
-
 import 'package:fdb/constants.dart';
 import 'package:fdb/process_utils.dart';
 import 'package:fdb/vm_service.dart';
+import 'package:image/image.dart' as img;
 
 Future<int> runScreenshot(List<String> args) async {
   var output = defaultScreenshotPath;
@@ -177,8 +176,7 @@ Future<int> _captureIosSimulator(String? deviceId, String output) async {
       output,
     ]);
     if (result.exitCode != 0) {
-      stderr.writeln(
-          'ERROR: xcrun simctl screenshot failed: ${result.stderr}');
+      stderr.writeln('ERROR: xcrun simctl screenshot failed: ${result.stderr}');
       return 1;
     }
     return 0;
@@ -258,17 +256,16 @@ Future<int?> _macWindowId(int pid) async {
   final pidsArg = pids.join(',');
   final result = await Process.run('swift', [
     '-e',
-    r'''
+    '''
 import Cocoa
-let pidStrs = CommandLine.arguments[1].split(separator: ",")
-let pids = pidStrs.compactMap { Int32($0) }
+let pidStrs = "$pidsArg".split(separator: ",")
+let pids = pidStrs.compactMap { Int32(\$0) }
 guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [NSDictionary] else { exit(0) }
 for w in list {
   guard let ownerPid = w[kCGWindowOwnerPID] as? Int32, pids.contains(ownerPid) else { continue }
   if let num = w[kCGWindowNumber] as? Int { print(num); break }
 }
 ''',
-    pidsArg,
   ]);
   if (result.exitCode != 0) return null;
   return int.tryParse((result.stdout as String).trim());
@@ -345,10 +342,12 @@ Future<int> _captureWeb(String output) async {
   try {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
     try {
-      final req =
-          await client.getUrl(Uri.parse('http://localhost:$port/json'));
-      final resp = await req.close();
-      final body = await resp.transform(utf8.decoder).join();
+      final req = await client.getUrl(Uri.parse('http://localhost:$port/json'));
+      final resp = await req.close().timeout(const Duration(seconds: 5));
+      final body = await resp
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 5));
       final pages = jsonDecode(body) as List<dynamic>;
       if (pages.isEmpty) {
         stderr.writeln('ERROR: No Chrome pages found on CDP port $port.\n'
@@ -375,11 +374,12 @@ Future<int> _captureWeb(String output) async {
 
   // Capture via CDP Page.captureScreenshot.
   WebSocket? ws;
+  StreamSubscription<dynamic>? subscription;
   try {
     ws = await WebSocket.connect(wsUrl);
     final completer = Completer<Map<String, dynamic>>();
 
-    ws.listen(
+    subscription = ws.listen(
       (data) {
         final msg = jsonDecode(data as String) as Map<String, dynamic>;
         if (msg['id'] == 1 && !completer.isCompleted) completer.complete(msg);
@@ -390,18 +390,20 @@ Future<int> _captureWeb(String output) async {
       onDone: () {
         if (!completer.isCompleted) {
           completer.completeError(
-              StateError('WebSocket closed before CDP response'));
+            StateError('WebSocket closed before CDP response'),
+          );
         }
       },
     );
 
     ws.add(jsonEncode(
-        {'id': 1, 'method': 'Page.captureScreenshot', 'params': {}}));
+      {'id': 1, 'method': 'Page.captureScreenshot', 'params': {}},
+    ));
 
     final response =
         await completer.future.timeout(const Duration(seconds: 10));
-    final data = (response['result'] as Map<String, dynamic>?)?['data']
-        as String?;
+    final data =
+        (response['result'] as Map<String, dynamic>?)?['data'] as String?;
     if (data == null) {
       stderr.writeln('ERROR: CDP screenshot returned no image data.');
       return 1;
@@ -415,6 +417,7 @@ Future<int> _captureWeb(String output) async {
     stderr.writeln('ERROR: CDP screenshot failed: $e');
     return 1;
   } finally {
+    await subscription?.cancel();
     await ws?.close();
   }
 }

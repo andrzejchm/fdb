@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -412,9 +413,9 @@ Future<void> _writePlatformInfo(String device, String flutter) async {
         return;
       }
     }
+  } on TimeoutException {
+    rethrow;
   } catch (_) {
     // Non-fatal: screenshot will work without platform info.
   }
 }
-
-

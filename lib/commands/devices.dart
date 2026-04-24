@@ -37,9 +37,15 @@ Future<int> runDevices(List<String> args) async {
 
   for (final device in devices) {
     final d = device as Map<String, dynamic>;
-    final id = d['id'] as String;
-    final name = d['name'] as String;
-    final platform = d['targetPlatform'] as String;
+    final id = d['id'] as String?;
+    final name = d['name'] as String?;
+    final platform = d['targetPlatform'] as String?;
+    if (id == null || name == null || platform == null) {
+      stderr.writeln(
+        'WARNING: Skipping device with missing required fields: $d',
+      );
+      continue;
+    }
     final emulator = d['emulator'] as bool? ?? false;
     stdout.writeln(
       'DEVICE_ID=$id NAME=$name PLATFORM=$platform EMULATOR=$emulator',
@@ -47,5 +53,3 @@ Future<int> runDevices(List<String> args) async {
   }
   return 0;
 }
-
-
