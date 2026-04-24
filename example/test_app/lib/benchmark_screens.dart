@@ -233,14 +233,20 @@ class _BenchmarkMediumPageState extends State<BenchmarkMediumPage> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text('Group ${g + 1}', style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
-            for (var opt = 0; opt < 3; opt++)
-              RadioListTile<int>(
-                key: Key('medium_radio_${g}_$opt'),
-                title: Text('Option $opt'),
-                value: opt,
-                groupValue: _radios[g],
-                onChanged: (v) => setState(() => _radios[g] = v!),
+            RadioGroup<int>(
+              groupValue: _radios[g],
+              onChanged: (v) => setState(() => _radios[g] = v!),
+              child: Column(
+                children: [
+                  for (var opt = 0; opt < 3; opt++)
+                    RadioListTile<int>(
+                      key: Key('medium_radio_${g}_$opt'),
+                      title: Text('Option $opt'),
+                      value: opt,
+                    ),
+                ],
               ),
+            ),
           ],
           _buildSectionHeader('Checkboxes (12)'),
           for (var i = 0; i < 12; i++)

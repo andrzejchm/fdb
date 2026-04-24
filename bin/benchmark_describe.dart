@@ -16,9 +16,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
-import 'package:fdb/process_utils.dart';
 import 'package:fdb/vm_service.dart';
 
 const _scenarios = [
