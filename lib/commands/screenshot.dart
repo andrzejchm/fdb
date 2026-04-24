@@ -51,7 +51,8 @@ Future<int> runScreenshot(List<String> args) async {
   }
 
   if (!fullResolution) {
-    final resizeResult = await _resizeToLogicalResolution(output, platformInfo);
+    final resizeResult =
+        await _resizeToLogicalResolution(output, platformInfo, deviceId);
     if (resizeResult != 0) return resizeResult;
   }
 
@@ -485,6 +486,7 @@ Future<int> _captureViaFdbHelper(String output) async {
 Future<int> _resizeToLogicalResolution(
   String path,
   ({String platform, bool emulator})? platformInfo,
+  String? deviceId,
 ) async {
   final queryResult = await Process.run('sips', ['-g', 'pixelWidth', path]);
   if (queryResult.exitCode != 0) {
@@ -509,7 +511,10 @@ Future<int> _resizeToLogicalResolution(
     // For macOS the screencapture tool already captures at logical resolution
     // on Retina displays (it honours the display's backing scale factor), so
     // sips will report pixelWidth == logicalWidth and no resize happens.
-    logicalWidth = await _iosLogicalWidth(pixelWidth);
+    //
+    // Pass the stored device UDID so we look up the correct simulator's scale
+    // factor even when multiple simulators are booted simultaneously.
+    logicalWidth = await _iosLogicalWidth(pixelWidth, deviceId);
   } else {
     // Linux / Windows / Web: fdb_helper already captures at physical pixels;
     // we don't have a reliable cross-platform way to get the DPR from the CLI
@@ -535,17 +540,20 @@ Future<int> _resizeToLogicalResolution(
 }
 
 /// Returns the logical width for an iOS Simulator (or macOS) screenshot by
-/// reading the true scale factor from the booted device's `.simdevicetype`
-/// bundle.
+/// reading the true scale factor from the device's `.simdevicetype` bundle.
 ///
 /// Steps:
 ///   1. `xcrun simctl list devices booted --json` → deviceTypeIdentifier
+///      (matched by [deviceUdid] when provided, otherwise first booted device)
 ///   2. `xcrun simctl list devicetypes --json` → bundlePath for that identifier
 ///   3. `plutil -extract capabilities.ArtworkTraits.ArtworkDeviceScaleFactor`
 ///      → exact scale factor (e.g. `3.000000`)
 ///
+/// [deviceUdid] should be the simulator UDID stored in `device.txt` so the
+/// correct scale is used even when multiple simulators are booted.
+///
 /// Falls back to [pixelWidth] (no downscale) if any step fails.
-Future<int> _iosLogicalWidth(int pixelWidth) async {
+Future<int> _iosLogicalWidth(int pixelWidth, String? deviceUdid) async {
   try {
     final devicesResult = await Process.run(
       'xcrun',
@@ -553,8 +561,10 @@ Future<int> _iosLogicalWidth(int pixelWidth) async {
     );
     if (devicesResult.exitCode != 0) return pixelWidth;
 
-    final deviceTypeId =
-        _parseBootedDeviceTypeId(devicesResult.stdout as String);
+    final deviceTypeId = _parseBootedDeviceTypeId(
+      devicesResult.stdout as String,
+      deviceUdid,
+    );
     if (deviceTypeId == null) return pixelWidth;
 
     final typesResult = await Process.run(
@@ -620,9 +630,43 @@ int? _parsePixelWidth(String sipsOutput) {
   return int.tryParse(match.group(1)!);
 }
 
-/// Parses the `deviceTypeIdentifier` for the first booted simulator from
-/// `xcrun simctl list devices booted --json` output.
-String? _parseBootedDeviceTypeId(String json) {
+/// Parses the `deviceTypeIdentifier` for the booted simulator matching
+/// [deviceUdid] from `xcrun simctl list devices booted --json` output.
+///
+/// When [deviceUdid] is provided, finds the object whose `udid` field matches
+/// and returns its `deviceTypeIdentifier`. Falls back to the first booted
+/// device if no match is found or [deviceUdid] is null.
+String? _parseBootedDeviceTypeId(String json, String? deviceUdid) {
+  if (deviceUdid != null) {
+    // Find the JSON object for this specific UDID and extract its
+    // deviceTypeIdentifier from the same object.
+    final escapedUdid = RegExp.escape(deviceUdid);
+    final udidMatch =
+        RegExp('"udid"\\s*:\\s*"$escapedUdid"').firstMatch(json);
+    if (udidMatch != null) {
+      final objectStart = json.lastIndexOf('{', udidMatch.start);
+      if (objectStart != -1) {
+        var depth = 0;
+        var objectEnd = objectStart;
+        for (var i = objectStart; i < json.length; i++) {
+          if (json[i] == '{') depth++;
+          if (json[i] == '}') {
+            depth--;
+            if (depth == 0) {
+              objectEnd = i;
+              break;
+            }
+          }
+        }
+        final objectJson = json.substring(objectStart, objectEnd + 1);
+        final typeMatch =
+            RegExp(r'"deviceTypeIdentifier"\s*:\s*"([^"]+)"')
+                .firstMatch(objectJson);
+        if (typeMatch != null) return typeMatch.group(1);
+      }
+    }
+  }
+  // Fallback: first booted device
   final match =
       RegExp(r'"deviceTypeIdentifier"\s*:\s*"([^"]+)"').firstMatch(json);
   return match?.group(1);
