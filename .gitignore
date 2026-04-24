@@ -3,6 +3,10 @@
 pubspec.lock
 build/
 
+# fdb_helper package generated files
+packages/fdb_helper/.flutter-plugins
+packages/fdb_helper/.flutter-plugins-dependencies
+
 # Flutter test app
 example/test_app/.dart_tool/
 example/test_app/.flutter-plugins
