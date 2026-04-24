@@ -144,8 +144,20 @@ After CI completes:
 - Verify `pubspec.yaml` version in both packages matches the tag
 - Check the `id-token: write` permission is set on the publish job
 
-### GitHub release not created
+### GitHub release not created (fdb published but release missing)
 
+Most likely cause: `packages/fdb_helper/CHANGELOG.md` is missing a `## X.Y.Z` entry for the current version. The CI dry-run step exits 65 with:
+```
+CHANGELOG.md doesn't mention current version (X.Y.Z).
+```
+This causes the job to fail after `fdb` is published but before the GitHub release step runs.
+
+Fix: add the missing entry to `packages/fdb_helper/CHANGELOG.md`, then create the GitHub release manually:
+```bash
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."
+```
+
+Other causes:
 - Verify `contents: write` permission is set on the publish job
 - Check `gh` auth in the workflow (uses `github.token` automatically)
 
