@@ -653,3 +653,36 @@ tasks:
     desc: Run dart unit tests (when they exist)
     cmds:
       - dart test
+
+  # ---------------------------------------------------------------------------
+  # Benchmark: fdb describe performance
+  # ---------------------------------------------------------------------------
+  bench:launch:
+    desc: "Launch test app for benchmarking (set DEVICE or auto-detect)"
+    dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        echo "==> Launching test app on: {{.DEVICE}}"
+        {{.FDB}} launch --device "{{.DEVICE}}" 2>&1
+        sleep 2
+
+  bench:run:
+    desc: "Run fdb describe benchmark (app must be running)"
+    cmds:
+      - |
+        echo "==> Running describe performance benchmark..."
+        dart run bin/benchmark_describe.dart
+
+  bench:
+    desc: "Full describe benchmark: launch app then run benchmark"
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - task: bench:launch
+        vars:
+          DEVICE: '{{.DEVICE}}'
+      - task: bench:run
