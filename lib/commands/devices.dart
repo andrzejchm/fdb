@@ -40,7 +40,7 @@ Future<int> runDevices(List<String> args) async {
     final id = d['id'] as String;
     final name = d['name'] as String;
     final platform = d['targetPlatform'] as String;
-    final emulator = d['emulator'] as bool;
+    final emulator = d['emulator'] as bool? ?? false;
     stdout.writeln(
       'DEVICE_ID=$id NAME=$name PLATFORM=$platform EMULATOR=$emulator',
     );

@@ -111,7 +111,7 @@ Future<int> _dispatchScreenshot({
     return _captureViaFdbHelper(output);
   }
 
-  if (platform == 'web-javascript') {
+  if (platform.startsWith('web')) {
     return _captureWeb(output);
   }
 
@@ -317,7 +317,7 @@ Future<int> _captureLinuxNative(int pid, String output) async {
     ]);
     if (xdo.exitCode != 0) return -1;
 
-    final windowId = (xdo.stdout as String).trim().split('\n').last.trim();
+    final windowId = (xdo.stdout as String).trim().split('\n').first.trim();
     if (windowId.isEmpty) return -1;
 
     final imp = await Process.run('import', ['-window', windowId, output]);

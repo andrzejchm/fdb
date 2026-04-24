@@ -1104,6 +1104,10 @@ class FdbBinding extends WidgetsFlutterBinding {
         return _errorResponse('Invalid view size: ${width}x$height');
       }
 
+      if (!layer.attached) {
+        return _errorResponse('Render view layer is detached');
+      }
+
       final builder = ui.SceneBuilder();
       layer.addToScene(builder);
       scene = builder.build();
