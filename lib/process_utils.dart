@@ -47,6 +47,18 @@ int? readLogCollectorPid() {
   return int.tryParse(content);
 }
 
+/// Extracts the JSON array from `flutter devices --machine` output.
+///
+/// Flutter may prepend non-JSON text (download progress, upgrade banners)
+/// before the actual JSON array. Scans for the first `[` to find the start.
+String? extractDevicesJson(String output) {
+  final start = output.indexOf('[');
+  if (start == -1) return null;
+  final end = output.lastIndexOf(']');
+  if (end == -1 || end < start) return null;
+  return output.substring(start, end + 1);
+}
+
 bool isProcessAlive(int pid) {
   try {
     final result = Process.runSync('kill', ['-0', pid.toString()]);

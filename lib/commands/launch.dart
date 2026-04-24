@@ -393,7 +393,7 @@ Future<void> _writePlatformInfo(String device, String flutter) async {
     final result = await Process.run(flutter, ['devices', '--machine']);
     if (result.exitCode != 0) return;
 
-    final json = _extractDevicesJson(result.stdout as String);
+    final json = extractDevicesJson(result.stdout as String);
     if (json == null) return;
 
     final List<dynamic> devices;
@@ -417,12 +417,4 @@ Future<void> _writePlatformInfo(String device, String flutter) async {
   }
 }
 
-/// Extracts the JSON array from `flutter devices --machine` output.
-/// Flutter may prepend non-JSON text before the array.
-String? _extractDevicesJson(String output) {
-  final start = output.indexOf('[');
-  if (start == -1) return null;
-  final end = output.lastIndexOf(']');
-  if (end == -1 || end < start) return null;
-  return output.substring(start, end + 1);
-}
+

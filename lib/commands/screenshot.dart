@@ -201,8 +201,7 @@ Future<int> _captureMacOs(String output) async {
   final pid = readPid();
   if (pid == null) {
     stderr.writeln(
-      'ERROR: No PID in session — cannot locate macOS window.\n'
-      '  Re-launch the app, or use --full to skip downscaling.',
+      'ERROR: No PID in session — cannot locate macOS window. Re-launch the app.',
     );
     return 1;
   }
@@ -344,7 +343,7 @@ Future<int> _captureWeb(String output) async {
   // Fetch the page list from the CDP HTTP endpoint.
   final String wsUrl;
   try {
-    final client = HttpClient();
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
     try {
       final req =
           await client.getUrl(Uri.parse('http://localhost:$port/json'));
