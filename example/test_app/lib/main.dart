@@ -5,6 +5,8 @@ import 'package:fdb_helper/fdb_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'benchmark_screens.dart';
+
 void main() {
   if (!kReleaseMode) {
     FdbBinding.ensureInitialized();
@@ -23,6 +25,14 @@ class FdbTestApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
       ),
       home: const FdbTestHomePage(),
+      routes: {
+        benchmarkRoute: (_) => const BenchmarkMenuPage(),
+        benchmarkBaselineRoute: (_) => const BenchmarkBaselinePage(),
+        benchmarkMediumRoute: (_) => const BenchmarkMediumPage(),
+        benchmarkStressListRoute: (_) => const BenchmarkStressListPage(),
+        benchmarkStressGridRoute: (_) => const BenchmarkStressGridPage(),
+        benchmarkPathologicalRoute: (_) => const BenchmarkPathologicalPage(),
+      },
     );
   }
 }
@@ -151,6 +161,12 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   developer.log('save_button_1 pressed', name: 'fdb_test');
                 },
                 child: const Text('Save'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                key: const Key('go_to_benchmarks'),
+                onPressed: () => Navigator.pushNamed(context, benchmarkRoute),
+                child: const Text('Benchmarks'),
               ),
               const SizedBox(height: 16),
               // GestureDetector for long-press testing
