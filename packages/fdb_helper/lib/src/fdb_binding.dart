@@ -14,6 +14,11 @@ import 'hit_test_utils.dart';
 import 'text_input_simulator.dart';
 import 'widget_matcher.dart';
 
+/// Minimum pixel movement required to consider a scroll attempt as non-stalled.
+/// If the scroll position changes by less than this amount after a drag gesture,
+/// the attempt is counted as a stall.
+const double _stallThresholdPixels = 0.5;
+
 /// A custom binding that registers VM service extensions for widget interaction.
 ///
 /// Usage in `main()`:
@@ -30,6 +35,7 @@ import 'widget_matcher.dart';
 /// - `ext.fdb.longPress` — long-press a widget (same as tap with duration=500ms)
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
+/// - `ext.fdb.scrollTo` — scroll until a target widget becomes visible
 /// - `ext.fdb.back` — trigger Navigator.maybePop()
 /// - `ext.fdb.screenshot` — capture the Flutter rendering surface as base64 PNG
 class FdbBinding extends WidgetsFlutterBinding {
@@ -733,6 +739,31 @@ class FdbBinding extends WidgetsFlutterBinding {
     try {
       final matcher = WidgetMatcher.fromParams(params);
 
+      // Check if the target widget is already visible before requiring a Scrollable.
+      final earlyResult = findHittableElement(matcher);
+      if (earlyResult.matchCount > 1) {
+        return _errorResponse(
+          'Found ${earlyResult.matchCount} elements matching the selector. '
+          'Use --index to specify which one (0-based).',
+        );
+      }
+      if (earlyResult.element != null) {
+        final earlyRenderObject = earlyResult.element!.renderObject;
+        if (earlyRenderObject is RenderBox) {
+          final center = earlyRenderObject.size.center(Offset.zero);
+          final globalCenter = earlyRenderObject.localToGlobal(center);
+          final widgetType = earlyResult.element!.widget.runtimeType.toString();
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({
+              'status': 'Success',
+              'widgetType': widgetType,
+              'x': globalCenter.dx,
+              'y': globalCenter.dy,
+            }),
+          );
+        }
+      }
+
       final scrollableElement = _findBestScrollable(matcher);
       if (scrollableElement == null) {
         return _errorResponse('No Scrollable found in the widget tree');
@@ -746,8 +777,12 @@ class FdbBinding extends WidgetsFlutterBinding {
       final scrollableWidget = scrollableElement.widget as Scrollable;
       final axisDirection = scrollableWidget.axisDirection;
 
-      // Finger movement direction to scroll toward end of list.
-      // Dragging finger up scrolls content down (reveals items below).
+      // Initial finger movement direction to scroll toward the end of the list.
+      // The gesture direction is opposite to the content movement direction:
+      //   down-axis: drag finger up (dy < 0) → content scrolls down
+      //   up-axis:   drag finger down (dy > 0) → content scrolls up
+      //   right-axis: drag finger left (dx < 0) → content scrolls right
+      //   left-axis:  drag finger right (dx > 0) → content scrolls left
       const double delta = 64.0;
       var moveStep = switch (axisDirection) {
         AxisDirection.down => const Offset(0, -delta),
@@ -759,8 +794,9 @@ class FdbBinding extends WidgetsFlutterBinding {
       final maxAttempts = _calculateMaxAttempts(position);
       var reversedOnce = false;
       var stallCount = 0;
+      var attempt = 0;
 
-      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      while (attempt < maxAttempts) {
         // Check if target is now in tree and hittable.
         final (:element, :matchCount) = findHittableElement(matcher);
         if (element != null) {
@@ -779,23 +815,27 @@ class FdbBinding extends WidgetsFlutterBinding {
             );
           }
         }
+        if (matchCount > 1) {
+          return _errorResponse(
+            'Found $matchCount elements matching the selector. '
+            'Use --index to specify which one (0-based).',
+          );
+        }
 
         // Detect scroll edge to decide whether to reverse or give up.
         final currentPixels = position.pixels;
         final extentAfter = position.extentAfter;
         final extentBefore = position.extentBefore;
 
-        final atForwardEdge = extentAfter < 0.5;
-        final atBackwardEdge = extentBefore < 0.5;
+        final atForwardEdge = extentAfter <= 0;
+        final atBackwardEdge = extentBefore <= 0;
 
         // Determine if we are at the edge in the current scroll direction.
         final scrollingForward = switch (axisDirection) {
-          AxisDirection.down ||
-          AxisDirection.right =>
-            moveStep.dy < 0 || moveStep.dx < 0,
-          AxisDirection.up ||
-          AxisDirection.left =>
-            moveStep.dy > 0 || moveStep.dx > 0,
+          AxisDirection.down => moveStep.dy < 0,
+          AxisDirection.up => moveStep.dy > 0,
+          AxisDirection.right => moveStep.dx < 0,
+          AxisDirection.left => moveStep.dx > 0,
         };
         final atCurrentEdge = scrollingForward ? atForwardEdge : atBackwardEdge;
 
@@ -804,8 +844,10 @@ class FdbBinding extends WidgetsFlutterBinding {
             moveStep = -moveStep;
             reversedOnce = true;
             stallCount = 0;
+            attempt = 0; // Reset full budget for the reversed direction.
+            continue;
           } else {
-            break; // Already reversed and still at edge — give up.
+            break; // Already reversed once — searched entire list, give up.
           }
         }
 
@@ -825,13 +867,15 @@ class FdbBinding extends WidgetsFlutterBinding {
 
         // Stall detection: if position didn't change, reverse or give up.
         final newPixels = position.pixels;
-        if ((newPixels - currentPixels).abs() < 0.5) {
+        if ((newPixels - currentPixels).abs() < _stallThresholdPixels) {
           stallCount++;
           if (stallCount >= 3) {
             if (!reversedOnce) {
               moveStep = -moveStep;
               reversedOnce = true;
               stallCount = 0;
+              attempt = 0; // Reset full budget for the reversed direction.
+              continue;
             } else {
               break;
             }
@@ -839,6 +883,8 @@ class FdbBinding extends WidgetsFlutterBinding {
         } else {
           stallCount = 0;
         }
+
+        attempt++;
       }
 
       // Final check after loop exhaustion.
@@ -858,6 +904,12 @@ class FdbBinding extends WidgetsFlutterBinding {
             }),
           );
         }
+      }
+      if (matchCount > 1) {
+        return _errorResponse(
+          'Found $matchCount elements matching the selector. '
+          'Use --index to specify which one (0-based).',
+        );
       }
 
       return _errorResponse(
@@ -941,7 +993,11 @@ class FdbBinding extends WidgetsFlutterBinding {
     }
   }
 
-  /// Calculates the maximum number of drag attempts for scroll-to.
+  /// Calculates the maximum number of drag attempts per direction for scroll-to.
+  ///
+  /// This is the budget for one scroll direction. Because the algorithm resets
+  /// the attempt counter to 0 when reversing direction, the total maximum
+  /// number of drag attempts across both directions is `2 * maxAttempts`.
   ///
   /// For finite lists, uses scroll extent / step size * 2 + buffer, capped at
   /// 200. For infinite lists (e.g. infinite scroll), falls back to 50.

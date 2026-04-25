@@ -393,8 +393,8 @@ tasks:
     dir: '{{.TEST_APP}}'
     cmds:
       - |
-        echo "==> Scrolling to widget by key"
-        OUTPUT=$({{.FDB}} scroll-to --key "list_item_20" 2>&1)
+        echo "==> Scrolling to widget by text"
+        OUTPUT=$({{.FDB}} scroll-to --text "Extra item 10" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then

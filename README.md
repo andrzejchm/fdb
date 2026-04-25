@@ -129,7 +129,7 @@ fdb kill
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into a field |
 | `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
-| `fdb scroll-to --text/--key/--type <selector>` | Scroll until widget is visible |
+| `fdb scroll-to --text/--key/--type <selector> [--index N]` | Scroll until widget is visible |
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb deeplink <url>` | Open a deep link |

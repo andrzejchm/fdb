@@ -56,7 +56,7 @@ Future<int> runScrollTo(List<String> args) async {
       return 1;
     }
 
-    final params = <String, dynamic>{'isolateId': isolateId};
+    final params = <String, String>{'isolateId': isolateId};
     if (text != null) params['text'] = text;
     if (key != null) params['key'] = key;
     if (type != null) params['type'] = type;
@@ -70,9 +70,16 @@ Future<int> runScrollTo(List<String> args) async {
       final error = result['error'] as String?;
 
       if (status == 'Success') {
-        final widgetType = result['widgetType'] as String? ?? type ?? 'widget';
-        final x = result['x'] ?? '';
-        final y = result['y'] ?? '';
+        final widgetType =
+            result['widgetType'] as String? ?? key ?? text ?? type ?? 'widget';
+        final x = result['x'] as double?;
+        final y = result['y'] as double?;
+        if (x == null || y == null) {
+          stderr.writeln(
+            'ERROR: Unexpected response from ext.fdb.scrollTo: missing x or y',
+          );
+          return 1;
+        }
         stdout.writeln('SCROLLED_TO=$widgetType X=$x Y=$y');
         return 0;
       }
