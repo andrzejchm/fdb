@@ -641,18 +641,105 @@ tasks:
       - task: test:status-stopped
 
   # ---------------------------------------------------------------------------
-  # Static analysis for fdb itself
+  # Code quality — individual steps
   # ---------------------------------------------------------------------------
-  analyze:
-    desc: Run dart analyze on the fdb package
+  format:
+    desc: "Format code in fdb (lib/ bin/ test/) and fdb_helper (lib/)"
     cmds:
-      - dart analyze
-      - dart format --set-exit-if-changed .
+      - dart format --page-width 120 --trailing-commas preserve lib/ bin/ test/
+      - cd packages/fdb_helper && dart format --page-width 120 --trailing-commas preserve lib/
+
+  fix:
+    desc: "Apply dart fix to fdb (lib/ bin/ test/) and fdb_helper (lib/)"
+    cmds:
+      - dart fix --apply lib/
+      - dart fix --apply bin/
+      - dart fix --apply test/
+      - cd packages/fdb_helper && dart fix --apply lib/
+
+  analyze:
+    desc: "Run static analysis on fdb (lib/ bin/ test/) and fdb_helper"
+    cmds:
+      - dart analyze lib/ bin/ test/
+      - cd packages/fdb_helper && flutter analyze --suppress-analytics
 
   test:unit:
-    desc: Run dart unit tests (when they exist)
+    desc: "Run dart unit tests for fdb"
     cmds:
       - dart test
+
+  # ---------------------------------------------------------------------------
+  # Comprehensive local verification (format → fix → analyze → test)
+  # ---------------------------------------------------------------------------
+  verify:
+    desc: "Run full verification: format, fix, analyze, test for fdb + fdb_helper. Logs saved to .task/logs/"
+    silent: true
+    vars:
+      LOG_DIR: "{{.ROOT_DIR}}/.task/logs"
+      FORMAT_LOG: "{{.ROOT_DIR}}/.task/logs/verify_format.log"
+      FIX_LOG: "{{.ROOT_DIR}}/.task/logs/verify_fix.log"
+      ANALYZE_LOG: "{{.ROOT_DIR}}/.task/logs/verify_analyze.log"
+      TEST_LOG: "{{.ROOT_DIR}}/.task/logs/verify_test.log"
+    cmds:
+      - mkdir -p "{{.LOG_DIR}}"
+      - |
+        run_step() {
+          STEP=$1; CMD=$2; LOG=$3
+          printf "%-12s" "$STEP"
+          if eval "$CMD" > "$LOG" 2>&1; then
+            echo "✓"
+          else
+            echo "✗  (see $LOG)"
+            FAILED=1
+          fi
+        }
+        FAILED=0
+        run_step "FORMAT"   "task format"   "{{.FORMAT_LOG}}"
+        run_step "FIX"      "task fix"      "{{.FIX_LOG}}"
+        run_step "ANALYZE"  "task analyze"  "{{.ANALYZE_LOG}}"
+        run_step "TEST"     "task test:unit" "{{.TEST_LOG}}"
+        if [ "$FAILED" = "1" ]; then
+          echo ""
+          echo "VERIFY FAILED — check the log file(s) listed above for details."
+          exit 1
+        else
+          echo ""
+          echo "VERIFY PASSED"
+        fi
+
+  verify-quick:
+    desc: "Run quick verification: format, fix, analyze (no tests) for fdb + fdb_helper. Logs saved to .task/logs/"
+    silent: true
+    vars:
+      LOG_DIR: "{{.ROOT_DIR}}/.task/logs"
+      FORMAT_LOG: "{{.ROOT_DIR}}/.task/logs/verify_format.log"
+      FIX_LOG: "{{.ROOT_DIR}}/.task/logs/verify_fix.log"
+      ANALYZE_LOG: "{{.ROOT_DIR}}/.task/logs/verify_analyze.log"
+    cmds:
+      - mkdir -p "{{.LOG_DIR}}"
+      - |
+        run_step() {
+          STEP=$1; CMD=$2; LOG=$3
+          printf "%-12s" "$STEP"
+          if eval "$CMD" > "$LOG" 2>&1; then
+            echo "✓"
+          else
+            echo "✗  (see $LOG)"
+            FAILED=1
+          fi
+        }
+        FAILED=0
+        run_step "FORMAT"   "task format"   "{{.FORMAT_LOG}}"
+        run_step "FIX"      "task fix"      "{{.FIX_LOG}}"
+        run_step "ANALYZE"  "task analyze"  "{{.ANALYZE_LOG}}"
+        if [ "$FAILED" = "1" ]; then
+          echo ""
+          echo "VERIFY FAILED — check the log file(s) listed above for details."
+          exit 1
+        else
+          echo ""
+          echo "VERIFY PASSED"
+        fi
 
   # ---------------------------------------------------------------------------
   # Benchmark: fdb describe performance

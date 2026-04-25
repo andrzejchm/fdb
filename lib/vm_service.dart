@@ -17,8 +17,7 @@ Future<Map<String, dynamic>> vmServiceCall(
     throw StateError('VM service URI not found. Is the app running?');
   }
 
-  final wsUri =
-      uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
+  final wsUri = uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
 
   final ws = await WebSocket.connect(
     wsUri,

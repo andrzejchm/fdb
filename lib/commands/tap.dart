@@ -64,8 +64,7 @@ Future<int> runTap(List<String> args) async {
         if (arg.startsWith('@')) {
           final refNum = int.tryParse(arg.substring(1));
           if (refNum == null || refNum < 1) {
-            stderr
-                .writeln('ERROR: Invalid ref: $arg. Expected @N where N >= 1');
+            stderr.writeln('ERROR: Invalid ref: $arg. Expected @N where N >= 1');
             return 1;
           }
           describeRef = refNum;
@@ -121,8 +120,7 @@ Future<int> runTap(List<String> args) async {
         final error = result['error'] as String?;
 
         if (status == 'Success') {
-          final tappedType =
-              result['widgetType'] as String? ?? type ?? 'widget';
+          final tappedType = result['widgetType'] as String? ?? type ?? 'widget';
           final tappedX = result['x'] ?? x ?? '';
           final tappedY = result['y'] ?? y ?? '';
           stdout.writeln('TAPPED=$tappedType X=$tappedX Y=$tappedY');
@@ -130,8 +128,7 @@ Future<int> runTap(List<String> args) async {
         }
 
         if (error != null) {
-          final isRetryable = error.contains('not found') ||
-              error.contains('No hittable element');
+          final isRetryable = error.contains('not found') || error.contains('No hittable element');
           if (isRetryable && DateTime.now().isBefore(deadline)) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
             continue;

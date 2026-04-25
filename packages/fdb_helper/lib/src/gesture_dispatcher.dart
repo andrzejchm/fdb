@@ -25,16 +25,11 @@ Future<void> dispatchTap(
 
   // Batch 1: Add + Down
   GestureBinding.instance.handlePointerEvent(
-    PointerAddedEvent(
-        timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
+    PointerAddedEvent(timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
   );
   timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
-    PointerDownEvent(
-        timeStamp: timeStamp,
-        pointer: pointerId,
-        position: globalPosition,
-        device: _kDeviceId),
+    PointerDownEvent(timeStamp: timeStamp, pointer: pointerId, position: globalPosition, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(holdDuration);
@@ -42,15 +37,10 @@ Future<void> dispatchTap(
 
   // Batch 2: Up + Remove
   GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(
-        timeStamp: timeStamp,
-        pointer: pointerId,
-        position: globalPosition,
-        device: _kDeviceId),
+    PointerUpEvent(timeStamp: timeStamp, pointer: pointerId, position: globalPosition, device: _kDeviceId),
   );
   GestureBinding.instance.handlePointerEvent(
-    PointerRemovedEvent(
-        timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
+    PointerRemovedEvent(timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);
@@ -74,16 +64,11 @@ Future<void> dispatchScroll({
 
   // Add + Down
   GestureBinding.instance.handlePointerEvent(
-    PointerAddedEvent(
-        timeStamp: timeStamp, position: start, device: _kDeviceId),
+    PointerAddedEvent(timeStamp: timeStamp, position: start, device: _kDeviceId),
   );
   timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
-    PointerDownEvent(
-        timeStamp: timeStamp,
-        pointer: pointerId,
-        position: start,
-        device: _kDeviceId),
+    PointerDownEvent(timeStamp: timeStamp, pointer: pointerId, position: start, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);
@@ -108,15 +93,10 @@ Future<void> dispatchScroll({
   // Up + Remove
   timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(
-        timeStamp: timeStamp,
-        pointer: pointerId,
-        position: end,
-        device: _kDeviceId),
+    PointerUpEvent(timeStamp: timeStamp, pointer: pointerId, position: end, device: _kDeviceId),
   );
   GestureBinding.instance.handlePointerEvent(
-    PointerRemovedEvent(
-        timeStamp: timeStamp, position: end, device: _kDeviceId),
+    PointerRemovedEvent(timeStamp: timeStamp, position: end, device: _kDeviceId),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);

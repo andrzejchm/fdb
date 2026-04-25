@@ -96,8 +96,7 @@ Future<void> main(List<String> args) async {
       }
 
       final timing = result['_timing'] as Map<String, dynamic>?;
-      final interactive =
-          (result['interactive'] as List<dynamic>?)?.length ?? 0;
+      final interactive = (result['interactive'] as List<dynamic>?)?.length ?? 0;
       final payloadChars = timing?['payload_chars'] as num? ?? 0;
 
       final tr = _TimingResult(

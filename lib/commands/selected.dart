@@ -22,8 +22,7 @@ Future<int> runSelected(List<String> args) async {
     }
 
     final description = widget['description'] as String? ?? 'Unknown';
-    final creationLocation =
-        widget['creationLocation'] as Map<String, dynamic>?;
+    final creationLocation = widget['creationLocation'] as Map<String, dynamic>?;
 
     if (creationLocation != null) {
       final file = (creationLocation['file'] as String? ?? '').split('/').last;

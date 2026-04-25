@@ -15,8 +15,7 @@ Future<int> runReload(List<String> args) async {
     return 1;
   }
 
-  final logBefore =
-      File(logFile).existsSync() ? File(logFile).readAsStringSync() : '';
+  final logBefore = File(logFile).existsSync() ? File(logFile).readAsStringSync() : '';
 
   final stopwatch = Stopwatch()..start();
 

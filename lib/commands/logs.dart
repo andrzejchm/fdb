@@ -30,9 +30,7 @@ Future<int> runLogs(List<String> args) async {
 
   final lines = file.readAsLinesSync();
   final tagFilter = tag;
-  var filtered = tagFilter != null
-      ? lines.where((l) => l.contains(tagFilter)).toList()
-      : lines;
+  var filtered = tagFilter != null ? lines.where((l) => l.contains(tagFilter)).toList() : lines;
 
   // Show last N lines
   if (filtered.length > last) {

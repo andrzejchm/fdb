@@ -87,20 +87,17 @@ Future<int> runScroll(List<String> args) async {
   List<double>? toCoords;
   if (isRawMode) {
     if (from == null || to == null) {
-      stderr.writeln(
-          'ERROR: --from and --to are both required in raw coordinate mode.');
+      stderr.writeln('ERROR: --from and --to are both required in raw coordinate mode.');
       return 1;
     }
     fromCoords = _parseCoords(from);
     if (fromCoords == null) {
-      stderr.writeln(
-          'ERROR: Invalid --from value: "$from". Expected format: x,y (e.g. 100,400).');
+      stderr.writeln('ERROR: Invalid --from value: "$from". Expected format: x,y (e.g. 100,400).');
       return 1;
     }
     toCoords = _parseCoords(to);
     if (toCoords == null) {
-      stderr.writeln(
-          'ERROR: Invalid --to value: "$to". Expected format: x,y (e.g. 300,100).');
+      stderr.writeln('ERROR: Invalid --to value: "$to". Expected format: x,y (e.g. 300,100).');
       return 1;
     }
   }
@@ -144,8 +141,7 @@ Future<int> runScroll(List<String> args) async {
       if (status == 'Success') {
         if (isRawMode) {
           stdout.writeln('SCROLLED=RAW');
-          stdout.writeln(
-              'FROM=${fromCoords![0].toInt()},${fromCoords[1].toInt()}');
+          stdout.writeln('FROM=${fromCoords![0].toInt()},${fromCoords[1].toInt()}');
           stdout.writeln('TO=${toCoords![0].toInt()},${toCoords[1].toInt()}');
         } else {
           stdout.writeln('SCROLLED=${direction!.toUpperCase()}');
