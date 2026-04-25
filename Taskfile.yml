@@ -413,8 +413,11 @@ tasks:
 
         # ---------------------------------------------------------------
         # Navigate to scroll-to test home
+        # Scroll-to the button first in case the page is scrolled down
+        # after Scenario 1 (ensureVisible may have moved the viewport).
         # ---------------------------------------------------------------
         echo "==> Navigating to scroll-to test home"
+        {{.FDB}} scroll-to --key "go_to_scroll_to_test" >/dev/null 2>&1
         {{.FDB}} tap --key "go_to_scroll_to_test" >/dev/null 2>&1
         sleep 1
 

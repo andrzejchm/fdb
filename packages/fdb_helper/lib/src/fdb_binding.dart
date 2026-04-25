@@ -770,11 +770,24 @@ class FdbBinding extends WidgetsFlutterBinding {
       // Check if the target widget is already visible before requiring a Scrollable.
       final earlyResult = findHittableElement(matcher);
       if (earlyResult.element != null) {
-        final earlyRenderObject = earlyResult.element!.renderObject;
+        // Use the raw matched element for ensureVisible so that Text widgets
+        // inside non-interactive containers (e.g. Column) are positioned
+        // correctly, rather than centering the entire ancestor container.
+        final ensureVisibleTarget =
+            findScrollTargetElement(matcher) ?? earlyResult.element!;
+        final earlyRenderObject = ensureVisibleTarget.renderObject;
         if (earlyRenderObject is RenderBox) {
+          await WidgetsBinding.instance.endOfFrame;
+          await Scrollable.ensureVisible(
+            ensureVisibleTarget,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOut,
+          );
+          await WidgetsBinding.instance.endOfFrame;
           final center = earlyRenderObject.size.center(Offset.zero);
           final globalCenter = earlyRenderObject.localToGlobal(center);
-          final widgetType = earlyResult.element!.widget.runtimeType.toString();
+          final widgetType = ensureVisibleTarget.widget.runtimeType.toString();
           return developer.ServiceExtensionResponse.result(
             jsonEncode({
               'status': 'Success',
@@ -835,15 +848,31 @@ class FdbBinding extends WidgetsFlutterBinding {
             // Stop any ongoing ballistic scroll animation by jumping to the
             // current position, then precisely position the target in the
             // viewport using ensureVisible.
+            //
+            // Use the raw matched element (e.g. the Text widget itself) for
+            // ensureVisible so that the scroll offset is computed relative to
+            // the actual target, not an ancestor container like Column.
+            // alignment: 0.5 centers the item in the viewport, which is more
+            // reliable across platforms and avoids off-by-one edge cases.
             position.jumpTo(position.pixels);
+            final ensureVisibleTarget =
+                findScrollTargetElement(matcher) ?? element;
+            await WidgetsBinding.instance.endOfFrame;
             await Scrollable.ensureVisible(
-              element,
+              ensureVisibleTarget,
+              alignment: 0.5,
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
             );
-            final center = renderObject.size.center(Offset.zero);
-            final globalCenter = renderObject.localToGlobal(center);
-            final widgetType = element.widget.runtimeType.toString();
+            await WidgetsBinding.instance.endOfFrame;
+            final targetRenderObject = ensureVisibleTarget.renderObject;
+            final reportRenderObject = targetRenderObject is RenderBox
+                ? targetRenderObject
+                : renderObject;
+            final center = reportRenderObject.size.center(Offset.zero);
+            final globalCenter = reportRenderObject.localToGlobal(center);
+            final widgetType =
+                ensureVisibleTarget.widget.runtimeType.toString();
             return developer.ServiceExtensionResponse.result(
               jsonEncode({
                 'status': 'Success',
@@ -946,14 +975,23 @@ class FdbBinding extends WidgetsFlutterBinding {
           // current position, then precisely position the target in the
           // viewport using ensureVisible.
           position.jumpTo(position.pixels);
+          final ensureVisibleTarget =
+              findScrollTargetElement(matcher) ?? element;
+          await WidgetsBinding.instance.endOfFrame;
           await Scrollable.ensureVisible(
-            element,
+            ensureVisibleTarget,
+            alignment: 0.5,
             duration: const Duration(milliseconds: 100),
             curve: Curves.easeOut,
           );
-          final center = renderObject.size.center(Offset.zero);
-          final globalCenter = renderObject.localToGlobal(center);
-          final widgetType = element.widget.runtimeType.toString();
+          await WidgetsBinding.instance.endOfFrame;
+          final targetRenderObject = ensureVisibleTarget.renderObject;
+          final reportRenderObject = targetRenderObject is RenderBox
+              ? targetRenderObject
+              : renderObject;
+          final center = reportRenderObject.size.center(Offset.zero);
+          final globalCenter = reportRenderObject.localToGlobal(center);
+          final widgetType = ensureVisibleTarget.widget.runtimeType.toString();
           return developer.ServiceExtensionResponse.result(
             jsonEncode({
               'status': 'Success',

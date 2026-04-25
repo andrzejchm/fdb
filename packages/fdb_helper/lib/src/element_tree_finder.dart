@@ -203,6 +203,43 @@ bool _isInteractiveWidget(Type type) =>
     type == TextField ||
     type == TextFormField;
 
+/// Finds the first (or Nth, if [matcher] has an index) element that directly
+/// matches [matcher], without walking up to a hittable ancestor.
+///
+/// Unlike [findHittableElement], this returns the raw matched element — e.g.
+/// the [Text] widget itself when using [TextMatcher]. This is the correct
+/// element to pass to [Scrollable.ensureVisible], which needs the actual
+/// target element to compute its scroll offset, not an ancestor container.
+///
+/// Returns null if no match is found.
+Element? findScrollTargetElement(WidgetMatcher matcher) {
+  if (matcher is CoordinatesMatcher) return null;
+
+  final root = WidgetsBinding.instance.rootElement;
+  if (root == null) return null;
+
+  final matches = <Element>[];
+
+  void visit(Element element) {
+    if (matcher.matches(element, extractText: extractWidgetText)) {
+      final renderObject = element.renderObject;
+      if (renderObject is RenderBox &&
+          renderObject.hasSize &&
+          renderObject.attached) {
+        matches.add(element);
+      }
+    }
+    element.visitChildren(visit);
+  }
+
+  root.visitChildren(visit);
+
+  if (matches.isEmpty) return null;
+  final targetIndex = matcher.index ?? 0;
+  if (targetIndex >= matches.length) return null;
+  return matches[targetIndex];
+}
+
 /// Extracts the plain-text content from a widget, or null if the widget
 /// carries no text. Used as the [extractText] callback for [WidgetMatcher.matches].
 String? extractWidgetText(Widget widget) {
