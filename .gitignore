@@ -12,12 +12,6 @@ example/test_app/.dart_tool/
 example/test_app/.flutter-plugins
 example/test_app/.flutter-plugins-dependencies
 example/test_app/build/
-example/test_app/ios/
-example/test_app/android/
-example/test_app/macos/
-example/test_app/linux/
-example/test_app/windows/
-example/test_app/web/
 example/test_app/.metadata
 .worktrees/
 
