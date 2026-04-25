@@ -1,6 +1,6 @@
 ---
 name: implementing-fdb-features
-description: End-to-end workflow for implementing new features in the fdb (Flutter Debug Bridge) codebase. Covers worktree setup, implementation, Taskfile test authoring, mandatory cross-platform manual testing on macOS + Android + iOS, review-fix loop delegation, CI verification, and PR creation. Use when picking up a GitHub issue to implement a new fdb command or fdb_helper VM extension.
+description: Implements new fdb CLI commands and fdb_helper VM service extensions end-to-end. Use when adding a new fdb command, when the user pitches a new fdb feature in chat, or when picking up a GitHub issue to implement a fdb or fdb_helper change.
 metadata:
   internal: true
 ---
@@ -10,8 +10,11 @@ metadata:
 Copy and track progress for each feature:
 
 ```
+Capture:
+- [ ] If starting from chat: create a GitHub issue first (Step 1a)
+- [ ] If starting from an issue: read it in full (Step 1b)
+
 Setup:
-- [ ] Read the GitHub issue in full
 - [ ] Create a worktree: mcp_Git-worktree create <feature-name> main fetch=true
 - [ ] Run task setup in the worktree
 
@@ -49,12 +52,36 @@ PR:
 
 ---
 
-## Step 1 — Read the issue
+## Step 1 — Capture the feature
 
-Before writing any code, read the full GitHub issue:
+### 1a — Starting from a chat pitch (no issue yet)
+
+When the user describes a feature in conversation rather than pointing at an issue, **create the GitHub issue before touching any code**. A good issue is the contract the implementation is held to.
+
+The issue must include:
+- **Problem** — what agents/users cannot do today
+- **CLI interface** — exact command, flags, and usage examples
+- **Output tokens** — exact stdout tokens (`THING=value`) and stderr error format
+- **Implementation notes** — which files to create/modify, which existing utilities to reuse
+- **Test app changes** — any new widget needed in `example/test_app/lib/main.dart`
+- **Acceptance criteria** — numbered checkboxes, one per testable behaviour
+
+```bash
+gh issue create \
+  --title "feat: fdb <command> — <short description>" \
+  --body "..." \
+  --repo andrzejchm/fdb
+```
+
+Only proceed to Step 2 after the issue is created. Reference it throughout as the source of truth.
+
+### 1b — Starting from an existing issue
+
+Read the full issue before writing any code:
 ```bash
 gh issue view <number> --repo andrzejchm/fdb
 ```
+
 The issue contains acceptance criteria, CLI interface, output token format, implementation notes, and Taskfile test scenarios. Do not deviate from the specified output tokens or CLI flags without updating the issue first.
 
 ---
