@@ -106,6 +106,7 @@ fdb kill
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
+| `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
 
@@ -184,6 +185,8 @@ void main() {
 **`RUNNING=false` right after launch** - The process crashed. Check `fdb logs --last 50`.
 
 **Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
+
+**Agent setup fails mid-flow** - Run `fdb doctor` to check app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
 
 ## Contributing
 

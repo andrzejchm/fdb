@@ -1,6 +1,6 @@
 ---
 name: using-fdb
-description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on physical devices and simulators. Launches apps, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, taps/long-presses widgets, enters text, scrolls, and navigates back. Use when launching a Flutter app on device, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, or interacting with widgets via fdb.
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on physical devices and simulators. Launches apps, runs pre-flight health checks, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, taps/long-presses widgets, enters text, scrolls, and navigates back. Use when launching a Flutter app on device, checking fdb environment health, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, or interacting with widgets via fdb.
 license: MIT
 compatibility: opencode
 ---
@@ -68,6 +68,26 @@ fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <
 Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 
 Find device IDs: `fdb devices`
+
+### Doctor pre-flight check
+
+```bash
+fdb doctor
+```
+
+Run this before an interaction session when you need to validate that the app is running and the environment is usable. It checks the app process, VM service, `fdb_helper`, platform tools, and stored device state, then prints `DOCTOR_SUMMARY=pass|fail CHECKS=<n> FAILED=<n>`.
+
+Example output:
+```
+DOCTOR_CHECK=app_running STATUS=pass
+DOCTOR_CHECK=vm_service STATUS=pass VM_SERVICE_URI=ws://127.0.0.1:56789/ws
+DOCTOR_CHECK=fdb_helper STATUS=pass
+DOCTOR_CHECK=platform_tools STATUS=warn TOOLS=xcrun,screencapture MISSING=adb HINT=adb missing — Android screenshots and interactions will fail. Install Android platform-tools.
+DOCTOR_CHECK=device STATUS=pass DEVICE_ID=macos PLATFORM=darwin-x64
+DOCTOR_SUMMARY=pass CHECKS=5 FAILED=0
+```
+
+Warnings do not make the summary fail. Failed checks include `HINT=...` remediation text. The command always exits `0`, so parse the summary instead of relying on the process exit code.
 
 ### Hot reload / restart
 

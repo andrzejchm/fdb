@@ -75,6 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 | `fdb devices` | List connected devices |
 | `fdb deeplink <url>` | Open deep link on device |
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
+| `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
 | `fdb reload` | Hot reload (SIGUSR1) |
 | `fdb restart` | Hot restart (SIGUSR2) |
 | `fdb screenshot [--output <path>] [--full]` | Screenshot (all platforms; `--full` skips downscaling) |
@@ -104,6 +105,14 @@ fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <
 Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 
 Find device IDs: `fdb devices`
+
+### Doctor
+
+```bash
+fdb doctor
+```
+
+Runs pre-flight checks for the app process, VM service, `fdb_helper`, platform tools, and stored device state. Always exits `0`; inspect `DOCTOR_SUMMARY=pass|fail CHECKS=<n> FAILED=<n>` and per-check `DOCTOR_CHECK=<name> STATUS=pass|fail|warn` lines.
 
 ### Hot reload / restart
 

@@ -96,6 +96,130 @@ tasks:
           exit 1
         fi
 
+  test:doctor:
+    desc: Run pre-flight environment checks (expects a running app with fdb_helper)
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        # Normalise raw output: the dart run build-hook preamble has no trailing
+        # newline so it can run onto the first DOCTOR_ token on the same physical
+        # line.  Split every DOCTOR_ prefix onto its own line so all ^-anchored
+        # greps work correctly regardless of the runner environment.
+        normalize() { sed "s/DOCTOR_/"$'\\\nDOCTOR_'"/g"; }
+
+        echo "==> Running doctor checks"
+        RAW=$({{.FDB}} doctor 2>&1)
+        EXIT_CODE=$?
+        OUTPUT=$(echo "$RAW" | normalize)
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb doctor exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        CHECK_COUNT=$(echo "$OUTPUT" | grep -c '^DOCTOR_CHECK=')
+        if [ "$CHECK_COUNT" -ne 5 ]; then
+          echo "FAIL: fdb doctor - expected 5 DOCTOR_CHECK lines, got $CHECK_COUNT" >&2
+          exit 1
+        fi
+        ACTUAL_ORDER=$(echo "$OUTPUT" | grep '^DOCTOR_CHECK=' | sed 's/^DOCTOR_CHECK=\([^ ]*\).*/\1/' | tr '\n' ' ' | sed 's/ $//')
+        EXPECTED_ORDER="app_running vm_service fdb_helper platform_tools device"
+        if [ "$ACTUAL_ORDER" != "$EXPECTED_ORDER" ]; then
+          echo "FAIL: fdb doctor - expected check order '$EXPECTED_ORDER', got '$ACTUAL_ORDER'" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q '^DOCTOR_CHECK=app_running STATUS=pass$'; then
+          echo "FAIL: fdb doctor - app_running pass line missing or malformed" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q '^DOCTOR_CHECK=vm_service STATUS=pass VM_SERVICE_URI='; then
+          echo "FAIL: fdb doctor - vm_service pass line missing VM_SERVICE_URI" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q '^DOCTOR_CHECK=fdb_helper STATUS=pass$'; then
+          echo "FAIL: fdb doctor - fdb_helper pass line missing or malformed" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -Eq '^DOCTOR_CHECK=platform_tools STATUS=(pass|warn) TOOLS='; then
+          echo "FAIL: fdb doctor - platform_tools line missing status or TOOLS" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q '^DOCTOR_CHECK=platform_tools STATUS=warn'; then
+          if ! echo "$OUTPUT" | grep -q '^DOCTOR_CHECK=platform_tools STATUS=warn .*MISSING=.*HINT=.*missing'; then
+            echo "FAIL: fdb doctor - platform_tools warning missing MISSING or HINT" >&2
+            exit 1
+          fi
+        fi
+        if ! echo "$OUTPUT" | grep -q '^DOCTOR_CHECK=device STATUS=pass DEVICE_ID=.* PLATFORM='; then
+          echo "FAIL: fdb doctor - device pass line missing DEVICE_ID or PLATFORM" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q '^DOCTOR_SUMMARY=pass CHECKS=5 FAILED=0$'; then
+          echo "FAIL: fdb doctor - passing summary missing or malformed" >&2
+          exit 1
+        fi
+
+        echo "==> Scenario: dead PID (app_running=fail)"
+        ORIGINAL_PID=$(cat .fdb/fdb.pid)
+        restore_pid() { printf '%s' "$ORIGINAL_PID" > .fdb/fdb.pid; }
+        trap restore_pid EXIT
+        printf '999999' > .fdb/fdb.pid
+        FAILURE_RAW=$({{.FDB}} doctor 2>&1)
+        FAILURE_EXIT_CODE=$?
+        restore_pid
+        trap - EXIT
+        FAILURE_OUTPUT=$(echo "$FAILURE_RAW" | normalize)
+        echo "$FAILURE_OUTPUT"
+        if [ $FAILURE_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb doctor returned non-zero for failed checks: $FAILURE_EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$FAILURE_OUTPUT" | grep -q '^DOCTOR_CHECK=app_running STATUS=fail HINT='; then
+          echo "FAIL: fdb doctor - app_running failure line missing HINT" >&2
+          exit 1
+        fi
+        if ! echo "$FAILURE_OUTPUT" | grep -q '^DOCTOR_CHECK=vm_service STATUS=fail HINT='; then
+          echo "FAIL: fdb doctor - vm_service failure line missing HINT" >&2
+          exit 1
+        fi
+        if ! echo "$FAILURE_OUTPUT" | grep -q '^DOCTOR_CHECK=fdb_helper STATUS=fail HINT='; then
+          echo "FAIL: fdb doctor - fdb_helper failure line missing HINT" >&2
+          exit 1
+        fi
+        if ! echo "$FAILURE_OUTPUT" | grep -q '^DOCTOR_SUMMARY=fail CHECKS=5 FAILED=3$'; then
+          echo "FAIL: fdb doctor - failed summary missing or warnings counted as failures" >&2
+          exit 1
+        fi
+
+        echo "==> Scenario: stale VM URI while PID is alive (vm_service=fail)"
+        ORIGINAL_URI=$(cat .fdb/vm_uri.txt)
+        restore_uri() { printf '%s' "$ORIGINAL_URI" > .fdb/vm_uri.txt; }
+        trap restore_uri EXIT
+        printf 'ws://127.0.0.1:1/stale=/ws' > .fdb/vm_uri.txt
+        STALE_RAW=$({{.FDB}} doctor 2>&1)
+        STALE_EXIT_CODE=$?
+        restore_uri
+        trap - EXIT
+        STALE_OUTPUT=$(echo "$STALE_RAW" | normalize)
+        echo "$STALE_OUTPUT"
+        if [ $STALE_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb doctor returned non-zero for stale URI scenario: $STALE_EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$STALE_OUTPUT" | grep -q '^DOCTOR_CHECK=app_running STATUS=pass$'; then
+          echo "FAIL: fdb doctor stale-URI - app_running should still pass" >&2
+          exit 1
+        fi
+        if ! echo "$STALE_OUTPUT" | grep -q '^DOCTOR_CHECK=vm_service STATUS=fail HINT=App is running'; then
+          echo "FAIL: fdb doctor stale-URI - vm_service should fail with app-is-running hint" >&2
+          exit 1
+        fi
+        if ! echo "$STALE_OUTPUT" | grep -q '^DOCTOR_SUMMARY=fail'; then
+          echo "FAIL: fdb doctor stale-URI - summary should be fail" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb doctor"
+
   test:reload:
     desc: Hot reload the running app
     dir: '{{.TEST_APP}}'
