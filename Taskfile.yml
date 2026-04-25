@@ -401,13 +401,13 @@ tasks:
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
-          echo "FAIL: fdb scroll-to (already-visible text) exited with code $EXIT_CODE" >&2
+          echo "FAIL: fdb scroll-to (off-screen item) exited with code $EXIT_CODE" >&2
           exit 1
         fi
         if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
-          echo "PASS: fdb scroll-to (already-visible text)"
+          echo "PASS: fdb scroll-to (off-screen item)"
         else
-          echo "FAIL: fdb scroll-to (already-visible text) - SCROLLED_TO= not found in output" >&2
+          echo "FAIL: fdb scroll-to (off-screen item) - SCROLLED_TO= not found in output" >&2
           exit 1
         fi
 
@@ -489,14 +489,14 @@ tasks:
         sleep 1
 
         # ---------------------------------------------------------------
-        # Scenario 5: reversed list — scroll to item by key (rev_item_5)
+        # Scenario 5: reversed list — scroll to item by key (rev_item_55)
         # ---------------------------------------------------------------
         echo "==> [scroll-to] reversed list — navigate to reversed screen"
         {{.FDB}} tap --key "go_to_reversed" >/dev/null 2>&1
         sleep 1
 
-        echo "==> [scroll-to] reversed list — scroll to rev_item_5 by key"
-        OUTPUT=$({{.FDB}} scroll-to --key "rev_item_5" 2>&1)
+        echo "==> [scroll-to] reversed list — scroll to rev_item_55 by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "rev_item_55" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then

@@ -190,7 +190,7 @@ fdb swipe left                            # swipe from screen center
 fdb swipe up --distance 400              # swipe with custom distance
 ```
 
-Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SWIPED=<DIR> DISTANCE=<n>`
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SCROLLED_TO=<type> X=<x> Y=<y>`, `SWIPED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 

@@ -21,7 +21,7 @@ Verify: `fdb status`
 
 ## fdb_helper setup (required for tap, longpress, input, scroll, scroll-to, back)
 
-The `tap`, `longpress`, `input`, `scroll`, and `scroll-to` commands require `fdb_helper` to be added to the Flutter app under test.
+The `tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back` commands require `fdb_helper` to be added to the Flutter app under test.
 
 **`pubspec.yaml`:**
 ```yaml

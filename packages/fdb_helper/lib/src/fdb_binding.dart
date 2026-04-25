@@ -758,12 +758,6 @@ class FdbBinding extends WidgetsFlutterBinding {
 
       // Check if the target widget is already visible before requiring a Scrollable.
       final earlyResult = findHittableElement(matcher);
-      if (earlyResult.matchCount > 1) {
-        return _errorResponse(
-          'Found ${earlyResult.matchCount} elements matching the selector. '
-          'Use --index to specify which one (0-based).',
-        );
-      }
       if (earlyResult.element != null) {
         final earlyRenderObject = earlyResult.element!.renderObject;
         if (earlyRenderObject is RenderBox) {
@@ -779,6 +773,12 @@ class FdbBinding extends WidgetsFlutterBinding {
             }),
           );
         }
+      }
+      if (earlyResult.matchCount > 1) {
+        return _errorResponse(
+          'Found ${earlyResult.matchCount} elements matching the selector. '
+          'Use --index to specify which one (0-based).',
+        );
       }
 
       final scrollableElement = _findBestScrollable(matcher);
