@@ -1,6 +1,6 @@
 ---
 name: implementing-fdb-features
-description: Implements new fdb CLI commands and fdb_helper VM service extensions end-to-end. Use when adding a new fdb command, when the user pitches a new fdb feature in chat, or when picking up a GitHub issue to implement a fdb or fdb_helper change.
+description: Implements features, functionalities, and improvements to fdb and its packages. Use when creating new features, adding new commands, or improving existing functionality in fdb or fdb_helper.
 metadata:
   internal: true
 ---
