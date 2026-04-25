@@ -7,7 +7,7 @@ on:
 
 jobs:
   ci:
-    name: Verify (format, fix, analyze, test)
+    name: Verify
     runs-on: ubuntu-latest
 
     steps:
@@ -17,17 +17,29 @@ jobs:
         with:
           channel: stable
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install dependencies (fdb)
+        run: dart pub get
 
-      - name: Install dependencies
-        run: task setup
+      - name: Install dependencies (fdb_helper)
+        run: flutter pub get
+        working-directory: packages/fdb_helper
 
-      - name: Verify
-        run: task verify
+      - name: Format (fdb)
+        run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/ bin/ test/
+
+      - name: Format (fdb_helper)
+        run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/
+        working-directory: packages/fdb_helper
+
+      - name: Analyze (fdb)
+        run: dart analyze lib/ bin/ test/
+
+      - name: Analyze (fdb_helper)
+        run: flutter analyze --suppress-analytics
+        working-directory: packages/fdb_helper
+
+      - name: Test (fdb)
+        run: dart test
 
   publish:
     name: Publish to pub.dev & create GitHub release
