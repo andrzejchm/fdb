@@ -36,6 +36,12 @@ const int _edgeConfirmationCount = 2;
 /// a drag gesture.
 const int _stallConfirmationCount = 3;
 
+/// Minimum scroll range (in pixels) a Scrollable must have to be considered
+/// a meaningful scroll container. Scrollables with a range at or below this
+/// value (e.g. fully-visible lists with no overflow) are ignored when
+/// selecting the best Scrollable for scroll-to.
+const double _minScrollRangePixels = 0.5;
+
 /// Pixel distance of each drag gesture used by scroll-to.
 /// Matches the default step used by `fdb scroll`, large enough to produce
 /// scroll physics momentum on all platforms.
@@ -1021,7 +1027,7 @@ class FdbBinding extends WidgetsFlutterBinding {
           final range =
               (scrollPosition.maxScrollExtent - scrollPosition.minScrollExtent)
                   .abs();
-          if (range > 0.5) {
+          if (range > _minScrollRangePixels) {
             lastWithRange = el; // keep updating — we want the LAST one
           }
         }
