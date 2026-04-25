@@ -36,6 +36,11 @@ const int _edgeConfirmationCount = 2;
 /// a drag gesture.
 const int _stallConfirmationCount = 3;
 
+/// Pixel distance of each drag gesture used by scroll-to.
+/// Matches the default step used by `fdb scroll`, large enough to produce
+/// scroll physics momentum on all platforms.
+const double _scrollStepPixels = 200.0;
+
 /// A custom binding that registers VM service extensions for widget interaction.
 ///
 /// Usage in `main()`:
@@ -800,14 +805,13 @@ class FdbBinding extends WidgetsFlutterBinding {
       //   up-axis:   drag finger down (dy > 0) → content scrolls up
       //   right-axis: drag finger left (dx < 0) → content scrolls right
       //   left-axis:  drag finger right (dx > 0) → content scrolls left
-      // 200px matches the default used by fdb scroll, which is large enough
-      // to produce scroll physics momentum on all platforms.
-      const double delta = 200.0;
+      // _scrollStepPixels matches the default used by fdb scroll, which is
+      // large enough to produce scroll physics momentum on all platforms.
       var moveStep = switch (axisDirection) {
-        AxisDirection.down => const Offset(0, -delta),
-        AxisDirection.up => const Offset(0, delta),
-        AxisDirection.right => const Offset(-delta, 0),
-        AxisDirection.left => const Offset(delta, 0),
+        AxisDirection.down => const Offset(0, -_scrollStepPixels),
+        AxisDirection.up => const Offset(0, _scrollStepPixels),
+        AxisDirection.right => const Offset(-_scrollStepPixels, 0),
+        AxisDirection.left => const Offset(_scrollStepPixels, 0),
       };
 
       final maxAttempts = _calculateMaxAttempts(position);
@@ -973,7 +977,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     Element? targetElement;
     void findTarget(Element el) {
       if (targetElement != null) return;
-      if (matcher.matches(el)) {
+      if (matcher.matches(el, extractText: extractWidgetText)) {
         targetElement = el;
         return;
       }
@@ -1049,10 +1053,9 @@ class FdbBinding extends WidgetsFlutterBinding {
   /// For finite lists, uses scroll extent / step size * 2 + buffer, capped at
   /// 200. For infinite lists (e.g. infinite scroll), falls back to 50.
   int _calculateMaxAttempts(ScrollPosition position) {
-    const double delta = 200.0;
     final extent = (position.maxScrollExtent - position.minScrollExtent).abs();
     if (!extent.isFinite) return 50;
-    return ((extent / delta).ceil() * 2 + 20).clamp(1, 200);
+    return ((extent / _scrollStepPixels).ceil() * 2 + 20).clamp(1, 200);
   }
 
   Future<developer.ServiceExtensionResponse> _handleSwipe(
