@@ -6,6 +6,7 @@ import 'package:fdb/commands/shared_prefs.dart';
 import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/describe.dart';
 import 'package:fdb/commands/devices.dart';
+import 'package:fdb/commands/doctor.dart';
 import 'package:fdb/commands/input.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
@@ -38,6 +39,7 @@ Commands:
   logs        Get filtered app logs
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
+  doctor      Check app, VM service, fdb_helper, platform tools, and device state
   tap         Tap a widget by selector or @N ref from describe
   longpress   Long-press a widget by selector
   input       Enter text into a field
@@ -106,6 +108,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runTree(args);
     case 'describe':
       return runDescribe(args);
+    case 'doctor':
+      return runDoctor(args);
     case 'tap':
       return runTap(args);
     case 'longpress':
