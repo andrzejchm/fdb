@@ -8,6 +8,7 @@ import 'package:fdb/vm_service.dart';
 ///   fdb tap --text "Submit"
 ///   fdb tap --key "login_button"
 ///   fdb tap --type ElevatedButton [--index 2]
+///   fdb tap --at 195,842
 ///   fdb tap --x 195 --y 842
 ///   fdb tap @3
 ///   fdb tap --text "Submit" --timeout 5
@@ -16,8 +17,9 @@ Future<int> runTap(List<String> args) async {
   String? key;
   String? type;
   int? index;
-  int? x;
-  int? y;
+  double? x;
+  double? y;
+  var usedAt = false;
   int? describeRef;
   var timeoutSeconds = 5;
 
@@ -38,18 +40,30 @@ Future<int> runTap(List<String> args) async {
         }
       case '--x':
         final rawX = args[++i];
-        x = int.tryParse(rawX);
+        x = double.tryParse(rawX);
         if (x == null) {
           stderr.writeln('ERROR: Invalid value for --x: $rawX');
           return 1;
         }
       case '--y':
         final rawY = args[++i];
-        y = int.tryParse(rawY);
+        y = double.tryParse(rawY);
         if (y == null) {
           stderr.writeln('ERROR: Invalid value for --y: $rawY');
           return 1;
         }
+      case '--at':
+        final rawAt = args[++i];
+        final parsed = _parseAt(rawAt);
+        if (parsed == null) {
+          stderr.writeln(
+            'ERROR: Invalid --at value: "$rawAt". Expected format: x,y (e.g. 200,400).',
+          );
+          return 1;
+        }
+        x = parsed.$1;
+        y = parsed.$2;
+        usedAt = true;
       case '--timeout':
         final rawTimeout = args[++i];
         final parsed = int.tryParse(rawTimeout);
@@ -85,8 +99,13 @@ Future<int> runTap(List<String> args) async {
     return 1;
   }
 
+  if (usedAt && hasSelector) {
+    stderr.writeln('ERROR: --at cannot be combined with --key, --text, or --type.');
+    return 1;
+  }
+
   if (!hasSelector && !hasCoords) {
-    stderr.writeln('ERROR: Provide --text, --key, --type, --x/--y, or @N ref');
+    stderr.writeln('ERROR: Provide --text, --key, --type, --at, --x/--y, or @N ref');
     return 1;
   }
 
@@ -120,7 +139,7 @@ Future<int> runTap(List<String> args) async {
         final error = result['error'] as String?;
 
         if (status == 'Success') {
-          final tappedType = result['widgetType'] as String? ?? type ?? 'widget';
+          final tappedType = usedAt ? 'coordinates' : result['widgetType'] as String? ?? type ?? 'widget';
           final tappedX = result['x'] ?? x ?? '';
           final tappedY = result['y'] ?? y ?? '';
           stdout.writeln('TAPPED=$tappedType X=$tappedX Y=$tappedY');
@@ -146,6 +165,17 @@ Future<int> runTap(List<String> args) async {
     stderr.writeln('ERROR: $e');
     return 1;
   }
+}
+
+(double, double)? _parseAt(String raw) {
+  final parts = raw.split(',');
+  if (parts.length != 2) return null;
+
+  final x = double.tryParse(parts[0]);
+  final y = double.tryParse(parts[1]);
+  if (x == null || y == null) return null;
+
+  return (x, y);
 }
 
 /// Resolves a describe ref (@N) to coordinates and taps at that position.
