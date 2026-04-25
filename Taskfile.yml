@@ -418,6 +418,7 @@ tasks:
         # ---------------------------------------------------------------
         echo "==> Navigating to scroll-to test home"
         {{.FDB}} scroll-to --key "go_to_scroll_to_test" >/dev/null 2>&1
+        sleep 1
         {{.FDB}} tap --key "go_to_scroll_to_test" >/dev/null 2>&1
         sleep 1
 
@@ -442,6 +443,8 @@ tasks:
           echo "FAIL: fdb scroll-to (lazy list by key) - SCROLLED_TO= not found in output" >&2
           exit 1
         fi
+
+        sleep 1
 
         # ---------------------------------------------------------------
         # Scenario 3: lazy list — scroll to item by text (index 99)
@@ -492,14 +495,14 @@ tasks:
         sleep 1
 
         # ---------------------------------------------------------------
-        # Scenario 5: reversed list — scroll to item by key (rev_item_55)
+        # Scenario 5: reversed list — scroll to item by key (rev_item_5)
         # ---------------------------------------------------------------
         echo "==> [scroll-to] reversed list — navigate to reversed screen"
         {{.FDB}} tap --key "go_to_reversed" >/dev/null 2>&1
         sleep 1
 
-        echo "==> [scroll-to] reversed list — scroll to rev_item_55 by key"
-        OUTPUT=$({{.FDB}} scroll-to --key "rev_item_55" 2>&1)
+        echo "==> [scroll-to] reversed list — scroll to rev_item_5 by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "rev_item_5" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then

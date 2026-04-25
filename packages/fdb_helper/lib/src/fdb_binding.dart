@@ -767,6 +767,10 @@ class FdbBinding extends WidgetsFlutterBinding {
     try {
       final matcher = WidgetMatcher.fromParams(params);
 
+      if (matcher is FocusedMatcher) {
+        return _errorResponse('scroll-to does not support --focused');
+      }
+
       // Check if the target widget is already visible before requiring a Scrollable.
       final earlyResult = findHittableElement(matcher);
       if (earlyResult.element != null) {
@@ -777,24 +781,24 @@ class FdbBinding extends WidgetsFlutterBinding {
             findScrollTargetElement(matcher) ?? earlyResult.element!;
         final earlyRenderObject = ensureVisibleTarget.renderObject;
         if (earlyRenderObject is RenderBox) {
-          await WidgetsBinding.instance.endOfFrame;
-          await Scrollable.ensureVisible(
-            ensureVisibleTarget,
-            alignment: 0.5,
-            duration: const Duration(milliseconds: 100),
-            curve: Curves.easeOut,
-          );
-          await WidgetsBinding.instance.endOfFrame;
-          final center = earlyRenderObject.size.center(Offset.zero);
-          final globalCenter = earlyRenderObject.localToGlobal(center);
-          final widgetType = ensureVisibleTarget.widget.runtimeType.toString();
-          return developer.ServiceExtensionResponse.result(
-            jsonEncode({
-              'status': 'Success',
-              'widgetType': widgetType,
-              'x': globalCenter.dx,
-              'y': globalCenter.dy,
-            }),
+          // Look up the scroll position so we can stop any in-progress
+          // ballistic animation before calling ensureVisible, matching the
+          // behaviour of the main loop and post-loop paths.
+          ScrollPosition? earlyPosition;
+          ensureVisibleTarget.visitAncestorElements((ancestor) {
+            if (ancestor.widget is Scrollable) {
+              earlyPosition = _tryGetScrollPosition(ancestor);
+              return false;
+            }
+            return true;
+          });
+          // alignment: 0.0 (Flutter default) avoids unnecessary scrolling when
+          // the widget is already fully visible on screen.
+          return await _ensureVisibleAndReport(
+            ensureVisibleTarget: ensureVisibleTarget,
+            fallbackRenderObject: earlyRenderObject,
+            position: earlyPosition,
+            alignment: 0.0,
           );
         }
       }
@@ -854,32 +858,13 @@ class FdbBinding extends WidgetsFlutterBinding {
             // the actual target, not an ancestor container like Column.
             // alignment: 0.5 centers the item in the viewport, which is more
             // reliable across platforms and avoids off-by-one edge cases.
-            position.jumpTo(position.pixels);
             final ensureVisibleTarget =
                 findScrollTargetElement(matcher) ?? element;
-            await WidgetsBinding.instance.endOfFrame;
-            await Scrollable.ensureVisible(
-              ensureVisibleTarget,
+            return await _ensureVisibleAndReport(
+              ensureVisibleTarget: ensureVisibleTarget,
+              fallbackRenderObject: renderObject,
+              position: position,
               alignment: 0.5,
-              duration: const Duration(milliseconds: 100),
-              curve: Curves.easeOut,
-            );
-            await WidgetsBinding.instance.endOfFrame;
-            final targetRenderObject = ensureVisibleTarget.renderObject;
-            final reportRenderObject = targetRenderObject is RenderBox
-                ? targetRenderObject
-                : renderObject;
-            final center = reportRenderObject.size.center(Offset.zero);
-            final globalCenter = reportRenderObject.localToGlobal(center);
-            final widgetType =
-                ensureVisibleTarget.widget.runtimeType.toString();
-            return developer.ServiceExtensionResponse.result(
-              jsonEncode({
-                'status': 'Success',
-                'widgetType': widgetType,
-                'x': globalCenter.dx,
-                'y': globalCenter.dy,
-              }),
             );
           }
         }
@@ -974,31 +959,13 @@ class FdbBinding extends WidgetsFlutterBinding {
           // Stop any ongoing ballistic scroll animation by jumping to the
           // current position, then precisely position the target in the
           // viewport using ensureVisible.
-          position.jumpTo(position.pixels);
           final ensureVisibleTarget =
               findScrollTargetElement(matcher) ?? element;
-          await WidgetsBinding.instance.endOfFrame;
-          await Scrollable.ensureVisible(
-            ensureVisibleTarget,
+          return await _ensureVisibleAndReport(
+            ensureVisibleTarget: ensureVisibleTarget,
+            fallbackRenderObject: renderObject,
+            position: position,
             alignment: 0.5,
-            duration: const Duration(milliseconds: 100),
-            curve: Curves.easeOut,
-          );
-          await WidgetsBinding.instance.endOfFrame;
-          final targetRenderObject = ensureVisibleTarget.renderObject;
-          final reportRenderObject = targetRenderObject is RenderBox
-              ? targetRenderObject
-              : renderObject;
-          final center = reportRenderObject.size.center(Offset.zero);
-          final globalCenter = reportRenderObject.localToGlobal(center);
-          final widgetType = ensureVisibleTarget.widget.runtimeType.toString();
-          return developer.ServiceExtensionResponse.result(
-            jsonEncode({
-              'status': 'Success',
-              'widgetType': widgetType,
-              'x': globalCenter.dx,
-              'y': globalCenter.dy,
-            }),
           );
         }
       }
@@ -1017,6 +984,62 @@ class FdbBinding extends WidgetsFlutterBinding {
     } catch (e) {
       return _errorResponse('scrollTo failed: $e');
     }
+  }
+
+  /// Stops any in-progress ballistic animation, calls [Scrollable.ensureVisible]
+  /// on [ensureVisibleTarget], waits for the frame to settle, then returns a
+  /// [developer.ServiceExtensionResponse] with the widget's global coordinates.
+  ///
+  /// If [position] is provided, [ScrollPosition.jumpTo] is called first to
+  /// cancel any ongoing ballistic scroll animation before [ensureVisible] runs.
+  ///
+  /// After [ensureVisible] completes, the render object is re-read from
+  /// [ensureVisibleTarget] so that the reported coordinates reflect the widget's
+  /// new position. If the re-read render object is not a [RenderBox], the
+  /// provided [fallbackRenderObject] is used instead.
+  ///
+  /// [alignment] is forwarded to [Scrollable.ensureVisible]. Use `0.0` (Flutter
+  /// default) when the widget is already on screen to avoid unnecessary
+  /// scrolling; use `0.5` to center the widget after scrolling it into view.
+  Future<developer.ServiceExtensionResponse> _ensureVisibleAndReport({
+    required Element ensureVisibleTarget,
+    required RenderBox fallbackRenderObject,
+    ScrollPosition? position,
+    required double alignment,
+  }) async {
+    if (position != null) {
+      // jumpTo schedules a frame as a side-effect, so endOfFrame will complete.
+      position.jumpTo(position.pixels);
+    } else {
+      // No jumpTo means no frame is scheduled. Explicitly schedule one so that
+      // the endOfFrame future below does not hang when the app is idle.
+      WidgetsBinding.instance.scheduleFrame();
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    await Scrollable.ensureVisible(
+      ensureVisibleTarget,
+      alignment: alignment,
+      duration: Duration.zero,
+    );
+    // scheduleFrame ensures endOfFrame completes even when ensureVisible does
+    // nothing (widget already at correct position, app otherwise idle).
+    WidgetsBinding.instance.scheduleFrame();
+    await WidgetsBinding.instance.endOfFrame;
+    final targetRenderObject = ensureVisibleTarget.renderObject;
+    final reportRenderObject = targetRenderObject is RenderBox
+        ? targetRenderObject
+        : fallbackRenderObject;
+    final center = reportRenderObject.size.center(Offset.zero);
+    final globalCenter = reportRenderObject.localToGlobal(center);
+    final widgetType = ensureVisibleTarget.widget.runtimeType.toString();
+    return developer.ServiceExtensionResponse.result(
+      jsonEncode({
+        'status': 'Success',
+        'widgetType': widgetType,
+        'x': globalCenter.dx,
+        'y': globalCenter.dy,
+      }),
+    );
   }
 
   /// Finds the best [Scrollable] element to use for scroll-to.

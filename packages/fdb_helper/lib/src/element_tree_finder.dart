@@ -211,9 +211,19 @@ bool _isInteractiveWidget(Type type) =>
 /// element to pass to [Scrollable.ensureVisible], which needs the actual
 /// target element to compute its scroll offset, not an ancestor container.
 ///
+/// An element is only included in results if it has a valid, sized, attached
+/// [RenderBox]. If a matched element has no valid [RenderBox], it is silently
+/// excluded from results (and its children are not recursed into either).
+///
+/// Note: when [matcher] is a [FocusedMatcher] or [CoordinatesMatcher], this
+/// function always returns `null`. [FocusedMatcher.matches] always returns
+/// `false`, and [CoordinatesMatcher] is not meaningful for tree traversal.
+///
 /// Returns null if no match is found.
 Element? findScrollTargetElement(WidgetMatcher matcher) {
   if (matcher is CoordinatesMatcher) return null;
+  // FocusedMatcher.matches() always returns false — skip the tree walk.
+  if (matcher is FocusedMatcher) return null;
 
   final root = WidgetsBinding.instance.rootElement;
   if (root == null) return null;
@@ -228,6 +238,11 @@ Element? findScrollTargetElement(WidgetMatcher matcher) {
           renderObject.attached) {
         matches.add(element);
       }
+      // Do not recurse into children of any matched element — we want the
+      // most specific (deepest) match, and ensureVisible needs the actual
+      // target element, not an ancestor that also happens to match.
+      // This applies even when the matched element has no valid RenderBox.
+      return;
     }
     element.visitChildren(visit);
   }
