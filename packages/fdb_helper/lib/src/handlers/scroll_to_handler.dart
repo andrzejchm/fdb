@@ -55,8 +55,7 @@ Future<developer.ServiceExtensionResponse> handleScrollTo(
     // Check if the target widget is already visible before requiring a Scrollable.
     final earlyResult = findHittableElement(matcher);
     if (earlyResult.element != null) {
-      final ensureVisibleTarget =
-          findScrollTargetElement(matcher) ?? earlyResult.element!;
+      final ensureVisibleTarget = findScrollTargetElement(matcher) ?? earlyResult.element!;
       final earlyRenderObject = ensureVisibleTarget.renderObject;
       if (earlyRenderObject is RenderBox) {
         ScrollPosition? earlyPosition;
@@ -114,8 +113,7 @@ Future<developer.ServiceExtensionResponse> handleScrollTo(
       if (element != null) {
         final renderObject = element.renderObject;
         if (renderObject is RenderBox) {
-          final ensureVisibleTarget =
-              findScrollTargetElement(matcher) ?? element;
+          final ensureVisibleTarget = findScrollTargetElement(matcher) ?? element;
           return await _ensureVisibleAndReport(
             ensureVisibleTarget: ensureVisibleTarget,
             fallbackRenderObject: renderObject,
@@ -136,8 +134,7 @@ Future<developer.ServiceExtensionResponse> handleScrollTo(
       if (scrollableRenderObject is! RenderBox) break;
 
       final scrollableCenter = scrollableRenderObject.size.center(Offset.zero);
-      final scrollableGlobalCenter =
-          scrollableRenderObject.localToGlobal(scrollableCenter);
+      final scrollableGlobalCenter = scrollableRenderObject.localToGlobal(scrollableCenter);
 
       final currentPixels = position.pixels;
 
@@ -176,9 +173,7 @@ Future<developer.ServiceExtensionResponse> handleScrollTo(
         AxisDirection.right => moveStep.dx < 0,
         AxisDirection.left => moveStep.dx > 0,
       };
-      final atCurrentEdge = scrollingForward
-          ? position.extentAfter <= 0
-          : position.extentBefore <= 0;
+      final atCurrentEdge = scrollingForward ? position.extentAfter <= 0 : position.extentBefore <= 0;
 
       if (atCurrentEdge) {
         edgeCount++;
@@ -250,9 +245,7 @@ Future<developer.ServiceExtensionResponse> _ensureVisibleAndReport({
   WidgetsBinding.instance.scheduleFrame();
   await WidgetsBinding.instance.endOfFrame;
   final targetRenderObject = ensureVisibleTarget.renderObject;
-  final reportRenderObject = targetRenderObject is RenderBox
-      ? targetRenderObject
-      : fallbackRenderObject;
+  final reportRenderObject = targetRenderObject is RenderBox ? targetRenderObject : fallbackRenderObject;
   final center = reportRenderObject.size.center(Offset.zero);
   final globalCenter = reportRenderObject.localToGlobal(center);
   final widgetType = ensureVisibleTarget.widget.runtimeType.toString();
@@ -308,9 +301,7 @@ Element? _findBestScrollable(WidgetMatcher matcher) {
       fallback ??= el;
       final scrollPosition = _tryGetScrollPosition(el);
       if (scrollPosition != null) {
-        final range =
-            (scrollPosition.maxScrollExtent - scrollPosition.minScrollExtent)
-                .abs();
+        final range = (scrollPosition.maxScrollExtent - scrollPosition.minScrollExtent).abs();
         if (range > _minScrollRangePixels) {
           lastWithRange = el;
         }
@@ -325,8 +316,7 @@ Element? _findBestScrollable(WidgetMatcher matcher) {
 
 ScrollPosition? _tryGetScrollPosition(Element scrollableElement) {
   try {
-    final state =
-        (scrollableElement as StatefulElement).state as ScrollableState;
+    final state = (scrollableElement as StatefulElement).state as ScrollableState;
     return state.position;
   } catch (_) {
     return null;

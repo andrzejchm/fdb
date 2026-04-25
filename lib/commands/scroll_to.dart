@@ -8,10 +8,10 @@ import 'package:fdb/vm_service.dart';
 /// exist in the element tree yet.
 ///
 /// Usage:
-///   fdb scroll-to --key <key>
-///   fdb scroll-to --text <text>
-///   fdb scroll-to --type <WidgetType>
-///   fdb scroll-to --type <WidgetType> --index 2
+///   fdb scroll-to --key `<key>`
+///   fdb scroll-to --text `<text>`
+///   fdb scroll-to --type `<WidgetType>`
+///   fdb scroll-to --type `<WidgetType>` --index 2
 Future<int> runScrollTo(List<String> args) async {
   String? text;
   String? key;
@@ -70,8 +70,7 @@ Future<int> runScrollTo(List<String> args) async {
       final error = result['error'] as String?;
 
       if (status == 'Success') {
-        final widgetType =
-            result['widgetType'] as String? ?? key ?? text ?? type ?? 'widget';
+        final widgetType = result['widgetType'] as String? ?? key ?? text ?? type ?? 'widget';
         final x = result['x'] as double?;
         final y = result['y'] as double?;
         if (x == null || y == null) {

@@ -26,9 +26,7 @@ Future<developer.ServiceExtensionResponse> handleSwipe(
     double swipeDistance;
 
     // Check if a widget selector was provided.
-    final hasSelector = params.containsKey('key') ||
-        params.containsKey('text') ||
-        params.containsKey('type');
+    final hasSelector = params.containsKey('key') || params.containsKey('text') || params.containsKey('type');
 
     if (hasSelector) {
       // Widget-targeted swipe: find the widget's bounds and compute

@@ -18,9 +18,7 @@ Future<developer.ServiceExtensionResponse> handleTap(
     if (rawDuration != null && durationMs == null) {
       return errorResponse('Invalid duration value: $rawDuration');
     }
-    final holdDuration = durationMs != null
-        ? Duration(milliseconds: durationMs)
-        : const Duration(milliseconds: 10);
+    final holdDuration = durationMs != null ? Duration(milliseconds: durationMs) : const Duration(milliseconds: 10);
 
     final matcher = WidgetMatcher.fromParams(params);
 

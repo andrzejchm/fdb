@@ -233,9 +233,7 @@ Element? findScrollTargetElement(WidgetMatcher matcher) {
   void visit(Element element) {
     if (matcher.matches(element, extractText: extractWidgetText)) {
       final renderObject = element.renderObject;
-      if (renderObject is RenderBox &&
-          renderObject.hasSize &&
-          renderObject.attached) {
+      if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
         matches.add(element);
       }
       // Do not recurse into children of any matched element — we want the

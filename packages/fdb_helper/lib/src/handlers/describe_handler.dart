@@ -115,9 +115,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
       }
 
       final renderObject = element.renderObject;
-      if (renderObject is RenderBox &&
-          renderObject.hasSize &&
-          renderObject.attached) {
+      if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
         final offset = renderObject.localToGlobal(Offset.zero);
         final size = renderObject.size;
 
@@ -155,11 +153,8 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             return;
           }
 
-          final key = widget.key is ValueKey<String>
-              ? (widget.key as ValueKey<String>).value
-              : null;
-          final visibleText =
-              _extractDescribeText(element, tooltipHint: currentTooltip);
+          final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
+          final visibleText = _extractDescribeText(element, tooltipHint: currentTooltip);
           final gestures = _extractGestures(widget, typeName);
           interactive.add({
             'type': typeName,
@@ -199,14 +194,10 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
     interactive.removeWhere((entry) {
       final text = entry['text'] as String?;
       final key = entry['key'] as String?;
-      final gestures =
-          (entry['gestures'] as List<dynamic>?)?.cast<String>() ?? [];
-      final hasText = text != null &&
-          text.trim().isNotEmpty &&
-          text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+      final gestures = (entry['gestures'] as List<dynamic>?)?.cast<String>() ?? [];
+      final hasText = text != null && text.trim().isNotEmpty && text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
       final hasKey = key != null;
-      final hasInterestingGesture =
-          gestures.any((g) => _interestingGestures.contains(g));
+      final hasInterestingGesture = gestures.any((g) => _interestingGestures.contains(g));
       return !hasText && !hasKey && !hasInterestingGesture;
     });
 
@@ -270,8 +261,7 @@ String? _extractDescribeText(
 
   final fragments = <String>[];
 
-  bool hasVisibleText(String s) =>
-      s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+  bool hasVisibleText(String s) => s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
 
   void findTextAndIcons(Element el) {
     final w = el.widget;
@@ -337,22 +327,16 @@ List<String>? _extractGestures(Widget widget, String typeName) {
       if (w.onTap != null) gestures.add('tap');
       if (w.onDoubleTap != null) gestures.add('doubleTap');
       if (w.onLongPress != null) gestures.add('longPress');
-      if (w.onVerticalDragStart != null ||
-          w.onVerticalDragUpdate != null ||
-          w.onVerticalDragEnd != null) {
+      if (w.onVerticalDragStart != null || w.onVerticalDragUpdate != null || w.onVerticalDragEnd != null) {
         gestures.add('verticalDrag');
       }
-      if (w.onHorizontalDragStart != null ||
-          w.onHorizontalDragUpdate != null ||
-          w.onHorizontalDragEnd != null) {
+      if (w.onHorizontalDragStart != null || w.onHorizontalDragUpdate != null || w.onHorizontalDragEnd != null) {
         gestures.add('horizontalDrag');
       }
       if (w.onPanStart != null || w.onPanUpdate != null || w.onPanEnd != null) {
         gestures.add('pan');
       }
-      if (w.onScaleStart != null ||
-          w.onScaleUpdate != null ||
-          w.onScaleEnd != null) {
+      if (w.onScaleStart != null || w.onScaleUpdate != null || w.onScaleEnd != null) {
         gestures.add('scale');
       }
       if (w.onForcePressStart != null || w.onForcePressPeak != null) {
