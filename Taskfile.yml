@@ -388,6 +388,26 @@ tasks:
           exit 1
         fi
 
+  test:scroll-to:
+    desc: Scroll until a widget is visible
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Scrolling to widget by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "list_item_20" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll-to exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
+          echo "PASS: fdb scroll-to"
+        else
+          echo "FAIL: fdb scroll-to - SCROLLED_TO= not found in output" >&2
+          exit 1
+        fi
+
   test:swipe:
     desc: Swipe the screen
     dir: '{{.TEST_APP}}'
@@ -633,6 +653,7 @@ tasks:
       - task: test:longpress
       - task: test:input
       - task: test:scroll
+      - task: test:scroll-to
       - task: test:swipe
       - task: test:back
       - task: test:clean

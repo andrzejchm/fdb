@@ -70,6 +70,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     });
     _registerExtension('ext.fdb.enterText', _handleEnterText);
     _registerExtension('ext.fdb.scroll', _handleScroll);
+    _registerExtension('ext.fdb.scrollTo', _handleScrollTo);
     _registerExtension('ext.fdb.swipe', _handleSwipe);
     _registerExtension('ext.fdb.back', _handleBack);
     _registerExtension('ext.fdb.clean', _handleClean);
@@ -723,6 +724,232 @@ class FdbBinding extends WidgetsFlutterBinding {
     } catch (e) {
       return _errorResponse('Scroll failed: $e');
     }
+  }
+
+  Future<developer.ServiceExtensionResponse> _handleScrollTo(
+    String method,
+    Map<String, String> params,
+  ) async {
+    try {
+      final matcher = WidgetMatcher.fromParams(params);
+
+      final scrollableElement = _findBestScrollable(matcher);
+      if (scrollableElement == null) {
+        return _errorResponse('No Scrollable found in the widget tree');
+      }
+
+      final position = _tryGetScrollPosition(scrollableElement);
+      if (position == null) {
+        return _errorResponse('Could not read ScrollPosition from Scrollable');
+      }
+
+      final scrollableWidget = scrollableElement.widget as Scrollable;
+      final axisDirection = scrollableWidget.axisDirection;
+
+      // Finger movement direction to scroll toward end of list.
+      // Dragging finger up scrolls content down (reveals items below).
+      const double delta = 64.0;
+      var moveStep = switch (axisDirection) {
+        AxisDirection.down => const Offset(0, -delta),
+        AxisDirection.up => const Offset(0, delta),
+        AxisDirection.right => const Offset(-delta, 0),
+        AxisDirection.left => const Offset(delta, 0),
+      };
+
+      final maxAttempts = _calculateMaxAttempts(position);
+      var reversedOnce = false;
+      var stallCount = 0;
+
+      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+        // Check if target is now in tree and hittable.
+        final (:element, :matchCount) = findHittableElement(matcher);
+        if (element != null) {
+          final renderObject = element.renderObject;
+          if (renderObject is RenderBox) {
+            final center = renderObject.size.center(Offset.zero);
+            final globalCenter = renderObject.localToGlobal(center);
+            final widgetType = element.widget.runtimeType.toString();
+            return developer.ServiceExtensionResponse.result(
+              jsonEncode({
+                'status': 'Success',
+                'widgetType': widgetType,
+                'x': globalCenter.dx,
+                'y': globalCenter.dy,
+              }),
+            );
+          }
+        }
+
+        // Detect scroll edge to decide whether to reverse or give up.
+        final currentPixels = position.pixels;
+        final extentAfter = position.extentAfter;
+        final extentBefore = position.extentBefore;
+
+        final atForwardEdge = extentAfter < 0.5;
+        final atBackwardEdge = extentBefore < 0.5;
+
+        // Determine if we are at the edge in the current scroll direction.
+        final scrollingForward = switch (axisDirection) {
+          AxisDirection.down ||
+          AxisDirection.right =>
+            moveStep.dy < 0 || moveStep.dx < 0,
+          AxisDirection.up ||
+          AxisDirection.left =>
+            moveStep.dy > 0 || moveStep.dx > 0,
+        };
+        final atCurrentEdge = scrollingForward ? atForwardEdge : atBackwardEdge;
+
+        if (atCurrentEdge) {
+          if (!reversedOnce) {
+            moveStep = -moveStep;
+            reversedOnce = true;
+            stallCount = 0;
+          } else {
+            break; // Already reversed and still at edge — give up.
+          }
+        }
+
+        // Perform drag gesture on the Scrollable's center.
+        final scrollableRenderObject = scrollableElement.renderObject;
+        if (scrollableRenderObject is! RenderBox) break;
+
+        final scrollableCenter =
+            scrollableRenderObject.size.center(Offset.zero);
+        final scrollableGlobalCenter =
+            scrollableRenderObject.localToGlobal(scrollableCenter);
+
+        await dispatchScroll(
+          start: scrollableGlobalCenter,
+          end: scrollableGlobalCenter + moveStep,
+        );
+
+        // Stall detection: if position didn't change, reverse or give up.
+        final newPixels = position.pixels;
+        if ((newPixels - currentPixels).abs() < 0.5) {
+          stallCount++;
+          if (stallCount >= 3) {
+            if (!reversedOnce) {
+              moveStep = -moveStep;
+              reversedOnce = true;
+              stallCount = 0;
+            } else {
+              break;
+            }
+          }
+        } else {
+          stallCount = 0;
+        }
+      }
+
+      // Final check after loop exhaustion.
+      final (:element, :matchCount) = findHittableElement(matcher);
+      if (element != null) {
+        final renderObject = element.renderObject;
+        if (renderObject is RenderBox) {
+          final center = renderObject.size.center(Offset.zero);
+          final globalCenter = renderObject.localToGlobal(center);
+          final widgetType = element.widget.runtimeType.toString();
+          return developer.ServiceExtensionResponse.result(
+            jsonEncode({
+              'status': 'Success',
+              'widgetType': widgetType,
+              'x': globalCenter.dx,
+              'y': globalCenter.dy,
+            }),
+          );
+        }
+      }
+
+      return _errorResponse(
+        'Widget not found after scrolling through the list',
+      );
+    } on ArgumentError catch (e) {
+      return _errorResponse(e.message.toString());
+    } catch (e) {
+      return _errorResponse('scrollTo failed: $e');
+    }
+  }
+
+  /// Finds the best [Scrollable] element to use for scroll-to.
+  ///
+  /// If the target widget is already in the tree, walks its ancestors to find
+  /// the nearest enclosing [Scrollable]. Otherwise scans the full tree,
+  /// preferring a [Scrollable] with a non-zero scroll range.
+  Element? _findBestScrollable(WidgetMatcher matcher) {
+    // Try to find target first — if in tree, walk ancestors.
+    final root = WidgetsBinding.instance.rootElement;
+    if (root == null) return null;
+
+    Element? targetElement;
+    void findTarget(Element el) {
+      if (targetElement != null) return;
+      if (matcher.matches(el)) {
+        targetElement = el;
+        return;
+      }
+      el.visitChildren(findTarget);
+    }
+
+    root.visitChildren(findTarget);
+
+    if (targetElement != null) {
+      Element? ancestor;
+      targetElement!.visitAncestorElements((el) {
+        if (el.widget is Scrollable) {
+          ancestor = el;
+          return false; // stop walking
+        }
+        return true; // keep walking
+      });
+      if (ancestor != null) return ancestor;
+    }
+
+    // Fallback: scan full tree for best Scrollable.
+    Element? fallback;
+    Element? withRange;
+
+    void visitForScrollable(Element el) {
+      if (withRange != null) return;
+      if (el.widget is Scrollable) {
+        fallback ??= el;
+        final scrollPosition = _tryGetScrollPosition(el);
+        if (scrollPosition != null) {
+          final range =
+              (scrollPosition.maxScrollExtent - scrollPosition.minScrollExtent)
+                  .abs();
+          if (range > 0.5) {
+            withRange = el;
+            return;
+          }
+        }
+      }
+      el.visitChildren(visitForScrollable);
+    }
+
+    root.visitChildren(visitForScrollable);
+    return withRange ?? fallback;
+  }
+
+  /// Extracts the [ScrollPosition] from a [Scrollable] element's state.
+  ScrollPosition? _tryGetScrollPosition(Element scrollableElement) {
+    try {
+      final state =
+          (scrollableElement as StatefulElement).state as ScrollableState;
+      return state.position;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Calculates the maximum number of drag attempts for scroll-to.
+  ///
+  /// For finite lists, uses scroll extent / step size * 2 + buffer, capped at
+  /// 200. For infinite lists (e.g. infinite scroll), falls back to 50.
+  int _calculateMaxAttempts(ScrollPosition position) {
+    const double delta = 64.0;
+    final extent = (position.maxScrollExtent - position.minScrollExtent).abs();
+    if (!extent.isFinite) return 50;
+    return ((extent / delta).ceil() * 2 + 20).clamp(1, 200);
   }
 
   Future<developer.ServiceExtensionResponse> _handleSwipe(

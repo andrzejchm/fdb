@@ -192,6 +192,21 @@ fdb scroll down --at 200,400 # scroll at specific screen coordinates
 
 Output: `SCROLLED=<DIR> DISTANCE=<n>`
 
+### Scroll to widget
+
+Requires `fdb_helper` in the app (see setup section above).
+
+Scrolls the nearest Scrollable until the target widget becomes visible. Works for lazy lists (ListView.builder) where off-screen widgets don't exist in the element tree yet.
+
+```bash
+fdb scroll-to --key "list_item_42"        # scroll until widget with key is visible
+fdb scroll-to --text "Item 42"            # scroll until widget with text is visible
+fdb scroll-to --type "MyListItemWidget"   # scroll until widget of type is visible
+fdb scroll-to --type "ListTile" --index 5 # scroll to the 6th ListTile (0-based)
+```
+
+Output: `SCROLLED_TO=<type> X=<x> Y=<y>`
+
 ### Swipe (PageView, Dismissible)
 
 Requires `fdb_helper` in the app (see setup section above).
@@ -348,6 +363,7 @@ fdb screenshot                             # verify result visually
 fdb input --key "search_field" "flutter"   # type into a text field
 fdb tap --text "Search"                    # tap the search button
 fdb scroll down                            # scroll to reveal more content
+fdb scroll-to --key "list_item_42"         # scroll until a specific item is visible
 fdb swipe left --key "photo_card"          # swipe a PageView card left
 fdb swipe right                            # swipe from screen center right
 fdb back                                   # navigate back to previous screen
