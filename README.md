@@ -125,8 +125,8 @@ fdb kill
 
 | Command | Description |
 |---------|-------------|
-| `fdb tap --text/--key/--type <selector>` or `fdb tap @N` | Tap a widget or describe ref |
-| `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
+| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
+| `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into a field |
 | `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |

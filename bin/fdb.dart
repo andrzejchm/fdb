@@ -40,8 +40,8 @@ Commands:
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
-  tap         Tap a widget by selector or @N ref from describe
-  longpress   Long-press a widget by selector
+  tap         Tap a widget by selector, coordinates, or @N ref from describe
+  longpress   Long-press a widget by selector or coordinates
   input       Enter text into a field
   scroll      Scroll in a direction
   scroll-to   Scroll until a widget is visible

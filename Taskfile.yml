@@ -445,6 +445,140 @@ tasks:
           exit 1
         fi
 
+  test:tap-at:
+    desc: Tap and long-press absolute coordinates
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Resolving increment button coordinates"
+        KEY_OUTPUT=$({{.FDB}} tap --key "increment_button" 2>&1)
+        KEY_EXIT_CODE=$?
+        echo "$KEY_OUTPUT"
+        if [ $KEY_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap --key exited with code $KEY_EXIT_CODE" >&2
+          exit 1
+        fi
+
+        X=$(echo "$KEY_OUTPUT" | sed -n 's/.* X=\([^ ]*\).*/\1/p' | head -1)
+        Y=$(echo "$KEY_OUTPUT" | sed -n 's/.* Y=\([^ ]*\).*/\1/p' | head -1)
+        if [ -z "$X" ] || [ -z "$Y" ]; then
+          echo "FAIL: could not extract X/Y from tap output" >&2
+          exit 1
+        fi
+
+        echo "==> Tapping by absolute coordinates"
+        OUTPUT=$({{.FDB}} tap --at "$X,$Y" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap --at exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TAPPED=coordinates"; then
+          echo "PASS: fdb tap --at"
+        else
+          echo "FAIL: fdb tap --at - TAPPED=coordinates not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Long-pressing by absolute coordinates"
+        OUTPUT=$({{.FDB}} longpress --at "$X,$Y" --duration 1000 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb longpress --at exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LONG_PRESSED=coordinates"; then
+          echo "PASS: fdb longpress --at"
+        else
+          echo "FAIL: fdb longpress --at - LONG_PRESSED=coordinates not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Long-pressing by absolute coordinates with default duration"
+        OUTPUT=$({{.FDB}} longpress --at "$X,$Y" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb longpress --at default duration exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LONG_PRESSED=coordinates"; then
+          echo "PASS: fdb longpress --at default duration"
+        else
+          echo "FAIL: fdb longpress --at default duration - LONG_PRESSED=coordinates not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Validating invalid --at format"
+        set +e
+        OUTPUT=$({{.FDB}} tap --at "abc,def" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb tap --at abc,def unexpectedly succeeded" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q 'ERROR: Invalid --at value: "abc,def"'; then
+          echo "PASS: fdb tap --at invalid format"
+        else
+          echo "FAIL: fdb tap --at invalid format - expected error not found" >&2
+          exit 1
+        fi
+
+        echo "==> Validating longpress invalid --at format"
+        set +e
+        OUTPUT=$({{.FDB}} longpress --at "200" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb longpress --at 200 unexpectedly succeeded" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q 'ERROR: Invalid --at value: "200"'; then
+          echo "PASS: fdb longpress --at invalid format"
+        else
+          echo "FAIL: fdb longpress --at invalid format - expected error not found" >&2
+          exit 1
+        fi
+
+        echo "==> Validating --at selector exclusivity"
+        set +e
+        OUTPUT=$({{.FDB}} tap --at "$X,$Y" --key "increment_button" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb tap --at with selector unexpectedly succeeded" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR: --at cannot be combined with --key, --text, or --type."; then
+          echo "PASS: fdb tap --at selector exclusivity"
+        else
+          echo "FAIL: fdb tap --at selector exclusivity - expected error not found" >&2
+          exit 1
+        fi
+
+        echo "==> Validating longpress --at selector exclusivity"
+        set +e
+        OUTPUT=$({{.FDB}} longpress --at "$X,$Y" --key "increment_button" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb longpress --at with selector unexpectedly succeeded" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR: --at cannot be combined with --key, --text, or --type."; then
+          echo "PASS: fdb longpress --at selector exclusivity"
+        else
+          echo "FAIL: fdb longpress --at selector exclusivity - expected error not found" >&2
+          exit 1
+        fi
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -920,6 +1054,7 @@ tasks:
       - task: test:select
       - task: test:tap
       - task: test:longpress
+      - task: test:tap-at
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to

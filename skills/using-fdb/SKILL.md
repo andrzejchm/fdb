@@ -7,7 +7,9 @@ compatibility: opencode
 
 ## Overview - skill version 1.1.7
 
-> **Version check:** Run `fdb --version`. If your installed version is older than 1.1.7,
+> **Version check:** Run `fdb --version`. This skill may describe unreleased branch behavior,
+> so do not assume the published `1.1.7` release includes every command example below. To use
+> the latest behavior from this repository,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
 
@@ -168,10 +170,11 @@ Requires `fdb_helper` in the app (see setup section above).
 fdb tap --key "increment_button"      # tap by widget key
 fdb tap --text "Submit"               # tap by visible text
 fdb tap --type "FloatingActionButton" # tap by widget type
+fdb tap --at 200,400                   # tap absolute screen coordinates
 fdb tap @3                            # tap by describe ref (from fdb describe)
 ```
 
-Output: `TAPPED=<type> X=<x> Y=<y>`
+Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`
 
 ### Long-press a widget
 
@@ -182,9 +185,10 @@ fdb longpress --key "photo_card"              # long-press by widget key (defaul
 fdb longpress --text "Hold me"               # long-press by visible text
 fdb longpress --type "GestureDetector"       # long-press by widget type
 fdb longpress --key "item" --duration 1000   # long-press for 1 second
+fdb longpress --at 200,400 --duration 1000   # long-press coordinates for 1 second
 ```
 
-Output: `LONG_PRESSED=<type> X=<x> Y=<y>`
+Output: `LONG_PRESSED=<type|coordinates> X=<x> Y=<y>`
 
 ### Enter text
 
