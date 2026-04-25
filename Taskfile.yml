@@ -389,24 +389,163 @@ tasks:
         fi
 
   test:scroll-to:
-    desc: Scroll until a widget is visible
+    desc: Scroll until a widget is visible (comprehensive scenarios)
     dir: '{{.TEST_APP}}'
     cmds:
       - |
-        echo "==> Scrolling to widget by text"
+        # ---------------------------------------------------------------
+        # Scenario 1: already-visible item on home page SingleChildScrollView
+        # ---------------------------------------------------------------
+        echo "==> [scroll-to] already-visible item by text on home page"
         OUTPUT=$({{.FDB}} scroll-to --text "Extra item 10" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
-          echo "FAIL: fdb scroll-to exited with code $EXIT_CODE" >&2
+          echo "FAIL: fdb scroll-to (already-visible text) exited with code $EXIT_CODE" >&2
           exit 1
         fi
         if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
-          echo "PASS: fdb scroll-to"
+          echo "PASS: fdb scroll-to (already-visible text)"
         else
-          echo "FAIL: fdb scroll-to - SCROLLED_TO= not found in output" >&2
+          echo "FAIL: fdb scroll-to (already-visible text) - SCROLLED_TO= not found in output" >&2
           exit 1
         fi
+
+        # ---------------------------------------------------------------
+        # Navigate to scroll-to test home
+        # ---------------------------------------------------------------
+        echo "==> Navigating to scroll-to test home"
+        {{.FDB}} tap --key "go_to_scroll_to_test" >/dev/null 2>&1
+        sleep 1
+
+        # ---------------------------------------------------------------
+        # Scenario 2: lazy list — scroll to item by key (index 50)
+        # ---------------------------------------------------------------
+        echo "==> [scroll-to] lazy list — navigate to lazy list screen"
+        {{.FDB}} tap --key "go_to_lazy_list" >/dev/null 2>&1
+        sleep 1
+
+        echo "==> [scroll-to] lazy list — scroll to lazy_item_50 by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "lazy_item_50" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll-to (lazy list by key) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
+          echo "PASS: fdb scroll-to (lazy list by key)"
+        else
+          echo "FAIL: fdb scroll-to (lazy list by key) - SCROLLED_TO= not found in output" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # Scenario 3: lazy list — scroll to item by text (index 99)
+        # ---------------------------------------------------------------
+        echo "==> [scroll-to] lazy list — scroll to 'Lazy item 99' by text"
+        OUTPUT=$({{.FDB}} scroll-to --text "Lazy item 99" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll-to (lazy list by text) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
+          echo "PASS: fdb scroll-to (lazy list by text)"
+        else
+          echo "FAIL: fdb scroll-to (lazy list by text) - SCROLLED_TO= not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back from lazy list"
+        {{.FDB}} back >/dev/null 2>&1
+        sleep 1
+
+        # ---------------------------------------------------------------
+        # Scenario 4: horizontal list — scroll to item by key (index 30)
+        # ---------------------------------------------------------------
+        echo "==> [scroll-to] horizontal list — navigate to horizontal screen"
+        {{.FDB}} tap --key "go_to_horizontal" >/dev/null 2>&1
+        sleep 1
+
+        echo "==> [scroll-to] horizontal list — scroll to h_item_30 by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "h_item_30" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll-to (horizontal list) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
+          echo "PASS: fdb scroll-to (horizontal list)"
+        else
+          echo "FAIL: fdb scroll-to (horizontal list) - SCROLLED_TO= not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back from horizontal list"
+        {{.FDB}} back >/dev/null 2>&1
+        sleep 1
+
+        # ---------------------------------------------------------------
+        # Scenario 5: reversed list — scroll to item by key (rev_item_5)
+        # ---------------------------------------------------------------
+        echo "==> [scroll-to] reversed list — navigate to reversed screen"
+        {{.FDB}} tap --key "go_to_reversed" >/dev/null 2>&1
+        sleep 1
+
+        echo "==> [scroll-to] reversed list — scroll to rev_item_5 by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "rev_item_5" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll-to (reversed list) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
+          echo "PASS: fdb scroll-to (reversed list)"
+        else
+          echo "FAIL: fdb scroll-to (reversed list) - SCROLLED_TO= not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back from reversed list"
+        {{.FDB}} back >/dev/null 2>&1
+        sleep 1
+
+        # ---------------------------------------------------------------
+        # Scenario 6: already-visible list — target already on screen
+        # ---------------------------------------------------------------
+        echo "==> [scroll-to] already-visible list — navigate to already-visible screen"
+        {{.FDB}} tap --key "go_to_already_visible" >/dev/null 2>&1
+        sleep 1
+
+        echo "==> [scroll-to] already-visible list — scroll to visible_item_2 by key"
+        OUTPUT=$({{.FDB}} scroll-to --key "visible_item_2" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb scroll-to (already-visible list) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SCROLLED_TO="; then
+          echo "PASS: fdb scroll-to (already-visible list)"
+        else
+          echo "FAIL: fdb scroll-to (already-visible list) - SCROLLED_TO= not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back from already-visible list"
+        {{.FDB}} back >/dev/null 2>&1
+        sleep 1
+
+        # ---------------------------------------------------------------
+        # Navigate back to home
+        # ---------------------------------------------------------------
+        echo "==> Navigating back to home from scroll-to test menu"
+        {{.FDB}} back >/dev/null 2>&1
+        sleep 1
 
   test:swipe:
     desc: Swipe the screen
