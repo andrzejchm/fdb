@@ -8,8 +8,8 @@ import 'package:fdb/vm_service.dart';
 ///
 /// Output on success:
 ///   CLEANED
-///   DIRS=<comma-separated list of cleaned directories>
-///   DELETED_ENTRIES=<count>
+///   DIRS=`<comma-separated list of cleaned directories>`
+///   DELETED_ENTRIES=`<count>`
 Future<int> runClean(List<String> args) async {
   final isolateId = await checkFdbHelper();
   if (isolateId == null) {

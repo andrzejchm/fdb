@@ -17,9 +17,7 @@ List<Map<String, dynamic>> findInteractiveElements() {
 
     if (isInteractive || text != null || hasKey) {
       final renderObject = element.renderObject;
-      if (renderObject is RenderBox &&
-          renderObject.hasSize &&
-          renderObject.attached) {
+      if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
         final offset = renderObject.localToGlobal(Offset.zero);
         final size = renderObject.size;
         final view = WidgetsBinding.instance.platformDispatcher.views.first;
@@ -46,9 +44,7 @@ List<Map<String, dynamic>> findInteractiveElements() {
       // to avoid exposing internal sub-widgets.
       // Widgets that merely have text or a key are NOT pruned — only truly
       // interactive leaf widgets stop the traversal.
-      if (isInteractive &&
-          widget.runtimeType != GestureDetector &&
-          widget.runtimeType != InkWell) {
+      if (isInteractive && widget.runtimeType != GestureDetector && widget.runtimeType != InkWell) {
         return; // skip children of interactive widgets only
       }
     }
@@ -86,8 +82,7 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
 
   // For TextMatcher, KeyMatcher, and TypeMatcher we need to track ancestors so
   // we can walk up when the matched element itself is not hittable.
-  final needsAncestorWalk =
-      matcher is TextMatcher || matcher is KeyMatcher || matcher is TypeMatcher;
+  final needsAncestorWalk = matcher is TextMatcher || matcher is KeyMatcher || matcher is TypeMatcher;
 
   // Collect resolved hittable elements for each match.
   final matches = <Element>[];
@@ -117,8 +112,7 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
             break; // best match — stop immediately
           }
           // Accept non-private widgets as fallback (skip _Theater, _FocusTrap, etc.)
-          if (fallbackHittable == null &&
-              !ancestors[i].widget.runtimeType.toString().startsWith('_')) {
+          if (fallbackHittable == null && !ancestors[i].widget.runtimeType.toString().startsWith('_')) {
             fallbackHittable = ancestors[i];
           }
         }

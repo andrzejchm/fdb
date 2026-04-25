@@ -20,10 +20,7 @@ Future<int> runSwipe(List<String> args) async {
   }
 
   final direction = args[0].toLowerCase();
-  if (direction != 'up' &&
-      direction != 'down' &&
-      direction != 'left' &&
-      direction != 'right') {
+  if (direction != 'up' && direction != 'down' && direction != 'left' && direction != 'right') {
     stderr.writeln('ERROR: Direction must be one of: up, down, left, right');
     return 1;
   }

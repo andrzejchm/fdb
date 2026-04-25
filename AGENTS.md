@@ -71,7 +71,6 @@ dart format .                         # Format
 ### Code style (quick reference)
 
 - No classes — top-level functions only.
-- No third-party packages.
 - Each command: `lib/commands/<name>.dart` exporting `Future<int> runXxx(List<String> args)`.
 - Errors to `stderr` prefixed with `ERROR: `, status tokens to `stdout` in `UPPER_SNAKE_CASE`.
 - Manual arg parsing with `for` loop + `switch`.

@@ -13,8 +13,7 @@ void main() {
       expect(result.category, 'IOS_CODESIGN_PROVISIONING');
       expect(result.rootCause.toLowerCase(), contains('codesign'));
       expect(result.contextLines.length, inInclusiveRange(10, 20));
-      expect(
-          result.contextLines.join('\n'), contains('errSecInternalComponent'));
+      expect(result.contextLines.join('\n'), contains('errSecInternalComponent'));
       expect(result.remediationHint, contains('Possible locked keychain'));
     });
 
@@ -34,10 +33,8 @@ void main() {
       final result = analyzeLaunchFailure(output);
 
       expect(result.category, 'ANDROID_INSTALL_ADB');
-      expect(result.rootCause.toLowerCase(),
-          contains('android install/adb failed'));
-      expect(result.contextLines.join('\n'),
-          contains('INSTALL_FAILED_UPDATE_INCOMPATIBLE'));
+      expect(result.rootCause.toLowerCase(), contains('android install/adb failed'));
+      expect(result.contextLines.join('\n'), contains('INSTALL_FAILED_UPDATE_INCOMPATIBLE'));
     });
 
     test('classifies missing SDK/toolchain failures', () {
@@ -57,8 +54,7 @@ void main() {
 
       expect(result.category, 'FLUTTER_BUILD');
       expect(result.rootCause.toLowerCase(), contains('flutter build failed'));
-      expect(
-          result.contextLines.join('\n'), contains('compileFlutterBuildDebug'));
+      expect(result.contextLines.join('\n'), contains('compileFlutterBuildDebug'));
     });
 
     test('falls back to unknown with best-effort snippet', () {

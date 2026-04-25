@@ -135,8 +135,7 @@ exec $flutterCmd > $logFile 2>&1
       final logExists = File(logFile).existsSync();
       if (logExists) {
         final lines = File(logFile).readAsLinesSync();
-        final tail =
-            lines.length > 10 ? lines.sublist(lines.length - 10) : lines;
+        final tail = lines.length > 10 ? lines.sublist(lines.length - 10) : lines;
         stderr.writeln('ERROR: flutter process exited unexpectedly');
         for (final line in tail) {
           stderr.writeln(line);
@@ -173,9 +172,7 @@ exec $flutterCmd > $logFile 2>&1
   File(vmUriFile).writeAsStringSync(vmUri);
 
   // Read PID — flutter writes it via --pid-file, fall back to launcher PID
-  final pid = File(pidFile).existsSync()
-      ? File(pidFile).readAsStringSync().trim()
-      : launcherPid.toString();
+  final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : launcherPid.toString();
 
   // Start the log collector — a background process that subscribes to the
   // VM service Logging/Stdout/Stderr streams and appends to the log file.
@@ -312,8 +309,7 @@ String? _extractVmUri(String logContent) {
 
   if (match == null) {
     // Fall back: check for DevTools/Observatory text, then try again
-    if (!logContent.contains('Flutter DevTools') &&
-        !logContent.contains('An Observatory debugger')) {
+    if (!logContent.contains('Flutter DevTools') && !logContent.contains('An Observatory debugger')) {
       return null;
     }
     final fallback = RegExp(
@@ -349,8 +345,7 @@ String _resolveFlutter(String projectPath, String? explicitSdk) {
   if (explicitSdk != null) {
     final bin = '$explicitSdk/bin/flutter';
     if (File(bin).existsSync()) return bin;
-    stderr.writeln(
-        'WARNING: --flutter-sdk path not found ($bin), falling back to PATH');
+    stderr.writeln('WARNING: --flutter-sdk path not found ($bin), falling back to PATH');
   }
 
   // FVM stores a symlink at .fvm/flutter_sdk → <sdk-version>
@@ -368,8 +363,7 @@ void _ensureGitignored(String projectPath) {
   if (gitignore.existsSync()) {
     final content = gitignore.readAsStringSync();
     if (content.contains('.fdb/') || content.contains('.fdb')) return;
-    gitignore.writeAsStringSync('\n# fdb session state\n.fdb/\n',
-        mode: FileMode.append);
+    gitignore.writeAsStringSync('\n# fdb session state\n.fdb/\n', mode: FileMode.append);
   } else {
     gitignore.writeAsStringSync('# fdb session state\n.fdb/\n');
   }

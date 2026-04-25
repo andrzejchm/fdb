@@ -88,8 +88,7 @@ Future<int> runInput(List<String> args) async {
       }
     }
 
-    stderr
-        .writeln('ERROR: Unexpected response from ext.fdb.enterText: $result');
+    stderr.writeln('ERROR: Unexpected response from ext.fdb.enterText: $result');
     return 1;
   } catch (e) {
     stderr.writeln('ERROR: $e');

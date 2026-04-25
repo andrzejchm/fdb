@@ -19,41 +19,26 @@ import 'dart:io';
 
 import 'package:fdb/vm_service.dart';
 
-const _scenarios = [
-  _Scenario('baseline', '/benchmark/baseline', 'bench_baseline'),
-  _Scenario('medium', '/benchmark/medium', 'bench_medium'),
-  _Scenario('stress_list', '/benchmark/stress_list', 'bench_stress_list'),
-  _Scenario('stress_grid', '/benchmark/stress_grid', 'bench_stress_grid'),
-  _Scenario('pathological', '/benchmark/pathological', 'bench_pathological'),
+typedef _Scenario = ({String name, String route, String listTileKey});
+typedef _TimingResult = ({
+  double wallMs,
+  double walkMs,
+  double hitMs,
+  double textMs,
+  double serialMs,
+  int interactiveCount,
+  int payloadChars,
+});
+
+const _scenarios = <_Scenario>[
+  (name: 'baseline', route: '/benchmark/baseline', listTileKey: 'bench_baseline'),
+  (name: 'medium', route: '/benchmark/medium', listTileKey: 'bench_medium'),
+  (name: 'stress_list', route: '/benchmark/stress_list', listTileKey: 'bench_stress_list'),
+  (name: 'stress_grid', route: '/benchmark/stress_grid', listTileKey: 'bench_stress_grid'),
+  (name: 'pathological', route: '/benchmark/pathological', listTileKey: 'bench_pathological'),
 ];
 
 const _runsPerScenario = 10;
-
-class _Scenario {
-  const _Scenario(this.name, this.route, this.listTileKey);
-  final String name;
-  final String route;
-  final String listTileKey;
-}
-
-class _TimingResult {
-  const _TimingResult({
-    required this.wallMs,
-    required this.walkMs,
-    required this.hitMs,
-    required this.textMs,
-    required this.serialMs,
-    required this.interactiveCount,
-    required this.payloadChars,
-  });
-  final double wallMs;
-  final double walkMs;
-  final double hitMs;
-  final double textMs;
-  final double serialMs;
-  final int interactiveCount;
-  final int payloadChars;
-}
 
 Future<void> main(List<String> args) async {
   // Resolve isolate once.
@@ -96,11 +81,10 @@ Future<void> main(List<String> args) async {
       }
 
       final timing = result['_timing'] as Map<String, dynamic>?;
-      final interactive =
-          (result['interactive'] as List<dynamic>?)?.length ?? 0;
+      final interactive = (result['interactive'] as List<dynamic>?)?.length ?? 0;
       final payloadChars = timing?['payload_chars'] as num? ?? 0;
 
-      final tr = _TimingResult(
+      final tr = (
         wallMs: wallMs,
         walkMs: (timing?['walk_ms'] as num?)?.toDouble() ?? 0,
         hitMs: (timing?['hit_ms'] as num?)?.toDouble() ?? 0,

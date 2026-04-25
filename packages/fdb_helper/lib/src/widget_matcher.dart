@@ -11,8 +11,7 @@ sealed class WidgetMatcher {
   ///
   /// Priority: key → text → type → coordinates → throws.
   factory WidgetMatcher.fromParams(Map<String, String> params) {
-    final index =
-        params['index'] != null ? int.tryParse(params['index']!) : null;
+    final index = params['index'] != null ? int.tryParse(params['index']!) : null;
 
     if (params.containsKey('key')) {
       return KeyMatcher(params['key']!, index: index);
@@ -103,8 +102,7 @@ class CoordinatesMatcher extends WidgetMatcher {
 
   /// Always returns false — coordinates bypass element matching entirely.
   @override
-  bool matches(Element element, {String? Function(Widget)? extractText}) =>
-      false;
+  bool matches(Element element, {String? Function(Widget)? extractText}) => false;
 
   Offset get offset => Offset(x, y);
 }

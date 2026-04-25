@@ -22,7 +22,7 @@ Future<int> runLongpress(List<String> args) async {
   int? x;
   int? y;
   var timeoutSeconds = 5;
-  int durationMs = 500;
+  var durationMs = 500;
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -122,8 +122,7 @@ Future<int> runLongpress(List<String> args) async {
         final error = result['error'] as String?;
 
         if (status == 'Success') {
-          final pressedType =
-              result['widgetType'] as String? ?? type ?? 'widget';
+          final pressedType = result['widgetType'] as String? ?? type ?? 'widget';
           final pressedX = result['x'] ?? x ?? '';
           final pressedY = result['y'] ?? y ?? '';
           stdout.writeln('LONG_PRESSED=$pressedType X=$pressedX Y=$pressedY');
@@ -131,8 +130,7 @@ Future<int> runLongpress(List<String> args) async {
         }
 
         if (error != null) {
-          final isRetryable = error.contains('not found') ||
-              error.contains('No hittable element');
+          final isRetryable = error.contains('not found') || error.contains('No hittable element');
           if (isRetryable && DateTime.now().isBefore(deadline)) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
             continue;

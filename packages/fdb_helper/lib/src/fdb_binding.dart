@@ -200,9 +200,7 @@ class FdbBinding extends WidgetsFlutterBinding {
         }
 
         final renderObject = element.renderObject;
-        if (renderObject is RenderBox &&
-            renderObject.hasSize &&
-            renderObject.attached) {
+        if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
           final offset = renderObject.localToGlobal(Offset.zero);
           final size = renderObject.size;
 
@@ -244,11 +242,8 @@ class FdbBinding extends WidgetsFlutterBinding {
               return;
             }
 
-            final key = widget.key is ValueKey<String>
-                ? (widget.key as ValueKey<String>).value
-                : null;
-            final visibleText =
-                _extractDescribeText(element, tooltipHint: currentTooltip);
+            final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
+            final visibleText = _extractDescribeText(element, tooltipHint: currentTooltip);
             final gestures = _extractGestures(widget, typeName);
             interactive.add({
               'type': typeName,
@@ -291,7 +286,7 @@ class FdbBinding extends WidgetsFlutterBinding {
       // no text, no key, and no interesting gestures (drag/pan/longPress/scale).
       // A bare GestureDetector(tap) with no text/key is almost always an icon
       // or structural element that the agent cannot meaningfully reference.
-      const _interestingGestures = {
+      const interestingGestures = {
         'horizontalDrag',
         'verticalDrag',
         'pan',
@@ -303,16 +298,12 @@ class FdbBinding extends WidgetsFlutterBinding {
       interactive.removeWhere((entry) {
         final text = entry['text'] as String?;
         final key = entry['key'] as String?;
-        final gestures =
-            (entry['gestures'] as List<dynamic>?)?.cast<String>() ?? [];
+        final gestures = (entry['gestures'] as List<dynamic>?)?.cast<String>() ?? [];
         // Text consisting only of Unicode PUA icon codepoints (U+E000-U+F8FF)
         // is not meaningful — treat it as empty.
-        final hasText = text != null &&
-            text.trim().isNotEmpty &&
-            text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+        final hasText = text != null && text.trim().isNotEmpty && text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
         final hasKey = key != null;
-        final hasInterestingGesture =
-            gestures.any((g) => _interestingGestures.contains(g));
+        final hasInterestingGesture = gestures.any((g) => interestingGestures.contains(g));
         return !hasText && !hasKey && !hasInterestingGesture;
       });
 
@@ -392,8 +383,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     final fragments = <String>[];
 
     // Returns true if the string has at least one non-PUA character.
-    bool hasVisibleText(String s) =>
-        s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+    bool hasVisibleText(String s) => s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
 
     void findTextAndIcons(Element el) {
       final w = el.widget;
@@ -468,24 +458,16 @@ class FdbBinding extends WidgetsFlutterBinding {
         if (w.onTap != null) gestures.add('tap');
         if (w.onDoubleTap != null) gestures.add('doubleTap');
         if (w.onLongPress != null) gestures.add('longPress');
-        if (w.onVerticalDragStart != null ||
-            w.onVerticalDragUpdate != null ||
-            w.onVerticalDragEnd != null) {
+        if (w.onVerticalDragStart != null || w.onVerticalDragUpdate != null || w.onVerticalDragEnd != null) {
           gestures.add('verticalDrag');
         }
-        if (w.onHorizontalDragStart != null ||
-            w.onHorizontalDragUpdate != null ||
-            w.onHorizontalDragEnd != null) {
+        if (w.onHorizontalDragStart != null || w.onHorizontalDragUpdate != null || w.onHorizontalDragEnd != null) {
           gestures.add('horizontalDrag');
         }
-        if (w.onPanStart != null ||
-            w.onPanUpdate != null ||
-            w.onPanEnd != null) {
+        if (w.onPanStart != null || w.onPanUpdate != null || w.onPanEnd != null) {
           gestures.add('pan');
         }
-        if (w.onScaleStart != null ||
-            w.onScaleUpdate != null ||
-            w.onScaleEnd != null) {
+        if (w.onScaleStart != null || w.onScaleUpdate != null || w.onScaleEnd != null) {
           gestures.add('scale');
         }
         if (w.onForcePressStart != null || w.onForcePressPeak != null) {
@@ -512,9 +494,7 @@ class FdbBinding extends WidgetsFlutterBinding {
       if (rawDuration != null && durationMs == null) {
         return _errorResponse('Invalid duration value: $rawDuration');
       }
-      final holdDuration = durationMs != null
-          ? Duration(milliseconds: durationMs)
-          : const Duration(milliseconds: 10);
+      final holdDuration = durationMs != null ? Duration(milliseconds: durationMs) : const Duration(milliseconds: 10);
 
       final matcher = WidgetMatcher.fromParams(params);
 
@@ -763,9 +743,7 @@ class FdbBinding extends WidgetsFlutterBinding {
       double swipeDistance;
 
       // Check if a widget selector was provided.
-      final hasSelector = params.containsKey('key') ||
-          params.containsKey('text') ||
-          params.containsKey('type');
+      final hasSelector = params.containsKey('key') || params.containsKey('text') || params.containsKey('type');
 
       if (hasSelector) {
         // Widget-targeted swipe: find the widget's bounds and compute

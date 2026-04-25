@@ -7,18 +7,18 @@ import 'package:fdb/vm_service.dart';
 /// VM service extension registered by fdb_helper.
 ///
 /// Sub-commands:
-///   fdb shared-prefs get <key>
+///   fdb shared-prefs get `<key>`
 ///   fdb shared-prefs get-all
-///   fdb shared-prefs set <key> <value> [--type string|bool|int|double]
-///   fdb shared-prefs remove <key>
+///   fdb shared-prefs set `<key>` `<value>` [--type string|bool|int|double]
+///   fdb shared-prefs remove `<key>`
 ///   fdb shared-prefs clear
 ///
 /// Output tokens:
-///   PREF_VALUE=<value>          (get — key exists)
+///   PREF_VALUE=`<value>`        (get — key exists)
 ///   PREF_NOT_FOUND              (get — key missing)
-///   PREF_ALL=<json>             (get-all)
-///   PREF_SET=<key>              (set)
-///   PREF_REMOVED=<key>          (remove)
+///   PREF_ALL=`<json>`           (get-all)
+///   PREF_SET=`<key>`            (set)
+///   PREF_REMOVED=`<key>`        (remove)
 ///   PREF_CLEARED                (clear)
 Future<int> runSharedPrefs(List<String> args) async {
   if (args.isEmpty) {
@@ -117,8 +117,8 @@ Future<int> _set(String isolateId, List<String> args) async {
       type = args[++i];
     } else if (key == null) {
       key = args[i];
-    } else if (value == null) {
-      value = args[i];
+    } else {
+      value ??= args[i];
     }
   }
 

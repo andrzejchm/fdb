@@ -81,8 +81,7 @@ void _printDescribeOutput(Map<String, dynamic> result) {
         final parts = cleanText
             .split(' · ')
             .map((p) => p.trim())
-            .where((p) =>
-                p.isNotEmpty && p.runes.any((r) => r < 0xE000 || r > 0xF8FF))
+            .where((p) => p.isNotEmpty && p.runes.any((r) => r < 0xE000 || r > 0xF8FF))
             .toList();
         cleanText = parts.isEmpty ? null : parts.join(' · ');
       }

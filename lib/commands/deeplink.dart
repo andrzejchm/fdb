@@ -37,8 +37,7 @@ Future<int> runDeeplink(List<String> args) async {
     return _openAndroid(url);
   }
 
-  stderr.writeln(
-      'ERROR: Deep links are only supported on Android devices and iOS simulators');
+  stderr.writeln('ERROR: Deep links are only supported on Android devices and iOS simulators');
   return 1;
 }
 
@@ -77,8 +76,7 @@ Future<int> _openIos(String url) async {
     );
   }
 
-  final result =
-      await Process.run('xcrun', ['simctl', 'openurl', 'booted', url]);
+  final result = await Process.run('xcrun', ['simctl', 'openurl', 'booted', url]);
 
   if (result.exitCode != 0) {
     final details = (result.stderr as String).trim();
@@ -93,8 +91,7 @@ Future<int> _openIos(String url) async {
 /// Returns true if [deviceId] is a booted iOS simulator UUID.
 Future<bool> _isIosSimulatorId(String deviceId) async {
   try {
-    final result =
-        await Process.run('xcrun', ['simctl', 'list', 'devices', 'booted']);
+    final result = await Process.run('xcrun', ['simctl', 'list', 'devices', 'booted']);
     return (result.stdout as String).contains(deviceId);
   } catch (_) {
     return false;

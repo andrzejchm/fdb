@@ -15,8 +15,7 @@ Future<int> runRestart(List<String> args) async {
     return 1;
   }
 
-  final logBefore =
-      File(logFile).existsSync() ? File(logFile).readAsStringSync() : '';
+  final logBefore = File(logFile).existsSync() ? File(logFile).readAsStringSync() : '';
 
   final stopwatch = Stopwatch()..start();
 
@@ -34,6 +33,6 @@ Future<int> runRestart(List<String> args) async {
     }
   }
 
-  stderr.writeln('RESTART_FAILED');
+  stdout.writeln('RESTART_FAILED');
   return 1;
 }

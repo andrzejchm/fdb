@@ -23,3 +23,6 @@ example/test_app/.metadata
 
 # fdb session state
 .fdb/
+
+# Task log output
+.task/

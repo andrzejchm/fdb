@@ -23,9 +23,7 @@ LaunchFailureAnalysis analyzeLaunchFailure(
   final lines = const LineSplitter().convert(output);
 
   final signalLineIndexes = _findSignalLineIndexes(lines);
-  final primaryIndex = signalLineIndexes.isEmpty
-      ? _findBestFallbackLine(lines)
-      : signalLineIndexes.first;
+  final primaryIndex = signalLineIndexes.isEmpty ? _findBestFallbackLine(lines) : signalLineIndexes.first;
 
   final category = _classifyCategory(lines, signalLineIndexes);
   final resolvedHint = _resolveRemediationHint(
@@ -33,9 +31,7 @@ LaunchFailureAnalysis analyzeLaunchFailure(
     category.category,
     category.remediationHint,
   );
-  final rootSource = primaryIndex == -1
-      ? 'flutter process exited unexpectedly'
-      : _cleanLine(lines[primaryIndex]);
+  final rootSource = primaryIndex == -1 ? 'flutter process exited unexpectedly' : _cleanLine(lines[primaryIndex]);
 
   final categoryLabel = _categoryLabel(category.category);
   final rootCause = _buildRootCause(
@@ -46,9 +42,7 @@ LaunchFailureAnalysis analyzeLaunchFailure(
     rootSource,
   );
 
-  final contextIndexes = signalLineIndexes.isEmpty && primaryIndex != -1
-      ? <int>[primaryIndex]
-      : signalLineIndexes;
+  final contextIndexes = signalLineIndexes.isEmpty && primaryIndex != -1 ? <int>[primaryIndex] : signalLineIndexes;
 
   return (
     category: category.category,
@@ -85,10 +79,8 @@ String _buildRootCause(
   var source = rootSource;
 
   if (category == 'IOS_CODESIGN_PROVISIONING' && primaryIndex >= 0) {
-    final nearbyErrSec =
-        _findNearbyLineContaining(lines, primaryIndex, 'errsec');
-    if (nearbyErrSec != null &&
-        !source.toLowerCase().contains('errsecinternalcomponent')) {
+    final nearbyErrSec = _findNearbyLineContaining(lines, primaryIndex, 'errsec');
+    if (nearbyErrSec != null && !source.toLowerCase().contains('errsecinternalcomponent')) {
       source = '$source (${_cleanLine(nearbyErrSec)})';
     }
   }
@@ -146,8 +138,7 @@ String? _findNearbyLineContaining(List<String> lines, int index, String token) {
   if (bestScore == 0) {
     return (
       category: 'UNKNOWN',
-      remediationHint:
-          'Open LOG_FILE and inspect the first error/failed line near the end.',
+      remediationHint: 'Open LOG_FILE and inspect the first error/failed line near the end.',
     );
   }
 
@@ -171,8 +162,7 @@ List<int> _findSignalLineIndexes(List<String> lines) {
 
   final selected = <int>[];
   for (final candidate in scored) {
-    final tooClose =
-        selected.any((index) => (index - candidate.index).abs() <= 1);
+    final tooClose = selected.any((index) => (index - candidate.index).abs() <= 1);
     if (tooClose) continue;
     selected.add(candidate.index);
     if (selected.length >= 5) break;
@@ -209,9 +199,7 @@ int _lineSignalScore(String line) {
 int _findBestFallbackLine(List<String> lines) {
   for (var i = lines.length - 1; i >= 0; i--) {
     final lower = lines[i].toLowerCase();
-    if (lower.contains('error') ||
-        lower.contains('failed') ||
-        lower.contains('exception')) {
+    if (lower.contains('error') || lower.contains('failed') || lower.contains('exception')) {
       return i;
     }
   }
@@ -330,70 +318,36 @@ final _categoryHeuristics = <_CategoryHeuristic>[
   (
     category: 'IOS_CODESIGN_PROVISIONING',
     strongTokens: ['codesign', 'errsec', 'provisioning profile'],
-    weakTokens: [
-      'signing identity',
-      'development team',
-      'no signing certificate'
-    ],
+    weakTokens: ['signing identity', 'development team', 'no signing certificate'],
     label: 'iOS codesigning/provisioning failed',
-    remediationHint:
-        'Open iOS Signing & Capabilities and verify team, certificate, and provisioning profile.',
+    remediationHint: 'Open iOS Signing & Capabilities and verify team, certificate, and provisioning profile.',
   ),
   (
     category: 'IOS_BUILD_SCRIPT',
     strongTokens: ['phasescriptexecution', 'xcodebuild failed'],
-    weakTokens: [
-      '[cp] embed pods frameworks',
-      'script-',
-      'command phasescriptexecution failed'
-    ],
+    weakTokens: ['[cp] embed pods frameworks', 'script-', 'command phasescriptexecution failed'],
     label: 'iOS/Xcode build script failed',
-    remediationHint:
-        'Inspect the failing Xcode script phase in LOG_FILE or rerun from Xcode for full script output.',
+    remediationHint: 'Inspect the failing Xcode script phase in LOG_FILE or rerun from Xcode for full script output.',
   ),
   (
     category: 'ANDROID_INSTALL_ADB',
     strongTokens: ['install_failed', 'adb: failed to install'],
-    weakTokens: [
-      'device offline',
-      'no devices/emulators found',
-      'performing streamed install'
-    ],
+    weakTokens: ['device offline', 'no devices/emulators found', 'performing streamed install'],
     label: 'Android install/adb failed',
-    remediationHint:
-        'Check `adb devices`, reconnect the device, and uninstall conflicting app versions if needed.',
+    remediationHint: 'Check `adb devices`, reconnect the device, and uninstall conflicting app versions if needed.',
   ),
   (
     category: 'SDK_TOOLCHAIN',
-    strongTokens: [
-      'android sdk not found',
-      'unable to locate android sdk',
-      'command not found: flutter'
-    ],
-    weakTokens: [
-      'android_home',
-      'flutter doctor',
-      'xcode not installed',
-      'cocoapods not installed'
-    ],
+    strongTokens: ['android sdk not found', 'unable to locate android sdk', 'command not found: flutter'],
+    weakTokens: ['android_home', 'flutter doctor', 'xcode not installed', 'cocoapods not installed'],
     label: 'Missing SDK/toolchain dependency',
-    remediationHint:
-        'Install or repair required SDK/toolchain components, then run `flutter doctor -v`.',
+    remediationHint: 'Install or repair required SDK/toolchain components, then run `flutter doctor -v`.',
   ),
   (
     category: 'FLUTTER_BUILD',
-    strongTokens: [
-      'build failed',
-      'gradle task',
-      'target kernel_snapshot_program failed'
-    ],
-    weakTokens: [
-      'compilation failed',
-      'execution failed for task',
-      'error launching application'
-    ],
+    strongTokens: ['build failed', 'gradle task', 'target kernel_snapshot_program failed'],
+    weakTokens: ['compilation failed', 'execution failed for task', 'error launching application'],
     label: 'Flutter build failed',
-    remediationHint:
-        'Fix the first compile/build error in LOG_FILE before addressing follow-up failures.',
+    remediationHint: 'Fix the first compile/build error in LOG_FILE before addressing follow-up failures.',
   ),
 ];
