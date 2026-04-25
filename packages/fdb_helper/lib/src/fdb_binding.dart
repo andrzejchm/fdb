@@ -832,6 +832,15 @@ class FdbBinding extends WidgetsFlutterBinding {
         if (element != null) {
           final renderObject = element.renderObject;
           if (renderObject is RenderBox) {
+            // Stop any ongoing ballistic scroll animation by jumping to the
+            // current position, then precisely position the target in the
+            // viewport using ensureVisible.
+            position.jumpTo(position.pixels);
+            await Scrollable.ensureVisible(
+              element,
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+            );
             final center = renderObject.size.center(Offset.zero);
             final globalCenter = renderObject.localToGlobal(center);
             final widgetType = element.widget.runtimeType.toString();
@@ -933,6 +942,15 @@ class FdbBinding extends WidgetsFlutterBinding {
       if (element != null) {
         final renderObject = element.renderObject;
         if (renderObject is RenderBox) {
+          // Stop any ongoing ballistic scroll animation by jumping to the
+          // current position, then precisely position the target in the
+          // viewport using ensureVisible.
+          position.jumpTo(position.pixels);
+          await Scrollable.ensureVisible(
+            element,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOut,
+          );
           final center = renderObject.size.center(Offset.zero);
           final globalCenter = renderObject.localToGlobal(center);
           final widgetType = element.widget.runtimeType.toString();
