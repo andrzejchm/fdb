@@ -19,6 +19,15 @@ import 'widget_matcher.dart';
 /// the attempt is counted as a stall.
 const double _stallThresholdPixels = 0.5;
 
+/// How long to wait after a drag gesture for scroll physics to settle before
+/// reading [ScrollPosition.pixels] and [ScrollPosition.extentAfter].
+const Duration _scrollSettleDuration = Duration(milliseconds: 80);
+
+/// How many consecutive edge readings (extentAfter <= 0) are required before
+/// treating the forward edge as truly reached. Guards against transient 0
+/// readings that occur during ListView.builder rebuild mid-scroll.
+const int _edgeConfirmationCount = 2;
+
 /// A custom binding that registers VM service extensions for widget interaction.
 ///
 /// Usage in `main()`:
@@ -783,7 +792,9 @@ class FdbBinding extends WidgetsFlutterBinding {
       //   up-axis:   drag finger down (dy > 0) → content scrolls up
       //   right-axis: drag finger left (dx < 0) → content scrolls right
       //   left-axis:  drag finger right (dx > 0) → content scrolls left
-      const double delta = 64.0;
+      // 200px matches the default used by fdb scroll, which is large enough
+      // to produce scroll physics momentum on all platforms.
+      const double delta = 200.0;
       var moveStep = switch (axisDirection) {
         AxisDirection.down => const Offset(0, -delta),
         AxisDirection.up => const Offset(0, delta),
@@ -794,6 +805,7 @@ class FdbBinding extends WidgetsFlutterBinding {
       final maxAttempts = _calculateMaxAttempts(position);
       var reversedOnce = false;
       var stallCount = 0;
+      var edgeCount = 0;
       var attempt = 0;
 
       while (attempt < maxAttempts) {
@@ -822,35 +834,6 @@ class FdbBinding extends WidgetsFlutterBinding {
           );
         }
 
-        // Detect scroll edge to decide whether to reverse or give up.
-        final currentPixels = position.pixels;
-        final extentAfter = position.extentAfter;
-        final extentBefore = position.extentBefore;
-
-        final atForwardEdge = extentAfter <= 0;
-        final atBackwardEdge = extentBefore <= 0;
-
-        // Determine if we are at the edge in the current scroll direction.
-        final scrollingForward = switch (axisDirection) {
-          AxisDirection.down => moveStep.dy < 0,
-          AxisDirection.up => moveStep.dy > 0,
-          AxisDirection.right => moveStep.dx < 0,
-          AxisDirection.left => moveStep.dx > 0,
-        };
-        final atCurrentEdge = scrollingForward ? atForwardEdge : atBackwardEdge;
-
-        if (atCurrentEdge) {
-          if (!reversedOnce) {
-            moveStep = -moveStep;
-            reversedOnce = true;
-            stallCount = 0;
-            attempt = 0; // Reset full budget for the reversed direction.
-            continue;
-          } else {
-            break; // Already reversed once — searched entire list, give up.
-          }
-        }
-
         // Perform drag gesture on the Scrollable's center.
         final scrollableRenderObject = scrollableElement.renderObject;
         if (scrollableRenderObject is! RenderBox) break;
@@ -860,10 +843,17 @@ class FdbBinding extends WidgetsFlutterBinding {
         final scrollableGlobalCenter =
             scrollableRenderObject.localToGlobal(scrollableCenter);
 
+        final currentPixels = position.pixels;
+
         await dispatchScroll(
           start: scrollableGlobalCenter,
           end: scrollableGlobalCenter + moveStep,
         );
+
+        // Wait for scroll physics to settle before reading position.
+        // ListView.builder needs a frame to build newly visible items and
+        // update extentAfter accurately after each drag.
+        await Future<void>.delayed(_scrollSettleDuration);
 
         // Stall detection: if position didn't change, reverse or give up.
         final newPixels = position.pixels;
@@ -874,6 +864,7 @@ class FdbBinding extends WidgetsFlutterBinding {
               moveStep = -moveStep;
               reversedOnce = true;
               stallCount = 0;
+              edgeCount = 0;
               attempt = 0; // Reset full budget for the reversed direction.
               continue;
             } else {
@@ -882,6 +873,38 @@ class FdbBinding extends WidgetsFlutterBinding {
           }
         } else {
           stallCount = 0;
+        }
+
+        // Detect scroll edge to decide whether to reverse or give up.
+        // Require _edgeConfirmationCount consecutive readings to avoid acting
+        // on transient extentAfter==0 that can occur during ListView.builder
+        // rebuilds mid-scroll.
+        final scrollingForward = switch (axisDirection) {
+          AxisDirection.down => moveStep.dy < 0,
+          AxisDirection.up => moveStep.dy > 0,
+          AxisDirection.right => moveStep.dx < 0,
+          AxisDirection.left => moveStep.dx > 0,
+        };
+        final atCurrentEdge = scrollingForward
+            ? position.extentAfter <= 0
+            : position.extentBefore <= 0;
+
+        if (atCurrentEdge) {
+          edgeCount++;
+          if (edgeCount >= _edgeConfirmationCount) {
+            if (!reversedOnce) {
+              moveStep = -moveStep;
+              reversedOnce = true;
+              stallCount = 0;
+              edgeCount = 0;
+              attempt = 0; // Reset full budget for the reversed direction.
+              continue;
+            } else {
+              break; // Already reversed once — searched entire list, give up.
+            }
+          }
+        } else {
+          edgeCount = 0;
         }
 
         attempt++;
@@ -926,7 +949,13 @@ class FdbBinding extends WidgetsFlutterBinding {
   ///
   /// If the target widget is already in the tree, walks its ancestors to find
   /// the nearest enclosing [Scrollable]. Otherwise scans the full tree,
-  /// preferring a [Scrollable] with a non-zero scroll range.
+  /// preferring the **last** (deepest / most recently pushed route) [Scrollable]
+  /// with a non-zero scroll range.
+  ///
+  /// Flutter's Navigator keeps all route widgets in the tree simultaneously
+  /// (not wrapped in Offstage for intermediate routes), so the current route's
+  /// Scrollable appears last in a depth-first traversal. Picking the last one
+  /// ensures we target the active route rather than a background route.
   Element? _findBestScrollable(WidgetMatcher matcher) {
     // Try to find target first — if in tree, walk ancestors.
     final root = WidgetsBinding.instance.rootElement;
@@ -957,11 +986,21 @@ class FdbBinding extends WidgetsFlutterBinding {
     }
 
     // Fallback: scan full tree for best Scrollable.
+    // Collect ALL Scrollables with a non-zero range and return the LAST one
+    // found in depth-first order. Because Flutter's Navigator appends newer
+    // routes after older ones in the element tree, the last Scrollable with
+    // range corresponds to the currently active route.
     Element? fallback;
-    Element? withRange;
+    Element? lastWithRange;
 
     void visitForScrollable(Element el) {
-      if (withRange != null) return;
+      // Skip Offstage subtrees (inactive Navigator routes).
+      if (el.widget.runtimeType.toString() == 'Offstage') {
+        try {
+          final offstage = (el.widget as dynamic).offstage as bool;
+          if (offstage) return;
+        } catch (_) {}
+      }
       if (el.widget is Scrollable) {
         fallback ??= el;
         final scrollPosition = _tryGetScrollPosition(el);
@@ -970,8 +1009,7 @@ class FdbBinding extends WidgetsFlutterBinding {
               (scrollPosition.maxScrollExtent - scrollPosition.minScrollExtent)
                   .abs();
           if (range > 0.5) {
-            withRange = el;
-            return;
+            lastWithRange = el; // keep updating — we want the LAST one
           }
         }
       }
@@ -979,7 +1017,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     }
 
     root.visitChildren(visitForScrollable);
-    return withRange ?? fallback;
+    return lastWithRange ?? fallback;
   }
 
   /// Extracts the [ScrollPosition] from a [Scrollable] element's state.
@@ -1002,7 +1040,7 @@ class FdbBinding extends WidgetsFlutterBinding {
   /// For finite lists, uses scroll extent / step size * 2 + buffer, capped at
   /// 200. For infinite lists (e.g. infinite scroll), falls back to 50.
   int _calculateMaxAttempts(ScrollPosition position) {
-    const double delta = 64.0;
+    const double delta = 200.0;
     final extent = (position.maxScrollExtent - position.minScrollExtent).abs();
     if (!extent.isFinite) return 50;
     return ((extent / delta).ceil() * 2 + 20).clamp(1, 200);
