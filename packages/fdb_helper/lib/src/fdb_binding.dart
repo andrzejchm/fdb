@@ -967,8 +967,8 @@ class FdbBinding extends WidgetsFlutterBinding {
   ///
   /// If the target widget is already in the tree, walks its ancestors to find
   /// the nearest enclosing [Scrollable]. Otherwise scans the full tree,
-  /// preferring the **last** (deepest / most recently pushed route) [Scrollable]
-  /// with a non-zero scroll range.
+  /// preferring the **last** (last in depth-first traversal order, i.e. the
+  /// most recently pushed route) [Scrollable] with a non-zero scroll range.
   ///
   /// Flutter's Navigator wraps inactive (background) routes in
   /// [Offstage], so their subtrees are skipped during traversal.
@@ -1056,8 +1056,9 @@ class FdbBinding extends WidgetsFlutterBinding {
   /// the attempt counter to 0 when reversing direction, the total maximum
   /// number of drag attempts across both directions is `2 * maxAttempts`.
   ///
-  /// For finite lists, uses scroll extent / step size * 2 + buffer, capped at
-  /// 200. For infinite lists (e.g. infinite scroll), falls back to 50.
+  /// For finite lists, uses `ceil(extent / step size) * 2 + buffer`, clamped
+  /// between `1` and `200`. For infinite lists (e.g. infinite scroll), falls
+  /// back to 50.
   int _calculateMaxAttempts(ScrollPosition position) {
     final extent = (position.maxScrollExtent - position.minScrollExtent).abs();
     if (!extent.isFinite) return 50;
