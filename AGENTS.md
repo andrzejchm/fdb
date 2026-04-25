@@ -58,6 +58,7 @@ dart format .                         # Format
 |-------|---------------|-----------|
 | Testing | Test commands, requirements, output conventions | [TESTING.md](TESTING.md) |
 | Code style | Imports, naming, formatting, architecture, error handling | [CODE-STYLE.md](CODE-STYLE.md) |
+| fdb_helper architecture | Handler file layout, binding rules, adding new extensions | [packages/fdb_helper/AGENTS.md](packages/fdb_helper/AGENTS.md) |
 
 ### Testing (quick reference)
 

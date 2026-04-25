@@ -87,6 +87,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` | Long-press a widget |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
 | `fdb scroll <direction> [--at x,y]` | Scroll screen |
+| `fdb scroll-to --text/--key/--type <selector> [--index N]` | Scroll until widget is visible |
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |
@@ -189,7 +190,7 @@ fdb swipe left                            # swipe from screen center
 fdb swipe up --distance 400              # swipe with custom distance
 ```
 
-Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SWIPED=<DIR> DISTANCE=<n>`
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SCROLLED_TO=<type> X=<x> Y=<y>`, `SWIPED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 
@@ -252,6 +253,7 @@ fdb tap --key "submit_button"             # tap a button by key
 fdb input --key "search_field" "flutter"  # type into a text field
 fdb screenshot                            # verify the result visually
 fdb scroll down                           # scroll to reveal more content
+fdb scroll-to --key "list_item_42"        # scroll until a specific item is visible
 fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 ```
 

@@ -15,6 +15,7 @@ import 'package:fdb/commands/reload.dart';
 import 'package:fdb/commands/restart.dart';
 import 'package:fdb/commands/screenshot.dart';
 import 'package:fdb/commands/scroll.dart';
+import 'package:fdb/commands/scroll_to.dart';
 import 'package:fdb/commands/select.dart';
 import 'package:fdb/commands/selected.dart';
 import 'package:fdb/commands/skill.dart';
@@ -41,6 +42,7 @@ Commands:
   longpress   Long-press a widget by selector
   input       Enter text into a field
   scroll      Scroll in a direction
+  scroll-to   Scroll until a widget is visible
   swipe       Swipe a widget or screen (PageView, Dismissible)
   back        Navigate back (Navigator.maybePop)
   clean       Clear app cache and data directories (requires fdb_helper)
@@ -112,6 +114,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runInput(args);
     case 'scroll':
       return runScroll(args);
+    case 'scroll-to':
+      return runScrollTo(args);
     case 'swipe':
       return runSwipe(args);
     case 'back':

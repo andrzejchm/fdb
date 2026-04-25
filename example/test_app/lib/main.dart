@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'benchmark_screens.dart';
+import 'scroll_to_test_screen.dart';
 
 void main() {
   if (!kReleaseMode) {
@@ -32,6 +33,12 @@ class FdbTestApp extends StatelessWidget {
         benchmarkStressListRoute: (_) => const BenchmarkStressListPage(),
         benchmarkStressGridRoute: (_) => const BenchmarkStressGridPage(),
         benchmarkPathologicalRoute: (_) => const BenchmarkPathologicalPage(),
+        scrollToTestRoute: (_) => const ScrollToTestPage(),
+        scrollToTestLazyRoute: (_) => const LazyListScrollToPage(),
+        scrollToTestHorizontalRoute: (_) => const HorizontalListScrollToPage(),
+        scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
+        scrollToTestAlreadyVisibleRoute: (_) =>
+            const AlreadyVisibleScrollToPage(),
       },
     );
   }
@@ -167,6 +174,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 key: const Key('go_to_benchmarks'),
                 onPressed: () => Navigator.pushNamed(context, benchmarkRoute),
                 child: const Text('Benchmarks'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_scroll_to_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, scrollToTestRoute),
+                child: const Text('Scroll-To Tests'),
               ),
               const SizedBox(height: 16),
               // GestureDetector for long-press testing

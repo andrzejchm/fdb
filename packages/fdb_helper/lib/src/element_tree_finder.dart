@@ -12,7 +12,7 @@ List<Map<String, dynamic>> findInteractiveElements() {
   void visit(Element element) {
     final widget = element.widget;
     final isInteractive = _isInteractiveWidget(widget.runtimeType);
-    final text = _extractText(widget);
+    final text = extractWidgetText(widget);
     final hasKey = widget.key is ValueKey<String>;
 
     if (isInteractive || text != null || hasKey) {
@@ -94,7 +94,7 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   final ancestors = <Element>[];
 
   void visit(Element element) {
-    if (matcher.matches(element, extractText: _extractText)) {
+    if (matcher.matches(element, extractText: extractWidgetText)) {
       Element? hittable;
       if (isElementHittable(element)) {
         hittable = element;
@@ -203,7 +203,59 @@ bool _isInteractiveWidget(Type type) =>
     type == TextField ||
     type == TextFormField;
 
-String? _extractText(Widget widget) {
+/// Finds the first (or Nth, if [matcher] has an index) element that directly
+/// matches [matcher], without walking up to a hittable ancestor.
+///
+/// Unlike [findHittableElement], this returns the raw matched element — e.g.
+/// the [Text] widget itself when using [TextMatcher]. This is the correct
+/// element to pass to [Scrollable.ensureVisible], which needs the actual
+/// target element to compute its scroll offset, not an ancestor container.
+///
+/// An element is only included in results if it has a valid, sized, attached
+/// [RenderBox]. If a matched element has no valid [RenderBox], it is silently
+/// excluded from results (and its children are not recursed into either).
+///
+/// Note: when [matcher] is a [FocusedMatcher] or [CoordinatesMatcher], this
+/// function always returns `null`. [FocusedMatcher.matches] always returns
+/// `false`, and [CoordinatesMatcher] is not meaningful for tree traversal.
+///
+/// Returns null if no match is found.
+Element? findScrollTargetElement(WidgetMatcher matcher) {
+  if (matcher is CoordinatesMatcher) return null;
+  // FocusedMatcher.matches() always returns false — skip the tree walk.
+  if (matcher is FocusedMatcher) return null;
+
+  final root = WidgetsBinding.instance.rootElement;
+  if (root == null) return null;
+
+  final matches = <Element>[];
+
+  void visit(Element element) {
+    if (matcher.matches(element, extractText: extractWidgetText)) {
+      final renderObject = element.renderObject;
+      if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+        matches.add(element);
+      }
+      // Do not recurse into children of any matched element — we want the
+      // most specific (deepest) match, and ensureVisible needs the actual
+      // target element, not an ancestor that also happens to match.
+      // This applies even when the matched element has no valid RenderBox.
+      return;
+    }
+    element.visitChildren(visit);
+  }
+
+  root.visitChildren(visit);
+
+  if (matches.isEmpty) return null;
+  final targetIndex = matcher.index ?? 0;
+  if (targetIndex >= matches.length) return null;
+  return matches[targetIndex];
+}
+
+/// Extracts the plain-text content from a widget, or null if the widget
+/// carries no text. Used as the [extractText] callback for [WidgetMatcher.matches].
+String? extractWidgetText(Widget widget) {
   if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
   if (widget is RichText) return widget.text.toPlainText();
   if (widget is EditableText) return widget.controller.text;
