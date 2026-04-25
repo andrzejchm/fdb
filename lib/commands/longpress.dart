@@ -22,7 +22,7 @@ Future<int> runLongpress(List<String> args) async {
   int? x;
   int? y;
   var timeoutSeconds = 5;
-  int durationMs = 500;
+  var durationMs = 500;
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {

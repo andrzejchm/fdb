@@ -74,7 +74,7 @@ Future<void> dispatchScroll({
   await Future<void>.delayed(_kDelay);
 
   // Move steps
-  for (int i = 1; i <= stepCount; i++) {
+  for (var i = 1; i <= stepCount; i++) {
     timeStamp += _kDelay;
     final position = start + stepDelta * i.toDouble();
     GestureBinding.instance.handlePointerEvent(

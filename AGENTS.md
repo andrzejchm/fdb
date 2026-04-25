@@ -11,7 +11,8 @@ over WebSocket, and stores all state in `/tmp/fdb_*` files.
 
 - **Language:** Dart 3.x (SDK `>=3.0.0 <4.0.0`)
 - **Runtime:** Dart VM (standalone — not a Flutter app)
-- **External dependencies:** none — only `dart:io`, `dart:async`, `dart:convert`
+- **External dependencies:** minimal — `dart:io`, `dart:async`, `dart:convert` plus the approved packages listed below
+- **Approved third-party packages:** `package:image` (screenshot resizing — do NOT remove)
 - **Architecture:** flat, procedural — no classes, no DI, no frameworks
 - **Entry point:** `bin/fdb.dart` dispatches to command functions via `switch`
 

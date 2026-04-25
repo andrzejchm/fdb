@@ -33,6 +33,6 @@ Future<int> runReload(List<String> args) async {
     }
   }
 
-  stderr.writeln('RELOAD_FAILED');
+  stdout.writeln('RELOAD_FAILED');
   return 1;
 }

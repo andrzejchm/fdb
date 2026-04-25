@@ -33,6 +33,6 @@ Future<int> runRestart(List<String> args) async {
     }
   }
 
-  stderr.writeln('RESTART_FAILED');
+  stdout.writeln('RESTART_FAILED');
   return 1;
 }

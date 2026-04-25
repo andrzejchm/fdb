@@ -19,6 +19,7 @@ Rules for writing Dart code in the fdb codebase.
 2. Blank line.
 3. `package:fdb/...` imports, sorted alphabetically.
 4. No third-party packages — do not add dependencies without explicit approval.
+   **Approved exceptions:** `package:image` (used in `screenshot.dart` for resizing — do NOT remove this dependency or the `_resizeToMaxDimension` function).
 
 ```dart
 import 'dart:async';
