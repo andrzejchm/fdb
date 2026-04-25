@@ -425,6 +425,214 @@ tasks:
           exit 1
         fi
 
+  test:double-tap:
+    desc: Double-tap a widget by selector and coordinates
+    dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}echo "macos"{{end}}'
+    cmds:
+      - |
+        assert_double_tap_output() {
+          local output="$1"
+          if echo "$output" | grep -Eq 'DOUBLE_TAPPED=[^ ]+ X=-?[0-9]+(\.[0-9]+)? Y=-?[0-9]+(\.[0-9]+)?'; then
+            return 0
+          fi
+          echo "FAIL: fdb double-tap - expected DOUBLE_TAPPED=<WidgetType> X=<x> Y=<y>" >&2
+          exit 1
+        }
+
+        assert_double_tap_log() {
+          local scenario="$1"
+          local expected_log="$2"
+          for _ in $(seq 1 20); do
+            LOG_OUTPUT=$({{.FDB}} logs --tag fdb_test --last 50 2>&1)
+            LOG_EXIT_CODE=$?
+            echo "$LOG_OUTPUT"
+            if [ $LOG_EXIT_CODE -ne 0 ]; then
+              echo "FAIL: fdb logs after $scenario exited with code $LOG_EXIT_CODE" >&2
+              exit 1
+            fi
+            if echo "$LOG_OUTPUT" | grep -q "$expected_log"; then
+              return 0
+            fi
+            sleep 0.5
+          done
+          echo "FAIL: fdb double-tap - trigger log not found after $scenario" >&2
+          exit 1
+        }
+
+        assert_any_double_tap_log() {
+          local scenario="$1"
+          local expected_pattern="$2"
+          for _ in $(seq 1 20); do
+            LOG_OUTPUT=$({{.FDB}} logs --tag fdb_test --last 50 2>&1)
+            LOG_EXIT_CODE=$?
+            echo "$LOG_OUTPUT"
+            if [ $LOG_EXIT_CODE -ne 0 ]; then
+              echo "FAIL: fdb logs after $scenario exited with code $LOG_EXIT_CODE" >&2
+              exit 1
+            fi
+            if echo "$LOG_OUTPUT" | grep -Eq "$expected_pattern"; then
+              return 0
+            fi
+            sleep 0.5
+          done
+          echo "FAIL: fdb double-tap - trigger log not found after $scenario" >&2
+          exit 1
+        }
+
+        assert_double_tap_error() {
+          local output="$1"
+          local expected_error="$2"
+          if echo "$output" | grep -q "$expected_error"; then
+            return 0
+          fi
+          echo "FAIL: fdb double-tap - expected error '$expected_error'" >&2
+          exit 1
+        }
+
+        extract_coords() {
+          local output="$1"
+          echo "$output" | sed -n 's/.*DOUBLE_TAPPED=.* X=\([^ ]*\) Y=\([^ ]*\).*/\1,\2/p'
+        }
+
+        is_macos_device() {
+          [ "{{.DEVICE}}" = "macos" ]
+        }
+
+        relaunch_test_app() {
+          echo "==> Launching test app on device: {{.DEVICE}}"
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb launch for double-tap exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -q 'APP_STARTED'; then
+            echo "FAIL: fdb launch for double-tap - APP_STARTED not found in output" >&2
+            exit 1
+          fi
+
+          READY=0
+          for _ in $(seq 1 20); do
+            if {{.FDB}} tree --depth 1 >/dev/null 2>&1; then
+              READY=1
+              break
+            fi
+            sleep 0.5
+          done
+
+          if [ $READY -ne 1 ]; then
+            echo "FAIL: fdb launch for double-tap - app did not become ready" >&2
+            exit 1
+          fi
+        }
+
+        relaunch_test_app
+
+        echo "==> Double-tapping target by key"
+        set +e
+        KEY_OUTPUT=$({{.FDB}} double-tap --key "double_tap_target" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$KEY_OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb double-tap --key exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        assert_double_tap_output "$KEY_OUTPUT"
+        assert_double_tap_log '--key' 'double_tap_target triggered'
+
+        COORDS=$(extract_coords "$KEY_OUTPUT")
+        if [ -z "$COORDS" ]; then
+          echo "FAIL: fdb double-tap - could not extract coordinates from --key output" >&2
+          exit 1
+        fi
+        X=$(echo "$COORDS" | sed 's/,.*//')
+        Y=$(echo "$COORDS" | sed 's/.*,//')
+
+        relaunch_test_app
+
+        echo "==> Double-tapping target by --text with --index 0"
+        set +e
+        TEXT_OUTPUT=$({{.FDB}} double-tap --text "Double Tap Target" --index 0 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$TEXT_OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb double-tap --text --index 0 exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        assert_double_tap_output "$TEXT_OUTPUT"
+        assert_double_tap_log '--text/--index 0' 'double_tap_target triggered'
+        relaunch_test_app
+
+        echo "==> Double-tapping target by --text with --index 1"
+        if is_macos_device; then
+          echo "SKIP: macOS duplicate-text index scenario is not stable in the desktop viewport; exercising --index on widget type and mobile targets instead"
+        else
+          set +e
+          INDEX_OUTPUT=$({{.FDB}} double-tap --text "Double Tap Target" --index 1 2>&1)
+          EXIT_CODE=$?
+          set -e
+          echo "$INDEX_OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb double-tap --text/--index exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          assert_double_tap_output "$INDEX_OUTPUT"
+          assert_any_double_tap_log '--text/--index 1' 'double_tap_target_secondary triggered'
+        fi
+
+        relaunch_test_app
+
+        echo "==> Double-tapping target by --type Container --index 0"
+        set +e
+        TYPE_OUTPUT=$({{.FDB}} double-tap --type "Container" --index 0 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$TYPE_OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb double-tap --type exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        assert_double_tap_output "$TYPE_OUTPUT"
+        assert_double_tap_log '--type/--index 0' 'double_tap_target triggered'
+
+        relaunch_test_app
+
+        echo "==> Double-tapping target by --x/--y"
+        set +e
+        XY_OUTPUT=$({{.FDB}} double-tap --x "$X" --y "$Y" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$XY_OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb double-tap --x/--y exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        assert_double_tap_output "$XY_OUTPUT"
+        assert_double_tap_log '--x/--y' 'double_tap_target triggered'
+
+        relaunch_test_app
+
+        echo "==> Double-tapping target by --at"
+        set +e
+        AT_OUTPUT=$({{.FDB}} double-tap --at "$X,$Y" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$AT_OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb double-tap --at exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        assert_double_tap_output "$AT_OUTPUT"
+        assert_double_tap_log '--at' 'double_tap_target triggered'
+        echo "PASS: fdb double-tap"
+
   test:longpress:
     desc: Long-press a widget by key selector
     dir: '{{.TEST_APP}}'
@@ -1053,6 +1261,11 @@ tasks:
       - task: test:deeplink
       - task: test:select
       - task: test:tap
+        vars:
+          DEVICE: '{{.DEVICE}}'
+      - task: test:double-tap
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: test:longpress
       - task: test:tap-at
       - task: test:input

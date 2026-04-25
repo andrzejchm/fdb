@@ -7,6 +7,7 @@ import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/describe.dart';
 import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/doctor.dart';
+import 'package:fdb/commands/double_tap.dart';
 import 'package:fdb/commands/input.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
@@ -42,6 +43,7 @@ Commands:
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector or coordinates
+  double-tap  Double-tap a widget by selector or coordinates
   input       Enter text into a field
   scroll      Scroll in a direction
   scroll-to   Scroll until a widget is visible
@@ -112,6 +114,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runDoctor(args);
     case 'tap':
       return runTap(args);
+    case 'double-tap':
+      return runDoubleTap(args);
     case 'longpress':
       return runLongpress(args);
     case 'input':
