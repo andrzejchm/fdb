@@ -394,9 +394,9 @@ tasks:
     cmds:
       - |
         # ---------------------------------------------------------------
-        # Scenario 1: already-visible item on home page SingleChildScrollView
+        # Scenario 1: eager SingleChildScrollView — item off-screen at bottom
         # ---------------------------------------------------------------
-        echo "==> [scroll-to] already-visible item by text on home page"
+        echo "==> [scroll-to] SingleChildScrollView — scroll to off-screen item by text"
         OUTPUT=$({{.FDB}} scroll-to --text "Extra item 10" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"

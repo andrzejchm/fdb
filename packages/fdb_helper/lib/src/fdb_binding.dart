@@ -20,13 +20,21 @@ import 'widget_matcher.dart';
 const double _stallThresholdPixels = 0.5;
 
 /// How long to wait after a drag gesture for scroll physics to settle before
-/// reading [ScrollPosition.pixels] and [ScrollPosition.extentAfter].
+/// reading [ScrollPosition.pixels], [ScrollPosition.extentAfter], and
+/// [ScrollPosition.extentBefore].
 const Duration _scrollSettleDuration = Duration(milliseconds: 80);
 
-/// How many consecutive edge readings (extentAfter <= 0) are required before
-/// treating the forward edge as truly reached. Guards against transient 0
-/// readings that occur during ListView.builder rebuild mid-scroll.
+/// How many consecutive edge readings are required before treating the scroll
+/// edge as truly reached. Guards against transient zero readings of
+/// [ScrollPosition.extentAfter] (forward edge) or [ScrollPosition.extentBefore]
+/// (backward edge) that can occur during [ListView.builder] rebuild mid-scroll.
 const int _edgeConfirmationCount = 2;
+
+/// How many consecutive stall readings are required before treating the scroll
+/// as truly stuck and reversing direction. A stall is counted when
+/// [ScrollPosition.pixels] changes by less than [_stallThresholdPixels] after
+/// a drag gesture.
+const int _stallConfirmationCount = 3;
 
 /// A custom binding that registers VM service extensions for widget interaction.
 ///
@@ -859,7 +867,7 @@ class FdbBinding extends WidgetsFlutterBinding {
         final newPixels = position.pixels;
         if ((newPixels - currentPixels).abs() < _stallThresholdPixels) {
           stallCount++;
-          if (stallCount >= 3) {
+          if (stallCount >= _stallConfirmationCount) {
             if (!reversedOnce) {
               moveStep = -moveStep;
               reversedOnce = true;
@@ -952,10 +960,11 @@ class FdbBinding extends WidgetsFlutterBinding {
   /// preferring the **last** (deepest / most recently pushed route) [Scrollable]
   /// with a non-zero scroll range.
   ///
-  /// Flutter's Navigator keeps all route widgets in the tree simultaneously
-  /// (not wrapped in Offstage for intermediate routes), so the current route's
-  /// Scrollable appears last in a depth-first traversal. Picking the last one
-  /// ensures we target the active route rather than a background route.
+  /// Flutter's Navigator wraps inactive (background) routes in
+  /// [Offstage], so their subtrees are skipped during traversal.
+  /// The active route's Scrollable therefore appears last in a
+  /// depth-first traversal. Picking the last one ensures we target
+  /// the active route rather than a background route.
   Element? _findBestScrollable(WidgetMatcher matcher) {
     // Try to find target first — if in tree, walk ancestors.
     final root = WidgetsBinding.instance.rootElement;
