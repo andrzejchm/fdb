@@ -112,3 +112,15 @@ import 'package:fdb/process_utils.dart';
 3. Add a `case` to the `switch` in `bin/fdb.dart:_runCommand`.
 4. Add the command to the `usage` string in `bin/fdb.dart`.
 5. Update `README.md` commands table.
+
+## fdb_helper architecture
+
+`packages/fdb_helper/` is a Flutter package that runs inside the target app and exposes VM service extensions. It has its own architecture rules — see [`packages/fdb_helper/AGENTS.md`](packages/fdb_helper/AGENTS.md) for full details.
+
+**Key rules (never violate these):**
+
+- `fdb_binding.dart` is **registration-only** — no handler logic, no imports of `dart:io`, `dart:ui`, `path_provider`, or `shared_preferences`. It only calls `_registerExtension(...)`.
+- Every VM service extension lives in its own file under `lib/src/handlers/`. The file exports exactly **one public function** `handleXxx(String method, Map<String, String> params)`.
+- **No classes** in handler files — top-level functions only.
+- Shared helpers (`errorResponse`, `findHittableElement`, `dispatchTap`, etc.) live in the existing `src/` utility files — not in the binding, not duplicated across handlers.
+- Adding a new extension means: create `handlers/your_handler.dart`, add one `_registerExtension` line to `fdb_binding.dart`. Nothing else changes in the binding.
