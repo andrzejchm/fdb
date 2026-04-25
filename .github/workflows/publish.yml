@@ -24,10 +24,10 @@ jobs:
         run: flutter pub get
         working-directory: packages/fdb_helper
 
-      - name: Format (fdb)
+      - name: Format check (fdb)
         run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/ bin/ test/
 
-      - name: Format (fdb_helper)
+      - name: Format check (fdb_helper)
         run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/
         working-directory: packages/fdb_helper
 
