@@ -442,43 +442,42 @@ tasks:
           exit 1
         }
 
-        assert_double_tap_log() {
+        assert_double_tap_summary() {
           local scenario="$1"
-          local expected_log="$2"
+          local expected_summary="$2"
           for _ in $(seq 1 20); do
-            LOG_OUTPUT=$({{.FDB}} logs --tag fdb_test --last 50 2>&1)
-            LOG_EXIT_CODE=$?
-            echo "$LOG_OUTPUT"
-            if [ $LOG_EXIT_CODE -ne 0 ]; then
-              echo "FAIL: fdb logs after $scenario exited with code $LOG_EXIT_CODE" >&2
+            DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
+            DESCRIBE_EXIT_CODE=$?
+            echo "$DESCRIBE_OUTPUT"
+            if [ $DESCRIBE_EXIT_CODE -ne 0 ]; then
+              echo "FAIL: fdb describe after $scenario exited with code $DESCRIBE_EXIT_CODE" >&2
               exit 1
             fi
-            if echo "$LOG_OUTPUT" | grep -q "$expected_log"; then
+            if echo "$DESCRIBE_OUTPUT" | grep -q "$expected_summary"; then
               return 0
             fi
             sleep 0.5
           done
-          echo "FAIL: fdb double-tap - trigger log not found after $scenario" >&2
+          echo "FAIL: fdb double-tap - expected summary '$expected_summary' after $scenario" >&2
           exit 1
         }
 
-        assert_any_double_tap_log() {
+        assert_double_tap_summary_changed() {
           local scenario="$1"
-          local expected_pattern="$2"
           for _ in $(seq 1 20); do
-            LOG_OUTPUT=$({{.FDB}} logs --tag fdb_test --last 50 2>&1)
-            LOG_EXIT_CODE=$?
-            echo "$LOG_OUTPUT"
-            if [ $LOG_EXIT_CODE -ne 0 ]; then
-              echo "FAIL: fdb logs after $scenario exited with code $LOG_EXIT_CODE" >&2
+            DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
+            DESCRIBE_EXIT_CODE=$?
+            echo "$DESCRIBE_OUTPUT"
+            if [ $DESCRIBE_EXIT_CODE -ne 0 ]; then
+              echo "FAIL: fdb describe after $scenario exited with code $DESCRIBE_EXIT_CODE" >&2
               exit 1
             fi
-            if echo "$LOG_OUTPUT" | grep -Eq "$expected_pattern"; then
+            if echo "$DESCRIBE_OUTPUT" | grep -q 'Double tap summary:' && ! echo "$DESCRIBE_OUTPUT" | grep -q 'Double tap summary: primary=0 secondary=0'; then
               return 0
             fi
             sleep 0.5
           done
-          echo "FAIL: fdb double-tap - trigger log not found after $scenario" >&2
+          echo "FAIL: fdb double-tap - expected summary to change after $scenario" >&2
           exit 1
         }
 
@@ -544,7 +543,7 @@ tasks:
           exit 1
         fi
         assert_double_tap_output "$KEY_OUTPUT"
-        assert_double_tap_log '--key' 'double_tap_target triggered'
+        assert_double_tap_summary '--key' 'Double tap summary: primary=1 secondary=0'
 
         COORDS=$(extract_coords "$KEY_OUTPUT")
         if [ -z "$COORDS" ]; then
@@ -567,7 +566,7 @@ tasks:
           exit 1
         fi
         assert_double_tap_output "$TEXT_OUTPUT"
-        assert_double_tap_log '--text/--index 0' 'double_tap_target triggered'
+        assert_double_tap_summary '--text/--index 0' 'Double tap summary: primary=1 secondary=0'
         relaunch_test_app
 
         echo "==> Double-tapping target by --text with --index 1"
@@ -584,7 +583,7 @@ tasks:
             exit 1
           fi
           assert_double_tap_output "$INDEX_OUTPUT"
-          assert_any_double_tap_log '--text/--index 1' 'double_tap_target_secondary triggered'
+          assert_double_tap_summary_changed '--text/--index 1'
         fi
 
         relaunch_test_app
@@ -600,7 +599,7 @@ tasks:
           exit 1
         fi
         assert_double_tap_output "$TYPE_OUTPUT"
-        assert_double_tap_log '--type/--index 0' 'double_tap_target triggered'
+        assert_double_tap_summary '--type/--index 0' 'Double tap summary: primary=1 secondary=0'
 
         relaunch_test_app
 
@@ -615,7 +614,7 @@ tasks:
           exit 1
         fi
         assert_double_tap_output "$XY_OUTPUT"
-        assert_double_tap_log '--x/--y' 'double_tap_target triggered'
+        assert_double_tap_summary '--x/--y' 'Double tap summary: primary=1 secondary=0'
 
         relaunch_test_app
 
@@ -630,7 +629,7 @@ tasks:
           exit 1
         fi
         assert_double_tap_output "$AT_OUTPUT"
-        assert_double_tap_log '--at' 'double_tap_target triggered'
+        assert_double_tap_summary '--at' 'Double tap summary: primary=1 secondary=0'
         echo "PASS: fdb double-tap"
 
   test:longpress:

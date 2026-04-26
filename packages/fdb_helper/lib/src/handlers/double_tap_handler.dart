@@ -89,17 +89,17 @@ Future<developer.ServiceExtensionResponse> handleDoubleTap(
 }
 
 Future<bool> _performDoubleTap(Offset globalPosition, {Element? element}) async {
-  if (defaultTargetPlatform == TargetPlatform.macOS) {
-    final callback = element != null
-        ? _findDoubleTapTargetForElement(element)?.callback
-        : _findDoubleTapCallbackAtOffset(globalPosition);
-    if (callback != null) {
-      callback();
-      WidgetsBinding.instance.scheduleFrame();
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      return true;
-    }
+  final callback = element != null
+      ? _findDoubleTapTargetForElement(element)?.callback
+      : _findDoubleTapCallbackAtOffset(globalPosition);
+  if (callback != null) {
+    callback();
+    WidgetsBinding.instance.scheduleFrame();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    return true;
+  }
 
+  if (defaultTargetPlatform == TargetPlatform.macOS) {
     return false;
   }
 

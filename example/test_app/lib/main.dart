@@ -207,6 +207,11 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   child: const Text('I was delayed'),
                 ),
               const SizedBox(height: 16),
+              Text(
+                'Double tap summary: primary=$_doubleTapCount secondary=$_secondaryDoubleTapCount',
+                key: const Key('double_tap_summary'),
+              ),
+              const SizedBox(height: 8),
               GestureDetector(
                 key: const Key('double_tap_target'),
                 onDoubleTap: () {

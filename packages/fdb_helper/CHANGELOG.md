@@ -1,3 +1,14 @@
+## 1.2.0
+
+### New
+- `ext.fdb.doubleTap` - double-tap widgets by selector or coordinates
+- `ext.fdb.scrollTo` - scroll the nearest scrollable until a target widget becomes visible
+- `ext.fdb.wait` - wait for widget and route presence or absence from the VM service
+
+### Improvements
+- Tap and long-press handlers now support absolute coordinate targeting through the CLI `--at x,y` flow
+- Double-tap test surfaces now expose visible counters so smoke tests verify UI state instead of log timing
+
 ## 1.1.7
 
 ### New

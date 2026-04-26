@@ -1,3 +1,19 @@
+## 1.2.0
+
+### New commands
+- `fdb doctor` - pre-flight health checks for the app process, VM service, `fdb_helper`, platform tools, and stored device state
+- `fdb double-tap` - double-tap widgets by selector or absolute coordinates
+- `fdb scroll-to` - scroll until a target widget becomes visible, including lazy lists
+- `fdb wait` - wait for widget and route presence or absence without shell polling loops
+
+### Improvements
+- `fdb tap` and `fdb longpress` now support absolute coordinate targeting via `--at x,y`
+- Reload and restart completion now use VM lifecycle events for more reliable detection, including macOS reload handling
+- Test automation gained a stricter verify pipeline plus more robust deep-link and double-tap smoke coverage
+
+### Fixes
+- Android test app now registers the `fdbtest://` URL scheme so deep-link smoke tests exercise the real Android flow
+
 ## 1.1.7
 
 ### New
