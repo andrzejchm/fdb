@@ -15,6 +15,7 @@ import 'handlers/scroll_to_handler.dart';
 import 'handlers/shared_prefs_handler.dart';
 import 'handlers/swipe_handler.dart';
 import 'handlers/tap_handler.dart';
+import 'handlers/wait_handler.dart';
 
 /// A custom binding that registers VM service extensions for widget interaction.
 ///
@@ -35,6 +36,7 @@ import 'handlers/tap_handler.dart';
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
 /// - `ext.fdb.scrollTo` — scroll until a target widget becomes visible
+/// - `ext.fdb.waitFor` — wait until a widget or route is present or absent
 /// - `ext.fdb.swipe` — swipe in a direction
 /// - `ext.fdb.back` — trigger Navigator.maybePop()
 /// - `ext.fdb.clean` — delete app storage directories
@@ -76,6 +78,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.enterText', handleEnterText);
     _registerExtension('ext.fdb.scroll', handleScroll);
     _registerExtension('ext.fdb.scrollTo', handleScrollTo);
+    _registerExtension('ext.fdb.waitFor', handleWaitFor);
     _registerExtension('ext.fdb.swipe', handleSwipe);
     _registerExtension('ext.fdb.back', handleBack);
     _registerExtension('ext.fdb.clean', handleClean);

@@ -57,6 +57,7 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
   int _secondaryDoubleTapCount = 0;
   int _indexedDoubleTapPrimaryCount = 0;
   int _indexedDoubleTapSecondaryCount = 0;
+  bool _showDelayed = false;
   final _textController = TextEditingController();
   late final Timer _heartbeat;
 
@@ -186,6 +187,25 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                     Navigator.pushNamed(context, scrollToTestRoute),
                 child: const Text('Scroll-To Tests'),
               ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('show_delayed'),
+                onPressed: () async {
+                  await Future<void>.delayed(const Duration(seconds: 2));
+                  if (mounted) {
+                    setState(() {
+                      _showDelayed = true;
+                    });
+                  }
+                },
+                child: const Text('Show Delayed'),
+              ),
+              if (_showDelayed)
+                ElevatedButton(
+                  key: const Key('delayed_button'),
+                  onPressed: () {},
+                  child: const Text('I was delayed'),
+                ),
               const SizedBox(height: 16),
               GestureDetector(
                 key: const Key('double_tap_target'),

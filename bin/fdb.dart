@@ -25,6 +25,7 @@ import 'package:fdb/commands/status.dart';
 import 'package:fdb/commands/swipe.dart';
 import 'package:fdb/commands/tap.dart';
 import 'package:fdb/commands/tree.dart';
+import 'package:fdb/commands/wait.dart';
 import 'package:fdb/constants.dart';
 
 const usage = '''
@@ -47,6 +48,7 @@ Commands:
   input       Enter text into a field
   scroll      Scroll in a direction
   scroll-to   Scroll until a widget is visible
+  wait        Wait until a widget or route changes state
   swipe       Swipe a widget or screen (PageView, Dismissible)
   back        Navigate back (Navigator.maybePop)
   clean       Clear app cache and data directories (requires fdb_helper)
@@ -124,6 +126,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runScroll(args);
     case 'scroll-to':
       return runScrollTo(args);
+    case 'wait':
+      return runWait(args);
     case 'swipe':
       return runSwipe(args);
     case 'back':
