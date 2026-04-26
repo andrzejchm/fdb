@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
+import 'package:fdb/log_marker_detector.dart';
 import 'package:fdb/process_utils.dart';
 
 Future<int> runReload(List<String> args) async {
@@ -26,8 +27,11 @@ Future<int> runReload(List<String> args) async {
   while (stopwatch.elapsed.inSeconds < reloadTimeoutSeconds) {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     final logContent = File(logFile).readAsStringSync();
-    final newContent = logContent.substring(logBefore.length);
-    if (newContent.contains('Reloaded')) {
+    if (didLogGainMarker(
+      before: logBefore,
+      after: logContent,
+      marker: 'Reloaded',
+    )) {
       stdout.writeln('RELOADED in ${stopwatch.elapsedMilliseconds}ms');
       return 0;
     }

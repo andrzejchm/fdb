@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
+import 'package:fdb/log_marker_detector.dart';
 import 'package:fdb/process_utils.dart';
 
 Future<int> runRestart(List<String> args) async {
@@ -26,8 +27,11 @@ Future<int> runRestart(List<String> args) async {
   while (stopwatch.elapsed.inSeconds < restartTimeoutSeconds) {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     final logContent = File(logFile).readAsStringSync();
-    final newContent = logContent.substring(logBefore.length);
-    if (newContent.contains('Restarted')) {
+    if (didLogGainMarker(
+      before: logBefore,
+      after: logContent,
+      marker: 'Restarted',
+    )) {
       stdout.writeln('RESTARTED in ${stopwatch.elapsedMilliseconds}ms');
       return 0;
     }
