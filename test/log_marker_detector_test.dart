@@ -17,13 +17,11 @@ void main() {
     });
 
     test('detects marker when the log tail is rewritten before prior eof', () {
-      const before =
-          'header\n'
+      const before = 'header\n'
           'older log line\n'
           'tail AAAAA heartbeat counter=0\n'
           'tail BBBBB heartbeat counter=0\n';
-      const after =
-          'header\n'
+      const after = 'header\n'
           'older log line\n'
           'Performing hot reload...       \n'
           'Reloaded 0 libraries in 45ms.\n';
