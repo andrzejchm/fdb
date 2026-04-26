@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/log_marker_detector.dart';
 import 'package:fdb/process_utils.dart';
+import 'package:fdb/vm_lifecycle_events.dart';
 
 Future<int> runRestart(List<String> args) async {
   final pid = readPid();
@@ -16,25 +16,17 @@ Future<int> runRestart(List<String> args) async {
     return 1;
   }
 
-  final logBefore = File(logFile).existsSync() ? File(logFile).readAsStringSync() : '';
-
   final stopwatch = Stopwatch()..start();
 
-  // SIGUSR2 triggers hot restart
-  Process.killPid(pid, ProcessSignal.sigusr2);
-
-  // Wait for "Restarted" in log
-  while (stopwatch.elapsed.inSeconds < restartTimeoutSeconds) {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    final logContent = File(logFile).readAsStringSync();
-    if (didLogGainMarker(
-      before: logBefore,
-      after: logContent,
-      marker: 'Restarted',
-    )) {
-      stdout.writeln('RESTARTED in ${stopwatch.elapsedMilliseconds}ms');
-      return 0;
-    }
+  final completed = await waitForVmEventAfterSignal(
+    streamIds: const ['Extension'],
+    matches: isFlutterFirstFrameEvent,
+    signal: () => Process.killPid(pid, ProcessSignal.sigusr2),
+    timeout: const Duration(seconds: restartTimeoutSeconds),
+  );
+  if (completed) {
+    stdout.writeln('RESTARTED in ${stopwatch.elapsedMilliseconds}ms');
+    return 0;
   }
 
   stdout.writeln('RESTART_FAILED');

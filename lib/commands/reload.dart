@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/log_marker_detector.dart';
 import 'package:fdb/process_utils.dart';
+import 'package:fdb/vm_lifecycle_events.dart';
 
 Future<int> runReload(List<String> args) async {
   final pid = readPid();
@@ -16,25 +16,17 @@ Future<int> runReload(List<String> args) async {
     return 1;
   }
 
-  final logBefore = File(logFile).existsSync() ? File(logFile).readAsStringSync() : '';
-
   final stopwatch = Stopwatch()..start();
 
-  // SIGUSR1 triggers hot reload
-  Process.killPid(pid, ProcessSignal.sigusr1);
-
-  // Wait for "Reloaded" in log
-  while (stopwatch.elapsed.inSeconds < reloadTimeoutSeconds) {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    final logContent = File(logFile).readAsStringSync();
-    if (didLogGainMarker(
-      before: logBefore,
-      after: logContent,
-      marker: 'Reloaded',
-    )) {
-      stdout.writeln('RELOADED in ${stopwatch.elapsedMilliseconds}ms');
-      return 0;
-    }
+  final completed = await waitForVmEventAfterSignal(
+    streamIds: const ['Extension'],
+    matches: isFlutterFrameEvent,
+    signal: () => Process.killPid(pid, ProcessSignal.sigusr1),
+    timeout: const Duration(seconds: reloadTimeoutSeconds),
+  );
+  if (completed) {
+    stdout.writeln('RELOADED in ${stopwatch.elapsedMilliseconds}ms');
+    return 0;
   }
 
   stdout.writeln('RELOAD_FAILED');

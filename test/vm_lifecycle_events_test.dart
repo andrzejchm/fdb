@@ -1,0 +1,148 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:fdb/constants.dart';
+import 'package:fdb/vm_lifecycle_events.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('VM lifecycle events', () {
+    test('identifies Flutter frame events as reload completion signals', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.Frame',
+          },
+        },
+      };
+
+      expect(isFlutterFrameEvent(event), isTrue);
+    });
+
+    test('ignores non-frame extension events for reload completion', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.ServiceExtensionStateChanged',
+          },
+        },
+      };
+
+      expect(isFlutterFrameEvent(event), isFalse);
+    });
+
+    test('identifies Flutter first-frame events as restart completion signals', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.FirstFrame',
+          },
+        },
+      };
+
+      expect(isFlutterFirstFrameEvent(event), isTrue);
+    });
+
+    test('waits until a matching VM event arrives', () async {
+      final controller = StreamController<Map<String, dynamic>>();
+      addTearDown(controller.close);
+
+      final future = waitForVmServiceEvent(
+        events: controller.stream,
+        matches: isFlutterFrameEvent,
+        timeout: const Duration(seconds: 1),
+      );
+
+      controller.add({
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.ServiceExtensionStateChanged',
+          },
+        },
+      });
+      controller.add({
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.Frame',
+          },
+        },
+      });
+
+      expect(await future, isTrue);
+    });
+
+    test('returns false when no matching VM event arrives before timeout', () async {
+      final controller = StreamController<Map<String, dynamic>>();
+      addTearDown(controller.close);
+
+      final result = await waitForVmServiceEvent(
+        events: controller.stream,
+        matches: isFlutterFrameEvent,
+        timeout: const Duration(milliseconds: 1),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('fails fast when VM stream subscription is rejected', () async {
+      final tempDir = await Directory.systemTemp.createTemp('fdb_vm_lifecycle_test');
+      initSessionDir(tempDir.path);
+      addTearDown(() async {
+        initSessionDir(Directory.current.path);
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async => server.close(force: true));
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socket.listen((data) async {
+          final request = jsonDecode(data as String) as Map<String, dynamic>;
+          socket.add(
+            jsonEncode({
+              'jsonrpc': '2.0',
+              'id': request['id'],
+              'error': {
+                'code': 123,
+                'message': 'subscription denied',
+              },
+            }),
+          );
+          await socket.close();
+        });
+      });
+
+      final sessionDir = ensureSessionDir();
+      final wsUri = 'ws://${server.address.host}:${server.port}/ws';
+      await File('$sessionDir/vm_uri.txt').writeAsString(wsUri);
+
+      await expectLater(
+        waitForVmEventAfterSignal(
+          streamIds: const ['Extension'],
+          matches: isFlutterFrameEvent,
+          signal: () {},
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+  });
+}
