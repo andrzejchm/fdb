@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:fdb/constants.dart';
 import 'package:fdb/vm_lifecycle_events.dart';
 import 'package:test/test.dart';
 
@@ -95,6 +98,51 @@ void main() {
       );
 
       expect(result, isFalse);
+    });
+
+    test('fails fast when VM stream subscription is rejected', () async {
+      final tempDir = await Directory.systemTemp.createTemp('fdb_vm_lifecycle_test');
+      initSessionDir(tempDir.path);
+      addTearDown(() async {
+        initSessionDir(Directory.current.path);
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async => server.close(force: true));
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socket.listen((data) async {
+          final request = jsonDecode(data as String) as Map<String, dynamic>;
+          socket.add(
+            jsonEncode({
+              'jsonrpc': '2.0',
+              'id': request['id'],
+              'error': {
+                'code': 123,
+                'message': 'subscription denied',
+              },
+            }),
+          );
+          await socket.close();
+        });
+      });
+
+      final sessionDir = ensureSessionDir();
+      final wsUri = 'ws://${server.address.host}:${server.port}/ws';
+      await File('$sessionDir/vm_uri.txt').writeAsString(wsUri);
+
+      await expectLater(
+        waitForVmEventAfterSignal(
+          streamIds: const ['Extension'],
+          matches: isFlutterFrameEvent,
+          signal: () {},
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 }

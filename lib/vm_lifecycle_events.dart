@@ -6,14 +6,17 @@ import 'package:fdb/process_utils.dart';
 
 typedef VmEventMatcher = bool Function(Map<String, dynamic> event);
 
+/// Returns true when the VM event reports a post-reload Flutter frame.
 bool isFlutterFrameEvent(Map<String, dynamic> event) {
   return _isFlutterExtensionEvent(event, 'Flutter.Frame');
 }
 
+/// Returns true when the VM event reports the first frame after restart.
 bool isFlutterFirstFrameEvent(Map<String, dynamic> event) {
   return _isFlutterExtensionEvent(event, 'Flutter.FirstFrame');
 }
 
+/// Waits for the first VM event that satisfies [matches].
 Future<bool> waitForVmServiceEvent({
   required Stream<Map<String, dynamic>> events,
   required VmEventMatcher matches,
@@ -48,6 +51,8 @@ Future<bool> waitForVmServiceEvent({
   }
 }
 
+/// Subscribes to VM service streams, sends [signal], then waits for a matching
+/// event or timeout.
 Future<bool> waitForVmEventAfterSignal({
   required List<String> streamIds,
   required VmEventMatcher matches,
@@ -60,12 +65,14 @@ Future<bool> waitForVmEventAfterSignal({
   }
 
   final wsUri = uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
+  final client = HttpClient()..maxConnectionsPerHost = 1;
   final ws = await WebSocket.connect(
     wsUri,
-    customClient: HttpClient()..maxConnectionsPerHost = 1,
+    customClient: client,
   );
   final events = StreamController<Map<String, dynamic>>();
   final listenCompleters = <String, Completer<void>>{};
+  final requestStreamIds = <String, String>{};
   var nextId = 0;
 
   final wsSubscription = ws.listen(
@@ -75,8 +82,18 @@ Future<bool> waitForVmEventAfterSignal({
       final listenCompleter = id != null ? listenCompleters[id] : null;
       if (listenCompleter != null) {
         listenCompleters.remove(id);
+        final streamId = requestStreamIds.remove(id);
         if (!listenCompleter.isCompleted) {
-          listenCompleter.complete();
+          final error = message['error'] as Map<String, dynamic>?;
+          if (error != null) {
+            final messageText = error['message'] as String? ?? 'Unknown VM service streamListen error';
+            final targetStream = streamId ?? 'unknown';
+            listenCompleter.completeError(
+              StateError('Failed to subscribe to VM stream $targetStream: $messageText'),
+            );
+          } else {
+            listenCompleter.complete();
+          }
         }
         return;
       }
@@ -86,7 +103,11 @@ Future<bool> waitForVmEventAfterSignal({
       }
     },
     onError: events.addError,
-    onDone: events.close,
+    onDone: () {
+      if (!events.isClosed) {
+        events.close();
+      }
+    },
   );
 
   try {
@@ -94,6 +115,7 @@ Future<bool> waitForVmEventAfterSignal({
       final requestId = 'listen_${++nextId}_$streamId';
       final completer = Completer<void>();
       listenCompleters[requestId] = completer;
+      requestStreamIds[requestId] = streamId;
       ws.add(
         jsonEncode({
           'jsonrpc': '2.0',
@@ -116,8 +138,11 @@ Future<bool> waitForVmEventAfterSignal({
     );
   } finally {
     await wsSubscription.cancel();
-    await events.close();
+    if (!events.isClosed) {
+      await events.close();
+    }
     await ws.close();
+    client.close(force: true);
   }
 }
 
