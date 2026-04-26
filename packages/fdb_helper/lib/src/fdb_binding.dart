@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'handlers/back_handler.dart';
 import 'handlers/clean_handler.dart';
 import 'handlers/describe_handler.dart';
+import 'handlers/double_tap_handler.dart';
 import 'handlers/input_handler.dart';
 import 'handlers/screenshot_handler.dart';
 import 'handlers/scroll_handler.dart';
@@ -30,6 +31,7 @@ import 'handlers/tap_handler.dart';
 /// - `ext.fdb.describe` — describe the current screen
 /// - `ext.fdb.tap` — tap a widget by key, text, type, or coordinates
 /// - `ext.fdb.longPress` — long-press a widget (same as tap with duration=500ms)
+/// - `ext.fdb.doubleTap` — double-tap a widget by key, text, type, or coordinates
 /// - `ext.fdb.enterText` — enter text into a text field
 /// - `ext.fdb.scroll` — perform a swipe/scroll gesture
 /// - `ext.fdb.scrollTo` — scroll until a target widget becomes visible
@@ -70,6 +72,7 @@ class FdbBinding extends WidgetsFlutterBinding {
         if (!params.containsKey('duration')) 'duration': '500',
       });
     });
+    _registerExtension('ext.fdb.doubleTap', handleDoubleTap);
     _registerExtension('ext.fdb.enterText', handleEnterText);
     _registerExtension('ext.fdb.scroll', handleScroll);
     _registerExtension('ext.fdb.scrollTo', handleScrollTo);

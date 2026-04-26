@@ -84,6 +84,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 | `fdb describe` | Compact screen snapshot: interactive elements + visible text |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget |
+| `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
 | `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
@@ -183,6 +184,11 @@ fdb tap --text "Submit"                   # tap by visible text
 fdb tap --type "FloatingActionButton"     # tap by widget type
 fdb tap --at 200,400                       # tap absolute screen coordinates
 
+fdb double-tap --key "photo_viewer"       # double-tap by widget key
+fdb double-tap --type "InteractiveViewer" --index 1 # choose a specific match
+fdb double-tap --x 200 --y 400             # double-tap at screen coordinates
+fdb double-tap --at 200,400                # shorthand for --x/--y
+
 fdb longpress --key "photo_card"          # long-press by widget key (default 500ms)
 fdb longpress --text "Hold me"            # long-press by visible text
 fdb longpress --key "item" --duration 1000  # long-press for 1 second
@@ -201,7 +207,7 @@ fdb swipe left                            # swipe from screen center
 fdb swipe up --distance 400              # swipe with custom distance
 ```
 
-Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SCROLLED_TO=<type> X=<x> Y=<y>`, `SWIPED=<DIR> DISTANCE=<n>`
+Output tokens: `TAPPED=<type> X=<x> Y=<y>`, `DOUBLE_TAPPED=<type> X=<x> Y=<y>`, `LONG_PRESSED=<type> X=<x> Y=<y>`, `INPUT=<type> VALUE=<text>`, `SCROLLED=<DIR> DISTANCE=<n>`, `SCROLLED_TO=<type> X=<x> Y=<y>`, `SWIPED=<DIR> DISTANCE=<n>`
 
 ### Status / Kill
 

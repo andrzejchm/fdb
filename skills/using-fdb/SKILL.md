@@ -21,9 +21,9 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 Verify: `fdb status`
 
-## fdb_helper setup (required for tap, longpress, input, scroll, scroll-to, back)
+## fdb_helper setup (required for tap, double-tap, longpress, input, scroll, scroll-to, back)
 
-The `tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back` commands require `fdb_helper` to be added to the Flutter app under test.
+The `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back` commands require `fdb_helper` to be added to the Flutter app under test.
 
 **`pubspec.yaml`:**
 ```yaml
@@ -189,6 +189,21 @@ fdb longpress --at 200,400 --duration 1000   # long-press coordinates for 1 seco
 ```
 
 Output: `LONG_PRESSED=<type|coordinates> X=<x> Y=<y>`
+
+### Double-tap a widget
+
+Requires `fdb_helper` in the app (see setup section above).
+
+```bash
+fdb double-tap --key "map_widget"         # double-tap by widget key
+fdb double-tap --text "Zoom here"         # double-tap by visible text
+fdb double-tap --type "InteractiveViewer" # double-tap by widget type
+fdb double-tap --type "InteractiveViewer" --index 1 # choose a specific match
+fdb double-tap --x 200 --y 400             # double-tap at screen coordinates
+fdb double-tap --at 200,400                # shorthand for --x/--y
+```
+
+Output: `DOUBLE_TAPPED=<type> X=<x> Y=<y>`
 
 ### Enter text
 

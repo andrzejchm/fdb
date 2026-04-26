@@ -53,6 +53,10 @@ class FdbTestHomePage extends StatefulWidget {
 
 class _FdbTestHomePageState extends State<FdbTestHomePage> {
   int _counter = 0;
+  int _doubleTapCount = 0;
+  int _secondaryDoubleTapCount = 0;
+  int _indexedDoubleTapPrimaryCount = 0;
+  int _indexedDoubleTapSecondaryCount = 0;
   final _textController = TextEditingController();
   late final Timer _heartbeat;
 
@@ -183,6 +187,46 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 child: const Text('Scroll-To Tests'),
               ),
               const SizedBox(height: 16),
+              GestureDetector(
+                key: const Key('double_tap_target'),
+                onDoubleTap: () {
+                  setState(() {
+                    _doubleTapCount++;
+                  });
+                  developer.log(
+                    'double_tap_target triggered count=$_doubleTapCount',
+                    name: 'fdb_test',
+                  );
+                },
+                child: Container(
+                  width: 200,
+                  height: 60,
+                  color: Colors.purple.shade100,
+                  alignment: Alignment.center,
+                  child: const Text('Double Tap Target'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                key: const Key('double_tap_target_secondary'),
+                onDoubleTap: () {
+                  setState(() {
+                    _secondaryDoubleTapCount++;
+                  });
+                  developer.log(
+                    'double_tap_target_secondary triggered count=$_secondaryDoubleTapCount',
+                    name: 'fdb_test',
+                  );
+                },
+                child: Container(
+                  width: 200,
+                  height: 60,
+                  color: Colors.purple.shade50,
+                  alignment: Alignment.center,
+                  child: const Text('Double Tap Target'),
+                ),
+              ),
+              const SizedBox(height: 16),
               // GestureDetector for long-press testing
               GestureDetector(
                 key: const Key('longpress_target'),
@@ -195,6 +239,46 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   color: Colors.teal.shade100,
                   alignment: Alignment.center,
                   child: const Text('Long Press Me'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                key: const Key('indexed_double_tap_target_primary'),
+                onDoubleTap: () {
+                  setState(() {
+                    _indexedDoubleTapPrimaryCount++;
+                  });
+                  developer.log(
+                    'indexed_double_tap_target_primary triggered count=$_indexedDoubleTapPrimaryCount',
+                    name: 'fdb_test',
+                  );
+                },
+                child: Container(
+                  width: 200,
+                  height: 60,
+                  color: Colors.deepPurple.shade100,
+                  alignment: Alignment.center,
+                  child: const Text('Indexed Double Tap Target'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                key: const Key('indexed_double_tap_target_secondary'),
+                onDoubleTap: () {
+                  setState(() {
+                    _indexedDoubleTapSecondaryCount++;
+                  });
+                  developer.log(
+                    'indexed_double_tap_target_secondary triggered count=$_indexedDoubleTapSecondaryCount',
+                    name: 'fdb_test',
+                  );
+                },
+                child: Container(
+                  width: 200,
+                  height: 60,
+                  color: Colors.deepPurple.shade50,
+                  alignment: Alignment.center,
+                  child: const Text('Indexed Double Tap Target'),
                 ),
               ),
               const SizedBox(height: 16),

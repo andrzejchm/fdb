@@ -1,15 +1,29 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 int _nextPointerId = 1;
 const int _kDeviceId = 1;
 const Duration _kDelay = Duration(milliseconds: 10);
+const Duration _kDoubleTapGap = Duration(milliseconds: 100);
+const Duration _kDoubleTapHold = Duration(milliseconds: 50);
 
 // Process-relative monotonic clock — produces timestamps in the same epoch
 // range as Flutter's frame timestamps (process uptime), which is required for
 // the pointer resampler and VelocityTracker to work correctly.
 // Using DateTime.now().millisecondsSinceEpoch would produce ~56-year offsets.
 final Stopwatch _clock = Stopwatch()..start();
+
+PointerDeviceKind _tapPointerKind() {
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux => PointerDeviceKind.mouse,
+    _ => PointerDeviceKind.touch,
+  };
+}
+
+int _tapButtons(PointerDeviceKind kind) {
+  return kind == PointerDeviceKind.mouse ? kPrimaryMouseButton : kPrimaryButton;
+}
 
 /// Dispatches a synthetic tap (or long-press) at [globalPosition].
 ///
@@ -22,14 +36,28 @@ Future<void> dispatchTap(
 }) async {
   final pointerId = _nextPointerId++;
   var timeStamp = _clock.elapsed;
+  final kind = _tapPointerKind();
+  final buttons = _tapButtons(kind);
 
   // Batch 1: Add + Down
   GestureBinding.instance.handlePointerEvent(
-    PointerAddedEvent(timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
+    PointerAddedEvent(
+      timeStamp: timeStamp,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: kind,
+    ),
   );
   timeStamp += _kDelay;
   GestureBinding.instance.handlePointerEvent(
-    PointerDownEvent(timeStamp: timeStamp, pointer: pointerId, position: globalPosition, device: _kDeviceId),
+    PointerDownEvent(
+      timeStamp: timeStamp,
+      pointer: pointerId,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: kind,
+      buttons: buttons,
+    ),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(holdDuration);
@@ -37,10 +65,110 @@ Future<void> dispatchTap(
 
   // Batch 2: Up + Remove
   GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(timeStamp: timeStamp, pointer: pointerId, position: globalPosition, device: _kDeviceId),
+    PointerUpEvent(
+      timeStamp: timeStamp,
+      pointer: pointerId,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: kind,
+    ),
   );
   GestureBinding.instance.handlePointerEvent(
-    PointerRemovedEvent(timeStamp: timeStamp, position: globalPosition, device: _kDeviceId),
+    PointerRemovedEvent(
+      timeStamp: timeStamp,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: kind,
+    ),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDelay);
+}
+
+/// Dispatches two taps in quick succession at the same [globalPosition].
+Future<void> dispatchDoubleTap(Offset globalPosition) async {
+  if (_tapPointerKind() == PointerDeviceKind.mouse) {
+    await _dispatchMouseDoubleTap(globalPosition);
+    return;
+  }
+
+  await dispatchTap(globalPosition, holdDuration: _kDoubleTapHold);
+  await Future<void>.delayed(_kDoubleTapGap);
+  await dispatchTap(globalPosition, holdDuration: _kDoubleTapHold);
+}
+
+Future<void> _dispatchMouseDoubleTap(Offset globalPosition) async {
+  final pointerId = _nextPointerId++;
+  var timeStamp = _clock.elapsed;
+  final buttons = _tapButtons(PointerDeviceKind.mouse);
+
+  GestureBinding.instance.handlePointerEvent(
+    PointerAddedEvent(
+      timeStamp: timeStamp,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: PointerDeviceKind.mouse,
+    ),
+  );
+
+  timeStamp += _kDelay;
+  GestureBinding.instance.handlePointerEvent(
+    PointerDownEvent(
+      timeStamp: timeStamp,
+      pointer: pointerId,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: PointerDeviceKind.mouse,
+      buttons: buttons,
+    ),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDoubleTapHold);
+
+  timeStamp += _kDoubleTapHold;
+  GestureBinding.instance.handlePointerEvent(
+    PointerUpEvent(
+      timeStamp: timeStamp,
+      pointer: pointerId,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: PointerDeviceKind.mouse,
+    ),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDoubleTapGap);
+
+  timeStamp += _kDoubleTapGap;
+  GestureBinding.instance.handlePointerEvent(
+    PointerDownEvent(
+      timeStamp: timeStamp,
+      pointer: pointerId,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: PointerDeviceKind.mouse,
+      buttons: buttons,
+    ),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDoubleTapHold);
+
+  timeStamp += _kDoubleTapHold;
+  GestureBinding.instance.handlePointerEvent(
+    PointerUpEvent(
+      timeStamp: timeStamp,
+      pointer: pointerId,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: PointerDeviceKind.mouse,
+    ),
+  );
+  GestureBinding.instance.handlePointerEvent(
+    PointerRemovedEvent(
+      timeStamp: timeStamp,
+      position: globalPosition,
+      device: _kDeviceId,
+      kind: PointerDeviceKind.mouse,
+    ),
   );
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);
