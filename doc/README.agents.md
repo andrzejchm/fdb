@@ -90,6 +90,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into field |
 | `fdb scroll <direction> [--at x,y]` | Scroll screen |
 | `fdb scroll-to --text/--key/--type <selector> [--index N]` | Scroll until widget is visible |
+| `fdb wait --key/--text/--type/--route <selector> --present\|--absent [--timeout <ms>]` | Wait for UI state changes without manual polling loops |
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb status` | Check if app is running |

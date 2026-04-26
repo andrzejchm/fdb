@@ -1019,6 +1019,91 @@ tasks:
         {{.FDB}} back >/dev/null 2>&1
         sleep 1
 
+  test:wait:
+    desc: Wait until widgets and routes change state
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> [wait] Waiting for home route to be present"
+        OUTPUT=$({{.FDB}} wait --route "/" --present --timeout 3000 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb wait --route / --present exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "CONDITION_MET=present ROUTE=/"; then
+          echo "PASS: fdb wait --route / --present"
+        else
+          echo "FAIL: fdb wait --route / --present - CONDITION_MET=present ROUTE=/ not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> [wait] Tapping 'show_delayed' to trigger delayed widget"
+        {{.FDB}} tap --key "show_delayed" >/dev/null 2>&1
+
+        echo "==> [wait] Waiting for delayed_button to appear"
+        OUTPUT=$({{.FDB}} wait --key "delayed_button" --present --timeout 10000 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb wait --key delayed_button --present exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "CONDITION_MET=present KEY=delayed_button"; then
+          echo "PASS: fdb wait --key delayed_button --present"
+        else
+          echo "FAIL: fdb wait --key delayed_button --present - CONDITION_MET=present KEY=delayed_button not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> [wait] Waiting for delayed button text to be present"
+        OUTPUT=$({{.FDB}} wait --text "I was delayed" --present --timeout 3000 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb wait --text 'I was delayed' --present exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "CONDITION_MET=present TEXT=I was delayed"; then
+          echo "PASS: fdb wait --text 'I was delayed' --present"
+        else
+          echo "FAIL: fdb wait --text 'I was delayed' --present - CONDITION_MET=present TEXT=I was delayed not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> [wait] Waiting for CircularProgressIndicator to stay absent"
+        OUTPUT=$({{.FDB}} wait --type "CircularProgressIndicator" --absent --timeout 1000 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb wait --type CircularProgressIndicator --absent exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "CONDITION_MET=absent TYPE=CircularProgressIndicator"; then
+          echo "PASS: fdb wait --type CircularProgressIndicator --absent"
+        else
+          echo "FAIL: fdb wait --type CircularProgressIndicator --absent - CONDITION_MET=absent TYPE=CircularProgressIndicator not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> [wait] Waiting for a widget that never appears to time out"
+        set +e
+        OUTPUT=$({{.FDB}} wait --key "nonexistent_widget_xyz" --present --timeout 1000 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 1 ]; then
+          echo "FAIL: fdb wait timeout should exit 1, got $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR: Timeout after 1000ms waiting for present KEY=nonexistent_widget_xyz"; then
+          echo "PASS: fdb wait timeout"
+        else
+          echo "FAIL: fdb wait timeout - expected timeout error output" >&2
+          exit 1
+        fi
+
   test:swipe:
     desc: Swipe the screen
     dir: '{{.TEST_APP}}'
@@ -1271,6 +1356,7 @@ tasks:
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to
+      - task: test:wait
       - task: test:swipe
       - task: test:back
       - task: test:clean

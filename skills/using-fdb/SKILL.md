@@ -401,6 +401,7 @@ fdb longpress --key "photo_card"           # long-press to open context menu
 fdb screenshot                             # verify result visually
 fdb input --key "search_field" "flutter"   # type into a text field
 fdb tap --text "Search"                    # tap the search button
+fdb wait --key "loading_spinner" --absent  # wait in-app instead of shell sleep loops
 fdb scroll down                            # scroll to reveal more content
 fdb scroll-to --key "list_item_42"         # scroll until a specific item is visible
 fdb swipe left --key "photo_card"          # swipe a PageView card left
