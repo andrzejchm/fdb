@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   fdb_helper:
     path: ../../packages/fdb_helper
+  webview_flutter: ^4.13.1
 
 dev_dependencies:
   flutter_test:

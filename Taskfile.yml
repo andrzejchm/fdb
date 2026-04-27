@@ -1270,6 +1270,97 @@ tasks:
           exit 1
         fi
 
+  test:native-view-tap:
+    desc: Verify fdb tap --at reaches native platform views (WebView) unreachable by --key
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> [native-view-tap] Navigate to native view test screen"
+        {{.FDB}} scroll-to --key "go_to_native_view_test" >/dev/null 2>&1 || true
+        OUTPUT=$({{.FDB}} tap --key "go_to_native_view_test" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: could not navigate to native view test screen" >&2
+          exit 1
+        fi
+
+        # Wait for WebView to load
+        sleep 3
+
+        echo "==> [native-view-tap] Take screenshot to locate WebView button"
+        {{.FDB}} screenshot >/dev/null 2>&1 || true
+
+        echo "==> [native-view-tap] Confirm fdb tap --key cannot reach the WebView button"
+        set +e
+        KEY_OUTPUT=$({{.FDB}} tap --key "native_webview_button" --timeout 2 2>&1)
+        KEY_EXIT=$?
+        set -e
+        echo "$KEY_OUTPUT"
+        if [ $KEY_EXIT -eq 0 ]; then
+          echo "FAIL: expected --key to fail for native WebView button, but it succeeded" >&2
+          exit 1
+        fi
+        echo "PASS: --key correctly cannot reach native WebView button"
+
+        echo "==> [native-view-tap] Confirm status is not yet tapped"
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        echo "$DESCRIBE"
+        if echo "$DESCRIBE" | grep -q "WebView title: TAPPED"; then
+          echo "FAIL: status already shows TAPPED before we tapped" >&2
+          exit 1
+        fi
+
+        echo "==> [native-view-tap] Tap WebView button via --at (native injection)"
+        # The WebView occupies the lower portion of the screen below the status bar.
+        # We tap the center of the screen, which lands on the blue button in the WebView.
+        # Get screen dimensions from describe to compute center
+        SCREEN_H=$({{.FDB}} describe 2>&1 | grep -o 'h=[0-9]*' | head -1 | sed 's/h=//' || echo "")
+        SCREEN_W=$({{.FDB}} describe 2>&1 | grep -o 'w=[0-9]*' | head -1 | sed 's/w=//' || echo "")
+
+        # Status bar is ~56px tall (AppBar). WebView center = midpoint of remaining screen.
+        # Use conservative estimate: tap at (screen_center_x, screen_center_y)
+        # These work across device sizes since the button is centered in the WebView
+        STATUS_OUTPUT=$({{.FDB}} describe 2>&1)
+        echo "$STATUS_OUTPUT"
+
+        # Get the native_tap_status widget position to know AppBar height
+        # Then tap at horizontal center, vertical center of WebView area
+        # Fallback to a fixed offset that works for most phones: x=200, y=400
+        # Coordinates: horizontal center, WebView vertical center.
+        # Status bar ~125px, nav bar ~48px; WebView fills remaining screen.
+        # Button is centered in the WebView, so we target screen vertical midpoint
+        # below the status bar. 500 works across typical phone resolutions.
+        set +e
+        TAP_OUTPUT=$({{.FDB}} tap --at 200,530 2>&1)
+        TAP_EXIT=$?
+        set -e
+        echo "$TAP_OUTPUT"
+        if [ $TAP_EXIT -ne 0 ]; then
+          echo "FAIL: fdb tap --at failed on native view" >&2
+          exit 1
+        fi
+
+        echo "==> [native-view-tap] Wait for page title to update"
+        sleep 1
+
+        echo "==> [native-view-tap] Verify WebView button was tapped"
+        for i in $(seq 1 10); do
+          DESCRIBE=$({{.FDB}} describe 2>&1)
+          echo "$DESCRIBE"
+          if echo "$DESCRIBE" | grep -q "WebView title: TAPPED"; then
+            echo "PASS: fdb tap --at successfully tapped native WebView button"
+            # Navigate back
+            {{.FDB}} back >/dev/null 2>&1 || true
+            exit 0
+          fi
+          sleep 0.5
+        done
+
+        echo "FAIL: WebView title never changed to TAPPED — native tap did not reach WebView" >&2
+        {{.FDB}} back >/dev/null 2>&1 || true
+        exit 1
+
   test:native-tap:
     desc: Tap native UI elements via adb (Android) or xcrun simctl (iOS simulator)
     dir: '{{.TEST_APP}}'
@@ -1416,6 +1507,7 @@ tasks:
       - task: test:describe
       - task: test:screenshot
       - task: test:deeplink
+      - task: test:native-view-tap
       - task: test:native-tap
       - task: test:select
       - task: test:tap

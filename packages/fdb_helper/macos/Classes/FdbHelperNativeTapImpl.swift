@@ -12,6 +12,23 @@ import FlutterMacOS
 /// within the app process) that Flutter's GestureBinding cannot reach.
 class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
   func nativeTap(x: Double, y: Double) throws {
+    // AppKit APIs must run on the main thread.
+    if Thread.isMainThread {
+      try _doTap(x: x, y: y)
+    } else {
+      var tapError: Error?
+      DispatchQueue.main.sync {
+        do {
+          try self._doTap(x: x, y: y)
+        } catch {
+          tapError = error
+        }
+      }
+      if let err = tapError { throw err }
+    }
+  }
+
+  private func _doTap(x: Double, y: Double) throws {
     guard let window = NSApplication.shared.keyWindow
       ?? NSApplication.shared.windows.first(where: { $0.isVisible })
     else {
