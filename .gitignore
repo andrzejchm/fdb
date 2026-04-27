@@ -21,6 +21,5 @@ example/test_app/.metadata
 # Task log output
 .task/
 
-# Beads issue tracker (runtime DB and credential key)
+# Beads issue tracker
 .dolt/
-.beads-credential-key

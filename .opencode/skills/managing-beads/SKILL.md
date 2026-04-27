@@ -13,8 +13,8 @@ description: >
 1. Run `bd prime` — loads context and shows open/claimed issues.
 2. Pick work with `bd ready`, claim with `bd update <id> --claim`.
 3. Work on code. Create follow-up issues as you discover them.
-4. Before committing: run `bd sync` to flush any pending writes.
-5. Commit `issues.jsonl` together with the code it tracks.
+4. Commit `issues.jsonl` together with the code it tracks (the pre-commit hook exports it automatically).
+5. Before context compaction: run `bd sync` to flush any pending writes.
 6. Close finished issues with `bd close <id>`.
 
 ## Core commands
@@ -53,5 +53,5 @@ Priorities: `1` (critical) → `4` (low)
 - Run `bd bootstrap` after `git pull` on any machine that already has a local DB.
 - Run `bd prime` at session start only — not during compaction (`bd sync` handles compaction).
 - Never run `bd doctor --fix` — it can corrupt the local DB.
-- Issues are the source of truth for planned and in-progress work; capture anything discovered.
 - `bd` is the source of truth; GitHub Issues are a mirror — sync with `bd github sync`.
+- Capture any work discovered during implementation as new issues immediately.

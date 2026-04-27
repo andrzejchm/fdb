@@ -104,6 +104,6 @@ bd github sync --push-only                                        # Push to GitH
 
 - Commit `issues.jsonl` together with the code changes it tracks.
 - Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
-- Run `bd prime` at the start of every session — not at compaction.
+- Run `bd prime` at session start and `bd sync` before compaction — not the other way around.
 - `bd` is the source of truth; GitHub Issues are a mirror via `bd github sync`.
 <!-- END BEADS INTEGRATION -->
