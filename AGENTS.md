@@ -7,7 +7,9 @@ Guide for AI coding agents working in this repository.
 **fdb (Flutter Debug Bridge)** — a pure Dart CLI tool that lets AI agents interact
 with running Flutter apps on physical devices and simulators. It launches Flutter apps
 as detached processes, communicates via POSIX signals and the VM Service Protocol
-over WebSocket, and stores all state in `/tmp/fdb_*` files.
+over WebSocket, and stores all session state under a per-project `.fdb/` directory
+(PID file, VM service URI, logs, launcher script). The session directory defaults to
+`<CWD>/.fdb/` and is overridden by `--project <path>` on `fdb launch`.
 
 - **Language:** Dart 3.x (SDK `>=3.0.0 <4.0.0`)
 - **Runtime:** Dart VM (standalone — not a Flutter app)
