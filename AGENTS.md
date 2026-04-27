@@ -77,3 +77,37 @@ dart format .                         # Format
 - Manual arg parsing with `for` loop + `switch`.
 
 **Full details**: [CODE-STYLE.md](CODE-STYLE.md)
+
+<!-- BEGIN BEADS INTEGRATION -->
+## Issue Tracker (`bd`)
+
+This repo uses `bd` (Beads) as its issue tracker. Issues live in `.beads/embeddeddolt/` (gitignored) and are auto-exported to `.beads/issues.jsonl` (git-tracked) after every write.
+
+**Collaboration flow:** write issues → commit `issues.jsonl` alongside code → teammates `git pull` + `bd bootstrap`.
+
+### Quick reference
+
+```bash
+bd prime                                                          # Load session context (run at session start)
+bd ready                                                          # List unclaimed available issues
+bd show <id>                                                      # View issue details
+bd update <id> --claim                                            # Claim an issue
+bd update <id> --status=in-progress                               # Mark issue as in progress
+bd create --title="..." --description="..." --type=task --priority=2  # Create an issue
+bd close <id>                                                     # Close an issue
+bd sync                                                           # Flush pending writes (before compaction)
+bd bootstrap                                                      # Rebuild local DB after git pull
+bd github sync                                                    # Bidirectional sync with GitHub Issues
+bd github sync --pull-only                                        # Pull from GitHub only
+bd github sync --push-only                                        # Push to GitHub only
+```
+
+### Rules
+
+- Commit `issues.jsonl` together with the code changes it tracks — never in isolation.
+- Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
+- Run `bd prime` at session start only — not during compaction (`bd sync` handles compaction).
+- `bd` is the source of truth; GitHub Issues are a mirror via `bd github sync`.
+- Never run `bd doctor --fix` — it can corrupt the local DB.
+- Capture any work discovered during implementation as new issues immediately.
+<!-- END BEADS INTEGRATION -->

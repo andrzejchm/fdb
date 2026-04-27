@@ -20,3 +20,7 @@ example/test_app/.metadata
 
 # Task log output
 .task/
+
+# Beads issue tracker
+.dolt/
+.beads-credential-key
