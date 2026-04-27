@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:fdb/constants.dart';
 import 'package:fdb/process_utils.dart';
@@ -189,16 +190,17 @@ exec $flutterCmd > $logFile 2>&1
 }
 
 Future<void> _startLogCollector(String vmUri) async {
-  // Write a self-contained Dart script that subscribes to the VM service
-  // Logging/Stdout/Stderr streams and appends events to the log file.
-  // This runs as a detached process so it outlives the fdb launch command.
-  File(logCollectorScript).writeAsStringSync(_logCollectorSource);
+  final collectorEntrypoint = await _resolveLogCollectorEntrypoint();
+  if (collectorEntrypoint == null) {
+    stderr.writeln('WARNING: Log collector entrypoint not found; developer.log() events may be missing');
+    return;
+  }
 
   // Launch via nohup so the collector survives after fdb exits.
   // Same pattern used for the flutter run launcher script.
   await Process.run('bash', [
     '-c',
-    'nohup dart run ${_shellEscape(logCollectorScript)}'
+    'nohup dart ${_shellEscape(collectorEntrypoint)}'
         ' ${_shellEscape(vmUri)}'
         ' ${_shellEscape(logFile)}'
         ' ${_shellEscape(logCollectorPidFile)}'
@@ -206,98 +208,27 @@ Future<void> _startLogCollector(String vmUri) async {
   ]);
 }
 
-const _logCollectorSource = r'''
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
-Future<void> main(List<String> args) async {
-  if (args.length < 3) exit(1);
-
-  final wsUri = args[0];
-  final logPath = args[1];
-  final pidPath = args[2];
-
-  File(pidPath).writeAsStringSync('$pid');
-
-  // Clean up PID file on SIGTERM (from fdb kill) or SIGINT (Ctrl+C).
-  void cleanup() {
-    try { File(pidPath).deleteSync(); } catch (_) {}
-    exit(0);
+Future<String?> _resolveLogCollectorEntrypoint() async {
+  const relativePath = 'bin/log_collector.dart';
+  final packageUri = Uri.parse('package:fdb/commands/launch.dart');
+  final resolved = await Isolate.resolvePackageUri(packageUri);
+  if (resolved != null) {
+    final packageRoot = File.fromUri(resolved).parent.parent.parent;
+    final candidate = File('${packageRoot.path}/$relativePath');
+    if (candidate.existsSync()) {
+      return candidate.path;
+    }
   }
-  ProcessSignal.sigterm.watch().listen((_) => cleanup());
-  ProcessSignal.sigint.watch().listen((_) => cleanup());
 
-  try {
-    await _collect(wsUri, logPath);
-  } catch (_) {
-  } finally {
-    try { File(pidPath).deleteSync(); } catch (_) {}
+  final scriptDir = Directory.fromUri(Platform.script).parent;
+  final packageRoot = scriptDir.parent;
+  final fallback = File('${packageRoot.path}/$relativePath');
+  if (fallback.existsSync()) {
+    return fallback.path;
   }
+
+  return null;
 }
-
-Future<void> _collect(String wsUri, String logPath) async {
-  final ws = await WebSocket.connect(wsUri);
-  final logSink = File(logPath).openWrite(mode: FileMode.append);
-
-  void appendLine(String line) {
-    logSink.writeln(line);
-  }
-
-  for (final stream in ['Logging', 'Stdout', 'Stderr']) {
-    ws.add(jsonEncode({
-      'jsonrpc': '2.0',
-      'id': 'listen_$stream',
-      'method': 'streamListen',
-      'params': {'streamId': stream},
-    }));
-  }
-
-  final completer = Completer<void>();
-
-  ws.listen(
-    (data) {
-      try {
-        final msg = jsonDecode(data as String) as Map<String, dynamic>;
-        if (msg['method'] != 'streamNotify') return;
-
-        final params = msg['params'] as Map<String, dynamic>;
-        final event = params['event'] as Map<String, dynamic>;
-        final kind = event['kind'] as String?;
-
-        if (kind == 'Logging') {
-          final logRecord = event['logRecord'] as Map<String, dynamic>?;
-          if (logRecord == null) return;
-          final message = logRecord['message'] as Map<String, dynamic>?;
-          final loggerName = logRecord['loggerName'] as Map<String, dynamic>?;
-          final text = message?['valueAsString'] as String?;
-          if (text == null || text.isEmpty) return;
-          final name = loggerName?['valueAsString'] as String?;
-          if (name != null && name.isNotEmpty) {
-            appendLine('[$name] $text');
-          } else {
-            appendLine(text);
-          }
-        } else if (kind == 'WriteEvent') {
-          final bytes = event['bytes'] as String?;
-          if (bytes == null) return;
-          try {
-            final decoded = utf8.decode(base64Decode(bytes)).trimRight();
-            if (decoded.isNotEmpty) appendLine(decoded);
-          } catch (_) {}
-        }
-      } catch (_) {}
-    },
-    onDone: () { if (!completer.isCompleted) completer.complete(); },
-    onError: (_) { if (!completer.isCompleted) completer.complete(); },
-  );
-
-  await completer.future;
-  await logSink.flush();
-  await logSink.close();
-  await ws.close();
-}
-''';
 
 /// Extract VM service websocket URI from flutter run log output.
 String? _extractVmUri(String logContent) {
