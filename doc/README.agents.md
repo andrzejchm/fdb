@@ -160,7 +160,7 @@ These commands require `fdb_helper` to be added to your Flutter app. Add it to `
 
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.2.0
+  fdb_helper: ^1.2.1
 ```
 
 Initialize it in `main.dart`:

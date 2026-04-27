@@ -1,6 +1,6 @@
 name: fdb_helper
 description: Helper package for fdb (Flutter Debug Bridge). Registers VM service extensions for widget interaction, SharedPreferences access, and app data cleanup.
-version: 1.2.0
+version: 1.2.1
 repository: https://github.com/andrzejchm/fdb
 homepage: https://pub.dev/packages/fdb
 

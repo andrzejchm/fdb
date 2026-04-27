@@ -1,3 +1,8 @@
+## 1.2.1
+
+### Fixes
+- `fdb logs` now keeps recent VM-service log lines readable through unexpected app crashes by running the log collector as a real entrypoint with serialized flushes
+
 ## 1.2.0
 
 ### New commands
