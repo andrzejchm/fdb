@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/log_collector_source.dart';
 import 'package:fdb/process_utils.dart';
 
 Future<int> runLaunch(List<String> args) async {
@@ -190,21 +190,44 @@ exec $flutterCmd > $logFile 2>&1
 }
 
 Future<void> _startLogCollector(String vmUri) async {
-  // Write a self-contained Dart script that subscribes to the VM service
-  // Logging/Stdout/Stderr streams and appends events to the log file.
-  // This runs as a detached process so it outlives the fdb launch command.
-  File(logCollectorScript).writeAsStringSync(logCollectorSource);
+  final collectorEntrypoint = await _resolveLogCollectorEntrypoint();
+  if (collectorEntrypoint == null) {
+    stderr.writeln('WARNING: Log collector entrypoint not found; developer.log() events may be missing');
+    return;
+  }
 
   // Launch via nohup so the collector survives after fdb exits.
   // Same pattern used for the flutter run launcher script.
   await Process.run('bash', [
     '-c',
-    'nohup dart run ${_shellEscape(logCollectorScript)}'
+    'nohup dart ${_shellEscape(collectorEntrypoint)}'
         ' ${_shellEscape(vmUri)}'
         ' ${_shellEscape(logFile)}'
         ' ${_shellEscape(logCollectorPidFile)}'
         ' > /dev/null 2>&1 &',
   ]);
+}
+
+Future<String?> _resolveLogCollectorEntrypoint() async {
+  const relativePath = 'bin/log_collector.dart';
+  final packageUri = Uri.parse('package:fdb/commands/launch.dart');
+  final resolved = await Isolate.resolvePackageUri(packageUri);
+  if (resolved != null) {
+    final packageRoot = File.fromUri(resolved).parent.parent.parent;
+    final candidate = File('${packageRoot.path}/$relativePath');
+    if (candidate.existsSync()) {
+      return candidate.path;
+    }
+  }
+
+  final scriptDir = Directory.fromUri(Platform.script).parent;
+  final packageRoot = scriptDir.parent;
+  final fallback = File('${packageRoot.path}/$relativePath');
+  if (fallback.existsSync()) {
+    return fallback.path;
+  }
+
+  return null;
 }
 
 /// Extract VM service websocket URI from flutter run log output.

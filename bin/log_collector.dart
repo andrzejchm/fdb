@@ -1,4 +1,3 @@
-const logCollectorSource = r'''
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -12,11 +11,13 @@ Future<void> main(List<String> args) async {
 
   File(pidPath).writeAsStringSync('$pid');
 
-  // Clean up PID file on SIGTERM (from fdb kill) or SIGINT (Ctrl+C).
   void cleanup() {
-    try { File(pidPath).deleteSync(); } catch (_) {}
+    try {
+      File(pidPath).deleteSync();
+    } catch (_) {}
     exit(0);
   }
+
   ProcessSignal.sigterm.watch().listen((_) => cleanup());
   ProcessSignal.sigint.watch().listen((_) => cleanup());
 
@@ -24,7 +25,9 @@ Future<void> main(List<String> args) async {
     await _collect(wsUri, logPath);
   } catch (_) {
   } finally {
-    try { File(pidPath).deleteSync(); } catch (_) {}
+    try {
+      File(pidPath).deleteSync();
+    } catch (_) {}
   }
 }
 
@@ -40,7 +43,10 @@ Future<void> _collect(String wsUri, String logPath) async {
   Future<void> pendingWrite = Future.value();
 
   void enqueueLine(String line) {
-    pendingWrite = pendingWrite.then<void>((_) => appendLine(line), onError: (_) => appendLine(line));
+    pendingWrite = pendingWrite.then<void>(
+      (_) => appendLine(line),
+      onError: (_) => appendLine(line),
+    );
   }
 
   for (final stream in ['Logging', 'Stdout', 'Stderr']) {
@@ -89,8 +95,12 @@ Future<void> _collect(String wsUri, String logPath) async {
         }
       } catch (_) {}
     },
-    onDone: () { if (!completer.isCompleted) completer.complete(); },
-    onError: (_) { if (!completer.isCompleted) completer.complete(); },
+    onDone: () {
+      if (!completer.isCompleted) completer.complete();
+    },
+    onError: (_) {
+      if (!completer.isCompleted) completer.complete();
+    },
   );
 
   try {
@@ -102,4 +112,3 @@ Future<void> _collect(String wsUri, String logPath) async {
     await ws.close();
   }
 }
-''';

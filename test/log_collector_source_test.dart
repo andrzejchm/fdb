@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/log_collector_source.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -18,9 +17,7 @@ void main() {
       final sessionDir = Directory('${tempDir.path}/.fdb')..createSync(recursive: true);
       final logPath = '${sessionDir.path}/logs.txt';
       final pidPath = '${sessionDir.path}/collector.pid';
-      final sourcePath = '${tempDir.path}/collector.dart';
       final followScriptPath = '${tempDir.path}/follow_logs.dart';
-      await File(sourcePath).writeAsString(logCollectorSource);
       await File(followScriptPath).writeAsString(_followLogsScript);
 
       final allowClose = Completer<void>();
@@ -48,7 +45,7 @@ void main() {
       addTearDown(() async => server.close(force: true));
 
       final process = await Process.start('dart', [
-        sourcePath,
+        _collectorEntrypointPath(),
         _wsUri(server),
         logPath,
         pidPath,
@@ -89,8 +86,6 @@ void main() {
       final sessionDir = Directory('${tempDir.path}/.fdb')..createSync(recursive: true);
       final logPath = '${sessionDir.path}/logs.txt';
       final pidPath = '${sessionDir.path}/collector.pid';
-      final sourcePath = '${tempDir.path}/collector.dart';
-      await File(sourcePath).writeAsString(logCollectorSource);
 
       final crashComplete = Completer<void>();
       late HttpServer server;
@@ -120,7 +115,7 @@ void main() {
       addTearDown(() async => server.close(force: true));
 
       final collectorProcess = await Process.start('dart', [
-        sourcePath,
+        _collectorEntrypointPath(),
         _wsUri(server),
         logPath,
         pidPath,
@@ -149,10 +144,10 @@ void main() {
       final logPath = '${sessionDir.path}/logs.txt';
       final pidPath = '${sessionDir.path}/collector.pid';
       final sourcePath = '${tempDir.path}/collector.dart';
-      final delayedFlushSource = logCollectorSource.replaceFirst(
-        'await logSink.flush();',
-        'await Future<void>.delayed(const Duration(milliseconds: 50));\n    await logSink.flush();',
-      );
+      final delayedFlushSource = File(_collectorEntrypointPath()).readAsStringSync().replaceFirst(
+            'await logSink.flush();',
+            'await Future<void>.delayed(const Duration(milliseconds: 50));\n    await logSink.flush();',
+          );
       await File(sourcePath).writeAsString(delayedFlushSource);
 
       final allowClose = Completer<void>();
@@ -246,6 +241,8 @@ Map<String, dynamic> _writeEvent(String text) {
 String _wsUri(HttpServer server) => 'ws://${server.address.host}:${server.port}';
 
 String _packageConfigPath() => '${Directory.current.path}/.dart_tool/package_config.json';
+
+String _collectorEntrypointPath() => '${Directory.current.path}/bin/log_collector.dart';
 
 Future<void> _waitForFile(String path) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
