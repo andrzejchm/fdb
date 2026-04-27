@@ -89,11 +89,12 @@ This repo uses `bd` (Beads) as its issue tracker. Issues live in `.beads/embedde
 
 ```bash
 bd prime                                                          # Load session context (run at session start)
-bd ready                                                          # List available issues
+bd ready                                                          # List unclaimed available issues
 bd show <id>                                                      # View issue details
 bd update <id> --claim                                            # Claim an issue
 bd create --title="..." --description="..." --type=task --priority=2  # Create an issue
 bd close <id>                                                     # Close an issue
+bd sync                                                           # Flush pending writes (before compaction)
 bd bootstrap                                                      # Rebuild local DB after git pull
 bd github sync                                                    # Bidirectional sync with GitHub Issues
 bd github sync --pull-only                                        # Pull from GitHub only
