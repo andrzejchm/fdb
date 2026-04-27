@@ -29,6 +29,9 @@ bd create --title="..." --description="..." --type=task --priority=2  # Create a
 bd close <id>                                                     # Mark issue done
 bd sync                                                           # Flush pending writes (before compaction)
 bd bootstrap                                                      # Rebuild local DB after git pull
+bd github sync                                                    # Bidirectional sync with GitHub Issues
+bd github sync --pull-only                                        # Pull from GitHub only
+bd github sync --push-only                                        # Push to GitHub only
 ```
 
 ## Creating issues
@@ -51,3 +54,4 @@ Priorities: `1` (critical) → `4` (low)
 - Run `bd prime` at session start only — not during compaction (`bd sync` handles compaction).
 - Never run `bd doctor --fix` — it can corrupt the local DB.
 - Issues are the source of truth for planned and in-progress work; capture anything discovered.
+- `bd` is the source of truth; GitHub Issues are a mirror — sync with `bd github sync`.

@@ -95,6 +95,9 @@ bd update <id> --claim                                            # Claim an iss
 bd create --title="..." --description="..." --type=task --priority=2  # Create an issue
 bd close <id>                                                     # Close an issue
 bd bootstrap                                                      # Rebuild local DB after git pull
+bd github sync                                                    # Bidirectional sync with GitHub Issues
+bd github sync --pull-only                                        # Pull from GitHub only
+bd github sync --push-only                                        # Push to GitHub only
 ```
 
 ### Rules
@@ -102,4 +105,5 @@ bd bootstrap                                                      # Rebuild loca
 - Commit `issues.jsonl` together with the code changes it tracks.
 - Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
 - Run `bd prime` at the start of every session — not at compaction.
+- `bd` is the source of truth; GitHub Issues are a mirror via `bd github sync`.
 <!-- END BEADS INTEGRATION -->
