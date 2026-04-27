@@ -23,7 +23,10 @@ Future<developer.ServiceExtensionResponse> handleTap(
     final matcher = WidgetMatcher.fromParams(params);
 
     if (matcher is CoordinatesMatcher) {
-      await dispatchTap(matcher.offset, holdDuration: holdDuration);
+      // Use native in-process injection for coordinate taps so that native
+      // views overlaid on the Flutter surface (UIAlertController, WKWebView,
+      // platform views, AlertDialog) are reachable — not just Flutter widgets.
+      await dispatchNativeTap(matcher.offset);
       return developer.ServiceExtensionResponse.result(
         jsonEncode({'status': 'Success', 'x': matcher.x, 'y': matcher.y}),
       );

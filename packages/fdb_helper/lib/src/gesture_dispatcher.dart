@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
+import 'native_tap.g.dart';
+
 int _nextPointerId = 1;
 const int _kDeviceId = 1;
 const Duration _kDelay = Duration(milliseconds: 10);
@@ -23,6 +25,27 @@ PointerDeviceKind _tapPointerKind() {
 
 int _tapButtons(PointerDeviceKind kind) {
   return kind == PointerDeviceKind.mouse ? kPrimaryMouseButton : kPrimaryButton;
+}
+
+/// Dispatches a native in-process tap at [globalPosition] via the platform
+/// channel, bypassing Flutter's [GestureBinding].
+///
+/// Routes through the platform's own input dispatch:
+///   iOS   — UIApplication.sendEvent() with synthetic UITouch
+///   macOS — NSApplication.sendEvent() with synthetic NSEvent
+///   Android — Activity.dispatchTouchEvent() with synthetic MotionEvent
+///
+/// This reaches native views overlaid on the Flutter surface (UIAlertController,
+/// WKWebView, platform views, AlertDialog) that [dispatchTap] cannot reach.
+///
+/// Falls back to [dispatchTap] on platforms without native channel support
+/// (web, Linux, Windows).
+Future<void> dispatchNativeTap(Offset globalPosition) async {
+  try {
+    await NativeTapApi().nativeTap(globalPosition.dx, globalPosition.dy);
+  } catch (_) {
+    await dispatchTap(globalPosition);
+  }
 }
 
 /// Dispatches a synthetic tap (or long-press) at [globalPosition].
