@@ -162,6 +162,32 @@ fdb select off    # disable overlay
 fdb selected      # get what widget was tapped
 ```
 
+### Tap native UI (system dialogs, permission sheets)
+
+Use this when a native OS dialog is blocking the Flutter UI — iOS permission prompts,
+Android runtime-permission sheets, macOS native dialogs. Unlike `fdb tap`, this
+command does NOT go through Flutter's GestureBinding.
+
+```bash
+fdb native-tap --at 200,400    # tap at device coordinates (x,y)
+fdb native-tap --x 200 --y 400 # same, two-flag form
+```
+
+Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
+
+Platform dispatch:
+- **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels).
+- **iOS simulator** — `cliclick` with automatic Simulator window offset. Coordinates in iOS logical points (= Flutter logical pixels). Requires `brew install cliclick`.
+- **iOS physical** — `idb ui tap X Y`. Requires `idb` (`brew install facebook/fb/idb-companion && pip3 install fb-idb`).
+- **macOS** — `cliclick` with automatic app window offset. Coordinates in Flutter logical pixels relative to the Flutter content area. Requires `brew install cliclick`.
+
+Workflow for dismissing an iOS permission prompt:
+```bash
+fdb screenshot                          # see where the "Allow" button is
+fdb native-tap --at 196,600            # tap "Allow" at its coordinates
+fdb screenshot                          # confirm dialog dismissed
+```
+
 ### Tap a widget
 
 Requires `fdb_helper` in the app (see setup section above).

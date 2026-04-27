@@ -11,6 +11,7 @@ import 'package:fdb/commands/double_tap.dart';
 import 'package:fdb/commands/input.dart';
 import 'package:fdb/commands/kill.dart';
 import 'package:fdb/commands/launch.dart';
+import 'package:fdb/commands/native_tap.dart';
 import 'package:fdb/commands/longpress.dart';
 import 'package:fdb/commands/logs.dart';
 import 'package:fdb/commands/reload.dart';
@@ -42,6 +43,7 @@ Commands:
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
+  native-tap  Tap native (non-Flutter) UI at coordinates via platform tools
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector or coordinates
   double-tap  Double-tap a widget by selector or coordinates
@@ -114,6 +116,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runDescribe(args);
     case 'doctor':
       return runDoctor(args);
+    case 'native-tap':
+      return runNativeTap(args);
     case 'tap':
       return runTap(args);
     case 'double-tap':

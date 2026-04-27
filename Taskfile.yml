@@ -1270,6 +1270,79 @@ tasks:
           exit 1
         fi
 
+  test:native-tap:
+    desc: Tap native UI elements via adb (Android) or xcrun simctl (iOS simulator)
+    dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        echo "==> [native-tap] --at with valid coordinates"
+        # Read the stored device to determine platform
+        STORED_DEVICE=$(cat .fdb/device.txt 2>/dev/null || echo "")
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+
+        # Determine a safe coordinate that is always on screen (center-ish)
+        X=200
+        Y=400
+
+        set +e
+        OUTPUT=$({{.FDB}} native-tap --at "$X,$Y" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+
+        if echo "$OUTPUT" | grep -q "ERROR: native-tap on physical iOS"; then
+          echo "SKIP: physical iOS — native-tap not supported in v1"
+        elif echo "$OUTPUT" | grep -q "ERROR: native-tap on macOS"; then
+          echo "SKIP: macOS — native-tap not supported in v1"
+        elif [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb native-tap exited with code $EXIT_CODE" >&2
+          exit 1
+        else
+          if echo "$OUTPUT" | grep -q "NATIVE_TAPPED="; then
+            echo "PASS: fdb native-tap --at"
+          else
+            echo "FAIL: fdb native-tap --at — NATIVE_TAPPED= not found in output" >&2
+            exit 1
+          fi
+        fi
+
+        echo "==> [native-tap] --at with invalid format"
+        set +e
+        OUTPUT=$({{.FDB}} native-tap --at "abc,def" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb native-tap --at abc,def should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q 'ERROR: Invalid --at value'; then
+          echo "PASS: fdb native-tap --at invalid format"
+        else
+          echo "FAIL: fdb native-tap --at invalid format — expected ERROR: Invalid --at value" >&2
+          exit 1
+        fi
+
+        echo "==> [native-tap] missing --at"
+        set +e
+        OUTPUT=$({{.FDB}} native-tap 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb native-tap with no args should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q 'ERROR:'; then
+          echo "PASS: fdb native-tap missing --at"
+        else
+          echo "FAIL: fdb native-tap missing --at — expected ERROR: output" >&2
+          exit 1
+        fi
+
   test:kill:
     desc: Kill the running app
     dir: '{{.TEST_APP}}'
@@ -1343,6 +1416,7 @@ tasks:
       - task: test:describe
       - task: test:screenshot
       - task: test:deeplink
+      - task: test:native-tap
       - task: test:select
       - task: test:tap
         vars:
