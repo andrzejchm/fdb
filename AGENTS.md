@@ -104,9 +104,10 @@ bd github sync --push-only                                        # Push to GitH
 
 ### Rules
 
-- Commit `issues.jsonl` together with the code changes it tracks.
+- Commit `issues.jsonl` together with the code changes it tracks — never in isolation.
 - Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
 - Run `bd prime` at session start only — not during compaction (`bd sync` handles compaction).
 - `bd` is the source of truth; GitHub Issues are a mirror via `bd github sync`.
 - Never run `bd doctor --fix` — it can corrupt the local DB.
+- Capture any work discovered during implementation as new issues immediately.
 <!-- END BEADS INTEGRATION -->
