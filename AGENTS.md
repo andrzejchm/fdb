@@ -107,4 +107,5 @@ bd github sync --push-only                                        # Push to GitH
 - Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
 - Run `bd prime` at session start and `bd sync` before compaction — not the other way around.
 - `bd` is the source of truth; GitHub Issues are a mirror via `bd github sync`.
+- Never run `bd doctor --fix` — it can corrupt the local DB.
 <!-- END BEADS INTEGRATION -->
