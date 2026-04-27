@@ -92,6 +92,7 @@ bd prime                                                          # Load session
 bd ready                                                          # List unclaimed available issues
 bd show <id>                                                      # View issue details
 bd update <id> --claim                                            # Claim an issue
+bd update <id> --status=in-progress                               # Mark issue as in progress
 bd create --title="..." --description="..." --type=task --priority=2  # Create an issue
 bd close <id>                                                     # Close an issue
 bd sync                                                           # Flush pending writes (before compaction)
@@ -105,7 +106,7 @@ bd github sync --push-only                                        # Push to GitH
 
 - Commit `issues.jsonl` together with the code changes it tracks.
 - Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
-- Run `bd prime` at session start and `bd sync` before compaction — not the other way around.
+- Run `bd prime` at session start only — not during compaction (`bd sync` handles compaction).
 - `bd` is the source of truth; GitHub Issues are a mirror via `bd github sync`.
 - Never run `bd doctor --fix` — it can corrupt the local DB.
 <!-- END BEADS INTEGRATION -->
