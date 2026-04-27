@@ -77,3 +77,29 @@ dart format .                         # Format
 - Manual arg parsing with `for` loop + `switch`.
 
 **Full details**: [CODE-STYLE.md](CODE-STYLE.md)
+
+<!-- BEGIN BEADS INTEGRATION -->
+## Issue Tracker (`bd`)
+
+This repo uses `bd` (Beads) as its issue tracker. Issues live in `.beads/embeddeddolt/` (gitignored) and are auto-exported to `.beads/issues.jsonl` (git-tracked) after every write.
+
+**Collaboration flow:** write issues → commit `issues.jsonl` alongside code → teammates `git pull` + `bd bootstrap`.
+
+### Quick reference
+
+```bash
+bd prime                                                          # Load session context (run at session start)
+bd ready                                                          # List available issues
+bd show <id>                                                      # View issue details
+bd update <id> --claim                                            # Claim an issue
+bd create --title="..." --description="..." --type=task --priority=2  # Create an issue
+bd close <id>                                                     # Close an issue
+bd bootstrap                                                      # Rebuild local DB after git pull
+```
+
+### Rules
+
+- Commit `issues.jsonl` together with the code changes it tracks.
+- Run `bd bootstrap` after `git pull` on a machine that already has a local DB.
+- Run `bd prime` at the start of every session — not at compaction.
+<!-- END BEADS INTEGRATION -->
