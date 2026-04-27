@@ -4,25 +4,27 @@ import 'package:fdb/process_utils.dart';
 
 /// Taps native (non-Flutter) UI elements using platform-specific tools.
 ///
-/// Unlike [runTap], this command dispatches through the OS rather than Flutter's
-/// [GestureBinding], making it suitable for system dialogs (iOS permission prompts,
-/// Android runtime-permission sheets, macOS native windows).
+/// Unlike [runTap], this command dispatches through the OS input system rather
+/// than Flutter's [GestureBinding], making it suitable for tapping system
+/// dialogs (iOS permission prompts, Android runtime-permission sheets, macOS
+/// native dialogs) that sit outside the Flutter rendering surface.
 ///
 /// Usage:
 ///   fdb native-tap --at 200,400
 ///   fdb native-tap --x 200 --y 400
 ///
-/// Platforms:
+/// Platforms and tools:
 ///   Android (device or emulator) — `adb shell input tap X Y`
-///   iOS simulator               — `cliclick` with CGWindowList-based offset
-///   iOS physical                — `idb ui tap X Y` (requires idb to be installed)
-///   macOS                       — `cliclick` with CGWindowList-based offset
+///   iOS simulator                — `idb ui tap X Y` (IndigoHID path via SimulatorKit)
+///   iOS physical                 — `idb ui tap X Y` (XCTest private API via WDA)
+///   macOS                        — `cliclick c:SCREEN_X,SCREEN_Y` (CGEvent injection)
 ///
 /// Coordinates:
 ///   Android  — Android logical pixels (dp), same as Flutter logical coords.
-///   iOS sim  — In-simulator logical points (same coordinate space as Flutter).
-///   iOS phys — iOS UIKit logical points.
-///   macOS    — Flutter logical coords relative to the app window content origin.
+///   iOS      — iOS UIKit logical points (same coordinate space as Flutter).
+///   macOS    — macOS screen coordinates (points). Use `fdb screenshot` to
+///              determine the target position, then read coordinates from the
+///              screenshot's pixel positions divided by the display scale.
 Future<int> runNativeTap(List<String> args) async {
   double? x;
   double? y;
@@ -72,9 +74,7 @@ Future<int> runNativeTap(List<String> args) async {
   final deviceId = readDevice();
 
   if (platformInfo == null) {
-    stderr.writeln(
-      'ERROR: No active fdb session found. Run fdb launch first.',
-    );
+    stderr.writeln('ERROR: No active fdb session found. Run fdb launch first.');
     return 1;
   }
 
@@ -86,20 +86,18 @@ Future<int> runNativeTap(List<String> args) async {
   }
 
   if (platform.startsWith('ios') && isEmulator) {
-    return _tapIosSimulator(deviceId: deviceId, x: x, y: y);
+    return _tapIos(deviceId: deviceId, x: x, y: y, label: 'ios-simulator');
   }
 
   if (platform.startsWith('ios') && !isEmulator) {
-    return _tapIosPhysical(x: x, y: y);
+    return _tapIos(deviceId: deviceId, x: x, y: y, label: 'ios-physical');
   }
 
   if (platform.startsWith('darwin')) {
     return _tapMacOs(x: x, y: y);
   }
 
-  stderr.writeln(
-    'ERROR: native-tap is not supported on platform "$platform".',
-  );
+  stderr.writeln('ERROR: native-tap is not supported on platform "$platform".');
   return 1;
 }
 
@@ -107,6 +105,9 @@ Future<int> runNativeTap(List<String> args) async {
 // Android
 // ---------------------------------------------------------------------------
 
+/// Taps an Android device or emulator at ([x], [y]) via `adb shell input tap`.
+///
+/// Coordinates are in Android dp, which equals Flutter logical pixels.
 Future<int> _tapAndroid({required String? deviceId, required double x, required double y}) async {
   final deviceArgs = deviceId != null ? ['-s', deviceId] : <String>[];
   try {
@@ -126,186 +127,65 @@ Future<int> _tapAndroid({required String? deviceId, required double x, required 
     stdout.writeln('NATIVE_TAPPED=android X=${x.toInt()} Y=${y.toInt()}');
     return 0;
   } catch (e) {
-    stderr
-        .writeln('ERROR: Failed to run adb: $e\n  Install adb: https://developer.android.com/studio/command-line/adb');
-    return 1;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// iOS simulator
-// ---------------------------------------------------------------------------
-
-/// Taps inside the iOS Simulator by computing the screen offset of the
-/// simulator window and dispatching a mouse click via [cliclick].
-///
-/// Steps:
-/// 1. Locate the Simulator.app window via [CGWindowList] (no AX permission needed).
-/// 2. Compute the screen coordinate: win_origin + _kSimTitleBarHeight + sim_coord.
-/// 3. Invoke `cliclick c:SCREEN_X,SCREEN_Y`.
-///
-/// The [_kSimTitleBarHeight] accounts for the macOS window title bar rendered
-/// above the device content inside the Simulator window.
-Future<int> _tapIosSimulator({required String? deviceId, required double x, required double y}) async {
-  final winOffset = await _simulatorWindowOffset(deviceId);
-  if (winOffset == null) {
     stderr.writeln(
-      'ERROR: Could not locate the iOS Simulator window.\n'
-      '  Make sure the Simulator app is open and the device is booted.',
+      'ERROR: Failed to run adb: $e\n'
+      '  Install adb: https://developer.android.com/studio/command-line/adb',
     );
     return 1;
   }
-
-  final screenX = (winOffset.$1 + x).round();
-  final screenY = (winOffset.$2 + y).round();
-  return _cliclick(screenX: screenX, screenY: screenY, label: 'ios-simulator');
 }
-
-/// Returns the (screenX, screenY) of the top-left corner of the device
-/// *content* area inside the Simulator window (i.e. window origin + title bar
-/// height + any top device bezel that Simulator adds above the device screen).
-///
-/// Uses the same CGWindowList approach as [screenshot.dart] — no AX permission
-/// required.
-Future<(double, double)?> _simulatorWindowOffset(String? deviceId) async {
-  // We need to find the correct Simulator window when multiple sims are booted.
-  // The window title matches the device name from simctl.
-  String? targetTitle;
-  if (deviceId != null) {
-    try {
-      final result = await Process.run('xcrun', [
-        'simctl',
-        'list',
-        'devices',
-        'booted',
-        '--json',
-      ]);
-      if (result.exitCode == 0) {
-        final output = result.stdout as String;
-        // Simple parse: find the udid and extract the name
-        final udidPattern = RegExp('"udid" : "${RegExp.escape(deviceId)}"');
-        if (udidPattern.hasMatch(output)) {
-          // Walk backwards to find the "name" key in the same object
-          final nameMatch = RegExp(r'"name"\s*:\s*"([^"]+)"').allMatches(output);
-          final udidPos = udidPattern.firstMatch(output)?.start ?? -1;
-          if (udidPos > 0) {
-            // Find the name that precedes this udid entry
-            String? closest;
-            var closestDist = double.maxFinite.toInt();
-            for (final m in nameMatch) {
-              final dist = udidPos - m.end;
-              if (dist > 0 && dist < closestDist) {
-                closestDist = dist;
-                closest = m.group(1);
-              }
-            }
-            targetTitle = closest;
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  final swiftArgs = targetTitle != null
-      ? [
-          '-e',
-          '''
-import Cocoa
-let target = "$targetTitle"
-guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [NSDictionary] else { exit(1) }
-for w in list {
-    guard let owner = w[kCGWindowOwnerName] as? String, owner == "Simulator" else { continue }
-    let title = w[kCGWindowName] as? String ?? ""
-    if !target.isEmpty && !title.contains(target) { continue }
-    guard let bounds = w[kCGWindowBounds] as? NSDictionary,
-          let wx = bounds["X"] as? Double,
-          let wy = bounds["Y"] as? Double else { continue }
-    print("\\(wx) \\(wy)")
-    exit(0)
-}
-exit(1)
-''',
-        ]
-      : [
-          '-e',
-          '''
-import Cocoa
-guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [NSDictionary] else { exit(1) }
-for w in list {
-    guard let owner = w[kCGWindowOwnerName] as? String, owner == "Simulator" else { continue }
-    guard let bounds = w[kCGWindowBounds] as? NSDictionary,
-          let wx = bounds["X"] as? Double,
-          let wy = bounds["Y"] as? Double else { continue }
-    print("\\(wx) \\(wy)")
-    exit(0)
-}
-exit(1)
-''',
-        ];
-
-  try {
-    final result = await Process.run('swift', swiftArgs);
-    if (result.exitCode != 0) return null;
-    final parts = (result.stdout as String).trim().split(' ');
-    if (parts.length < 2) return null;
-    final wx = double.tryParse(parts[0]);
-    final wy = double.tryParse(parts[1]);
-    if (wx == null || wy == null) return null;
-    // Add the macOS title bar + top device chrome so that coordinate (0,0)
-    // maps to the very top-left of the device screen rendered by Simulator.
-    return (wx + _kSimContentOffsetX, wy + _kSimContentOffsetY);
-  } catch (_) {
-    return null;
-  }
-}
-
-/// Horizontal distance (pts) from the left edge of the Simulator window to the
-/// left edge of the device screen content.
-///
-/// Measured empirically: for a standard iPhone simulator at the default window
-/// size the left bezel is approximately 24 logical points.
-const _kSimContentOffsetX = 24.0;
-
-/// Vertical distance (pts) from the top edge of the Simulator window to the
-/// top of the device screen content.
-///
-/// Breakdown: macOS window title bar (≈28 pts) + Simulator's top device chrome
-/// (≈16 pts) = 44 pts total. Measured empirically on macOS 15 / Xcode 16.
-const _kSimContentOffsetY = 44.0;
 
 // ---------------------------------------------------------------------------
-// iOS physical
+// iOS (simulator and physical)
 // ---------------------------------------------------------------------------
 
-/// Taps a physical iOS device via `idb ui tap X Y`.
+/// Taps an iOS device (simulator or physical) at ([x], [y]) via `idb ui tap`.
 ///
-/// Requires `idb_companion` from Meta (https://github.com/facebook/idb).
-/// Install: `brew install facebook/fb/idb-companion` and `pip3 install fb-idb`.
-Future<int> _tapIosPhysical({required double x, required double y}) async {
-  // Check if idb is on PATH
+/// For the simulator, idb injects the touch through IndigoHID via the
+/// SimulatorKit private framework — the same path the Simulator.app uses
+/// internally. This correctly reaches native OS dialogs that sit outside
+/// Flutter's rendering surface.
+///
+/// For physical devices, idb drives an on-device XCTest runner (WebDriverAgent
+/// style) that synthesizes the touch through XCTest private APIs.
+///
+/// Requires idb_companion (macOS host) and idb (Python CLI client):
+///   brew install facebook/fb/idb-companion
+///   pip3 install fb-idb
+///
+/// Docs: https://fbidb.io
+Future<int> _tapIos({
+  required String? deviceId,
+  required double x,
+  required double y,
+  required String label,
+}) async {
   final which = await Process.run('which', ['idb']);
   if (which.exitCode != 0) {
     stderr.writeln(
-      'ERROR: native-tap on physical iOS requires idb.\n'
+      'ERROR: native-tap on iOS requires idb.\n'
       '  Install: brew install facebook/fb/idb-companion && pip3 install fb-idb\n'
       '  Docs: https://fbidb.io',
     );
     return 1;
   }
 
+  // idb uses the stored device UDID to target the right simulator/device.
+  final udidArgs = deviceId != null ? ['--udid', deviceId] : <String>[];
   try {
     final result = await Process.run('idb', [
       'ui',
       'tap',
       x.toInt().toString(),
       y.toInt().toString(),
+      ...udidArgs,
     ]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
       stderr.writeln('ERROR: idb ui tap failed: $details');
       return 1;
     }
-    stdout.writeln('NATIVE_TAPPED=ios-physical X=${x.toInt()} Y=${y.toInt()}');
+    stdout.writeln('NATIVE_TAPPED=$label X=${x.toInt()} Y=${y.toInt()}');
     return 0;
   } catch (e) {
     stderr.writeln('ERROR: Failed to run idb: $e');
@@ -317,18 +197,31 @@ Future<int> _tapIosPhysical({required double x, required double y}) async {
 // macOS
 // ---------------------------------------------------------------------------
 
-/// Taps within a macOS Flutter app window by computing the screen coordinate
-/// from the stored PID and dispatching via [cliclick].
+/// Taps within a macOS Flutter app window at ([x], [y]) via `cliclick`.
 ///
-/// Finds the app window using the same CGWindowList approach as [screenshot.dart],
-/// then adds the macOS window title bar height so coordinate (0,0) maps to the
-/// top-left of the Flutter rendering surface.
+/// Locates the Flutter app window using CGWindowList (same approach as
+/// `fdb screenshot`) to find the window's screen origin, then offsets by the
+/// macOS title bar height so that coordinate (0,0) maps to the top-left of the
+/// Flutter rendering surface.
+///
+/// `cliclick` injects the click via CGEvent at the Quartz HID event level,
+/// which reaches AppKit/native windows. This works without Accessibility
+/// permission for most app windows.
+///
+/// Install: brew install cliclick
 Future<int> _tapMacOs({required double x, required double y}) async {
+  final which = await Process.run('which', ['cliclick']);
+  if (which.exitCode != 0) {
+    stderr.writeln(
+      'ERROR: native-tap on macOS requires cliclick.\n'
+      '  Install: brew install cliclick',
+    );
+    return 1;
+  }
+
   final pid = readPid();
   if (pid == null) {
-    stderr.writeln(
-      'ERROR: No PID in session — cannot locate macOS window. Re-launch the app.',
-    );
+    stderr.writeln('ERROR: No PID in session — cannot locate macOS window. Re-launch the app.');
     return 1;
   }
 
@@ -343,12 +236,45 @@ Future<int> _tapMacOs({required double x, required double y}) async {
 
   final screenX = (winOffset.$1 + x).round();
   final screenY = (winOffset.$2 + y).round();
-  return _cliclick(screenX: screenX, screenY: screenY, label: 'macos');
+
+  // Verify Accessibility permission is granted — cliclick silently drops
+  // CGEvent injections when it is missing. We check upfront so the error is
+  // visible rather than a silent no-op.
+  final axCheck = await Process.run('swift', [
+    '-e',
+    'import Cocoa; '
+        'let trusted = AXIsProcessTrusted(); '
+        'print(trusted ? "trusted" : "denied"); '
+        'exit(trusted ? 0 : 1)',
+  ]);
+  if (axCheck.exitCode != 0) {
+    stderr.writeln(
+      'ERROR: native-tap on macOS requires Accessibility permission.\n'
+      '  Grant it in: System Settings → Privacy & Security → Accessibility\n'
+      '  Add the app or terminal that runs fdb (e.g. Terminal, iTerm2).\n'
+      '  Note: native-tap targets native OS dialogs in other processes,\n'
+      '  not Flutter content (use `fdb tap` for Flutter widgets).',
+    );
+    return 1;
+  }
+
+  try {
+    final result = await Process.run('cliclick', ['c:$screenX,$screenY']);
+    if (result.exitCode != 0) {
+      final details = (result.stderr as String).trim();
+      stderr.writeln('ERROR: cliclick failed: $details');
+      return 1;
+    }
+    stdout.writeln('NATIVE_TAPPED=macos X=$screenX Y=$screenY');
+    return 0;
+  } catch (e) {
+    stderr.writeln('ERROR: Failed to run cliclick: $e');
+    return 1;
+  }
 }
 
 /// Returns the (screenX, screenY) offset of the top-left of the Flutter
-/// rendering surface inside the macOS app window (i.e. window origin + title
-/// bar height so that coordinate (0,0) = content top-left).
+/// rendering surface inside the macOS app window.
 ///
 /// Walks the process tree rooted at [pid] to handle the case where `flutter
 /// run` spawns the actual .app as a child — same strategy as screenshot.dart.
@@ -390,7 +316,7 @@ exit(1)
     final wx = double.tryParse(parts[0]);
     final wy = double.tryParse(parts[1]);
     if (wx == null || wy == null) return null;
-    // Add the macOS title bar height so (0,0) = Flutter content top-left.
+    // Add the macOS window title bar height so (0,0) = Flutter content top-left.
     return (wx, wy + _kMacOsTitleBarHeight);
   } catch (_) {
     return null;
@@ -399,39 +325,6 @@ exit(1)
 
 /// Standard macOS window title bar height in logical points.
 const _kMacOsTitleBarHeight = 28.0;
-
-// ---------------------------------------------------------------------------
-// cliclick dispatch
-// ---------------------------------------------------------------------------
-
-/// Clicks at ([screenX], [screenY]) in macOS screen coordinates using `cliclick`.
-///
-/// `cliclick` uses `CGEvent` for mouse injection and works without Accessibility
-/// permission for most app windows. Install: `brew install cliclick`.
-Future<int> _cliclick({required int screenX, required int screenY, required String label}) async {
-  final which = await Process.run('which', ['cliclick']);
-  if (which.exitCode != 0) {
-    stderr.writeln(
-      'ERROR: native-tap requires cliclick on macOS/iOS simulator.\n'
-      '  Install: brew install cliclick',
-    );
-    return 1;
-  }
-
-  try {
-    final result = await Process.run('cliclick', ['c:$screenX,$screenY']);
-    if (result.exitCode != 0) {
-      final details = (result.stderr as String).trim();
-      stderr.writeln('ERROR: cliclick failed: $details');
-      return 1;
-    }
-    stdout.writeln('NATIVE_TAPPED=$label X=$screenX Y=$screenY');
-    return 0;
-  } catch (e) {
-    stderr.writeln('ERROR: Failed to run cliclick: $e');
-    return 1;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
