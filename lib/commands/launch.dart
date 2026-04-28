@@ -5,6 +5,7 @@ import 'dart:isolate';
 
 import 'package:fdb/constants.dart';
 import 'package:fdb/process_utils.dart';
+import 'package:fdb/vm_service.dart';
 
 Future<int> runLaunch(List<String> args) async {
   String? device;
@@ -50,6 +51,7 @@ Future<int> runLaunch(List<String> args) async {
   // Clean up previous state
   for (final path in [
     pidFile,
+    appPidFile,
     logFile,
     logCollectorPidFile,
     logCollectorScript,
@@ -175,6 +177,13 @@ exec $flutterCmd > $logFile 2>&1
   // Read PID — flutter writes it via --pid-file, fall back to launcher PID
   final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : launcherPid.toString();
 
+  // Retrieve the app VM PID via getVM and persist it to fdb.app_pid.
+  // This is the Dart VM process PID (different from the flutter-tools PID in
+  // fdb.pid). Used by vmServiceCall for liveness detection on macOS desktop.
+  // Non-fatal: if getVM fails for any reason, fdb.app_pid is simply not written
+  // and vmServiceCall falls back to the flutter-tools PID heuristic.
+  await _writeAppPid();
+
   // Start the log collector — a background process that subscribes to the
   // VM service Logging/Stdout/Stderr streams and appends to the log file.
   // flutter run only forwards print() to stdout; developer.log() events are
@@ -297,6 +306,24 @@ void _ensureGitignored(String projectPath) {
     gitignore.writeAsStringSync('\n# fdb session state\n.fdb/\n', mode: FileMode.append);
   } else {
     gitignore.writeAsStringSync('# fdb session state\n.fdb/\n');
+  }
+}
+
+/// Calls `getVM` on the VM service to retrieve the app process PID and writes
+/// it to [appPidFile]. Silently no-ops on any failure — callers fall back
+/// to the flutter-tools PID heuristic when this file is absent.
+Future<void> _writeAppPid() async {
+  try {
+    final response = await vmServiceCall('getVM');
+    final result = response['result'] as Map<String, dynamic>?;
+    if (result == null) return;
+    final appPid = result['pid'];
+    if (appPid == null) return;
+    File(appPidFile).writeAsStringSync(appPid.toString());
+  } on TimeoutException {
+    rethrow;
+  } catch (_) {
+    // Non-fatal: fdb.app_pid simply won't be written.
   }
 }
 

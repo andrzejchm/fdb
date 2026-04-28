@@ -1556,71 +1556,16 @@ tasks:
           exit 1
         fi
 
-        # Detect platform to use the right kill mechanism.
-        # NOTE: fdb.pid stores the flutter-tools process PID, not the actual app
-        # process PID (see https://github.com/andrzejchm/fdb/issues — fdb-bbu).
-        # We must use platform-specific tooling to kill the actual app process.
-        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
-        DEVICE_ID=$(cat .fdb/device.txt 2>/dev/null || echo "")
-        echo "==> [app-died] Platform=$PLATFORM Device=$DEVICE_ID"
-
-        if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
-          echo "==> [app-died] iOS simulator — terminating via simctl"
-          # Find the bundle ID of the RUNNING app (not just installed) via
-          # launchctl inside the simulator — avoids picking the wrong entry when
-          # multiple test_app builds are installed.
-          BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
-            | grep "UIKitApplication:" \
-            | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
-            | head -1)
-          if [ -z "$BUNDLE_ID" ]; then
-            # Fallback: try each installed test_app bundle until one terminates
-            BUNDLE_ID=$(xcrun simctl listapps "$DEVICE_ID" 2>/dev/null \
-              | grep -A1 'CFBundleName = "test_app"' \
-              | grep CFBundleIdentifier \
-              | sed 's/.*= "\(.*\)";/\1/' \
-              | head -1)
-          fi
-          if [ -z "$BUNDLE_ID" ]; then
-            echo "SKIP: could not determine bundle ID on iOS simulator — skipping app-died test" >&2
-            exit 0
-          fi
-          echo "  BundleID=$BUNDLE_ID"
-          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" 2>&1 || true
-
-        elif [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "macOS" ]; then
-          echo "==> [app-died] macOS — killing app binary process"
-          # The macOS .app process is separate from the flutter-tools PID in fdb.pid
-          APP_BIN=$(find "$(pwd)/build/macos/Build/Products/Debug" -name "test_app" -type f 2>/dev/null | head -1)
-          if [ -n "$APP_BIN" ]; then
-            pkill -9 -f "$APP_BIN" 2>/dev/null || true
-          else
-            pkill -9 -f "test_app.app/Contents/MacOS/test_app" 2>/dev/null || true
-          fi
-
-        elif [ "$PLATFORM" = "android" ] || echo "$PLATFORM" | grep -qi "android"; then
-          echo "==> [app-died] Android — force-stopping via adb"
-          # Try to find the app package name
-          PACKAGE=$(adb -s "$DEVICE_ID" shell pm list packages 2>/dev/null \
-            | grep -i "test.app\|testapp\|fdb.test" \
-            | sed 's/package://' \
-            | head -1 | tr -d '\r')
-          if [ -z "$PACKAGE" ]; then
-            echo "SKIP: could not determine package name on Android — skipping app-died test" >&2
-            exit 0
-          fi
-          echo "  Package=$PACKAGE"
-          adb -s "$DEVICE_ID" shell am force-stop "$PACKAGE" 2>&1 || true
-
-        else
-          echo "==> [app-died] Unknown platform '$PLATFORM' — killing flutter-tools PID as best-effort"
-          PID=$(cat .fdb/fdb.pid 2>/dev/null)
-          if [ -n "$PID" ]; then
-            kill -9 "$PID" 2>/dev/null || true
-            # Also kill any child processes
-            pkill -9 -P "$PID" 2>/dev/null || true
-          fi
+        # Kill the app VM process directly using the PID written by fdb launch
+        # into fdb.app_pid. This is the actual Dart VM process (not flutter-tools),
+        # so kill -9 works on all platforms without any platform-specific tooling.
+        APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
+        if [ -z "$APP_PID" ]; then
+          echo "FAIL: .fdb/fdb.app_pid not found — was the app launched with a version of fdb that writes it?" >&2
+          exit 1
         fi
+        echo "==> [app-died] Killing app VM process PID=$APP_PID"
+        kill -9 "$APP_PID" 2>/dev/null || true
 
         sleep 2
 

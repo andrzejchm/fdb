@@ -10,6 +10,18 @@ int? readPid() {
   return int.tryParse(content);
 }
 
+/// Reads the app VM PID from [appPidFile] written by `fdb launch` after
+/// the VM service is confirmed reachable.
+///
+/// Returns null if the file does not exist or its content is not a valid
+/// integer (e.g. the session was created by an older fdb version).
+int? readAppPid() {
+  final file = File(appPidFile);
+  if (!file.existsSync()) return null;
+  final content = file.readAsStringSync().trim();
+  return int.tryParse(content);
+}
+
 String? readVmUri() {
   final file = File(vmUriFile);
   if (!file.existsSync()) return null;
@@ -93,6 +105,7 @@ Future<bool> isVmServiceReachable(String uri) async {
 void cleanupTempFiles() {
   for (final path in [
     pidFile,
+    appPidFile,
     logFile,
     logCollectorPidFile,
     logCollectorScript,
