@@ -229,12 +229,12 @@ Future<(double, double)?> _simulatorScreenSize(String? deviceId) async {
     if (result.exitCode != 0) return null;
     final output = result.stdout as String;
 
-    // Find the device entry and extract screen size via device type.
-    // Simpler approach: use the known logical size from the device description.
-    // We parse the device type identifier and map known types to sizes.
-    // As a fallback, read the screen bounds via simctl io.
+    // Look up the device by UDID in the simctl JSON, then map its name to a
+    // known logical screen size. We fall back to the iPhone 17 Pro size
+    // (393×852) when the UDID isn't found or the name doesn't match any
+    // known device — this is good enough for the IndigoHID xRatio/yRatio
+    // normalisation since most modern iPhones share that resolution.
     if (deviceId != null) {
-      // Look for the device name — device type maps to screen size
       final nameMatch = RegExp('"name" : "([^"]+)"[^}]*"udid" : "${RegExp.escape(deviceId)}"').firstMatch(output);
       if (nameMatch != null) {
         final name = nameMatch.group(1) ?? '';
@@ -243,8 +243,6 @@ Future<(double, double)?> _simulatorScreenSize(String? deviceId) async {
       }
     }
 
-    // Generic fallback: read via xcrun simctl getenv SIMULATOR_DEVICE_NAME
-    // then look up known sizes, or fall back to a common default
     return const (393.0, 852.0); // iPhone 17 Pro default
   } catch (_) {
     return const (393.0, 852.0);

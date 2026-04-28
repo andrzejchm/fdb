@@ -234,19 +234,6 @@ static CFTypeRef FdbCreateHidEventForTouch(UITouch *touch) {
   return handEvent;
 }
 
-/// Sets up [touch] with the location, view, and HID event for the current
-/// phase. Mirrors the second half of KIF's `-[UITouch initAtPoint:inWindow:]`
-/// plus the per-phase HID event refresh that iOS 26 requires.
-static void FdbConfigureTouch(UITouch *touch, CGPoint windowPoint, UIWindow *window) {
-  [touch _setLocationInWindow:windowPoint resetPrevious:NO];
-  [touch setTimestamp:NSProcessInfo.processInfo.systemUptime];
-  CFTypeRef hid = FdbCreateHidEventForTouch(touch);
-  if (hid != NULL) {
-    [touch _setHidEvent:hid];
-    CFRelease(hid);
-  }
-}
-
 /// Builds a fresh UIEvent for [touch] in its current phase. Mirrors KIF's
 /// `-[UIView eventWithTouch:]` + `-[UIEvent kif_setIOHIDEventWithTouches:]`.
 /// On iOS 26 a new IOHIDEvent must be attached for each phase; UIKit
@@ -318,7 +305,10 @@ BOOL FdbHelperNativeTapAtPoint(CGPoint point, NSError **error) {
     [touch setGestureView:hitView];
   }
 
-  // Initial HID event (Began phase).
+  // Initial HID event for Began phase. The matching UIEvent is built next via
+  // FdbBuildEventForTouch (which creates its own HID for the event itself);
+  // this call attaches a HID snapshot to the touch object so iOS 26's
+  // per-phase touch/event consistency check passes.
   CFTypeRef initialHid = FdbCreateHidEventForTouch(touch);
   if (initialHid != NULL) {
     [touch _setHidEvent:initialHid];
@@ -326,9 +316,6 @@ BOOL FdbHelperNativeTapAtPoint(CGPoint point, NSError **error) {
   }
 
   // ----- Began -----
-  // Update timestamp + rebuild HID for fresh "began" snapshot.
-  [touch setTimestamp:NSProcessInfo.processInfo.systemUptime];
-  [touch setPhase:UITouchPhaseBegan];
   UIEvent *beganEvent = FdbBuildEventForTouch(touch);
   [UIApplication.sharedApplication sendEvent:beganEvent];
 

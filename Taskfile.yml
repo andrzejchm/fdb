@@ -1453,14 +1453,9 @@ tasks:
   test:native-tap:
     desc: Tap native UI elements via adb (Android) or xcrun simctl (iOS simulator)
     dir: '{{.TEST_APP}}'
-    vars:
-      DEVICE:
-        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - |
         echo "==> [native-tap] --at with valid coordinates"
-        # Read the stored device to determine platform
-        STORED_DEVICE=$(cat .fdb/device.txt 2>/dev/null || echo "")
         PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
 
         # Determine a safe coordinate that is always on screen (center-ish)
