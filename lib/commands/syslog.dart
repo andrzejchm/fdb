@@ -41,6 +41,11 @@ Future<int> runSyslog(List<String> args) async {
     }
   }
 
+  if (last != null && last <= 0) {
+    stderr.writeln('ERROR: --last must be a positive integer');
+    return 1;
+  }
+
   final sinceSeconds = _parseDurationSeconds(since);
   if (sinceSeconds == null) {
     stderr.writeln(
@@ -79,6 +84,7 @@ Future<int> runSyslog(List<String> args) async {
       );
     } else {
       return _runIosPhysical(
+        since: since,
         predicate: predicate,
         last: last,
         follow: follow,
@@ -155,7 +161,8 @@ Future<int> _runIosSimulator({
     return 1;
   }
 
-  final nsPredicate = predicate != null ? 'eventMessage CONTAINS "$predicate"' : null;
+  final escapedPredicate = predicate?.replaceAll('"', r'\"');
+  final nsPredicate = escapedPredicate != null ? 'eventMessage CONTAINS "$escapedPredicate"' : null;
 
   if (follow) {
     // Use `log stream` for live output on the simulator
@@ -198,9 +205,8 @@ Future<int> _runIosSimulator({
   );
 }
 
-const _iosPhysicalCollectSeconds = 5;
-
 Future<int> _runIosPhysical({
+  required String since,
   required String? predicate,
   required int? last,
   required bool follow,
@@ -213,63 +219,20 @@ Future<int> _runIosPhysical({
     return 1;
   }
 
-  if (follow) {
-    return _spawnAndStream(
-      executable: 'idevicesyslog',
-      args: const [],
-      predicate: predicate,
-      last: last,
-      follow: true,
+  if (!follow) {
+    stderr.writeln(
+      'ERROR: --since is not supported for iOS physical devices (idevicesyslog does not support time filtering)',
     );
-  }
-
-  // idevicesyslog never exits on its own; collect for a fixed window then kill.
-  return _runIosPhysicalNonFollow(predicate: predicate, last: last);
-}
-
-Future<int> _runIosPhysicalNonFollow({
-  required String? predicate,
-  required int? last,
-}) async {
-  stderr.writeln(
-    'NOTE: idevicesyslog streams live — collecting for ${_iosPhysicalCollectSeconds}s as snapshot.',
-  );
-  final Process process;
-  try {
-    process = await Process.start('idevicesyslog', const []);
-  } catch (e) {
-    stderr.writeln('ERROR: Failed to start idevicesyslog: $e');
     return 1;
   }
 
-  final buffer = <String>[];
-  final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
-
-  // Collect lines for a fixed window then kill the process.
-  final timer = Timer(
-    const Duration(seconds: _iosPhysicalCollectSeconds),
-    process.kill,
+  return _spawnAndStream(
+    executable: 'idevicesyslog',
+    args: const [],
+    predicate: predicate,
+    last: last,
+    follow: true,
   );
-  try {
-    await for (final line in _lines(process.stdout)) {
-      if (predicate == null || line.contains(predicate)) {
-        buffer.add(line);
-      }
-    }
-  } finally {
-    timer.cancel();
-  }
-  await stderrFuture;
-  await process.exitCode;
-
-  var lines = buffer;
-  if (last != null && lines.length > last) {
-    lines = lines.sublist(lines.length - last);
-  }
-  for (final line in lines) {
-    stdout.writeln(line);
-  }
-  return 0;
 }
 
 Future<int> _runMacos({
@@ -285,7 +248,8 @@ Future<int> _runMacos({
     return 1;
   }
 
-  final nsPredicate = predicate != null ? 'eventMessage CONTAINS "$predicate"' : null;
+  final escapedPredicate = predicate?.replaceAll('"', r'\"');
+  final nsPredicate = escapedPredicate != null ? 'eventMessage CONTAINS "$escapedPredicate"' : null;
 
   if (follow) {
     final streamArgs = <String>[
@@ -343,7 +307,8 @@ Future<int> _spawnAndStream({
 
   if (follow) {
     if (last != null) {
-      stderr.writeln('WARNING: --last is ignored in --follow mode');
+      stderr.writeln('ERROR: --last is not supported with --follow');
+      return 1;
     }
     // Stream live — do not buffer.
     var killed = false;
@@ -353,12 +318,15 @@ Future<int> _spawnAndStream({
     });
 
     final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
-    await for (final line in _lines(process.stdout)) {
-      if (predicate == null || line.contains(predicate)) {
-        stdout.writeln(line);
+    try {
+      await for (final line in _lines(process.stdout)) {
+        if (predicate == null || line.contains(predicate)) {
+          stdout.writeln(line);
+        }
       }
+    } finally {
+      await sigintSub.cancel();
     }
-    await sigintSub.cancel();
     await stderrFuture;
     final exitCode = await process.exitCode;
     return killed ? 0 : exitCode;

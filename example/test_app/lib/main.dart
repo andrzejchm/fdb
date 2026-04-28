@@ -209,8 +209,10 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                         .invokeMethod<String>('showNativeAlert');
                     if (mounted)
                       setState(() => _nativeAlertResult = result ?? 'null');
-                    developer.log('native alert result: $result',
-                        name: 'fdb_test');
+                    developer.log(
+                      'native alert result: $result',
+                      name: 'fdb_test',
+                    );
                   } catch (e) {
                     if (mounted)
                       setState(() => _nativeAlertResult = 'ERROR: $e');

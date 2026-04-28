@@ -319,7 +319,7 @@ tasks:
         OUTPUT=$({{.FDB}} syslog --since 1h --predicate kernel --last 5 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
-        # Exit code 0 OR a reasonable error (e.g. no matching lines) is acceptable.
+        # Only exit code 0 is accepted.
         if [ $EXIT_CODE -ne 0 ]; then
           echo "FAIL: fdb syslog --predicate exited with code $EXIT_CODE" >&2
           exit 1
@@ -343,10 +343,46 @@ tasks:
           exit 1
         fi
 
+        echo "==> fdb syslog --follow --last 5 (expect error — combination unsupported)"
+        set +e
+        OUTPUT=$({{.FDB}} syslog --follow --last 5 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb syslog --follow --last should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb syslog --follow --last rejected"
+        else
+          echo "FAIL: fdb syslog --follow --last — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "==> fdb syslog --last 0 (expect error — must be positive)"
+        set +e
+        OUTPUT=$({{.FDB}} syslog --last 0 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb syslog --last 0 should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb syslog --last 0 rejected"
+        else
+          echo "FAIL: fdb syslog --last 0 — expected ERROR: in output" >&2
+          exit 1
+        fi
+
         echo "==> fdb syslog --follow (Ctrl-C exits 0)"
+        # We sleep 5s before sending SIGINT to give the process time to start up.
+        # This is inherently racy on slow runners; 5s is a reasonable minimum.
         {{.FDB}} syslog --follow &
         FDB_PID=$!
-        sleep 2
+        sleep 5
         kill -INT $FDB_PID
         wait $FDB_PID
         EXIT=$?
