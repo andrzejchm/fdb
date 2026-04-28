@@ -319,11 +319,29 @@ PR description rules (from managing-pr-descriptions skill):
 
 ## Step 10 — Merge and clean up
 
-Before merging, close the beads issue **on the feature branch** so `issues.jsonl`
-is committed there and travels to `main` as part of the squash:
+### How `bd` and worktrees interact
+
+All worktrees share **one Dolt database** in the main repo's `.beads/embeddeddolt/`.
+`bd` discovers it via git's common-directory mechanism — any `bd` write (claim,
+close, update) from any worktree goes to that same shared DB immediately.
+
+`issues.jsonl` is a **git-tracked file** that lives in each branch's checkout.
+The pre-commit hook auto-exports the current DB state into whichever branch's
+`issues.jsonl` is being committed. This means:
+
+- `bd close <id>` updates the shared DB regardless of which worktree you run it from
+- The commit that carries the updated `issues.jsonl` to `main` is whatever branch
+  you commit to **after** running `bd close`
+- Therefore: run `bd close` and commit **on the feature branch**, before merging,
+  so the closed state reaches `main` via the squash commit
+
+### Steps
+
+Run from inside the feature worktree before merging:
 
 ```bash
 bd close <id>
+# The pre-commit hook auto-exports issues.jsonl — just stage and commit:
 git add .beads/issues.jsonl
 git commit -m "chore: close issue <id>"
 git push
@@ -350,7 +368,7 @@ mcp_Git-worktree action=remove name=<feature-name>
 - `fdb_helper` production `dependencies:` must not grow without explicit approval
 - All three platforms (macOS, Android, iOS) must pass manual tests before PR
 - The review-fix loop and checks are always spawned as separate delegated agents
-- `bd close <id>` is run on the feature branch; `issues.jsonl` is committed there — never on a separate branch or directly on main
+- `bd close <id>` must be run before merging; the resulting `issues.jsonl` commit goes on the feature branch — all worktrees share one DB so the close takes effect immediately regardless of CWD, but only the branch you commit to carries the update to `main`
 - Worktrees are always cleaned up after merge
 
 ## Reference files
