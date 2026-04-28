@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
@@ -12,7 +13,8 @@ int? readPid() {
 String? readVmUri() {
   final file = File(vmUriFile);
   if (!file.existsSync()) return null;
-  return file.readAsStringSync().trim();
+  final content = file.readAsStringSync().trim();
+  return content.isEmpty ? null : content;
 }
 
 String? readDevice() {
@@ -64,6 +66,26 @@ bool isProcessAlive(int pid) {
     final result = Process.runSync('kill', ['-0', pid.toString()]);
     return result.exitCode == 0;
   } catch (_) {
+    return false;
+  }
+}
+
+/// Returns true if the VM service at [uri] is reachable by opening a WebSocket
+/// and waiting for the first byte (or a clean open). Times out quickly so
+/// `fdb status` does not block for long when the app is truly dead.
+///
+/// This is used as a fallback by `fdb status` when the PID file is missing or
+/// points to a dead process — a common scenario when `fdb launch` was killed by
+/// an agent timeout after the app started but before `APP_STARTED` was printed.
+Future<bool> isVmServiceReachable(String uri) async {
+  try {
+    final ws = await WebSocket.connect(uri).timeout(const Duration(seconds: 3));
+    unawaited(ws.close());
+    return true;
+  } catch (_) {
+    // Intentional: timeout and all network errors mean "not reachable = false".
+    // This probe function is an explicit exception to the general
+    // "rethrow TimeoutException" rule — a timeout here is the probe's false case.
     return false;
   }
 }

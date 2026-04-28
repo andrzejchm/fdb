@@ -112,7 +112,9 @@ class _NativeViewTestScreenState extends State<NativeViewTestScreen> {
             key: const Key('native_tap_status'),
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            color: _pageTitle == 'TAPPED' ? Colors.green.shade100 : Colors.grey.shade200,
+            color: _pageTitle == 'TAPPED'
+                ? Colors.green.shade100
+                : Colors.grey.shade200,
             child: Text(
               'WebView title: $_pageTitle',
               key: const Key('native_tap_status_text'),
