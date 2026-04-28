@@ -113,8 +113,7 @@ Future<int> _runAndroid({
 
   final sinceSeconds = _parseDurationSeconds(since)!;
   final sinceTime = DateTime.now().subtract(Duration(seconds: sinceSeconds));
-  final sinceFormatted =
-      '${sinceTime.month.toString().padLeft(2, '0')}-'
+  final sinceFormatted = '${sinceTime.month.toString().padLeft(2, '0')}-'
       '${sinceTime.day.toString().padLeft(2, '0')} '
       '${sinceTime.hour.toString().padLeft(2, '0')}:'
       '${sinceTime.minute.toString().padLeft(2, '0')}:'
@@ -244,9 +243,7 @@ Future<int> _runIosPhysicalNonFollow({
   }
 
   final buffer = <String>[];
-  final stderrFuture = process.stderr
-      .transform(const SystemEncoding().decoder)
-      .forEach(stderr.write);
+  final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
 
   // Collect lines for a fixed window then kill the process.
   final timer = Timer(
@@ -355,9 +352,7 @@ Future<int> _spawnAndStream({
       process.kill();
     });
 
-    final stderrFuture = process.stderr
-        .transform(const SystemEncoding().decoder)
-        .forEach(stderr.write);
+    final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
     await for (final line in _lines(process.stdout)) {
       if (predicate == null || line.contains(predicate)) {
         stdout.writeln(line);
@@ -370,9 +365,7 @@ Future<int> _spawnAndStream({
   }
 
   // Non-follow: collect all output, apply filter + cap.
-  final stderrFuture = process.stderr
-      .transform(const SystemEncoding().decoder)
-      .forEach(stderr.write);
+  final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
   final buffer = <String>[];
   await for (final line in _lines(process.stdout)) {
     if (predicate == null || line.contains(predicate)) {
