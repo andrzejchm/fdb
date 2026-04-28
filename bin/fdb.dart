@@ -25,6 +25,7 @@ import 'package:fdb/commands/selected.dart';
 import 'package:fdb/commands/skill.dart';
 import 'package:fdb/commands/status.dart';
 import 'package:fdb/commands/swipe.dart';
+import 'package:fdb/commands/syslog.dart';
 import 'package:fdb/commands/tap.dart';
 import 'package:fdb/commands/tree.dart';
 import 'package:fdb/commands/wait.dart';
@@ -41,6 +42,7 @@ Commands:
   restart     Hot restart the running app
   screenshot  Take a device screenshot
   logs        Get filtered app logs
+  syslog      Read native system logs (Android logcat, iOS syslog, macOS log)
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
@@ -149,6 +151,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runScreenshot(args);
     case 'logs':
       return runLogs(args);
+    case 'syslog':
+      return runSyslog(args);
     case 'tree':
       return runTree(args);
     case 'describe':
