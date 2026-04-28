@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 Future<int> runWait(List<String> args) async {
@@ -114,6 +115,8 @@ Future<int> runWait(List<String> args) async {
 
     stderr.writeln('ERROR: Unexpected response from ext.fdb.waitFor: $result');
     return 1;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

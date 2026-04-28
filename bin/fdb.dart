@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/commands/back.dart';
 import 'package:fdb/commands/clean.dart';
 import 'package:fdb/commands/shared_prefs.dart';
@@ -123,6 +124,9 @@ Future<void> main(List<String> args) async {
   try {
     final exitCode = await _runCommand(command, commandArgs);
     exit(exitCode);
+  } on AppDiedException catch (e) {
+    _formatAppDied(e);
+    exit(1);
   } catch (e) {
     stderr.writeln('ERROR: $e');
     exit(1);
@@ -190,4 +194,27 @@ Future<int> _runCommand(String command, List<String> args) {
       stderr.writeln(usage);
       return Future.value(1);
   }
+}
+
+/// Formats an [AppDiedException] to stderr in the standard fdb error style:
+///
+/// ```
+/// ERROR: APP_DIED REASON=jetsam_highwater
+/// Last 20 log lines:
+///   <line>
+///   ...
+/// See: fdb crash-report
+/// ```
+void _formatAppDied(AppDiedException e) {
+  final reasonSuffix = e.reason != null ? ' REASON=${e.reason}' : '';
+  stderr.writeln('ERROR: APP_DIED$reasonSuffix');
+
+  if (e.logLines.isNotEmpty) {
+    stderr.writeln('Last ${e.logLines.length} log lines:');
+    for (final line in e.logLines) {
+      stderr.writeln('  $line');
+    }
+  }
+
+  stderr.writeln('See: fdb crash-report');
 }

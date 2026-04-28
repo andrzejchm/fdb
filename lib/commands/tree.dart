@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 Future<int> runTree(List<String> args) async {
@@ -36,6 +37,8 @@ Future<int> runTree(List<String> args) async {
 
     _printTree(tree, 0, maxDepth, userOnly);
     return 0;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

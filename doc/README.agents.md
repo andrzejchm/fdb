@@ -320,3 +320,10 @@ fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 **Status shows RUNNING=false after launch** -- If `fdb launch` was killed by a tool timeout but the Flutter app is still running, `fdb status` will probe the VM service URI directly and report `RUNNING=true`. If it still reports `RUNNING=false`, the Flutter process may have crashed — check `fdb logs --last 50` for errors.
 
 **Commands report RUNNING=false when run from a subdirectory** -- fdb automatically walks up the directory tree to find the nearest live `.fdb/` session, so you don't need to be in the project root. If it still fails, use `fdb --session-dir <project>/.fdb status` to point directly at the session directory.
+
+**`ERROR: APP_DIED` instead of a result** -- The target Flutter app process has died while fdb was communicating with it. fdb detects this and exits immediately with a non-zero code rather than hanging. The error output includes:
+- An optional `REASON=` field (e.g. `jetsam_highwater`, `lmk`, `crash_NullPointerException`) from OS-level logs when the cause can be determined automatically.
+- The last 20 lines of `.fdb/logs.txt` so you can see recent app output.
+- A `See: fdb crash-report` hint when a structured reason is available.
+
+To investigate further, run `fdb logs --last 50` or `fdb crash-report` (when available). Then relaunch with `fdb launch`.

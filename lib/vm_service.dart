@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/process_utils.dart';
 
 /// Sends a JSON-RPC request to the Flutter VM service over websocket.
 /// Returns the parsed JSON response.
-/// Throws on connection failure or timeout.
+/// Throws [AppDiedException] when the app process is detected as dead,
+/// or on connection failure / timeout.
 Future<Map<String, dynamic>> vmServiceCall(
   String method, {
   Map<String, dynamic> params = const {},
@@ -17,12 +19,51 @@ Future<Map<String, dynamic>> vmServiceCall(
     throw StateError('VM service URI not found. Is the app running?');
   }
 
+  // Pre-check: if the PID file exists and the process is dead, short-circuit
+  // immediately without even attempting a WebSocket connection.
+  final pid = readPid();
+  if (pid != null && !isProcessAlive(pid)) {
+    throw await buildAppDiedException(pid: pid);
+  }
+
   final wsUri = uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
 
-  final ws = await WebSocket.connect(
-    wsUri,
-    customClient: HttpClient()..maxConnectionsPerHost = 1,
-  );
+  WebSocket ws;
+  try {
+    ws = await WebSocket.connect(
+      wsUri,
+      customClient: HttpClient()..maxConnectionsPerHost = 1,
+    ).timeout(const Duration(seconds: 5));
+  } on TimeoutException {
+    // Connection timed out — check if the process died in the meantime.
+    final currentPid = readPid();
+    if (currentPid != null && !isProcessAlive(currentPid)) {
+      throw await buildAppDiedException(pid: currentPid);
+    }
+    // Rethrow original so the caller sees a TimeoutException when the app
+    // is still nominally alive but the VM service is unreachable.
+    rethrow;
+  } catch (e) {
+    // Connection refused / OS error: the VM service is no longer accepting
+    // connections.  This is the primary signal that the app has died — the
+    // PID liveness check alone is insufficient because fdb.pid stores the
+    // flutter-tools process PID, not the actual app process PID (fdb-bbu).
+    //
+    // We treat ANY connection-refused-like error as APP_DIED, since the VM
+    // service URI was written by `fdb launch` only when the app was healthy.
+    // If the app came back on a different port the URI would also be stale,
+    // but that scenario is handled by re-running `fdb launch`.
+    if (_isConnectionRefused(e)) {
+      throw await buildAppDiedException(pid: readPid());
+    }
+    // For non-connection errors (e.g. bad URI, TLS issues) fall back to PID
+    // check before rethrowing.
+    final currentPid = readPid();
+    if (currentPid != null && !isProcessAlive(currentPid)) {
+      throw await buildAppDiedException(pid: currentPid);
+    }
+    rethrow;
+  }
 
   // Widget trees can be 500KB+, no built-in buffer size limit on dart:io WebSocket
   // but we need to handle large responses properly.
@@ -51,7 +92,15 @@ Future<Map<String, dynamic>> vmServiceCall(
     },
     onDone: () {
       if (!completer.isCompleted) {
-        completer.completeError(StateError('WebSocket closed before response'));
+        // WebSocket closed before we got a response — check if the app died.
+        // We fire off the enrichment asynchronously and complete the error.
+        _buildDeadAppError().then((ex) {
+          if (!completer.isCompleted) completer.completeError(ex);
+        }).catchError((Object _) {
+          if (!completer.isCompleted) {
+            completer.completeError(StateError('WebSocket closed before response'));
+          }
+        });
       }
     },
   );
@@ -64,8 +113,36 @@ Future<Map<String, dynamic>> vmServiceCall(
     return response;
   } on TimeoutException {
     await ws.close();
+    // Check if the process died during the wait.
+    final currentPid = readPid();
+    if (currentPid != null && !isProcessAlive(currentPid)) {
+      throw await buildAppDiedException(pid: currentPid);
+    }
+    rethrow;
+  } on AppDiedException {
+    // Already enriched — rethrow as-is.
+    try {
+      await ws.close();
+    } catch (_) {}
     rethrow;
   }
+}
+
+/// Builds an [AppDiedException] after a mid-call connection drop.
+Future<AppDiedException> _buildDeadAppError() async {
+  final pid = readPid();
+  return buildAppDiedException(pid: pid);
+}
+
+/// Returns true when [error] indicates the OS refused the TCP connection,
+/// which is the reliable signal that the VM service is no longer running.
+bool _isConnectionRefused(Object error) {
+  if (error is SocketException) {
+    // errno 61 = ECONNREFUSED on macOS/Linux
+    final errno = error.osError?.errorCode;
+    return errno == 61 || errno == 111;
+  }
+  return false;
 }
 
 /// Returns all isolate IDs from the VM service.
@@ -97,6 +174,8 @@ Future<String?> findFlutterIsolateId() async {
       );
       final result = response['result'] as Map<String, dynamic>?;
       if (result != null && response['error'] == null) return id;
+    } on AppDiedException {
+      rethrow;
     } catch (_) {
       // This isolate doesn't have Flutter inspector, try next
     }
@@ -177,6 +256,9 @@ dynamic unwrapRawExtensionResult(Map<String, dynamic> response) {
 ///
 /// Returns the Flutter isolate ID if fdb_helper is available, or null if not.
 /// Callers can reuse the returned isolate ID to avoid a second round-trip.
+///
+/// Re-throws [AppDiedException] so the caller can surface a structured error
+/// instead of a misleading "fdb_helper not detected" message.
 Future<String?> checkFdbHelper() async {
   try {
     final isolateId = await findFlutterIsolateId();
@@ -187,6 +269,8 @@ Future<String?> checkFdbHelper() async {
       timeout: const Duration(seconds: 3),
     );
     return isolateId;
+  } on AppDiedException {
+    rethrow;
   } catch (_) {
     return null;
   }

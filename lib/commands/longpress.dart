@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Long-presses a widget identified by selector or absolute coordinates.
@@ -165,6 +166,8 @@ Future<int> runLongpress(List<String> args) async {
       );
       return 1;
     }
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;
