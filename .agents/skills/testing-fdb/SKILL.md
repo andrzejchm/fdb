@@ -39,6 +39,7 @@ The app must already be running (via `task test:launch`) before running individu
 
 ```bash
 task test:launch DEVICE=iPhone-16
+task test:launch-verbose DEVICE=iPhone-16
 task test:status
 task test:status-after-interrupted-launch
 task test:reload

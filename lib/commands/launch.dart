@@ -13,6 +13,7 @@ Future<int> runLaunch(List<String> args) async {
   String? flavor;
   String? target;
   String? flutterSdk;
+  var verbose = false;
 
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -26,6 +27,8 @@ Future<int> runLaunch(List<String> args) async {
         target = args[++i];
       case '--flutter-sdk':
         flutterSdk = args[++i];
+      case '--verbose':
+        verbose = true;
     }
   }
 
@@ -88,6 +91,7 @@ Future<int> runLaunch(List<String> args) async {
     pidFile,
     if (flavor != null) ...['--flavor', flavor],
     if (target != null) ...['--target', target],
+    if (verbose) '--verbose',
   ];
   final flutterCmd = flutterArgs.map(_shellEscape).join(' ');
 

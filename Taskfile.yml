@@ -81,6 +81,50 @@ tasks:
           exit 1
         fi
 
+  test:launch-verbose:
+    desc: "Launch the test app with --verbose and verify APP_STARTED is emitted"
+    dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        echo "==> Kill any running app before verbose launch"
+        {{.FDB}} kill 2>&1 || true
+
+        echo "==> Launching test app with --verbose on device: {{.DEVICE}}"
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" --verbose 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb launch --verbose exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "APP_STARTED"; then
+          echo "PASS: fdb launch --verbose"
+        else
+          echo "FAIL: fdb launch --verbose - APP_STARTED not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Kill app after verbose launch test"
+        {{.FDB}} kill 2>&1 || true
+
+        echo "==> Re-launching test app (normal mode) to restore smoke state"
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: re-launch after verbose test exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "APP_STARTED"; then
+          echo "PASS: re-launch after verbose test"
+        else
+          echo "FAIL: re-launch after verbose test - APP_STARTED not found in output" >&2
+          exit 1
+        fi
+
   test:status:
     desc: Check app status (expects a running app)
     dir: '{{.TEST_APP}}'
@@ -2209,6 +2253,9 @@ tasks:
           task: cleanup
       - task: test:devices
       - task: test:launch
+        vars:
+          DEVICE: '{{.DEVICE}}'
+      - task: test:launch-verbose
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:status
