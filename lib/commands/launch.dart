@@ -182,8 +182,6 @@ exec $flutterCmd > $logFile 2>&1
   // fdb.pid). Used by vmServiceCall for liveness detection on macOS desktop.
   // Non-fatal: if getVM fails for any reason, fdb.app_pid is simply not written
   // and vmServiceCall falls back to the flutter-tools PID heuristic.
-  await _writeAppPid();
-
   // Start the log collector — a background process that subscribes to the
   // VM service Logging/Stdout/Stderr streams and appends to the log file.
   // flutter run only forwards print() to stdout; developer.log() events are
@@ -194,6 +192,8 @@ exec $flutterCmd > $logFile 2>&1
   stdout.writeln('VM_SERVICE_URI=$vmUri');
   stdout.writeln('PID=$pid');
   stdout.writeln('LOG_FILE=$logFile');
+
+  await _writeAppPid();
 
   return 0;
 }
@@ -320,8 +320,6 @@ Future<void> _writeAppPid() async {
     final appPid = result['pid'];
     if (appPid == null) return;
     File(appPidFile).writeAsStringSync(appPid.toString());
-  } on TimeoutException {
-    rethrow;
   } catch (_) {
     // Non-fatal: fdb.app_pid simply won't be written.
   }
