@@ -101,6 +101,7 @@ String ensureSessionDir() {
 }
 
 String get pidFile => '$_sessionDir/fdb.pid';
+String get appPidFile => '$_sessionDir/fdb.app_pid';
 String get logFile => '$_sessionDir/logs.txt';
 String get logCollectorPidFile => '$_sessionDir/log_collector.pid';
 String get logCollectorScript => '$_sessionDir/log_collector.dart';

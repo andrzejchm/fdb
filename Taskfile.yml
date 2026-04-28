@@ -1576,55 +1576,69 @@ tasks:
         sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - |
-        echo "==> [app-died] Ensuring app is running"
-        if ! {{.FDB}} status 2>&1 | grep -q "RUNNING=true"; then
-          echo "==> [app-died] App not running — launching first"
-          OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
-          EXIT_CODE=$?
-          echo "$OUTPUT"
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
-            exit 1
-          fi
-          if ! echo "$OUTPUT" | grep -q "APP_STARTED"; then
-            echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
-            exit 1
-          fi
+        echo "==> [app-died] Ensuring a fresh app session on device {{.DEVICE}}"
+        # Always kill and relaunch to guarantee we are on the correct device.
+        # Reusing an existing session risks picking up a stale session from a
+        # different platform (e.g. macOS session left over from a previous test
+        # run when this invocation targets Android or iOS).
+        {{.FDB}} kill 2>/dev/null || true
+        sleep 1
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "APP_STARTED"; then
+          echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
+          exit 1
         fi
 
         echo "==> [app-died] Waiting for app to be ready"
+        # Pin --session-dir so the readiness probe doesn't auto-resolve to a
+        # stale .fdb/ from another worktree higher up the directory tree.
         READY=0
-        for _ in $(seq 1 20); do
-          if {{.FDB}} tree --depth 1 >/dev/null 2>&1; then
+        for _ in $(seq 1 60); do
+          if {{.FDB}} --session-dir "$(pwd)/.fdb" tree --depth 1 >/dev/null 2>&1; then
             READY=1
             break
           fi
-          sleep 0.5
+          sleep 1
         done
         if [ $READY -ne 1 ]; then
           echo "FAIL: app did not become ready in time" >&2
           exit 1
         fi
 
-        # Detect platform to use the right kill mechanism.
-        # NOTE: fdb.pid stores the flutter-tools process PID, not the actual app
-        # process PID (see https://github.com/andrzejchm/fdb/issues — fdb-bbu).
-        # We must use platform-specific tooling to kill the actual app process.
+        # Kill the app process using the appropriate mechanism per platform.
+        # On macOS desktop: fdb.app_pid holds the real macOS app binary PID — kill it
+        #   directly with kill -9, then also kill flutter-tools to prevent auto-restart.
+        # On iOS simulator: the app runs inside Simulator.app; fdb.app_pid is a device-
+        #   namespace PID not visible on the macOS host — use xcrun simctl terminate.
+        # On Android: same device-namespace caveat — use adb shell am force-stop.
         PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
         DEVICE_ID=$(cat .fdb/device.txt 2>/dev/null || echo "")
         echo "==> [app-died] Platform=$PLATFORM Device=$DEVICE_ID"
 
         if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
           echo "==> [app-died] iOS simulator — terminating via simctl"
-          # Find the bundle ID of the RUNNING app (not just installed) via
-          # launchctl inside the simulator — avoids picking the wrong entry when
-          # multiple test_app builds are installed.
-          BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
-            | grep "UIKitApplication:" \
-            | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
-            | head -1)
+          APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
+          BUNDLE_ID=""
+          if [ -n "$APP_PID" ]; then
+            BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
+              | grep "^$APP_PID" \
+              | grep "UIKitApplication:" \
+              | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
+              | head -1)
+          fi
           if [ -z "$BUNDLE_ID" ]; then
-            # Fallback: try each installed test_app bundle until one terminates
+            BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
+              | grep "UIKitApplication:" \
+              | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
+              | head -1)
+          fi
+          if [ -z "$BUNDLE_ID" ]; then
             BUNDLE_ID=$(xcrun simctl listapps "$DEVICE_ID" 2>/dev/null \
               | grep -A1 'CFBundleName = "test_app"' \
               | grep CFBundleIdentifier \
@@ -1638,19 +1652,8 @@ tasks:
           echo "  BundleID=$BUNDLE_ID"
           xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" 2>&1 || true
 
-        elif [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "macOS" ]; then
-          echo "==> [app-died] macOS — killing app binary process"
-          # The macOS .app process is separate from the flutter-tools PID in fdb.pid
-          APP_BIN=$(find "$(pwd)/build/macos/Build/Products/Debug" -name "test_app" -type f 2>/dev/null | head -1)
-          if [ -n "$APP_BIN" ]; then
-            pkill -9 -f "$APP_BIN" 2>/dev/null || true
-          else
-            pkill -9 -f "test_app.app/Contents/MacOS/test_app" 2>/dev/null || true
-          fi
-
         elif [ "$PLATFORM" = "android" ] || echo "$PLATFORM" | grep -qi "android"; then
           echo "==> [app-died] Android — force-stopping via adb"
-          # Try to find the app package name
           PACKAGE=$(adb -s "$DEVICE_ID" shell pm list packages 2>/dev/null \
             | grep -i "test.app\|testapp\|fdb.test" \
             | sed 's/package://' \
@@ -1663,20 +1666,39 @@ tasks:
           adb -s "$DEVICE_ID" shell am force-stop "$PACKAGE" 2>&1 || true
 
         else
-          echo "==> [app-died] Unknown platform '$PLATFORM' — killing flutter-tools PID as best-effort"
-          PID=$(cat .fdb/fdb.pid 2>/dev/null)
-          if [ -n "$PID" ]; then
-            kill -9 "$PID" 2>/dev/null || true
-            # Also kill any child processes
-            pkill -9 -P "$PID" 2>/dev/null || true
+          # macOS desktop (darwin): fdb.app_pid is a real macOS host PID — kill it directly.
+          # Also kill flutter-tools to prevent it from auto-restarting the app.
+          # Use /bin/kill explicitly: Task's embedded shell (mvdan/sh) does not
+          # implement the `kill` builtin and does not fall back to the external
+          # binary, so a bare `kill` call fails with "unimplemented builtin".
+          APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
+          if [ -n "$APP_PID" ]; then
+            echo "==> [app-died] Killing app VM process PID=$APP_PID"
+            /bin/kill -9 "$APP_PID" 2>/dev/null || true
+            TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
+            if [ -n "$TOOLS_PID" ]; then
+              echo "==> [app-died] Killing flutter-tools PID=$TOOLS_PID to prevent auto-restart"
+              /bin/kill -9 "$TOOLS_PID" 2>/dev/null || true
+            fi
+          else
+            echo "WARNING: .fdb/fdb.app_pid not found — falling back to killing fdb.pid" >&2
+            TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
+            if [ -n "$TOOLS_PID" ]; then
+              echo "==> [app-died] Killing flutter-tools PID=$TOOLS_PID (best-effort)"
+              /bin/kill -9 "$TOOLS_PID" 2>/dev/null || true
+            fi
           fi
         fi
 
         sleep 2
 
         echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
+        # Pin the session dir explicitly. After the kill, this worktree's .fdb/fdb.pid
+        # points to a dead process; without --session-dir, fdb auto-resolves by walking
+        # up the directory tree and may attach to an unrelated live .fdb/ session in a
+        # parent directory, masking the dead-app condition.
         set +e
-        OUTPUT=$({{.FDB}} tap @1 2>&1)
+        OUTPUT=$({{.FDB}} --session-dir "$(pwd)/.fdb" tap @1 2>&1)
         EXIT_CODE=$?
         set -e
         echo "$OUTPUT"
