@@ -405,6 +405,45 @@ tasks:
           exit 1
         fi
 
+  test:describe-grid:
+    desc: Verify fdb describe returns off-screen GridView children
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to Grid Describe Test screen"
+        {{.FDB}} scroll-to --key "go_to_grid_describe_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_grid_describe_test" >/dev/null 2>&1
+        sleep 1
+
+        echo "==> Describing grid screen"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe (grid) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+
+        # There are 30 items (Item 0 .. Item 29). Only a subset fits on screen.
+        # Verify that at least one off-screen item (Item 20 or later) appears.
+        if echo "$OUTPUT" | grep -q "Item 2[0-9]"; then
+          echo "PASS: fdb describe surfaces off-screen GridView children"
+        else
+          echo "FAIL: fdb describe did not surface off-screen GridView children (Item 20+)" >&2
+          exit 1
+        fi
+
+        # Also verify the key-based refs are present for off-screen items.
+        if echo "$OUTPUT" | grep -q "grid_item_2[0-9]"; then
+          echo "PASS: off-screen grid items have key refs in describe output"
+        else
+          echo "FAIL: off-screen grid item keys missing from describe output" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back"
+        {{.FDB}} back >/dev/null 2>&1
+
   test:tap:
     desc: Tap a widget by text selector
     dir: '{{.TEST_APP}}'

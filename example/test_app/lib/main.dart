@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'benchmark_screens.dart';
+import 'grid_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'scroll_to_test_screen.dart';
 
@@ -36,6 +37,7 @@ class FdbTestApp extends StatelessWidget {
         benchmarkStressGridRoute: (_) => const BenchmarkStressGridPage(),
         benchmarkPathologicalRoute: (_) => const BenchmarkPathologicalPage(),
         '/native-view-test': (_) => const NativeViewTestScreen(),
+        '/grid-describe-test': (_) => const GridDescribeScreen(),
         scrollToTestRoute: (_) => const ScrollToTestPage(),
         scrollToTestLazyRoute: (_) => const LazyListScrollToPage(),
         scrollToTestHorizontalRoute: (_) => const HorizontalListScrollToPage(),
@@ -199,6 +201,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/native-view-test'),
                 child: const Text('Native View Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_grid_describe_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/grid-describe-test'),
+                child: const Text('Grid Describe Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(

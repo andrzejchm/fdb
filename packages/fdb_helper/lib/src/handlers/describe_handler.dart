@@ -50,10 +50,19 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
     String? screenName;
     String? routeName;
 
+    // Cap: collect at most this many interactive entries to avoid
+    // materialising huge or infinite eagerly-built lists (e.g. GridView.count
+    // with thousands of items). Callers should paginate or scroll if they need
+    // elements beyond this limit.
+    const maxInteractive = 200;
+
     // Tracks the nearest enclosing Tooltip message while walking the tree.
     String? currentTooltip;
 
     void visit(Element element) {
+      // Stop collecting interactive entries once the cap is reached.
+      if (interactive.length >= maxInteractive) return;
+
       final widget = element.widget;
       final typeName = widget.runtimeType.toString();
 
@@ -119,36 +128,47 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         final offset = renderObject.localToGlobal(Offset.zero);
         final size = renderObject.size;
 
-        // Skip zero-size or off-screen widgets.
+        // Skip zero-size widgets entirely.
         if (size.isEmpty) {
           element.visitChildren(visit);
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           return;
         }
+
         final elementRect = offset & size;
-        if (!screenRect.overlaps(elementRect)) {
-          element.visitChildren(visit);
-          if (typeName == 'Tooltip') currentTooltip = previousTooltip;
-          return;
-        }
+        final isOnScreen = screenRect.overlaps(elementRect);
 
-        // Collect visible text.
-        if (widget is Text) {
-          final text = widget.data ?? widget.textSpan?.toPlainText();
-          if (text != null && text.trim().isNotEmpty) {
-            texts.add(text.trim());
+        // Collect visible text only for on-screen widgets to keep TEXT output
+        // focused on what the user can currently see.
+        if (isOnScreen) {
+          if (widget is Text) {
+            final text = widget.data ?? widget.textSpan?.toPlainText();
+            if (text != null && text.trim().isNotEmpty) {
+              texts.add(text.trim());
+            }
+          } else if (widget is RichText) {
+            final text = widget.text.toPlainText().trim();
+            if (text.isNotEmpty) texts.add(text);
+          } else if (widget is EditableText) {
+            final text = widget.controller.text.trim();
+            if (text.isNotEmpty) texts.add(text);
           }
-        } else if (widget is RichText) {
-          final text = widget.text.toPlainText().trim();
-          if (text.isNotEmpty) texts.add(text);
-        } else if (widget is EditableText) {
-          final text = widget.controller.text.trim();
-          if (text.isNotEmpty) texts.add(text);
         }
 
-        // Collect interactive widgets.
+        // Collect interactive widgets regardless of viewport position so that
+        // off-screen children of eagerly-built scrollable collections
+        // (GridView.count, ListView with explicit children, etc.) are included
+        // and addressable via @N for tap targeting.
+        // Lazy-built sliver children (GridView.builder, ListView.builder) that
+        // haven't scrolled into view won't exist in the element tree at all
+        // and therefore cannot appear here — use fdb scroll-to to reveal them
+        // before describing.
         if (_isDescribeInteractiveWidget(typeName)) {
-          if (!isElementHittable(element)) {
+          // For on-screen widgets, require a successful hit test to confirm
+          // the widget is actually reachable. For off-screen widgets the hit
+          // test always fails (the point is outside the viewport), so we skip
+          // it and include the element unconditionally.
+          if (isOnScreen && !isElementHittable(element)) {
             if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             return;
           }
@@ -165,20 +185,23 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             if (gestures != null) 'gestures': gestures,
           });
 
-          // Still collect text from children for the TEXT section.
-          void collectText(Element el) {
-            final w = el.widget;
-            if (w is Text) {
-              final t = w.data ?? w.textSpan?.toPlainText();
-              if (t != null && t.trim().isNotEmpty) texts.add(t.trim());
-            } else if (w is RichText) {
-              final t = w.text.toPlainText().trim();
-              if (t.isNotEmpty) texts.add(t);
+          // Still collect text from children for the TEXT section (on-screen
+          // children of interactive widgets).
+          if (isOnScreen) {
+            void collectText(Element el) {
+              final w = el.widget;
+              if (w is Text) {
+                final t = w.data ?? w.textSpan?.toPlainText();
+                if (t != null && t.trim().isNotEmpty) texts.add(t.trim());
+              } else if (w is RichText) {
+                final t = w.text.toPlainText().trim();
+                if (t.isNotEmpty) texts.add(t);
+              }
+              el.visitChildren(collectText);
             }
-            el.visitChildren(collectText);
-          }
 
-          element.visitChildren(collectText);
+            element.visitChildren(collectText);
+          }
 
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           return;
