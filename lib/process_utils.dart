@@ -82,9 +82,10 @@ Future<bool> isVmServiceReachable(String uri) async {
     final ws = await WebSocket.connect(uri).timeout(const Duration(seconds: 3));
     await ws.close();
     return true;
-  } on TimeoutException {
-    rethrow;
   } catch (_) {
+    // Intentional: timeout and all network errors mean "not reachable = false".
+    // This probe function is an explicit exception to the general
+    // "rethrow TimeoutException" rule — a timeout here is the probe's false case.
     return false;
   }
 }

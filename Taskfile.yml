@@ -1628,6 +1628,47 @@ tasks:
           exit 1
         fi
 
+        echo "==> Scenario: VM URI present but service unreachable → RUNNING=false"
+        ORIGINAL_PID3=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
+        ORIGINAL_URI3=$(cat .fdb/vm_uri.txt 2>/dev/null || echo "")
+        if [ -z "$ORIGINAL_URI3" ]; then
+          echo "FAIL: .fdb/vm_uri.txt not found — run test:launch first" >&2
+          exit 1
+        fi
+
+        restore_scenario3() {
+          if [ -n "$ORIGINAL_PID3" ]; then
+            printf '%s' "$ORIGINAL_PID3" > .fdb/fdb.pid
+          else
+            rm -f .fdb/fdb.pid
+          fi
+          printf '%s' "$ORIGINAL_URI3" > .fdb/vm_uri.txt
+        }
+        trap restore_scenario3 EXIT
+
+        # Remove PID file so only the VM URI path is exercised.
+        rm -f .fdb/fdb.pid
+        # Replace VM URI with a URI that refuses connections immediately.
+        printf 'ws://127.0.0.1:1/' > .fdb/vm_uri.txt
+
+        OUTPUT3=$({{.FDB}} status 2>&1)
+        EXIT_CODE3=$?
+        echo "$OUTPUT3"
+
+        restore_scenario3
+        trap - EXIT
+
+        if [ $EXIT_CODE3 -ne 0 ]; then
+          echo "FAIL: fdb status exited with code $EXIT_CODE3" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT3" | grep -q "RUNNING=false"; then
+          echo "PASS: fdb status correctly reports RUNNING=false when VM URI present but unreachable"
+        else
+          echo "FAIL: fdb status - expected RUNNING=false when VM URI present but service unreachable" >&2
+          exit 1
+        fi
+
   # ---------------------------------------------------------------------------
   # Cleanup
   # ---------------------------------------------------------------------------
