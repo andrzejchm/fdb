@@ -77,17 +77,16 @@ Find device IDs: `fdb devices`
 fdb doctor
 ```
 
-Run this before an interaction session when you need to validate that the app is running and the environment is usable. It checks the fdb installation health, app process, VM service, `fdb_helper`, platform tools, and stored device state, then prints `DOCTOR_SUMMARY=pass|fail CHECKS=<n> FAILED=<n>`.
+Run this before an interaction session when you need to validate that the app is running and the environment is usable. It checks the app process, VM service, `fdb_helper`, platform tools, and stored device state, then prints `DOCTOR_SUMMARY=pass|fail CHECKS=<n> FAILED=<n>`.
 
 Example output:
 ```
-DOCTOR_CHECK=fdb_install STATUS=pass
 DOCTOR_CHECK=app_running STATUS=pass
 DOCTOR_CHECK=vm_service STATUS=pass VM_SERVICE_URI=ws://127.0.0.1:56789/ws
 DOCTOR_CHECK=fdb_helper STATUS=pass
 DOCTOR_CHECK=platform_tools STATUS=warn TOOLS=xcrun,screencapture MISSING=adb HINT=adb missing — Android screenshots and interactions will fail. Install Android platform-tools.
 DOCTOR_CHECK=device STATUS=pass DEVICE_ID=macos PLATFORM=darwin-x64
-DOCTOR_SUMMARY=pass CHECKS=6 FAILED=0
+DOCTOR_SUMMARY=pass CHECKS=5 FAILED=0
 ```
 
 Warnings do not make the summary fail. Failed checks include `HINT=...` remediation text. The command always exits `0`, so parse the summary instead of relying on the process exit code.
@@ -467,16 +466,6 @@ fdb tap --key "password_field"
 fdb input --key "password_field" "secret"
 fdb tap --text "Login"
 fdb screenshot
-```
-
-## Troubleshooting
-
-**Cryptic `directory does not exist` on every fdb invocation** — fdb was installed via `dart pub global activate --source path <dir>` and the source directory was later deleted (e.g. a removed git worktree). Dart cannot load the script before fdb's `main()` runs. Fix:
-
-```bash
-dart pub global deactivate fdb
-dart pub global activate fdb
-# or for latest: dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 ```
 
 ## State files
