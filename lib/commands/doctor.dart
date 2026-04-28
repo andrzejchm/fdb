@@ -5,21 +5,6 @@ import 'package:fdb/vm_service.dart';
 
 Future<int> runDoctor(List<String> args) async {
   var failed = 0;
-
-  final fdbInstallOk = _checkFdbInstall();
-  if (fdbInstallOk) {
-    _printCheck('fdb_install', 'pass');
-  } else {
-    failed++;
-    _printCheck(
-      'fdb_install',
-      'fail',
-      hint:
-          'fdb installation source directory is missing (deleted worktree or --source path). '
-          'Reinstall: dart pub global deactivate fdb && dart pub global activate fdb',
-    );
-  }
-
   final appRunning = _checkAppRunning();
 
   if (appRunning) {
@@ -94,26 +79,8 @@ Future<int> runDoctor(List<String> args) async {
   }
 
   final summary = failed == 0 ? 'pass' : 'fail';
-  stdout.writeln('DOCTOR_SUMMARY=$summary CHECKS=6 FAILED=$failed');
+  stdout.writeln('DOCTOR_SUMMARY=$summary CHECKS=5 FAILED=$failed');
   return 0;
-}
-
-/// Returns true if the fdb script's source file still exists on disk.
-///
-/// When fdb is installed via `dart pub global activate --source path <dir>`
-/// and that directory is later deleted (e.g. a removed git worktree), Dart
-/// cannot load the script and prints a cryptic "directory does not exist"
-/// before our main() ever runs. This check detects the stale installation
-/// so that `fdb doctor` can surface a clear remediation hint instead.
-bool _checkFdbInstall() {
-  try {
-    final scriptPath = Platform.script.toFilePath();
-    return File(scriptPath).existsSync();
-  } catch (_) {
-    // Platform.script may not be a file URI in some environments (e.g. tests).
-    // Treat as healthy — the check is best-effort.
-    return true;
-  }
 }
 
 bool _checkAppRunning() {
