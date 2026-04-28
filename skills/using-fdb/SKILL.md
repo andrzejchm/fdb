@@ -164,9 +164,9 @@ fdb selected      # get what widget was tapped
 
 ### Tap native UI (system dialogs, permission sheets)
 
-Use this when a native OS dialog is blocking the Flutter UI — iOS permission prompts,
-Android runtime-permission sheets, macOS native dialogs. Unlike `fdb tap`, this
-command does NOT go through Flutter's GestureBinding.
+Use this when a native OS dialog is blocking the Flutter UI — iOS permission
+prompts, Android runtime-permission sheets. Unlike `fdb tap`, this command
+does NOT go through Flutter's GestureBinding.
 
 ```bash
 fdb native-tap --at 200,400    # tap at device coordinates (x,y)
@@ -177,9 +177,9 @@ Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 
 Platform dispatch:
 - **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels). No extra setup needed.
-- **iOS simulator** — `idb ui tap X Y` via IndigoHID (SimulatorKit). Correctly reaches OS dialogs that sit outside Flutter's rendering surface. Requires `brew install facebook/fb/idb-companion && pip3 install fb-idb`.
-- **iOS physical** — `idb ui tap X Y` via XCTest private APIs (on-device agent). Same dependency as simulator. Requires `brew install facebook/fb/idb-companion && pip3 install fb-idb`.
-- **macOS** — `cliclick` with automatic Flutter app window offset (CGWindowList, no AX permission needed). Coordinates in Flutter logical pixels relative to the app content origin. Requires `brew install cliclick`.
+- **iOS simulator** — IndigoHID via SimulatorKit private framework. No extra tools required.
+- **iOS physical** — `idb ui tap X Y` via XCTest private APIs. Requires `brew install facebook/fb/idb-companion && pip3 install fb-idb`.
+- **macOS** — **not supported.** Out-of-process click injection on macOS requires Accessibility permission, which the system only grants to signed `.app` bundles. Homebrew CLIs (cliclick, opencode, tmux) are unsigned binaries and cannot receive Accessibility permission on macOS Sequoia/Tahoe. Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and does not require any system permissions.
 
 Workflow for dismissing an iOS permission prompt:
 ```bash

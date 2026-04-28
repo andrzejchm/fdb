@@ -1,17 +1,25 @@
 # test_app
 
-A new Flutter project.
+The fdb test app — a fixture used by `task test:*` smoke tests and
+contributor-driven manual verification of fdb commands across platforms
+(Android, iOS sim, iOS physical, macOS, web).
 
-## Getting Started
+## Setup
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+fdb launch --device <device_id>
+```
 
-A few resources to get you started if this is your first Flutter project:
+## iOS physical device
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Following the flutter/packages convention, the test app's `.pbxproj` does
+not hardcode `DEVELOPMENT_TEAM`. To run on a physical iPhone or iPad:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Open `ios/Runner.xcworkspace` in Xcode
+2. Select the **Runner** target → **Signing & Capabilities**
+3. Set **Team** to your own Apple Developer team
+4. The bundle ID `dev.andrzejchm.fdb.testApp` is taken — you may need to
+   change it to one available under your team (e.g. `<your-domain>.fdbTestApp`)
+
+Close Xcode, then `fdb launch --device <udid>`.

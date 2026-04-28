@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:fdb_helper/fdb_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'benchmark_screens.dart';
 import 'native_view_test_screen.dart';
@@ -54,8 +55,10 @@ class FdbTestHomePage extends StatefulWidget {
 }
 
 class _FdbTestHomePageState extends State<FdbTestHomePage> {
+  static const _nativeDialogChannel = MethodChannel('fdb_test/native_dialog');
   int _counter = 0;
   int _doubleTapCount = 0;
+  String _nativeAlertResult = 'not shown';
   int _secondaryDoubleTapCount = 0;
   int _indexedDoubleTapPrimaryCount = 0;
   int _indexedDoubleTapSecondaryCount = 0;
@@ -195,6 +198,25 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 key: const Key('go_to_native_view_test'),
                 onPressed: () => Navigator.pushNamed(context, '/native-view-test'),
                 child: const Text('Native View Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('show_native_alert'),
+                onPressed: () async {
+                  try {
+                    final result = await _nativeDialogChannel
+                        .invokeMethod<String>('showNativeAlert');
+                    if (mounted) setState(() => _nativeAlertResult = result ?? 'null');
+                    developer.log('native alert result: $result', name: 'fdb_test');
+                  } catch (e) {
+                    if (mounted) setState(() => _nativeAlertResult = 'ERROR: $e');
+                  }
+                },
+                child: const Text('Show Native Alert'),
+              ),
+              Text(
+                'Native alert: $_nativeAlertResult',
+                key: const Key('native_alert_result'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(

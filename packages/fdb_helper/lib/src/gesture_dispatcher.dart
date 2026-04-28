@@ -41,9 +41,27 @@ int _tapButtons(PointerDeviceKind kind) {
 /// Falls back to [dispatchTap] on platforms without native channel support
 /// (web, Linux, Windows).
 Future<void> dispatchNativeTap(Offset globalPosition) async {
+  // Platforms with no native tap implementation: silently fall back to
+  // Flutter's GestureBinding (covers web, Linux, Windows, tests).
+  final platform = defaultTargetPlatform;
+  final hasNativeImpl =
+      platform == TargetPlatform.iOS || platform == TargetPlatform.android || platform == TargetPlatform.macOS;
+  if (!hasNativeImpl || kIsWeb) {
+    await dispatchTap(globalPosition);
+    return;
+  }
+
   try {
     await NativeTapApi().nativeTap(globalPosition.dx, globalPosition.dy);
-  } catch (_) {
+  } catch (e) {
+    // Native injection failed on a platform that supports it — surface a
+    // clear warning so the user knows native overlays (UIAlertController,
+    // AlertDialog, WebView) won't be reached, then fall back to Flutter's
+    // GestureBinding so Flutter widgets still work.
+    debugPrint(
+      '[fdb_helper] native tap failed on $platform, falling back to '
+      'GestureBinding (native overlays will NOT receive this tap): $e',
+    );
     await dispatchTap(globalPosition);
   }
 }

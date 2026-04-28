@@ -6,8 +6,8 @@ import 'package:fdb/process_utils.dart';
 ///
 /// Unlike [runTap], this command dispatches through the OS input system rather
 /// than Flutter's [GestureBinding], making it suitable for tapping system
-/// dialogs (iOS permission prompts, Android runtime-permission sheets, macOS
-/// native dialogs) that sit outside the Flutter rendering surface.
+/// dialogs (iOS permission prompts, Android runtime-permission sheets) that
+/// sit outside the Flutter rendering surface.
 ///
 /// Usage:
 ///   fdb native-tap --at 200,400
@@ -17,14 +17,19 @@ import 'package:fdb/process_utils.dart';
 ///   Android (device or emulator) — `adb shell input tap X Y`
 ///   iOS simulator                — IndigoHID via SimulatorKit private framework (no extra tools)
 ///   iOS physical                 — `idb ui tap X Y` (XCTest private API via WDA)
-///   macOS                        — `cliclick c:SCREEN_X,SCREEN_Y` (CGEvent injection)
+///
+/// macOS is not supported. Out-of-process click injection on macOS requires
+/// Accessibility permission, which the system only grants to signed `.app`
+/// bundles. Homebrew CLIs (cliclick, opencode, tmux) are unsigned binaries
+/// and cannot receive Accessibility permission on macOS Sequoia/Tahoe — they
+/// don't even appear in the System Settings list when added. Shipping a
+/// signed `.app` just for this is not justified for a niche feature. Use
+/// `fdb tap --at` instead, which performs in-process tap injection via
+/// `fdb_helper` and does not require any system permissions.
 ///
 /// Coordinates:
 ///   Android  — Android logical pixels (dp), same as Flutter logical coords.
 ///   iOS      — iOS UIKit logical points (same coordinate space as Flutter).
-///   macOS    — macOS screen coordinates (points). Use `fdb screenshot` to
-///              determine the target position, then read coordinates from the
-///              screenshot's pixel positions divided by the display scale.
 Future<int> runNativeTap(List<String> args) async {
   double? x;
   double? y;
@@ -94,7 +99,16 @@ Future<int> runNativeTap(List<String> args) async {
   }
 
   if (platform.startsWith('darwin')) {
-    return _tapMacOs(x: x, y: y);
+    stderr.writeln(
+      'ERROR: native-tap is not supported on macOS.\n'
+      '  Use `fdb tap --at $x,$y` instead — it performs in-process tap injection\n'
+      '  via fdb_helper and does not require Accessibility permission.\n'
+      '\n'
+      '  Why: cross-process tap injection on macOS requires Accessibility\n'
+      '  permission, which is only grantable to signed .app bundles. Homebrew\n'
+      '  CLIs are unsigned and cannot be added to the Accessibility list.',
+    );
+    return 1;
   }
 
   stderr.writeln('ERROR: native-tap is not supported on platform "$platform".');
@@ -369,139 +383,6 @@ Future<int> _tapIosPhysical({required String? deviceId, required double x, requi
     return 1;
   }
 }
-
-// ---------------------------------------------------------------------------
-// macOS
-// ---------------------------------------------------------------------------
-
-/// Taps within a macOS Flutter app window at ([x], [y]) via `cliclick`.
-///
-/// Locates the Flutter app window using CGWindowList (same approach as
-/// `fdb screenshot`) to find the window's screen origin, then offsets by the
-/// macOS title bar height so that coordinate (0,0) maps to the top-left of the
-/// Flutter rendering surface.
-///
-/// `cliclick` injects the click via CGEvent at the Quartz HID event level,
-/// which reaches AppKit/native windows. This works without Accessibility
-/// permission for most app windows.
-///
-/// Install: brew install cliclick
-Future<int> _tapMacOs({required double x, required double y}) async {
-  final which = await Process.run('which', ['cliclick']);
-  if (which.exitCode != 0) {
-    stderr.writeln(
-      'ERROR: native-tap on macOS requires cliclick.\n'
-      '  Install: brew install cliclick',
-    );
-    return 1;
-  }
-
-  final pid = readPid();
-  if (pid == null) {
-    stderr.writeln('ERROR: No PID in session — cannot locate macOS window. Re-launch the app.');
-    return 1;
-  }
-
-  final winOffset = await _macOsWindowOffset(pid);
-  if (winOffset == null) {
-    stderr.writeln(
-      'ERROR: Could not find macOS window for PID $pid.\n'
-      '  Make sure the Flutter macOS app is running and its window is visible.',
-    );
-    return 1;
-  }
-
-  final screenX = (winOffset.$1 + x).round();
-  final screenY = (winOffset.$2 + y).round();
-
-  // Verify Accessibility permission is granted — cliclick silently drops
-  // CGEvent injections when it is missing. We check upfront so the error is
-  // visible rather than a silent no-op.
-  final axCheck = await Process.run('swift', [
-    '-e',
-    'import Cocoa; '
-        'let trusted = AXIsProcessTrusted(); '
-        'print(trusted ? "trusted" : "denied"); '
-        'exit(trusted ? 0 : 1)',
-  ]);
-  if (axCheck.exitCode != 0) {
-    stderr.writeln(
-      'ERROR: native-tap on macOS requires Accessibility permission.\n'
-      '  Grant it in: System Settings → Privacy & Security → Accessibility\n'
-      '  Add the app or terminal that runs fdb (e.g. Terminal, iTerm2).\n'
-      '  Note: native-tap targets native OS dialogs in other processes,\n'
-      '  not Flutter content (use `fdb tap` for Flutter widgets).',
-    );
-    return 1;
-  }
-
-  try {
-    final result = await Process.run('cliclick', ['c:$screenX,$screenY']);
-    if (result.exitCode != 0) {
-      final details = (result.stderr as String).trim();
-      stderr.writeln('ERROR: cliclick failed: $details');
-      return 1;
-    }
-    stdout.writeln('NATIVE_TAPPED=macos X=$screenX Y=$screenY');
-    return 0;
-  } catch (e) {
-    stderr.writeln('ERROR: Failed to run cliclick: $e');
-    return 1;
-  }
-}
-
-/// Returns the (screenX, screenY) offset of the top-left of the Flutter
-/// rendering surface inside the macOS app window.
-///
-/// Walks the process tree rooted at [pid] to handle the case where `flutter
-/// run` spawns the actual .app as a child — same strategy as screenshot.dart.
-Future<(double, double)?> _macOsWindowOffset(int pid) async {
-  final pids = <int>[pid];
-  try {
-    final pg = await Process.run('pgrep', ['-P', '$pid']);
-    if (pg.exitCode == 0) {
-      for (final line in (pg.stdout as String).trim().split('\n')) {
-        final child = int.tryParse(line.trim());
-        if (child != null) pids.add(child);
-      }
-    }
-  } catch (_) {}
-
-  final pidsArg = pids.join(',');
-  try {
-    final result = await Process.run('swift', [
-      '-e',
-      '''
-import Cocoa
-let pidStrs = "$pidsArg".split(separator: ",")
-let pids = pidStrs.compactMap { Int32(\$0) }
-guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [NSDictionary] else { exit(1) }
-for w in list {
-    guard let ownerPid = w[kCGWindowOwnerPID] as? Int32, pids.contains(ownerPid) else { continue }
-    guard let bounds = w[kCGWindowBounds] as? NSDictionary,
-          let wx = bounds["X"] as? Double,
-          let wy = bounds["Y"] as? Double else { continue }
-    print("\\(wx) \\(wy)")
-    exit(0)
-}
-exit(1)
-''',
-    ]);
-    if (result.exitCode != 0) return null;
-    final parts = (result.stdout as String).trim().split(' ');
-    if (parts.length < 2) return null;
-    final wx = double.tryParse(parts[0]);
-    final wy = double.tryParse(parts[1]);
-    if (wx == null || wy == null) return null;
-    // Add the macOS window title bar height so (0,0) = Flutter content top-left.
-    return (wx, wy + _kMacOsTitleBarHeight);
-  } catch (_) {
-    return null;
-  }
-}
-
-/// Standard macOS window title bar height in logical points.
-const _kMacOsTitleBarHeight = 28.0;
 
 // ---------------------------------------------------------------------------
 // Helpers
