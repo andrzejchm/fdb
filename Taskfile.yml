@@ -1556,23 +1556,64 @@ tasks:
           exit 1
         fi
 
-        # Kill the app VM process directly using the PID written by fdb launch
-        # into fdb.app_pid. This is the actual Dart VM process (not flutter-tools),
-        # so kill -9 works on all platforms without any platform-specific tooling.
-        APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
-        if [ -z "$APP_PID" ]; then
-          echo "FAIL: .fdb/fdb.app_pid not found — was the app launched with a version of fdb that writes it?" >&2
-          exit 1
-        fi
-        echo "==> [app-died] Killing app VM process PID=$APP_PID"
-        kill -9 "$APP_PID" 2>/dev/null || true
+        # Kill the app process using the appropriate mechanism per platform.
+        # On macOS desktop: fdb.app_pid holds the real macOS app binary PID — kill it
+        #   directly with kill -9, then also kill flutter-tools to prevent auto-restart.
+        # On iOS simulator: the app runs inside Simulator.app; fdb.app_pid is a device-
+        #   namespace PID not visible on the macOS host — use xcrun simctl terminate.
+        # On Android: same device-namespace caveat — use adb shell am force-stop.
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        DEVICE_ID=$(cat .fdb/device.txt 2>/dev/null || echo "")
+        echo "==> [app-died] Platform=$PLATFORM Device=$DEVICE_ID"
 
-        # On macOS, flutter run auto-restarts the app child after kill -9.
-        # Kill the flutter-tools process too so it cannot restart the app.
-        TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
-        if [ -n "$TOOLS_PID" ]; then
-          echo "==> [app-died] Killing flutter-tools process PID=$TOOLS_PID to prevent auto-restart"
-          kill -9 "$TOOLS_PID" 2>/dev/null || true
+        if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
+          echo "==> [app-died] iOS simulator — terminating via simctl"
+          BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
+            | grep "UIKitApplication:" \
+            | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
+            | head -1)
+          if [ -z "$BUNDLE_ID" ]; then
+            BUNDLE_ID=$(xcrun simctl listapps "$DEVICE_ID" 2>/dev/null \
+              | grep -A1 'CFBundleName = "test_app"' \
+              | grep CFBundleIdentifier \
+              | sed 's/.*= "\(.*\)";/\1/' \
+              | head -1)
+          fi
+          if [ -z "$BUNDLE_ID" ]; then
+            echo "SKIP: could not determine bundle ID on iOS simulator — skipping app-died test" >&2
+            exit 0
+          fi
+          echo "  BundleID=$BUNDLE_ID"
+          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" 2>&1 || true
+
+        elif [ "$PLATFORM" = "android" ] || echo "$PLATFORM" | grep -qi "android"; then
+          echo "==> [app-died] Android — force-stopping via adb"
+          PACKAGE=$(adb -s "$DEVICE_ID" shell pm list packages 2>/dev/null \
+            | grep -i "test.app\|testapp\|fdb.test" \
+            | sed 's/package://' \
+            | head -1 | tr -d '\r')
+          if [ -z "$PACKAGE" ]; then
+            echo "SKIP: could not determine package name on Android — skipping app-died test" >&2
+            exit 0
+          fi
+          echo "  Package=$PACKAGE"
+          adb -s "$DEVICE_ID" shell am force-stop "$PACKAGE" 2>&1 || true
+
+        else
+          # macOS desktop (darwin): fdb.app_pid is a real macOS host PID — kill it directly.
+          # Also kill flutter-tools to prevent it from auto-restarting the app.
+          APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
+          if [ -z "$APP_PID" ]; then
+            echo "FAIL: .fdb/fdb.app_pid not found — was the app launched with this version of fdb?" >&2
+            exit 1
+          fi
+          echo "==> [app-died] Killing app VM process PID=$APP_PID"
+          kill -9 "$APP_PID" 2>/dev/null || true
+          TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
+          if [ -n "$TOOLS_PID" ]; then
+            echo "==> [app-died] Killing flutter-tools PID=$TOOLS_PID to prevent auto-restart"
+            kill -9 "$TOOLS_PID" 2>/dev/null || true
+          fi
         fi
 
         sleep 2
