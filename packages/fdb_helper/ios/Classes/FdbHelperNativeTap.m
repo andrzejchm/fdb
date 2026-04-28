@@ -251,6 +251,58 @@ static UIEvent *FdbBuildEventForTouch(UITouch *touch) {
   return event;
 }
 
+/// Validates that all private selectors required for synthetic tap injection
+/// are present on the current iOS version. Returns the missing selector name
+/// (as NSString) on failure, or nil if everything is present.
+///
+/// We check upfront so the failure mode is a clear NSError rather than an
+/// unrecognized-selector exception mid-injection. iOS 26 still has all of
+/// these; this guard is here so future iOS versions that drop a selector
+/// produce an actionable error instead of crashing.
+static NSString *FdbMissingRequiredSelector(UITouch *touch) {
+  static NSDictionary<NSString *, NSString *> *touchSelectors;
+  static NSDictionary<NSString *, NSString *> *eventSelectors;
+  static NSArray<NSString *> *appSelectors;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    touchSelectors = @{
+      @"setWindow:": @"UITouch",
+      @"setTapCount:": @"UITouch",
+      @"_setLocationInWindow:resetPrevious:": @"UITouch",
+      @"setView:": @"UITouch",
+      @"setPhase:": @"UITouch",
+      @"setTimestamp:": @"UITouch",
+      @"_setHidEvent:": @"UITouch",
+    };
+    eventSelectors = @{
+      @"_clearTouches": @"UIEvent",
+      @"_setHIDEvent:": @"UIEvent",
+      @"_addTouch:forDelayedDelivery:": @"UIEvent",
+    };
+    appSelectors = @[@"_touchesEvent"];
+  });
+
+  for (NSString *selStr in touchSelectors) {
+    if (![touch respondsToSelector:NSSelectorFromString(selStr)]) {
+      return [NSString stringWithFormat:@"-[UITouch %@]", selStr];
+    }
+  }
+  for (NSString *selStr in appSelectors) {
+    if (![UIApplication.sharedApplication respondsToSelector:NSSelectorFromString(selStr)]) {
+      return [NSString stringWithFormat:@"-[UIApplication %@]", selStr];
+    }
+  }
+  // UIEvent selectors checked against the touchesEvent singleton (creating a
+  // bare UIEvent doesn't go through the same private subclass).
+  UIEvent *probeEvent = [UIApplication.sharedApplication performSelector:@selector(_touchesEvent)];
+  for (NSString *selStr in eventSelectors) {
+    if (![probeEvent respondsToSelector:NSSelectorFromString(selStr)]) {
+      return [NSString stringWithFormat:@"-[UIEvent %@]", selStr];
+    }
+  }
+  return nil;
+}
+
 #pragma mark - Public entry point
 
 BOOL FdbHelperNativeTapAtPoint(CGPoint point, NSError **error) {
@@ -278,6 +330,19 @@ BOOL FdbHelperNativeTapAtPoint(CGPoint point, NSError **error) {
     if (error) {
       *error = [NSError errorWithDomain:@"io.fdb.helper.tap" code:2
           userInfo:@{NSLocalizedDescriptionKey: @"UITouch alloc failed"}];
+    }
+    return NO;
+  }
+
+  NSString *missing = FdbMissingRequiredSelector(touch);
+  if (missing != nil) {
+    if (error) {
+      *error = [NSError errorWithDomain:@"io.fdb.helper.tap" code:3
+          userInfo:@{NSLocalizedDescriptionKey:
+            [NSString stringWithFormat:
+              @"Required private selector %@ is unavailable on this iOS version. "
+              @"fdb_helper's tap injection mirrors KIF v3.12.2 and depends on private "
+              @"UIKit selectors that may change between iOS releases.", missing]}];
     }
     return NO;
   }

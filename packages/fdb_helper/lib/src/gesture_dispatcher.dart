@@ -40,29 +40,45 @@ int _tapButtons(PointerDeviceKind kind) {
 ///
 /// Falls back to [dispatchTap] on platforms without native channel support
 /// (web, Linux, Windows).
-Future<void> dispatchNativeTap(Offset globalPosition) async {
-  // Platforms with no native tap implementation: silently fall back to
-  // Flutter's GestureBinding (covers web, Linux, Windows, tests).
+/// Result of [dispatchNativeTap], indicating which path actually delivered
+/// the tap. Callers can surface this to the user so they know whether
+/// native overlays (UIAlertController, AlertDialog, WebView) were reachable.
+enum NativeTapResult {
+  /// The native in-process injection path delivered the tap.
+  /// Native overlays were reachable.
+  native,
+
+  /// The platform has no native tap implementation (web, Linux, Windows,
+  /// tests). Tap was dispatched via Flutter's GestureBinding. Native
+  /// overlays are unreachable from those platforms by design.
+  unsupportedPlatform,
+
+  /// Native injection failed on a platform that nominally supports it.
+  /// Tap was dispatched via Flutter's GestureBinding so Flutter widgets
+  /// still work, but native overlays did NOT receive the tap. The cause
+  /// is logged via [debugPrint].
+  nativeFailedFallback,
+}
+
+Future<NativeTapResult> dispatchNativeTap(Offset globalPosition) async {
   final platform = defaultTargetPlatform;
   final hasNativeImpl =
       platform == TargetPlatform.iOS || platform == TargetPlatform.android || platform == TargetPlatform.macOS;
   if (!hasNativeImpl || kIsWeb) {
     await dispatchTap(globalPosition);
-    return;
+    return NativeTapResult.unsupportedPlatform;
   }
 
   try {
     await NativeTapApi().nativeTap(globalPosition.dx, globalPosition.dy);
+    return NativeTapResult.native;
   } catch (e) {
-    // Native injection failed on a platform that supports it — surface a
-    // clear warning so the user knows native overlays (UIAlertController,
-    // AlertDialog, WebView) won't be reached, then fall back to Flutter's
-    // GestureBinding so Flutter widgets still work.
     debugPrint(
       '[fdb_helper] native tap failed on $platform, falling back to '
       'GestureBinding (native overlays will NOT receive this tap): $e',
     );
     await dispatchTap(globalPosition);
+    return NativeTapResult.nativeFailedFallback;
   }
 }
 

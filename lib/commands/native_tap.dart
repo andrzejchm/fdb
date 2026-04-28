@@ -186,15 +186,10 @@ Future<int> _tapAndroid({required String? deviceId, required double x, required 
 /// No extra tools required beyond Xcode.
 Future<int> _tapIosSimulator({required String? deviceId, required double x, required double y}) async {
   // Resolve screen size for this simulator to normalise coordinates.
-  final screenSize = await _simulatorScreenSize(deviceId);
-  if (screenSize == null) {
-    stderr.writeln(
-      'ERROR: Could not determine screen size for simulator ${deviceId ?? "booted"}.\n'
-      '  Make sure the simulator is booted and xcrun simctl is on PATH.',
-    );
-    return 1;
-  }
-  final (screenW, screenH) = screenSize;
+  // _simulatorScreenSize always returns a value (falls back to iPhone 17 Pro
+  // dimensions on miss); good enough for IndigoHID normalisation since most
+  // modern iPhones share that 393×852 resolution.
+  final (screenW, screenH) = await _simulatorScreenSize(deviceId);
 
   // Inline Swift script using SimulatorKit.SimDeviceLegacyHIDClient to
   // send IndigoHID touch events. No idb, no cliclick, no AX permission needed.
@@ -222,18 +217,19 @@ Future<int> _tapIosSimulator({required String? deviceId, required double x, requ
 }
 
 /// Returns the logical screen size (width, height) in points for the given
-/// simulator UDID, or null on failure.
-Future<(double, double)?> _simulatorScreenSize(String? deviceId) async {
+/// simulator UDID. Falls back to iPhone 17 Pro dimensions (393×852) when the
+/// UDID is not found or the device name doesn't match any known iPhone/iPad —
+/// most modern iPhones share that resolution, and the IndigoHID xRatio/yRatio
+/// normalisation is forgiving of small mismatches.
+Future<(double, double)> _simulatorScreenSize(String? deviceId) async {
+  const fallback = (393.0, 852.0); // iPhone 17 Pro default
   try {
     final result = await Process.run('xcrun', ['simctl', 'list', 'devices', '--json']);
-    if (result.exitCode != 0) return null;
+    if (result.exitCode != 0) return fallback;
     final output = result.stdout as String;
 
     // Look up the device by UDID in the simctl JSON, then map its name to a
-    // known logical screen size. We fall back to the iPhone 17 Pro size
-    // (393×852) when the UDID isn't found or the name doesn't match any
-    // known device — this is good enough for the IndigoHID xRatio/yRatio
-    // normalisation since most modern iPhones share that resolution.
+    // known logical screen size.
     if (deviceId != null) {
       final nameMatch = RegExp('"name" : "([^"]+)"[^}]*"udid" : "${RegExp.escape(deviceId)}"').firstMatch(output);
       if (nameMatch != null) {
@@ -243,9 +239,9 @@ Future<(double, double)?> _simulatorScreenSize(String? deviceId) async {
       }
     }
 
-    return const (393.0, 852.0); // iPhone 17 Pro default
+    return fallback;
   } catch (_) {
-    return const (393.0, 852.0);
+    return fallback;
   }
 }
 

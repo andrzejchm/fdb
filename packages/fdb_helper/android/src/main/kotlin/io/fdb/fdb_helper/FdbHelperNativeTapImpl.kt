@@ -38,6 +38,12 @@ class FdbHelperNativeTapImpl(
                 latch.countDown()
             }
         }
-        latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+        if (!latch.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw FlutterError(
+                "DISPATCH_TIMEOUT",
+                "UI thread did not dispatch the synthetic touch within 2s",
+                null,
+            )
+        }
     }
 }

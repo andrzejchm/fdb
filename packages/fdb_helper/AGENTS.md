@@ -68,12 +68,18 @@ Logic reused across handlers belongs in the existing `src/` helpers:
 |------|-----------------|
 | `handler_utils.dart` | `errorResponse(String)` — standard error response |
 | `element_tree_finder.dart` | `findHittableElement`, `findScrollTargetElement`, `findInteractiveElements`, `extractWidgetText` |
-| `gesture_dispatcher.dart` | `dispatchTap`, `dispatchScroll` |
+| `gesture_dispatcher.dart` | `dispatchTap`, `dispatchNativeTap`, `dispatchScroll` — all gesture dispatch helpers, including the Pigeon-bridged native tap path |
 | `hit_test_utils.dart` | `isElementHittable` |
 | `text_input_simulator.dart` | `enterText` |
 | `widget_matcher.dart` | `WidgetMatcher` and all subtypes |
 
 Add new shared helpers to the appropriate existing file. Only create a new shared file if it serves ≥ 2 handlers and clearly doesn't belong in any existing file.
+
+`gesture_dispatcher.dart` is the home for all gesture-dispatch helpers
+regardless of caller count — its purpose is to centralise the Flutter↔native
+gesture boundary, including the Pigeon-bridged `dispatchNativeTap`. Single-
+caller helpers there are acceptable when they belong to that boundary
+conceptually (e.g. native-tap fallback handling, platform detection).
 
 ### No classes in handler files
 

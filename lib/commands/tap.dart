@@ -142,7 +142,13 @@ Future<int> runTap(List<String> args) async {
           final tappedType = usedAt ? 'coordinates' : result['widgetType'] as String? ?? type ?? 'widget';
           final tappedX = result['x'] ?? x ?? '';
           final tappedY = result['y'] ?? y ?? '';
-          stdout.writeln('TAPPED=$tappedType X=$tappedX Y=$tappedY');
+          // The native-tap path may fall back to Flutter's GestureBinding if
+          // the platform-channel injection fails (e.g. iOS private API drift).
+          // When that happens, native overlays (UIAlertController, WebView)
+          // are NOT reached — surface this to callers so agents can detect it.
+          final warning = result['warning'] as String?;
+          final warningSuffix = warning != null ? ' WARNING=$warning' : '';
+          stdout.writeln('TAPPED=$tappedType X=$tappedX Y=$tappedY$warningSuffix');
           return 0;
         }
 
