@@ -1270,6 +1270,254 @@ tasks:
           exit 1
         fi
 
+  test:native-view-tap:
+    desc: Verify fdb tap --at reaches native UI (WebView on Android, UIAlertController on iOS)
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        # Platform-aware test:
+        #   Android — WebView runs in-process; tap --at must reach the HTML button
+        #   iOS sim — WKWebView is cross-process (cannot reach via in-process tap),
+        #             so we test UIAlertController dismissal instead, which is the
+        #             canonical iOS use-case for native-tap
+        #   macOS  — webview_flutter doesn't support macOS; we verify --at delivers
+        #            real taps to a Flutter widget via counter increment.
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        echo "==> [native-view-tap] Detected platform: $PLATFORM"
+
+        if [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "macOS" ]; then
+          echo "==> [native-view-tap] macOS path — verify --at delivers real taps to Flutter widget"
+
+          # Use the increment FAB which has a counter that's logged in the heartbeat.
+          # First reset state with a hot restart.
+          {{.FDB}} restart >/dev/null 2>&1
+          sleep 6
+
+          # Get FAB position via --key (also gives us a baseline tap)
+          POS=$({{.FDB}} tap --key increment_button 2>&1 | tail -1)
+          echo "$POS"
+          X=$(echo "$POS" | sed -n 's/.*X=\([0-9.]*\).*/\1/p')
+          Y=$(echo "$POS" | sed -n 's/.*Y=\([0-9.]*\).*/\1/p')
+          if [ -z "$X" ] || [ -z "$Y" ]; then
+            echo "FAIL: could not determine FAB position" >&2
+            exit 1
+          fi
+
+          # Tap 5 times via --at and verify counter increased by 5.
+          # Counter is 1 after the --key tap above; --at taps should bring it to 6.
+          for i in 1 2 3 4 5; do
+            {{.FDB}} tap --at "$X,$Y" >/dev/null 2>&1
+          done
+          sleep 6
+
+          COUNTER=$({{.FDB}} logs --last 3 2>&1 | grep -oE "counter=[0-9]+" | tail -1 | cut -d= -f2)
+          echo "==> Counter after 1 --key + 5 --at taps: $COUNTER (expected 6)"
+          if [ "$COUNTER" = "6" ]; then
+            echo "PASS: fdb tap --at delivers real taps to Flutter widgets on macOS"
+            exit 0
+          fi
+
+          echo "FAIL: counter is $COUNTER, expected 6 — --at taps did not register" >&2
+          exit 1
+        fi
+
+        if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
+          echo "==> [native-view-tap] iOS path — verify UIAlertController dismissal"
+
+          # Show alert
+          {{.FDB}} scroll-to --key "show_native_alert" >/dev/null 2>&1 || true
+          ALERT_TAP=$({{.FDB}} tap --key "show_native_alert" 2>&1)
+          echo "$ALERT_TAP"
+          sleep 1
+
+          # The alert is centered; Confirm is right half. Use a reasonable center
+          # based on common iPhone widths (~390-430 logical points).
+          # Alert is roughly at y=470-510 on a 14/15/16/17 Pro.
+          # Confirm button center is around x=270, y=488 on iPhone 17 Pro / 14 Pro.
+          echo "==> [native-view-tap] Tap Confirm button via --at"
+          set +e
+          TAP_OUTPUT=$({{.FDB}} tap --at 269,488 2>&1)
+          TAP_EXIT=$?
+          set -e
+          echo "$TAP_OUTPUT"
+          if [ $TAP_EXIT -ne 0 ]; then
+            echo "FAIL: fdb tap --at failed on UIAlertController" >&2
+            exit 1
+          fi
+
+          sleep 1
+          echo "==> [native-view-tap] Verify alert was confirmed"
+          for i in $(seq 1 10); do
+            DESCRIBE=$({{.FDB}} describe 2>&1)
+            if echo "$DESCRIBE" | grep -q "Native alert: CONFIRMED"; then
+              echo "PASS: fdb tap --at dismissed UIAlertController via Confirm button"
+              exit 0
+            fi
+            sleep 0.5
+          done
+
+          echo "FAIL: UIAlertController never showed CONFIRMED — native tap did not reach the alert" >&2
+          echo "$DESCRIBE"
+          exit 1
+        fi
+
+        # Android (and others where WebView is in-process)
+        echo "==> [native-view-tap] Navigate to native view test screen"
+        {{.FDB}} scroll-to --key "go_to_native_view_test" >/dev/null 2>&1 || true
+        OUTPUT=$({{.FDB}} tap --key "go_to_native_view_test" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: could not navigate to native view test screen" >&2
+          exit 1
+        fi
+
+        # Wait for WebView to load
+        sleep 3
+
+        echo "==> [native-view-tap] Take screenshot to locate WebView button"
+        {{.FDB}} screenshot >/dev/null 2>&1 || true
+
+        echo "==> [native-view-tap] Confirm fdb tap --key cannot reach the WebView button"
+        set +e
+        KEY_OUTPUT=$({{.FDB}} tap --key "native_webview_button" --timeout 2 2>&1)
+        KEY_EXIT=$?
+        set -e
+        echo "$KEY_OUTPUT"
+        if [ $KEY_EXIT -eq 0 ]; then
+          echo "FAIL: expected --key to fail for native WebView button, but it succeeded" >&2
+          exit 1
+        fi
+        echo "PASS: --key correctly cannot reach native WebView button"
+
+        echo "==> [native-view-tap] Confirm status is not yet tapped"
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        echo "$DESCRIBE"
+        if echo "$DESCRIBE" | grep -q "WebView title: TAPPED"; then
+          echo "FAIL: status already shows TAPPED before we tapped" >&2
+          exit 1
+        fi
+
+        echo "==> [native-view-tap] Locate status bar bottom to compute WebView center"
+        # Tap the status text widget to get its Y coordinate — that tells us where
+        # the AppBar bottom is. The WebView fills the rest of the screen.
+        # We then tap at (horizontal_center, appbar_bottom + webview_height/2).
+        STATUS_TAP=$({{.FDB}} tap --key "native_tap_status_text" 2>&1)
+        echo "$STATUS_TAP"
+        STATUS_Y=$(echo "$STATUS_TAP" | sed -n 's/.*Y=\([0-9.]*\).*/\1/p' | head -1)
+        # Estimate screen height from device (most phones 800-900 logical pts)
+        # WebView starts just below status text (~20pt below its center).
+        # Button is centered in the WebView vertically.
+        # Approximate: tap_y = status_y + (screen_height - status_y) / 2
+        # Use bc for floating point; default to 500 if unavailable.
+        if [ -n "$STATUS_Y" ]; then
+          APPBAR_BOTTOM=$(echo "$STATUS_Y + 20" | bc 2>/dev/null || echo "165")
+          # Assume screen height ~853pt (typical), webview fills rest
+          TAP_Y=$(echo "($APPBAR_BOTTOM + 853) / 2" | bc 2>/dev/null || echo "510")
+        else
+          TAP_Y=510
+        fi
+        echo "==> Using tap_y=$TAP_Y (appbar_bottom=${APPBAR_BOTTOM:-unknown})"
+
+        echo "==> [native-view-tap] Tap WebView button via --at (native injection)"
+        set +e
+        TAP_OUTPUT=$({{.FDB}} tap --at 200,$TAP_Y 2>&1)
+        TAP_EXIT=$?
+        set -e
+        echo "$TAP_OUTPUT"
+        if [ $TAP_EXIT -ne 0 ]; then
+          echo "FAIL: fdb tap --at failed on native view" >&2
+          exit 1
+        fi
+
+        echo "==> [native-view-tap] Wait for page title to update"
+        sleep 1
+
+        echo "==> [native-view-tap] Verify WebView button was tapped"
+        for i in $(seq 1 10); do
+          DESCRIBE=$({{.FDB}} describe 2>&1)
+          echo "$DESCRIBE"
+          if echo "$DESCRIBE" | grep -q "WebView title: TAPPED"; then
+            echo "PASS: fdb tap --at successfully tapped native WebView button"
+            # Navigate back
+            {{.FDB}} back >/dev/null 2>&1 || true
+            exit 0
+          fi
+          sleep 0.5
+        done
+
+        echo "FAIL: WebView title never changed to TAPPED — native tap did not reach WebView" >&2
+        {{.FDB}} back >/dev/null 2>&1 || true
+        exit 1
+
+  test:native-tap:
+    desc: Tap native UI elements via adb (Android) or xcrun simctl (iOS simulator)
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> [native-tap] --at with valid coordinates"
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+
+        # Determine a safe coordinate that is always on screen (center-ish)
+        X=200
+        Y=400
+
+        set +e
+        OUTPUT=$({{.FDB}} native-tap --at "$X,$Y" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+
+        if echo "$OUTPUT" | grep -q "ERROR: native-tap is not yet supported on physical iOS"; then
+          echo "SKIP: physical iOS — native-tap not yet supported (see fdb-6sz)"
+        elif echo "$OUTPUT" | grep -q "ERROR: native-tap is not supported on macOS"; then
+          echo "SKIP: macOS — native-tap not supported (use 'fdb tap --at' instead)"
+        elif [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb native-tap exited with code $EXIT_CODE" >&2
+          exit 1
+        else
+          if echo "$OUTPUT" | grep -q "NATIVE_TAPPED="; then
+            echo "PASS: fdb native-tap --at"
+          else
+            echo "FAIL: fdb native-tap --at — NATIVE_TAPPED= not found in output" >&2
+            exit 1
+          fi
+        fi
+
+        echo "==> [native-tap] --at with invalid format"
+        set +e
+        OUTPUT=$({{.FDB}} native-tap --at "abc,def" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb native-tap --at abc,def should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q 'ERROR: Invalid --at value'; then
+          echo "PASS: fdb native-tap --at invalid format"
+        else
+          echo "FAIL: fdb native-tap --at invalid format — expected ERROR: Invalid --at value" >&2
+          exit 1
+        fi
+
+        echo "==> [native-tap] missing --at"
+        set +e
+        OUTPUT=$({{.FDB}} native-tap 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb native-tap with no args should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q 'ERROR:'; then
+          echo "PASS: fdb native-tap missing --at"
+        else
+          echo "FAIL: fdb native-tap missing --at — expected ERROR: output" >&2
+          exit 1
+        fi
+
   test:kill:
     desc: Kill the running app
     dir: '{{.TEST_APP}}'
@@ -1343,6 +1591,8 @@ tasks:
       - task: test:describe
       - task: test:screenshot
       - task: test:deeplink
+      - task: test:native-view-tap
+      - task: test:native-tap
       - task: test:select
       - task: test:tap
         vars:

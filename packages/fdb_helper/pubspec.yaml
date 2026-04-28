@@ -13,5 +13,18 @@ dependencies:
     sdk: flutter
   path_provider: ^2.0.0
   shared_preferences: ^2.0.0
+
 dev_dependencies:
   flutter_lints: ^6.0.0
+  pigeon: ^26.3.4
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: io.fdb.fdb_helper
+        pluginClass: FdbHelperPlugin
+      ios:
+        pluginClass: FdbHelperPlugin
+      macos:
+        pluginClass: FdbHelperPlugin

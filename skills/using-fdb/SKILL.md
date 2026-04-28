@@ -162,6 +162,32 @@ fdb select off    # disable overlay
 fdb selected      # get what widget was tapped
 ```
 
+### Tap native UI (system dialogs, permission sheets)
+
+Use this when a native OS dialog is blocking the Flutter UI — iOS permission
+prompts, Android runtime-permission sheets. Unlike `fdb tap`, this command
+does NOT go through Flutter's GestureBinding.
+
+```bash
+fdb native-tap --at 200,400    # tap at device coordinates (x,y)
+fdb native-tap --x 200 --y 400 # same, two-flag form
+```
+
+Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
+
+Platform dispatch:
+- **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels). No extra setup needed.
+- **iOS simulator** — IndigoHID via SimulatorKit private framework. No extra tools required.
+- **iOS physical** — **not yet supported.** Out-of-process tap injection on physical iOS requires WebDriverAgent (signed XCUITest runner installed on the device). Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and reaches in-app native overlays (UIAlertController, etc.) on physical iOS devices.
+- **macOS** — **not supported.** Out-of-process click injection on macOS requires Accessibility permission, which the system only grants to signed `.app` bundles. Homebrew CLIs (cliclick, opencode, tmux) are unsigned binaries and cannot receive Accessibility permission on macOS Sequoia/Tahoe. Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and does not require any system permissions.
+
+Workflow for dismissing an iOS permission prompt:
+```bash
+fdb screenshot                          # see where the "Allow" button is
+fdb native-tap --at 196,600            # tap "Allow" at its coordinates
+fdb screenshot                          # confirm dialog dismissed
+```
+
 ### Tap a widget
 
 Requires `fdb_helper` in the app (see setup section above).

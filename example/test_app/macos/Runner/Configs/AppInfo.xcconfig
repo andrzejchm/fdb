@@ -8,7 +8,7 @@
 PRODUCT_NAME = test_app
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.fdb.test.testApp
+PRODUCT_BUNDLE_IDENTIFIER = dev.andrzejchm.fdb.testApp
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.fdb.test. All rights reserved.
