@@ -207,13 +207,17 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   try {
                     final result = await _nativeDialogChannel
                         .invokeMethod<String>('showNativeAlert');
-                    if (mounted)
+                    if (mounted) {
                       setState(() => _nativeAlertResult = result ?? 'null');
-                    developer.log('native alert result: $result',
-                        name: 'fdb_test');
+                    }
+                    developer.log(
+                      'native alert result: $result',
+                      name: 'fdb_test',
+                    );
                   } catch (e) {
-                    if (mounted)
+                    if (mounted) {
                       setState(() => _nativeAlertResult = 'ERROR: $e');
+                    }
                   }
                 },
                 child: const Text('Show Native Alert'),

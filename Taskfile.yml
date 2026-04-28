@@ -1567,6 +1567,14 @@ tasks:
         echo "==> [app-died] Killing app VM process PID=$APP_PID"
         kill -9 "$APP_PID" 2>/dev/null || true
 
+        # On macOS, flutter run auto-restarts the app child after kill -9.
+        # Kill the flutter-tools process too so it cannot restart the app.
+        TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
+        if [ -n "$TOOLS_PID" ]; then
+          echo "==> [app-died] Killing flutter-tools process PID=$TOOLS_PID to prevent auto-restart"
+          kill -9 "$TOOLS_PID" 2>/dev/null || true
+        fi
+
         sleep 2
 
         echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
