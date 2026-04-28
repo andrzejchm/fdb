@@ -16,6 +16,7 @@ import 'package:fdb/process_utils.dart';
 ///   fdb syslog [--since <duration>] [--predicate <pattern>] [--last <n>] [--follow]
 Future<int> runSyslog(List<String> args) async {
   var since = '5m';
+  var sinceExplicit = false;
   String? predicate;
   int? last;
   var follow = false;
@@ -24,6 +25,7 @@ Future<int> runSyslog(List<String> args) async {
     switch (args[i]) {
       case '--since':
         since = args[++i];
+        sinceExplicit = true;
       case '--predicate':
         predicate = args[++i];
       case '--last':
@@ -48,6 +50,13 @@ Future<int> runSyslog(List<String> args) async {
 
   if (follow && last != null) {
     stderr.writeln('ERROR: --last is not supported with --follow');
+    return 1;
+  }
+
+  if (follow && sinceExplicit) {
+    stderr.writeln(
+      'ERROR: --since is not supported with --follow (log stream always starts from now)',
+    );
     return 1;
   }
 
@@ -89,7 +98,7 @@ Future<int> runSyslog(List<String> args) async {
       );
     } else {
       return _runIosPhysical(
-        since: since,
+        sinceExplicit: sinceExplicit,
         predicate: predicate,
         last: last,
         follow: follow,
@@ -211,7 +220,7 @@ Future<int> _runIosSimulator({
 }
 
 Future<int> _runIosPhysical({
-  required String since,
+  required bool sinceExplicit,
   required String? predicate,
   required int? last,
   required bool follow,
@@ -220,6 +229,13 @@ Future<int> _runIosPhysical({
     stderr.writeln(
       'ERROR: idevicesyslog not found. '
       'Install: brew install libimobiledevice',
+    );
+    return 1;
+  }
+
+  if (sinceExplicit) {
+    stderr.writeln(
+      'ERROR: --since is not supported on iOS physical devices (idevicesyslog does not support time filtering)',
     );
     return 1;
   }

@@ -383,7 +383,7 @@ tasks:
         {{.FDB}} syslog --follow &
         FDB_PID=$!
         sleep 5
-        kill -- -$FDB_PID
+        kill -INT $FDB_PID
         wait $FDB_PID
         EXIT=$?
         if [ $EXIT -eq 0 ]; then
