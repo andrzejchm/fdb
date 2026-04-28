@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/constants.dart';
 import 'package:fdb/process_utils.dart';
 import 'package:fdb/vm_service.dart';
@@ -229,6 +230,8 @@ Future<int> _captureMacOs(String output) async {
       return _captureViaFdbHelper(output);
     }
     return 0;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: macOS screenshot failed: $e');
     return 1;
@@ -468,6 +471,8 @@ Future<int> _captureViaFdbHelper(String output) async {
 
     File(output).writeAsBytesSync(base64Decode(base64Data));
     return 0;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: fdb_helper screenshot failed: $e');
     return 1;

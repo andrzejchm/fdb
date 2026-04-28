@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Enters text into a field identified by selector or the currently focused field.
@@ -90,6 +91,8 @@ Future<int> runInput(List<String> args) async {
 
     stderr.writeln('ERROR: Unexpected response from ext.fdb.enterText: $result');
     return 1;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

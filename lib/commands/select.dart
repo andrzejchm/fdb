@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 Future<int> runSelect(List<String> args) async {
@@ -30,6 +31,8 @@ Future<int> runSelect(List<String> args) async {
 
     stdout.writeln('SELECTION_MODE=${enabled ? "ON" : "OFF"}');
     return 0;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

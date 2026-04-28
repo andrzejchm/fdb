@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Scrolls the nearest Scrollable until the target widget becomes visible.
@@ -93,6 +94,8 @@ Future<int> runScrollTo(List<String> args) async {
       'ERROR: Unexpected response from ext.fdb.scrollTo: $result',
     );
     return 1;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

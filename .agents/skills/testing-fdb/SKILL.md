@@ -51,6 +51,7 @@ task test:select
 task test:tap
 task test:input
 task test:scroll
+task test:app-died
 task test:kill
 task test:status-stopped
 ```

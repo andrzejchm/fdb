@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Returns a compact, text-based snapshot of the current screen.
@@ -49,6 +50,8 @@ Future<int> runDescribe(List<String> args) async {
 
     _printDescribeOutput(result);
     return 0;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

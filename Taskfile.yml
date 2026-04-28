@@ -1518,6 +1518,147 @@ tasks:
           exit 1
         fi
 
+  test:app-died:
+    desc: "Verify fdb exits with APP_DIED and non-zero code when the app process is killed"
+    dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        echo "==> [app-died] Ensuring app is running"
+        if ! {{.FDB}} status 2>&1 | grep -q "RUNNING=true"; then
+          echo "==> [app-died] App not running — launching first"
+          OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -q "APP_STARTED"; then
+            echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
+            exit 1
+          fi
+        fi
+
+        echo "==> [app-died] Waiting for app to be ready"
+        READY=0
+        for _ in $(seq 1 20); do
+          if {{.FDB}} tree --depth 1 >/dev/null 2>&1; then
+            READY=1
+            break
+          fi
+          sleep 0.5
+        done
+        if [ $READY -ne 1 ]; then
+          echo "FAIL: app did not become ready in time" >&2
+          exit 1
+        fi
+
+        # Detect platform to use the right kill mechanism.
+        # NOTE: fdb.pid stores the flutter-tools process PID, not the actual app
+        # process PID (see https://github.com/andrzejchm/fdb/issues — fdb-bbu).
+        # We must use platform-specific tooling to kill the actual app process.
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        DEVICE_ID=$(cat .fdb/device.txt 2>/dev/null || echo "")
+        echo "==> [app-died] Platform=$PLATFORM Device=$DEVICE_ID"
+
+        if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
+          echo "==> [app-died] iOS simulator — terminating via simctl"
+          # Find the bundle ID of the RUNNING app (not just installed) via
+          # launchctl inside the simulator — avoids picking the wrong entry when
+          # multiple test_app builds are installed.
+          BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
+            | grep "UIKitApplication:" \
+            | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
+            | head -1)
+          if [ -z "$BUNDLE_ID" ]; then
+            # Fallback: try each installed test_app bundle until one terminates
+            BUNDLE_ID=$(xcrun simctl listapps "$DEVICE_ID" 2>/dev/null \
+              | grep -A1 'CFBundleName = "test_app"' \
+              | grep CFBundleIdentifier \
+              | sed 's/.*= "\(.*\)";/\1/' \
+              | head -1)
+          fi
+          if [ -z "$BUNDLE_ID" ]; then
+            echo "SKIP: could not determine bundle ID on iOS simulator — skipping app-died test" >&2
+            exit 0
+          fi
+          echo "  BundleID=$BUNDLE_ID"
+          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" 2>&1 || true
+
+        elif [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "macOS" ]; then
+          echo "==> [app-died] macOS — killing app binary process"
+          # The macOS .app process is separate from the flutter-tools PID in fdb.pid
+          APP_BIN=$(find "$(pwd)/build/macos/Build/Products/Debug" -name "test_app" -type f 2>/dev/null | head -1)
+          if [ -n "$APP_BIN" ]; then
+            pkill -9 -f "$APP_BIN" 2>/dev/null || true
+          else
+            pkill -9 -f "test_app.app/Contents/MacOS/test_app" 2>/dev/null || true
+          fi
+
+        elif [ "$PLATFORM" = "android" ] || echo "$PLATFORM" | grep -qi "android"; then
+          echo "==> [app-died] Android — force-stopping via adb"
+          # Try to find the app package name
+          PACKAGE=$(adb -s "$DEVICE_ID" shell pm list packages 2>/dev/null \
+            | grep -i "test.app\|testapp\|fdb.test" \
+            | sed 's/package://' \
+            | head -1 | tr -d '\r')
+          if [ -z "$PACKAGE" ]; then
+            echo "SKIP: could not determine package name on Android — skipping app-died test" >&2
+            exit 0
+          fi
+          echo "  Package=$PACKAGE"
+          adb -s "$DEVICE_ID" shell am force-stop "$PACKAGE" 2>&1 || true
+
+        else
+          echo "==> [app-died] Unknown platform '$PLATFORM' — killing flutter-tools PID as best-effort"
+          PID=$(cat .fdb/fdb.pid 2>/dev/null)
+          if [ -n "$PID" ]; then
+            kill -9 "$PID" 2>/dev/null || true
+            # Also kill any child processes
+            pkill -9 -P "$PID" 2>/dev/null || true
+          fi
+        fi
+
+        sleep 2
+
+        echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
+        set +e
+        OUTPUT=$({{.FDB}} tap @1 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb tap should have exited non-zero after app death, got 0" >&2
+          exit 1
+        fi
+
+        if echo "$OUTPUT" | grep -q "APP_DIED"; then
+          echo "PASS: APP_DIED detected in output"
+        else
+          echo "FAIL: APP_DIED not found in output (got exit $EXIT_CODE)" >&2
+          exit 1
+        fi
+
+        if echo "$OUTPUT" | grep -q "See: fdb crash-report"; then
+          echo "PASS: See: fdb crash-report hint present"
+        else
+          echo "FAIL: 'See: fdb crash-report' hint not found in output" >&2
+          exit 1
+        fi
+
+        if echo "$OUTPUT" | grep -qE "Last [0-9]+ log lines:"; then
+          echo "PASS: log tail present in APP_DIED output"
+        else
+          echo "FAIL: log tail 'Last N log lines:' not found in output" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb app-died"
+
   test:kill:
     desc: Kill the running app
     dir: '{{.TEST_APP}}'
@@ -1880,6 +2021,9 @@ tasks:
       - task: test:back
       - task: test:clean
       - task: test:shared-prefs
+      - task: test:app-died
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: test:kill
       - task: test:status-stopped
       - task: test:session-dir

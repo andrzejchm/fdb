@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Triggers Navigator.maybePop() in the running Flutter app.
@@ -47,6 +48,8 @@ Future<int> runBack(List<String> args) async {
 
     stderr.writeln('ERROR: Unexpected response from ext.fdb.back: $result');
     return 1;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

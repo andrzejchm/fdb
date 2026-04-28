@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 /// Taps a widget identified by selector, absolute coordinates, or a describe ref.
@@ -167,6 +168,8 @@ Future<int> runTap(List<String> args) async {
       stderr.writeln('ERROR: Unexpected response from ext.fdb.tap: $result');
       return 1;
     }
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;
@@ -258,6 +261,8 @@ Future<int> _tapByRef(int ref, int timeoutSeconds) async {
 
     stderr.writeln('ERROR: Unexpected response from ext.fdb.tap: $tapResult');
     return 1;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;

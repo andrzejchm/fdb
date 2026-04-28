@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/app_died_exception.dart';
 import 'package:fdb/vm_service.dart';
 
 const _directions = ['up', 'down', 'left', 'right'];
@@ -158,6 +159,8 @@ Future<int> runScroll(List<String> args) async {
 
     stderr.writeln('ERROR: Unexpected response from ext.fdb.scroll: $result');
     return 1;
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     stderr.writeln('ERROR: $e');
     return 1;
