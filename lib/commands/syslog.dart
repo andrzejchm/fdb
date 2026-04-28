@@ -46,6 +46,11 @@ Future<int> runSyslog(List<String> args) async {
     return 1;
   }
 
+  if (follow && last != null) {
+    stderr.writeln('ERROR: --last is not supported with --follow');
+    return 1;
+  }
+
   final sinceSeconds = _parseDurationSeconds(since);
   if (sinceSeconds == null) {
     stderr.writeln(
@@ -221,7 +226,7 @@ Future<int> _runIosPhysical({
 
   if (!follow) {
     stderr.writeln(
-      'ERROR: --since is not supported for iOS physical devices (idevicesyslog does not support time filtering)',
+      'ERROR: fdb syslog requires --follow on iOS physical devices (idevicesyslog does not support snapshot mode)',
     );
     return 1;
   }
@@ -306,10 +311,6 @@ Future<int> _spawnAndStream({
   }
 
   if (follow) {
-    if (last != null) {
-      stderr.writeln('ERROR: --last is not supported with --follow');
-      return 1;
-    }
     // Stream live — do not buffer.
     var killed = false;
     final sigintSub = ProcessSignal.sigint.watch().listen((_) {
