@@ -1547,12 +1547,12 @@ tasks:
 
         echo "==> [app-died] Waiting for app to be ready"
         READY=0
-        for _ in $(seq 1 20); do
+        for _ in $(seq 1 60); do
           if {{.FDB}} tree --depth 1 >/dev/null 2>&1; then
             READY=1
             break
           fi
-          sleep 0.5
+          sleep 1
         done
         if [ $READY -ne 1 ]; then
           echo "FAIL: app did not become ready in time" >&2
@@ -1616,21 +1616,24 @@ tasks:
         else
           # macOS desktop (darwin): fdb.app_pid is a real macOS host PID — kill it directly.
           # Also kill flutter-tools to prevent it from auto-restarting the app.
+          # Use /bin/kill explicitly: Task's embedded shell (mvdan/sh) does not
+          # implement the `kill` builtin and does not fall back to the external
+          # binary, so a bare `kill` call fails with "unimplemented builtin".
           APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
           if [ -n "$APP_PID" ]; then
             echo "==> [app-died] Killing app VM process PID=$APP_PID"
-            kill -9 "$APP_PID" 2>/dev/null || true
+            /bin/kill -9 "$APP_PID" 2>/dev/null || true
             TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
             if [ -n "$TOOLS_PID" ]; then
               echo "==> [app-died] Killing flutter-tools PID=$TOOLS_PID to prevent auto-restart"
-              kill -9 "$TOOLS_PID" 2>/dev/null || true
+              /bin/kill -9 "$TOOLS_PID" 2>/dev/null || true
             fi
           else
             echo "WARNING: .fdb/fdb.app_pid not found — falling back to killing fdb.pid" >&2
             TOOLS_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
             if [ -n "$TOOLS_PID" ]; then
               echo "==> [app-died] Killing flutter-tools PID=$TOOLS_PID (best-effort)"
-              kill -9 "$TOOLS_PID" 2>/dev/null || true
+              /bin/kill -9 "$TOOLS_PID" 2>/dev/null || true
             fi
           fi
         fi
@@ -1638,8 +1641,12 @@ tasks:
         sleep 2
 
         echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
+        # Pin the session dir explicitly. After the kill, this worktree's .fdb/fdb.pid
+        # points to a dead process; without --session-dir, fdb auto-resolves by walking
+        # up the directory tree and may attach to an unrelated live .fdb/ session in a
+        # parent directory, masking the dead-app condition.
         set +e
-        OUTPUT=$({{.FDB}} tap @1 2>&1)
+        OUTPUT=$({{.FDB}} --session-dir "$(pwd)/.fdb" tap @1 2>&1)
         EXIT_CODE=$?
         set -e
         echo "$OUTPUT"
