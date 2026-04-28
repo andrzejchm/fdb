@@ -2,7 +2,8 @@
 
 ### New commands
 - `fdb syslog` — streams native system logs (iOS Console / Android logcat) for the running app
-- `fdb native-tap` — performs a native in-process tap; also available as `fdb tap --at x,y` for absolute coordinate targeting
+- `fdb native-tap --at x,y` — taps native OS UI (permission dialogs, system sheets) by injecting events at the OS level, bypassing Flutter entirely (`adb shell input tap` on Android, IndigoHID on iOS simulator)
+- `fdb tap --at x,y` — taps by absolute coordinates via in-process native injection through fdb_helper, reaching platform views overlaid on the Flutter surface (WebView, UIAlertController, AlertDialog) without requiring OS-level access
 
 ### Improvements
 - `fdb describe` now surfaces off-screen children of `GridView` and `ListView` that were previously hidden
