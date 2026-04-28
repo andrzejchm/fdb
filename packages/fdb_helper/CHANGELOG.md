@@ -1,3 +1,11 @@
+## 1.3.0
+
+### New
+- `ext.fdb.doubleTap` now correctly invokes the callback when the target widget is hittable
+
+### Fixes
+- No functional changes to fdb_helper API — version bump to match fdb 1.3.0
+
 ## 1.2.1
 
 ### Improvements

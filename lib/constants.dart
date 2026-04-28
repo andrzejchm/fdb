@@ -1,7 +1,7 @@
 import 'dart:io';
 
 /// fdb version — update this AND pubspec.yaml on every release.
-const version = '1.2.1';
+const version = '1.3.0';
 
 /// Name of the session directory created inside the Flutter project.
 const sessionDirName = '.fdb';
@@ -64,9 +64,11 @@ String? resolveSessionDir({Directory? start}) {
           alive = false;
         }
       } else {
-        // No PID file — directory exists but was never fully initialised;
-        // treat as a valid candidate.
-        alive = true;
+        // No PID file — only treat as a valid candidate if a vm_uri.txt
+        // exists, indicating an interrupted launch that left a recoverable
+        // VM service session. A bare .fdb/ with neither file is a leftover
+        // directory that should not attract walk-up resolution.
+        alive = File('${candidate.path}/vm_uri.txt').existsSync();
       }
 
       if (alive) {

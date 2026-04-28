@@ -619,6 +619,10 @@ tasks:
         assert_double_tap_summary() {
           local scenario="$1"
           local expected_summary="$2"
+          # Scroll the double_tap_summary text into view before describing — the
+          # home page is tall enough that the summary may be off-screen after
+          # buttons were added above it.
+          {{.FDB}} scroll-to --key double_tap_summary >/dev/null 2>&1 || true
           for _ in $(seq 1 20); do
             DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
             DESCRIBE_EXIT_CODE=$?
@@ -638,6 +642,8 @@ tasks:
 
         assert_double_tap_summary_changed() {
           local scenario="$1"
+          # Scroll the double_tap_summary text into view before describing.
+          {{.FDB}} scroll-to --key double_tap_summary >/dev/null 2>&1 || true
           for _ in $(seq 1 20); do
             DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
             DESCRIBE_EXIT_CODE=$?
@@ -747,6 +753,10 @@ tasks:
         if is_macos_device; then
           echo "SKIP: macOS duplicate-text index scenario is not stable in the desktop viewport; exercising --index on widget type and mobile targets instead"
         else
+          # Scroll the secondary target into the viewport — the home page may be
+          # tall enough that double_tap_target_secondary is below the fold on
+          # smaller-screen devices.
+          {{.FDB}} scroll-to --key double_tap_target_secondary >/dev/null 2>&1 || true
           set +e
           INDEX_OUTPUT=$({{.FDB}} double-tap --text "Double Tap Target" --index 1 2>&1)
           EXIT_CODE=$?
@@ -1858,8 +1868,21 @@ tasks:
   test:kill:
     desc: Kill the running app
     dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - |
+        # test:app-died leaves the session cleaned up; relaunch so test:kill
+        # has a live app to kill.
+        echo "==> Launching app for kill test"
+        LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        echo "$LAUNCH_OUTPUT"
+        if ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+          echo "FAIL: fdb launch for kill test failed" >&2
+          exit 1
+        fi
+
         echo "==> Killing app"
         OUTPUT=$({{.FDB}} kill 2>&1)
         EXIT_CODE=$?
@@ -2223,6 +2246,8 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:kill
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: test:status-stopped
       - task: test:session-dir
         vars:

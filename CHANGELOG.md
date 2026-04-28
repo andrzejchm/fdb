@@ -1,3 +1,20 @@
+## 1.3.0
+
+### New commands
+- `fdb syslog` — streams native system logs (iOS Console / Android logcat) for the running app
+- `fdb native-tap` — performs a native in-process tap; also available as `fdb tap --at x,y` for absolute coordinate targeting
+
+### Improvements
+- `fdb describe` now surfaces off-screen children of `GridView` and `ListView` that were previously hidden
+- App death is now detected and surfaces an `APP_DIED` error immediately instead of hanging
+- `.fdb/` state directory is now auto-located by walking up the directory tree, so fdb commands work from any subdirectory of the project
+- `fdb status` returns `RUNNING=true` when a launch was interrupted but the app is still alive via VM URI fallback
+- `fdb.app_pid` is now stored separately from `fdb.pid` for accurate app liveness detection
+
+### Fixes
+- Session directory walk-up no longer escapes to a parent `.fdb/` that has no `vm_uri.txt` when the local PID is stale
+- `fdb status` VM URI fallback works correctly when launch is interrupted
+
 ## 1.2.1
 
 ### Fixes
