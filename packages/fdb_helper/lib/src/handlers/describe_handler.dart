@@ -209,30 +209,22 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         }
       }
 
+      // Normal element walk: visits all active (in-viewport) children.
+      element.visitChildren(visit);
+
       // For sliver multi-box adaptors (GridView, ListView, CustomScrollView),
-      // visitChildren only reaches *active* (on-screen) elements. Walk the
-      // render tree instead so we can also reach deactivated off-screen children
-      // that are still cached in the render object's child list.
-      // Each cached RenderBox carries a debugCreator pointing back to its Element.
-      // Cap: we stop once maxInteractive is reached (checked at top of visit).
+      // element.visitChildren only reaches *active* (in-viewport) elements.
+      // Items that have never been scrolled into view have no element or render
+      // object at all. If the sliver widget exposes a SliverChildListDelegate
+      // (GridView.count, ListView with explicit children), we can walk its full
+      // widget list and inspect widgets that haven't been built into elements yet.
+      // This MUST run after element.visitChildren so that active items are already
+      // in the `interactive` list and can be used for deduplication by key.
       final ro = element.renderObject;
-      if (ro is RenderSliverMultiBoxAdaptor) {
-        ro.visitChildren((child) {
-          if (interactive.length >= maxInteractive) return;
-          if (child is! RenderBox) return;
-          // The active children are already walked below via visitChildren on the
-          // element; only process children whose elements are NOT active (i.e.
-          // deactivated / off-screen).
-          final creator = child.debugCreator;
-          if (creator is! DebugCreator) return;
-          final childElement = creator.element;
-          // Visit the child's own element subtree so interactive descendants
-          // (e.g. the ElevatedButton inside a grid cell) get collected.
-          visit(childElement);
-        });
+      if (ro is RenderSliverMultiBoxAdaptor && interactive.length < maxInteractive) {
+        _collectUnbuiltDelegateWidgets(element, interactive, maxInteractive);
       }
 
-      element.visitChildren(visit);
       if (typeName == 'Tooltip') currentTooltip = previousTooltip;
     }
 
@@ -271,6 +263,136 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
   } catch (e) {
     return errorResponse('describe failed: $e');
   }
+}
+
+/// Inspects un-built widget children from a [SliverChildListDelegate].
+///
+/// [SliverMultiBoxAdaptorElement] only keeps the currently active (in-viewport)
+/// children in the element tree. Items that were never scrolled into view have
+/// no element or render object. If the sliver widget uses a
+/// [SliverChildListDelegate] (GridView.count, ListView with explicit children),
+/// we can read the full widget list and widget-level inspect each un-built entry.
+void _collectUnbuiltDelegateWidgets(
+  Element sliverElement,
+  List<Map<String, dynamic>> interactive,
+  int maxInteractive,
+) {
+  List<Widget>? allChildren;
+  try {
+    final delegate = (sliverElement.widget as dynamic).delegate;
+    if (delegate is SliverChildListDelegate) {
+      allChildren = delegate.children;
+    }
+  } catch (_) {
+    return;
+  }
+  if (allChildren == null || allChildren.isEmpty) return;
+
+  // SliverChildListDelegate wraps each child in KeyedSubtree → AutomaticKeepAlive
+  // → IndexedSemantics → RepaintBoundary before mounting, so the active element's
+  // .widget is never the same instance as allChildren[i]. Comparing widget instances
+  // would always miss. Instead, collect the keys that are already present in the
+  // `interactive` list (populated by the element walk that ran before this call)
+  // and skip delegate children whose key is already recorded.
+  final existingKeys = <String?>{};
+  for (final entry in interactive) {
+    final k = entry['key'] as String?;
+    if (k != null) existingKeys.add(k);
+  }
+
+  for (final child in allChildren) {
+    if (interactive.length >= maxInteractive) return;
+    final childKey = child.key is ValueKey<String> ? (child.key as ValueKey<String>).value : null;
+    if (childKey != null && existingKeys.contains(childKey)) continue;
+    // Widget has not been built into an element yet — inspect at widget level.
+    _collectInteractiveFromWidget(child, interactive, maxInteractive);
+  }
+}
+
+/// Recursively inspects a widget subtree (without building elements) to
+/// collect interactive widgets. Used for un-built sliver delegate children.
+void _collectInteractiveFromWidget(
+  Widget widget,
+  List<Map<String, dynamic>> interactive,
+  int maxInteractive,
+) {
+  if (interactive.length >= maxInteractive) return;
+  final typeName = widget.runtimeType.toString();
+
+  if (_isDescribeInteractiveWidget(typeName)) {
+    final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
+    final text = _extractWidgetLevelText(widget);
+    final hasText = text != null && text.trim().isNotEmpty;
+    final hasKey = key != null;
+    // Only add if it would survive the post-filter in handleDescribe.
+    if (!hasText && !hasKey) return;
+    interactive.add({
+      'type': typeName,
+      'key': key,
+      'text': text,
+      // Off-screen/un-built: no layout position. Use large y so these items
+      // sort after all on-screen items.
+      'x': 0.0,
+      'y': 9999999.0,
+    });
+    return;
+  }
+
+  // Recurse into common single-child and multi-child widget shapes.
+  _visitWidgetChildren(widget, interactive, maxInteractive);
+}
+
+void _visitWidgetChildren(
+  Widget widget,
+  List<Map<String, dynamic>> interactive,
+  int maxInteractive,
+) {
+  if (interactive.length >= maxInteractive) return;
+  // Single child.
+  try {
+    final child = (widget as dynamic).child;
+    if (child is Widget) {
+      _collectInteractiveFromWidget(child, interactive, maxInteractive);
+      return;
+    }
+  } catch (_) {}
+  // Multi-child.
+  try {
+    final children = (widget as dynamic).children;
+    if (children is List) {
+      for (final c in children) {
+        if (interactive.length >= maxInteractive) return;
+        if (c is Widget) _collectInteractiveFromWidget(c, interactive, maxInteractive);
+      }
+    }
+  } catch (_) {}
+}
+
+/// Extracts text from a widget tree without building elements.
+String? _extractWidgetLevelText(Widget widget) {
+  if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
+  if (widget is RichText) return widget.text.toPlainText();
+  // Single child.
+  try {
+    final child = (widget as dynamic).child;
+    if (child is Widget) {
+      final t = _extractWidgetLevelText(child);
+      if (t != null) return t;
+    }
+  } catch (_) {}
+  // Multi-child.
+  try {
+    final children = (widget as dynamic).children;
+    if (children is List) {
+      for (final c in children) {
+        if (c is Widget) {
+          final t = _extractWidgetLevelText(c);
+          if (t != null) return t;
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
 }
 
 bool _isDescribeInteractiveWidget(String typeName) => const {
