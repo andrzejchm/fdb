@@ -80,7 +80,7 @@ bool isProcessAlive(int pid) {
 Future<bool> isVmServiceReachable(String uri) async {
   try {
     final ws = await WebSocket.connect(uri).timeout(const Duration(seconds: 3));
-    await ws.close();
+    unawaited(ws.close());
     return true;
   } catch (_) {
     // Intentional: timeout and all network errors mean "not reachable = false".

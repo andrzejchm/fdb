@@ -7,7 +7,8 @@ Future<int> runStatus(List<String> args) async {
   final vmUri = readVmUri();
 
   // Primary check: PID file exists and process is alive.
-  var running = pid != null && isProcessAlive(pid);
+  final pidAlive = pid != null && isProcessAlive(pid);
+  var running = pidAlive;
 
   // Fallback: the PID file may be absent or stale (e.g. fdb launch was killed
   // by an agent timeout after the Flutter app started but before APP_STARTED
@@ -19,8 +20,8 @@ Future<int> runStatus(List<String> args) async {
   }
 
   stdout.writeln('RUNNING=$running');
-  if (pid != null) stdout.writeln('PID=$pid');
-  if (vmUri != null) stdout.writeln('VM_SERVICE_URI=$vmUri');
+  if (pidAlive) stdout.writeln('PID=$pid');
+  if (running && vmUri != null) stdout.writeln('VM_SERVICE_URI=$vmUri');
 
   return 0;
 }
