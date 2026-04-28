@@ -1526,20 +1526,23 @@ tasks:
         sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - |
-        echo "==> [app-died] Ensuring app is running"
-        if ! {{.FDB}} status 2>&1 | grep -q "RUNNING=true"; then
-          echo "==> [app-died] App not running — launching first"
-          OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
-          EXIT_CODE=$?
-          echo "$OUTPUT"
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
-            exit 1
-          fi
-          if ! echo "$OUTPUT" | grep -q "APP_STARTED"; then
-            echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
-            exit 1
-          fi
+        echo "==> [app-died] Ensuring a fresh app session on device {{.DEVICE}}"
+        # Always kill and relaunch to guarantee we are on the correct device.
+        # Reusing an existing session risks picking up a stale session from a
+        # different platform (e.g. macOS session left over from a previous test
+        # run when this invocation targets Android or iOS).
+        {{.FDB}} kill 2>/dev/null || true
+        sleep 1
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "APP_STARTED"; then
+          echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
+          exit 1
         fi
 
         echo "==> [app-died] Waiting for app to be ready"
