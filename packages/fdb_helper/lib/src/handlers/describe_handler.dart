@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../element_tree_finder.dart';
@@ -206,6 +207,29 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           return;
         }
+      }
+
+      // For sliver multi-box adaptors (GridView, ListView, CustomScrollView),
+      // visitChildren only reaches *active* (on-screen) elements. Walk the
+      // render tree instead so we can also reach deactivated off-screen children
+      // that are still cached in the render object's child list.
+      // Each cached RenderBox carries a debugCreator pointing back to its Element.
+      // Cap: we stop once maxInteractive is reached (checked at top of visit).
+      final ro = element.renderObject;
+      if (ro is RenderSliverMultiBoxAdaptor) {
+        ro.visitChildren((child) {
+          if (interactive.length >= maxInteractive) return;
+          if (child is! RenderBox) return;
+          // The active children are already walked below via visitChildren on the
+          // element; only process children whose elements are NOT active (i.e.
+          // deactivated / off-screen).
+          final creator = child.debugCreator;
+          if (creator is! DebugCreator) return;
+          final childElement = creator.element;
+          // Visit the child's own element subtree so interactive descendants
+          // (e.g. the ElevatedButton inside a grid cell) get collected.
+          visit(childElement);
+        });
       }
 
       element.visitChildren(visit);

@@ -11,9 +11,7 @@ class GridDescribeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Grid Describe Test'),
-      ),
+      appBar: AppBar(title: const Text('Grid Describe Test')),
       body: GridView.count(
         crossAxisCount: 3,
         children: [
