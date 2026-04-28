@@ -177,11 +177,6 @@ exec $flutterCmd > $logFile 2>&1
   // Read PID — flutter writes it via --pid-file, fall back to launcher PID
   final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : launcherPid.toString();
 
-  // Retrieve the app VM PID via getVM and persist it to fdb.app_pid.
-  // This is the Dart VM process PID (different from the flutter-tools PID in
-  // fdb.pid). Used by vmServiceCall for liveness detection on macOS desktop.
-  // Non-fatal: if getVM fails for any reason, fdb.app_pid is simply not written
-  // and vmServiceCall falls back to the flutter-tools PID heuristic.
   // Start the log collector — a background process that subscribes to the
   // VM service Logging/Stdout/Stderr streams and appends to the log file.
   // flutter run only forwards print() to stdout; developer.log() events are
@@ -193,6 +188,11 @@ exec $flutterCmd > $logFile 2>&1
   stdout.writeln('PID=$pid');
   stdout.writeln('LOG_FILE=$logFile');
 
+  // Retrieve the app VM PID via getVM and persist it to fdb.app_pid.
+  // This is the Dart VM process PID (different from the flutter-tools PID in
+  // fdb.pid). Used by vmServiceCall for liveness detection on macOS desktop.
+  // Non-fatal: if getVM fails for any reason, fdb.app_pid is simply not written
+  // and vmServiceCall falls back to the flutter-tools PID heuristic.
   await _writeAppPid();
 
   return 0;
