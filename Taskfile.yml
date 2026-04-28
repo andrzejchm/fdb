@@ -290,6 +290,73 @@ tasks:
         fi
         echo "PASS: fdb logs --tag"
 
+  test:syslog:
+    desc: Read native system logs (Android logcat / iOS syslog / macOS log)
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> fdb syslog --since 5m --last 20 (default platform)"
+        OUTPUT=$({{.FDB}} syslog --since 5m --last 20 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb syslog exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        echo "PASS: fdb syslog"
+
+        echo "==> fdb syslog --since 30s --last 5 (shorter window)"
+        OUTPUT=$({{.FDB}} syslog --since 30s --last 5 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb syslog --since 30s exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        echo "PASS: fdb syslog --since 30s"
+
+        echo "==> fdb syslog --since 1h --predicate kernel --last 5"
+        OUTPUT=$({{.FDB}} syslog --since 1h --predicate kernel --last 5 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        # Exit code 0 OR a reasonable error (e.g. no matching lines) is acceptable.
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb syslog --predicate exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        echo "PASS: fdb syslog --predicate"
+
+        echo "==> fdb syslog invalid --since format (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} syslog --since bad 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb syslog --since bad should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb syslog invalid --since rejected"
+        else
+          echo "FAIL: fdb syslog invalid --since — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "==> fdb syslog --follow (Ctrl-C exits 0)"
+        {{.FDB}} syslog --follow &
+        FDB_PID=$!
+        sleep 2
+        kill -INT $FDB_PID
+        wait $FDB_PID
+        EXIT=$?
+        if [ $EXIT -eq 0 ]; then
+          echo "PASS: fdb syslog --follow exited 0 after SIGINT"
+        else
+          echo "FAIL: fdb syslog --follow exited $EXIT after SIGINT" >&2
+          exit 1
+        fi
+
   test:tree:
     desc: Inspect widget tree
     dir: '{{.TEST_APP}}'
@@ -1998,6 +2065,7 @@ tasks:
       - task: test:restart
       - task: test:logs
       - task: test:logs-tag
+      - task: test:syslog
       - task: test:tree
       - task: test:describe
       - task: test:screenshot

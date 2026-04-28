@@ -45,6 +45,7 @@ task test:reload
 task test:restart
 task test:logs
 task test:logs-tag
+task test:syslog
 task test:tree
 task test:screenshot
 task test:select
