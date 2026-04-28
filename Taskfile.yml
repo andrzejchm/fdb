@@ -1568,10 +1568,21 @@ tasks:
 
         if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
           echo "==> [app-died] iOS simulator — terminating via simctl"
-          BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
-            | grep "UIKitApplication:" \
-            | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
-            | head -1)
+          APP_PID=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
+          BUNDLE_ID=""
+          if [ -n "$APP_PID" ]; then
+            BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
+              | grep "^$APP_PID" \
+              | grep "UIKitApplication:" \
+              | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
+              | head -1)
+          fi
+          if [ -z "$BUNDLE_ID" ]; then
+            BUNDLE_ID=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null \
+              | grep "UIKitApplication:" \
+              | sed 's/.*UIKitApplication:\([^[]*\).*/\1/' \
+              | head -1)
+          fi
           if [ -z "$BUNDLE_ID" ]; then
             BUNDLE_ID=$(xcrun simctl listapps "$DEVICE_ID" 2>/dev/null \
               | grep -A1 'CFBundleName = "test_app"' \
