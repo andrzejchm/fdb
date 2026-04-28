@@ -16,7 +16,13 @@ import 'package:fdb/process_utils.dart';
 /// Platforms and tools:
 ///   Android (device or emulator) — `adb shell input tap X Y`
 ///   iOS simulator                — IndigoHID via SimulatorKit private framework (no extra tools)
-///   iOS physical                 — `idb ui tap X Y` (XCTest private API via WDA)
+///
+/// Physical iOS is not yet supported. The de-facto standard for out-of-process
+/// tap injection on physical iOS is WebDriverAgent (a signed XCUITest runner
+/// installed on the device), which has higher setup burden than the current
+/// zero-setup paths. Use `fdb tap --at` instead — it performs in-process tap
+/// injection via `fdb_helper` and reaches in-app native overlays
+/// (UIAlertController, etc.) on physical iOS devices. See beads issue fdb-6sz.
 ///
 /// macOS is not supported. Out-of-process click injection on macOS requires
 /// Accessibility permission, which the system only grants to signed `.app`
@@ -95,7 +101,17 @@ Future<int> runNativeTap(List<String> args) async {
   }
 
   if (platform.startsWith('ios') && !isEmulator) {
-    return _tapIosPhysical(deviceId: deviceId, x: x, y: y);
+    stderr.writeln(
+      'ERROR: native-tap is not yet supported on physical iOS devices.\n'
+      '  Use `fdb tap --at $x,$y` instead — it performs in-process tap\n'
+      '  injection via fdb_helper, which reaches UIAlertController and other\n'
+      '  in-app native overlays on physical iOS devices.\n'
+      '\n'
+      '  Why: out-of-process tap injection on physical iOS requires\n'
+      '  WebDriverAgent (a signed XCUITest runner installed on the device).\n'
+      '  Tracking implementation in beads issue fdb-6sz.',
+    );
+    return 1;
   }
 
   if (platform.startsWith('darwin')) {
@@ -334,54 +350,6 @@ fnSend(hid,sel,up,true,nil,nil)
 Thread.sleep(forTimeInterval:0.3)
 print("TAPPED")
 ''';
-}
-
-// ---------------------------------------------------------------------------
-// iOS physical — idb (XCTest private API via on-device WDA)
-// ---------------------------------------------------------------------------
-
-/// Taps a physical iOS device at ([x], [y]) via `idb ui tap`.
-///
-/// idb drives an on-device XCTest runner that synthesises the touch through
-/// XCTest private APIs ([XCSynthesizedEventRecord] + [XCTRunnerDaemonSession]),
-/// which routes through testmanagerd at the system/HID level and reaches
-/// OS-level dialogs.
-///
-/// Requires:
-///   brew install facebook/fb/idb-companion
-///   pip3 install fb-idb
-///   Docs: https://fbidb.io
-Future<int> _tapIosPhysical({required String? deviceId, required double x, required double y}) async {
-  final which = await Process.run('which', ['idb']);
-  if (which.exitCode != 0) {
-    stderr.writeln(
-      'ERROR: native-tap on physical iOS requires idb.\n'
-      '  Install: brew install facebook/fb/idb-companion && pip3 install fb-idb\n'
-      '  Docs: https://fbidb.io',
-    );
-    return 1;
-  }
-
-  final udidArgs = deviceId != null ? ['--udid', deviceId] : <String>[];
-  try {
-    final result = await Process.run('idb', [
-      'ui',
-      'tap',
-      x.toInt().toString(),
-      y.toInt().toString(),
-      ...udidArgs,
-    ]);
-    if (result.exitCode != 0) {
-      final details = (result.stderr as String).trim();
-      stderr.writeln('ERROR: idb ui tap failed: $details');
-      return 1;
-    }
-    stdout.writeln('NATIVE_TAPPED=ios-physical X=${x.toInt()} Y=${y.toInt()}');
-    return 0;
-  } catch (e) {
-    stderr.writeln('ERROR: Failed to run idb: $e');
-    return 1;
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -178,7 +178,7 @@ Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 Platform dispatch:
 - **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels). No extra setup needed.
 - **iOS simulator** — IndigoHID via SimulatorKit private framework. No extra tools required.
-- **iOS physical** — `idb ui tap X Y` via XCTest private APIs. Requires `brew install facebook/fb/idb-companion && pip3 install fb-idb`.
+- **iOS physical** — **not yet supported.** Out-of-process tap injection on physical iOS requires WebDriverAgent (signed XCUITest runner installed on the device). Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and reaches in-app native overlays (UIAlertController, etc.) on physical iOS devices.
 - **macOS** — **not supported.** Out-of-process click injection on macOS requires Accessibility permission, which the system only grants to signed `.app` bundles. Homebrew CLIs (cliclick, opencode, tmux) are unsigned binaries and cannot receive Accessibility permission on macOS Sequoia/Tahoe. Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and does not require any system permissions.
 
 Workflow for dismissing an iOS permission prompt:

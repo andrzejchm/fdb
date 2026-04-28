@@ -1473,8 +1473,8 @@ tasks:
         set -e
         echo "$OUTPUT"
 
-        if echo "$OUTPUT" | grep -q "ERROR: native-tap on physical iOS"; then
-          echo "SKIP: physical iOS — native-tap not supported in v1"
+        if echo "$OUTPUT" | grep -q "ERROR: native-tap is not yet supported on physical iOS"; then
+          echo "SKIP: physical iOS — native-tap not yet supported (see fdb-6sz)"
         elif echo "$OUTPUT" | grep -q "ERROR: native-tap is not supported on macOS"; then
           echo "SKIP: macOS — native-tap not supported (use 'fdb tap --at' instead)"
         elif [ $EXIT_CODE -ne 0 ]; then
