@@ -49,6 +49,7 @@ Priorities: `1` (critical) → `4` (low)
 
 ## Rules
 
+- On `main`: `git add .beads/issues.jsonl && git commit` directly — the pre-commit hook exports to the right place.
 - Always commit `issues.jsonl` together with the code changes it tracks — never in isolation.
 - Run `bd bootstrap` after `git pull` on any machine that already has a local DB.
 - Run `bd prime` at session start only — not during compaction (`bd sync` handles compaction).
