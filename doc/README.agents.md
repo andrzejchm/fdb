@@ -16,7 +16,7 @@ Requires Dart SDK >= 3.0.0. Ensure `~/.pub-cache/bin` is in your `PATH`.
 
 ### 2. Install the skill file (optional)
 
-If your agent supports skill files (OpenCode, Claude Code, or similar), install for automatic discoverability:
+If your agent supports skill files (OpenCode, Claude Code, Cursor, Gemini CLI, Windsurf, or similar), install for automatic discoverability:
 
 **OpenCode:**
 ```bash
@@ -30,6 +30,25 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 mkdir -p ~/.claude/skills/using-fdb
 curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
   -o ~/.claude/skills/using-fdb/SKILL.md
+```
+
+**Cursor:**
+```bash
+mkdir -p ~/.cursor/skills/using-fdb
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.cursor/skills/using-fdb/SKILL.md
+```
+
+**Gemini CLI:**
+```bash
+gemini skills install https://github.com/andrzejchm/fdb.git --path skills/using-fdb
+```
+
+**Windsurf:**
+```bash
+mkdir -p ~/.codeium/windsurf/skills/using-fdb
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.codeium/windsurf/skills/using-fdb/SKILL.md
 ```
 
 Alternatively, run `fdb skill` to print the skill file contents directly.
@@ -57,6 +76,17 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 # Update the skill file (Claude Code)
 curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
   -o ~/.claude/skills/using-fdb/SKILL.md
+
+# Update the skill file (Cursor)
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.cursor/skills/using-fdb/SKILL.md
+
+# Update the skill file (Gemini CLI)
+gemini skills install https://github.com/andrzejchm/fdb.git --path skills/using-fdb
+
+# Update the skill file (Windsurf)
+curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fdb/SKILL.md \
+  -o ~/.codeium/windsurf/skills/using-fdb/SKILL.md
 ```
 
 ## Prerequisites
