@@ -30,7 +30,7 @@ import 'package:fdb/commands/wait.dart';
 import 'package:fdb/constants.dart';
 
 const usage = '''
-Usage: fdb <command> [args]
+Usage: fdb [--session-dir <path>] <command> [args]
 
 Commands:
   devices     List connected devices
@@ -61,8 +61,9 @@ Commands:
   kill        Stop the running app
   skill       Print the AI agent skill file (SKILL.md)
 
-Options:
-  --version   Print the fdb version
+Global options:
+  --session-dir <path>  Use this .fdb/ session directory instead of auto-resolving
+  --version             Print the fdb version
 ''';
 
 Future<void> main(List<String> args) async {
@@ -76,14 +77,48 @@ Future<void> main(List<String> args) async {
     exit(0);
   }
 
-  final command = args[0];
+  // Strip global flags before the command word.
+  var remaining = args.toList();
+  String? explicitSessionDir;
 
-  if (command == '--version' || command == '-v') {
-    stdout.writeln('fdb $version');
-    exit(0);
+  while (remaining.isNotEmpty && remaining[0].startsWith('-')) {
+    if (remaining[0] == '--session-dir' && remaining.length > 1) {
+      explicitSessionDir = remaining[1];
+      remaining = remaining.sublist(2);
+    } else if (remaining[0] == '--version' || remaining[0] == '-v') {
+      stdout.writeln('fdb $version');
+      exit(0);
+    } else {
+      // Unknown global flag — leave it for the command to handle or reject.
+      break;
+    }
   }
 
-  final commandArgs = args.sublist(1);
+  if (remaining.isEmpty) {
+    stderr.writeln(usage);
+    exit(1);
+  }
+
+  final command = remaining[0];
+
+  final commandArgs = remaining.sublist(1);
+
+  // Resolve session directory.
+  // `launch` manages its own session dir via --project; skip auto-resolution.
+  // All other commands benefit from walking up to find an active .fdb/.
+  if (command != 'launch' && command != 'devices' && command != 'skill') {
+    if (explicitSessionDir != null) {
+      initSessionDirFromPath(explicitSessionDir);
+    } else {
+      final resolved = resolveSessionDir();
+      if (command != 'status' && resolved == null) {
+        stderr.writeln(
+          'ERROR: No .fdb/ session found. Run from the project root or pass --session-dir <path>.',
+        );
+        exit(1);
+      }
+    }
+  }
 
   try {
     final exitCode = await _runCommand(command, commandArgs);

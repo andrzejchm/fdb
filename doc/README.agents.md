@@ -128,6 +128,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 | `fdb kill` | Stop app |
 | `fdb skill` | Print the AI agent skill file (SKILL.md) |
 | `fdb --version` | Print the fdb version |
+| `fdb --session-dir <path> <command>` | Use a specific `.fdb/` session directory instead of auto-resolving |
 
 ### Launch
 
@@ -317,3 +318,5 @@ fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 **Screenshot fails** -- Check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11). Physical iOS, Windows, and Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.
 
 **Status shows RUNNING=false after launch** -- The Flutter process may have crashed. Check `fdb logs --last 50` for errors.
+
+**Commands report RUNNING=false when run from a subdirectory** -- fdb automatically walks up the directory tree to find the nearest live `.fdb/` session, so you don't need to be in the project root. If it still fails, use `fdb --session-dir <project>/.fdb status` to point directly at the session directory.

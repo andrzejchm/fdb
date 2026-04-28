@@ -9,6 +9,7 @@ const sessionDirName = '.fdb';
 /// The active session directory. Defaults to `<CWD>/.fdb/`.
 /// [initSessionDir] overrides this for commands like `launch` that receive an
 /// explicit `--project` path.
+/// [resolveSessionDir] auto-locates an existing `.fdb/` by walking up the tree.
 String _sessionDir = '${Directory.current.path}/$sessionDirName';
 
 /// Override the session directory (e.g. from `--project`).
@@ -17,6 +18,79 @@ String _sessionDir = '${Directory.current.path}/$sessionDirName';
 void initSessionDir(String projectPath) {
   final absolute = Directory(projectPath).absolute.path;
   _sessionDir = '$absolute/$sessionDirName';
+}
+
+/// Override the session directory from an explicit `--session-dir` flag.
+/// Skips auto-resolution entirely — the caller is responsible for the path.
+void initSessionDirFromPath(String sessionDirPath) {
+  _sessionDir = Directory(sessionDirPath).absolute.path;
+}
+
+/// Auto-locate the session directory by walking up from [start] (defaults to
+/// CWD) looking for an existing `.fdb/` directory whose PID file points at a
+/// live process.
+///
+/// Walk stops at `$HOME` or the filesystem root, whichever comes first.
+///
+/// - If a live `.fdb/` is found in a *parent* of [start], logs one `INFO:`
+///   line to stderr so the user knows which directory was picked.
+/// - If no live `.fdb/` is found anywhere, returns `null` and leaves
+///   `_sessionDir` at the CWD default so commands like `status` can handle
+///   the missing-session case themselves.
+///
+/// Returns the resolved session-dir path, or `null` if no live session was found.
+String? resolveSessionDir({Directory? start}) {
+  final cwd = (start ?? Directory.current).absolute.path;
+  final home = Platform.environment['HOME'] ?? '/';
+
+  var current = Directory(cwd);
+
+  while (true) {
+    final candidate = Directory('${current.path}/$sessionDirName');
+    if (candidate.existsSync()) {
+      final pidPath = '${candidate.path}/fdb.pid';
+      final pidFile = File(pidPath);
+      bool alive;
+      if (pidFile.existsSync()) {
+        final raw = pidFile.readAsStringSync().trim();
+        final pid = int.tryParse(raw);
+        if (pid != null) {
+          try {
+            alive = Process.runSync('kill', ['-0', pid.toString()]).exitCode == 0;
+          } catch (_) {
+            alive = false;
+          }
+        } else {
+          alive = false;
+        }
+      } else {
+        // No PID file — directory exists but was never fully initialised;
+        // treat as a valid candidate.
+        alive = true;
+      }
+
+      if (alive) {
+        final resolved = candidate.absolute.path;
+        if (resolved != Directory('$cwd/$sessionDirName').absolute.path) {
+          stderr.writeln('INFO: Using session dir from ${current.path}');
+        }
+        _sessionDir = resolved;
+        return resolved;
+      }
+    }
+
+    // Stop at $HOME or filesystem root — never walk past either.
+    final parent = current.parent;
+    final atHome = current.absolute.path == Directory(home).absolute.path;
+    final atRoot = parent.path == current.path;
+    if (atHome || atRoot) break;
+    current = parent;
+  }
+
+  // No live session found — keep _sessionDir at <CWD>/.fdb/ so commands like
+  // `status` can handle the missing-session case themselves.
+  _sessionDir = '$cwd/$sessionDirName';
+  return null;
 }
 
 /// Ensure the session directory exists and return its path.
