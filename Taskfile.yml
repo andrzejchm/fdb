@@ -1546,9 +1546,11 @@ tasks:
         fi
 
         echo "==> [app-died] Waiting for app to be ready"
+        # Pin --session-dir so the readiness probe doesn't auto-resolve to a
+        # stale .fdb/ from another worktree higher up the directory tree.
         READY=0
         for _ in $(seq 1 60); do
-          if {{.FDB}} tree --depth 1 >/dev/null 2>&1; then
+          if {{.FDB}} --session-dir "$(pwd)/.fdb" tree --depth 1 >/dev/null 2>&1; then
             READY=1
             break
           fi

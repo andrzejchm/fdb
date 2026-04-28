@@ -22,17 +22,18 @@ Future<Map<String, dynamic>> vmServiceCall(
   // Pre-check: if the process is dead, short-circuit immediately without
   // even attempting a WebSocket connection.
   //
-  // On macOS desktop the app VM PID (fdb.app_pid) and the flutter-tools PID
-  // (fdb.pid) both live in the host process table, so we can check either.
-  // Prefer the app PID because it is the actual Dart VM process; fall back to
-  // the flutter-tools PID when fdb.app_pid has not been written yet.
+  // On the macOS desktop *target* (not host), the app VM PID (fdb.app_pid)
+  // and the flutter-tools PID (fdb.pid) both live in the host process table,
+  // so we can check either. Prefer the app PID because it is the actual Dart
+  // VM process; fall back to the flutter-tools PID when fdb.app_pid has not
+  // been written yet.
   //
-  // On Android and iOS the app VM PID from getVM lives inside the device /
-  // simulator process namespace and is NOT visible to the host macOS process
-  // table — kill -0 would always return false, producing false positives.
-  // On those platforms skip the PID pre-check and rely on the
+  // On Android and iOS targets the app VM PID from getVM lives inside the
+  // device / simulator process namespace and is NOT visible to the host macOS
+  // process table — kill -0 would always return false, producing false
+  // positives. On those targets skip the PID pre-check and rely on the
   // connection-refused heuristic below.
-  if (Platform.isMacOS) {
+  if (_isMacOsTarget()) {
     final pid = readAppPid() ?? readPid();
     if (pid != null && !isProcessAlive(pid)) {
       throw await buildAppDiedException(pid: pid);
@@ -49,8 +50,9 @@ Future<Map<String, dynamic>> vmServiceCall(
     ).timeout(const Duration(seconds: 5));
   } on TimeoutException {
     // Connection timed out — check if the process died in the meantime.
-    // Use app PID on macOS (most accurate); fall back to flutter-tools PID.
-    if (Platform.isMacOS) {
+    // Use app PID on the macOS target (most accurate); fall back to
+    // flutter-tools PID. Skip on Android/iOS where the PID is not on the host.
+    if (_isMacOsTarget()) {
       final currentPid = readAppPid() ?? readPid();
       if (currentPid != null && !isProcessAlive(currentPid)) {
         throw await buildAppDiedException(pid: currentPid);
@@ -70,12 +72,14 @@ Future<Map<String, dynamic>> vmServiceCall(
     // If the app came back on a different port the URI would also be stale,
     // but that scenario is handled by re-running `fdb launch`.
     if (_isConnectionRefused(e)) {
-      // Prefer the app PID in the exception so crash-report can reference it.
-      throw await buildAppDiedException(pid: readAppPid() ?? readPid());
+      // Prefer the app PID on macOS target (host-visible). On Android/iOS the
+      // app PID is device-namespace and not useful — use flutter-tools PID.
+      final pid = _isMacOsTarget() ? (readAppPid() ?? readPid()) : readPid();
+      throw await buildAppDiedException(pid: pid);
     }
     // For non-connection errors (e.g. bad URI, TLS issues) fall back to PID
-    // check before rethrowing (macOS only — see pre-check rationale above).
-    if (Platform.isMacOS) {
+    // check before rethrowing (macOS target only — see pre-check rationale).
+    if (_isMacOsTarget()) {
       final currentPid = readAppPid() ?? readPid();
       if (currentPid != null && !isProcessAlive(currentPid)) {
         throw await buildAppDiedException(pid: currentPid);
@@ -132,8 +136,8 @@ Future<Map<String, dynamic>> vmServiceCall(
     return response;
   } on TimeoutException {
     await ws.close();
-    // Check if the process died during the wait (macOS only — see pre-check).
-    if (Platform.isMacOS) {
+    // Check if the process died during the wait (macOS target only).
+    if (_isMacOsTarget()) {
       final currentPid = readAppPid() ?? readPid();
       if (currentPid != null && !isProcessAlive(currentPid)) {
         throw await buildAppDiedException(pid: currentPid);
@@ -150,9 +154,26 @@ Future<Map<String, dynamic>> vmServiceCall(
 }
 
 /// Builds an [AppDiedException] after a mid-call connection drop.
+/// Uses the app PID on a macOS target (host-visible); on Android/iOS the
+/// app PID lives in the device namespace and is not host-visible, so the
+/// flutter-tools PID is the only useful value.
 Future<AppDiedException> _buildDeadAppError() async {
-  final pid = readAppPid() ?? readPid();
+  final pid = _isMacOsTarget() ? (readAppPid() ?? readPid()) : readPid();
   return buildAppDiedException(pid: pid);
+}
+
+/// Returns true when the *target* device for this session is macOS desktop.
+///
+/// `Platform.isMacOS` checks the HOST OS (always macOS in fdb's supported
+/// configurations), not the target. Reading the platform from the session file
+/// is required to distinguish a macOS target from an Android or iOS target
+/// when fdb itself runs on macOS. Returns false if the platform file is
+/// missing (no session) — callers should treat this conservatively.
+bool _isMacOsTarget() {
+  final info = readPlatformInfo();
+  if (info == null) return false;
+  final p = info.platform.toLowerCase();
+  return p == 'darwin' || p == 'macos';
 }
 
 /// Returns true when [error] indicates the OS refused the TCP connection,
