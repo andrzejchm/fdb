@@ -13,7 +13,8 @@ int? readPid() {
 String? readVmUri() {
   final file = File(vmUriFile);
   if (!file.existsSync()) return null;
-  return file.readAsStringSync().trim();
+  final content = file.readAsStringSync().trim();
+  return content.isEmpty ? null : content;
 }
 
 String? readDevice() {
@@ -81,6 +82,8 @@ Future<bool> isVmServiceReachable(String uri) async {
     final ws = await WebSocket.connect(uri).timeout(const Duration(seconds: 3));
     await ws.close();
     return true;
+  } on TimeoutException {
+    rethrow;
   } catch (_) {
     return false;
   }
