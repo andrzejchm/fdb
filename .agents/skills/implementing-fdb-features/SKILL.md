@@ -12,7 +12,7 @@ Copy and track progress for each feature:
 ```
 Capture:
 - [ ] If starting from chat: create a GitHub issue first (Step 1a)
-- [ ] If starting from an issue: read it in full (Step 1b)
+- [ ] If starting from an issue: read it in full and claim it (Step 1b)
 
 Setup:
 - [ ] Create a worktree: mcp_Git-worktree create <feature-name> main fetch=true
@@ -29,6 +29,9 @@ Taskfile tests:
 - [ ] test:<command> task added following existing pattern
 - [ ] Task added to smoke sequence
 - [ ] task analyze passes (dart analyze + dart format + flutter analyze)
+
+Docs (see Step 3 for full list):
+- [ ] README.md, doc/README.agents.md, testing-fdb/SKILL.md updated
 
 Manual platform tests (ALL mandatory before PR):
 - [ ] macOS — all scenarios pass, screenshots confirm correct behavior
@@ -47,6 +50,7 @@ PR:
 - [ ] Push branch
 - [ ] CI green
 - [ ] PR opened following managing-pr-descriptions skill
+- [ ] bd close <id> run on the feature branch; issues.jsonl committed on that same branch
 - [ ] Worktree removed after merge
 ```
 
@@ -77,9 +81,10 @@ Only proceed to Step 2 after the issue is created. Reference it throughout as th
 
 ### 1b — Starting from an existing issue
 
-Read the full issue before writing any code:
+Read the full issue and claim it before writing any code:
 ```bash
 gh issue view <number> --repo andrzejchm/fdb
+bd update <id> --claim
 ```
 
 The issue contains acceptance criteria, CLI interface, output token format, implementation notes, and Taskfile test scenarios. Do not deviate from the specified output tokens or CLI flags without updating the issue first.
@@ -132,10 +137,15 @@ Read the relevant files before writing any code:
 - Register in `fdb_binding.dart`: add ONE `_registerExtension('ext.fdb.xxx', handleXxx)` line
 - Add the extension name to the FdbBinding doc comment
 
-**Docs to update:**
+**Docs to update (new command):**
 - `README.md` — add to commands table
-- `doc/README.agents.md` — add to commands reference table
-- `skills/using-fdb/SKILL.md` — add usage examples
+- `doc/README.agents.md` — add to commands reference table; update troubleshooting section if relevant
+- `.agents/skills/testing-fdb/SKILL.md` — add the new `task test:<command>` to the individual test list
+- `.agents/skills/using-fdb/SKILL.md` — add usage examples (if the skill exists)
+
+**Docs to update (bug fix that changes existing behaviour):**
+- `doc/README.agents.md` — update any affected troubleshooting tips or output token descriptions
+- `.agents/skills/testing-fdb/SKILL.md` — add any new test tasks that were added to the smoke sequence
 
 ---
 
@@ -309,7 +319,35 @@ PR description rules (from managing-pr-descriptions skill):
 
 ## Step 10 — Merge and clean up
 
-After CI is green and PR is approved:
+### How `bd` and worktrees interact
+
+All worktrees share **one Dolt database** in the main repo's `.beads/embeddeddolt/`.
+`bd` discovers it via git's common-directory mechanism — any `bd` write (claim,
+close, update) from any worktree goes to that same shared DB immediately.
+
+`issues.jsonl` is a **git-tracked file** that lives in each branch's checkout.
+The pre-commit hook auto-exports the current DB state into whichever branch's
+`issues.jsonl` is being committed. This means:
+
+- `bd close <id>` updates the shared DB regardless of which worktree you run it from
+- The commit that carries the updated `issues.jsonl` to `main` is whatever branch
+  you commit to **after** running `bd close`
+- Therefore: run `bd close` and commit **on the feature branch**, before merging,
+  so the closed state reaches `main` via the squash commit
+
+### Steps
+
+Run from inside the feature worktree before merging:
+
+```bash
+bd close <id>
+# The pre-commit hook auto-exports issues.jsonl — just stage and commit:
+git add .beads/issues.jsonl
+git commit -m "chore: close issue <id>"
+git push
+```
+
+Then merge:
 ```bash
 gh pr merge <number> --squash --delete-branch --repo andrzejchm/fdb
 ```
@@ -330,6 +368,7 @@ mcp_Git-worktree action=remove name=<feature-name>
 - `fdb_helper` production `dependencies:` must not grow without explicit approval
 - All three platforms (macOS, Android, iOS) must pass manual tests before PR
 - The review-fix loop and checks are always spawned as separate delegated agents
+- `bd close <id>` must be run before merging; the resulting `issues.jsonl` commit goes on the feature branch — all worktrees share one DB so the close takes effect immediately regardless of CWD, but only the branch you commit to carries the update to `main`
 - Worktrees are always cleaned up after merge
 
 ## Reference files
