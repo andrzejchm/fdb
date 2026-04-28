@@ -132,10 +132,15 @@ Read the relevant files before writing any code:
 - Register in `fdb_binding.dart`: add ONE `_registerExtension('ext.fdb.xxx', handleXxx)` line
 - Add the extension name to the FdbBinding doc comment
 
-**Docs to update:**
+**Docs to update (new command):**
 - `README.md` — add to commands table
-- `doc/README.agents.md` — add to commands reference table
-- `skills/using-fdb/SKILL.md` — add usage examples
+- `doc/README.agents.md` — add to commands reference table; update troubleshooting section if relevant
+- `.agents/skills/testing-fdb/SKILL.md` — add the new `task test:<command>` to the individual test list
+- `.agents/skills/using-fdb/SKILL.md` — add usage examples (if the skill exists)
+
+**Docs to update (bug fix that changes existing behaviour):**
+- `doc/README.agents.md` — update any affected troubleshooting tips or output token descriptions
+- `.agents/skills/testing-fdb/SKILL.md` — add any new test tasks that were added to the smoke sequence
 
 ---
 

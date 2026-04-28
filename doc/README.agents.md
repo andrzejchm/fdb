@@ -316,4 +316,4 @@ fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 
 **Screenshot fails** -- Check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11). Physical iOS, Windows, and Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.
 
-**Status shows RUNNING=false after launch** -- The Flutter process may have crashed. Check `fdb logs --last 50` for errors.
+**Status shows RUNNING=false after launch** -- If `fdb launch` was killed by a tool timeout but the Flutter app is still running, `fdb status` will probe the VM service URI directly and report `RUNNING=true`. If it still reports `RUNNING=false`, the Flutter process may have crashed — check `fdb logs --last 50` for errors.
