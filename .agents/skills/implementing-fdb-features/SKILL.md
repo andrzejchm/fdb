@@ -46,6 +46,10 @@ Checks (delegated):
 - [ ] Spawn checks agent: dart analyze + flutter analyze + dart format
 - [ ] All clean
 
+Beads:
+- [ ] bd close <id> for the implemented issue
+- [ ] issues.jsonl copied from repo root into worktree and committed (worktree rule — see managing-beads skill)
+
 PR:
 - [ ] Push branch
 - [ ] CI green
@@ -280,10 +284,14 @@ Return: exact output of each check and confirmation all pass.
 
 ---
 
-## Step 8 — Push and verify CI
+## Step 8 — Close issue, sync jsonl, and push
+
+Close the beads issue, then sync `issues.jsonl` into the worktree before pushing.
+See the **Working in a git worktree** section of the managing-beads skill for the exact copy command — the pre-commit hook writes to the main repo, not the worktree.
 
 ```bash
-cd .worktrees/<feature-name>
+bd close <issue-id>
+# copy + stage + commit issues.jsonl per managing-beads worktree rule
 git push -u origin <branch-name>
 ```
 

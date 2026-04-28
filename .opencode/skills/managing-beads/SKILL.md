@@ -55,3 +55,17 @@ Priorities: `1` (critical) → `4` (low)
 - Never run `bd doctor --fix` — it can corrupt the local DB.
 - `bd` is the source of truth; GitHub Issues are a mirror — sync with `bd github sync`.
 - Capture any work discovered during implementation as new issues immediately.
+
+## Working in a git worktree
+
+The pre-commit hook always exports to the **main repo's** `.beads/issues.jsonl`, not the worktree's copy. The "Exported N issues" message does not mean it was staged in the worktree.
+
+Before committing from a worktree, manually copy and stage:
+
+```bash
+cp <repo-root>/.beads/issues.jsonl .beads/issues.jsonl
+git add .beads/issues.jsonl
+git commit -m "chore(bd): sync issues — <summary>"
+```
+
+Never push a worktree branch with a stale `issues.jsonl`.
