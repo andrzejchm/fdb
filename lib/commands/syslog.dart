@@ -142,9 +142,7 @@ Future<int> _runAndroid({
   final adbArgs = <String>[
     if (device != null) ...['-s', device],
     'logcat',
-    if (!follow) '-d',
-    '-T',
-    sinceFormatted,
+    if (!follow) ...['-d', '-T', sinceFormatted],
   ];
 
   return _spawnAndStream(
@@ -175,7 +173,7 @@ Future<int> _runIosSimulator({
     return 1;
   }
 
-  final escapedPredicate = predicate?.replaceAll('"', r'\"');
+  final escapedPredicate = predicate?.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
   final nsPredicate = escapedPredicate != null ? 'eventMessage CONTAINS "$escapedPredicate"' : null;
 
   if (follow) {
@@ -269,7 +267,7 @@ Future<int> _runMacos({
     return 1;
   }
 
-  final escapedPredicate = predicate?.replaceAll('"', r'\"');
+  final escapedPredicate = predicate?.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
   final nsPredicate = escapedPredicate != null ? 'eventMessage CONTAINS "$escapedPredicate"' : null;
 
   if (follow) {
