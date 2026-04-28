@@ -412,7 +412,10 @@ tasks:
       - |
         echo "==> Navigating to Grid Describe Test screen"
         {{.FDB}} scroll-to --key "go_to_grid_describe_test" >/dev/null 2>&1 || true
-        {{.FDB}} tap --key "go_to_grid_describe_test" >/dev/null 2>&1
+        if ! {{.FDB}} tap --key "go_to_grid_describe_test" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to grid describe screen (fdb tap --key go_to_grid_describe_test failed)" >&2
+          exit 1
+        fi
         sleep 1
 
         echo "==> Describing grid screen"
@@ -424,25 +427,34 @@ tasks:
           exit 1
         fi
 
-        # There are 30 items (Item 0 .. Item 29). Only a subset fits on screen.
-        # Verify that at least one off-screen item (Item 20 or later) appears.
-        if echo "$OUTPUT" | grep -q "Item 2[0-9]"; then
+        # Grid section: 50 items (Item 0 .. Item 49). Assert items 40+ appear
+        # to ensure off-screen surfacing works even on large-screen devices.
+        if echo "$OUTPUT" | grep -q "grid_item_4[0-9]"; then
           echo "PASS: fdb describe surfaces off-screen GridView children"
         else
-          echo "FAIL: fdb describe did not surface off-screen GridView children (Item 20+)" >&2
+          echo "FAIL: fdb describe did not surface off-screen GridView children (grid_item_40+)" >&2
           exit 1
         fi
 
-        # Also verify the key-based refs are present for off-screen items.
-        if echo "$OUTPUT" | grep -q "grid_item_2[0-9]"; then
-          echo "PASS: off-screen grid items have key refs in describe output"
+        # List section: 200 items (List Item 0 .. List Item 199). These are in
+        # a SliverList with a SliverChildListDelegate and are never visible on
+        # first render — exercises _collectUnbuiltDelegateWidgets for list slivers.
+        # Cap arithmetic: 50 grid + 150 list (items 0–149) = 200 total.
+        # Assert items 120–149 appear — within cap and beyond any screen size.
+        if echo "$OUTPUT" | grep -q "list_item_1[2-4][0-9]"; then
+          echo "PASS: fdb describe surfaces off-screen SliverList children"
         else
-          echo "FAIL: off-screen grid item keys missing from describe output" >&2
+          echo "FAIL: fdb describe did not surface off-screen SliverList children (list_item_120+)" >&2
           exit 1
         fi
 
         echo "==> Navigating back"
-        {{.FDB}} back >/dev/null 2>&1
+        BACK_OUTPUT=$({{.FDB}} back 2>&1)
+        BACK_EXIT=$?
+        if [ $BACK_EXIT -ne 0 ]; then
+          echo "FAIL: fdb back failed: $BACK_OUTPUT" >&2
+          exit 1
+        fi
 
   test:tap:
     desc: Tap a widget by text selector
@@ -2039,6 +2051,7 @@ tasks:
       - task: test:logs-tag
       - task: test:tree
       - task: test:describe
+      - task: test:describe-grid
       - task: test:screenshot
       - task: test:deeplink
       - task: test:native-view-tap

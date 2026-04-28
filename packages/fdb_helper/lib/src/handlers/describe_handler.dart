@@ -158,8 +158,10 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
 
         // Collect interactive widgets regardless of viewport position so that
         // off-screen children of eagerly-built scrollable collections
-        // (GridView.count, ListView with explicit children, etc.) are included
-        // and addressable via @N for tap targeting.
+        // (GridView.count, ListView with explicit children, etc.) are included.
+        // Off-screen items can be addressed via --key if they have a ValueKey
+        // assigned; items without a key can only be reached by scrolling them
+        // into view first.
         // Lazy-built sliver children (GridView.builder, ListView.builder) that
         // haven't scrolled into view won't exist in the element tree at all
         // and therefore cannot appear here — use fdb scroll-to to reveal them
@@ -279,33 +281,58 @@ void _collectUnbuiltDelegateWidgets(
 ) {
   List<Widget>? allChildren;
   try {
-    final delegate = (sliverElement.widget as dynamic).delegate;
-    if (delegate is SliverChildListDelegate) {
-      allChildren = delegate.children;
+    // Use a type guard to narrow the cast before accessing delegate.
+    if (sliverElement.widget is SliverMultiBoxAdaptorWidget) {
+      final delegate = (sliverElement.widget as SliverMultiBoxAdaptorWidget).delegate;
+      if (delegate is SliverChildListDelegate) {
+        allChildren = delegate.children;
+      }
     }
   } catch (_) {
     return;
   }
   if (allChildren == null || allChildren.isEmpty) return;
 
-  // SliverChildListDelegate wraps each child in KeyedSubtree → AutomaticKeepAlive
-  // → IndexedSemantics → RepaintBoundary before mounting, so the active element's
-  // .widget is never the same instance as allChildren[i]. Comparing widget instances
-  // would always miss. Instead, collect the keys that are already present in the
-  // `interactive` list (populated by the element walk that ran before this call)
-  // and skip delegate children whose key is already recorded.
-  final existingKeys = <String?>{};
-  for (final entry in interactive) {
-    final k = entry['key'] as String?;
-    if (k != null) existingKeys.add(k);
-  }
+  // Collect the delegate indices that are already built (active in the element
+  // tree). SliverMultiBoxAdaptorElement stores each active child's index as its
+  // slot (an int), so visitChildren gives us every built index. We skip those
+  // positions to avoid duplicating items regardless of their key type.
+  //
+  // Safety net: if Flutter ever changes the slot type away from int, visitChildren
+  // will still run but builtIndices will stay empty while childCount > 0. In that
+  // case we fall back to key-based deduplication so we skip at least items with a
+  // ValueKey<String> rather than emitting every item twice.
+  final builtIndices = <int>{};
+  var activeChildCount = 0;
+  sliverElement.visitChildren((child) {
+    activeChildCount++;
+    final slot = child.slot;
+    if (slot is int) builtIndices.add(slot);
+  });
 
-  for (final child in allChildren) {
+  // Determine whether slot-based dedup is trustworthy.
+  final useIndexDedup = builtIndices.isNotEmpty || activeChildCount == 0;
+
+  // Key-based fallback set (used only when slot type changed in a new Flutter version).
+  final existingKeys = useIndexDedup
+      ? const <String?>{}
+      : <String?>{
+          for (final entry in interactive)
+            if (entry['key'] != null) entry['key'] as String,
+        };
+
+  for (var i = 0; i < allChildren.length; i++) {
     if (interactive.length >= maxInteractive) return;
-    final childKey = child.key is ValueKey<String> ? (child.key as ValueKey<String>).value : null;
-    if (childKey != null && existingKeys.contains(childKey)) continue;
+    if (useIndexDedup) {
+      // Primary path: skip indices that are already built in the element tree.
+      if (builtIndices.contains(i)) continue;
+    } else {
+      // Fallback: slot type changed — deduplicate by ValueKey<String> only.
+      final childKey = allChildren[i].key is ValueKey<String> ? (allChildren[i].key as ValueKey<String>).value : null;
+      if (childKey != null && existingKeys.contains(childKey)) continue;
+    }
     // Widget has not been built into an element yet — inspect at widget level.
-    _collectInteractiveFromWidget(child, interactive, maxInteractive);
+    _collectInteractiveFromWidget(allChildren[i], interactive, maxInteractive);
   }
 }
 
@@ -322,18 +349,28 @@ void _collectInteractiveFromWidget(
   if (_isDescribeInteractiveWidget(typeName)) {
     final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
     final text = _extractWidgetLevelText(widget);
-    final hasText = text != null && text.trim().isNotEmpty;
+    final gestures = _extractGestures(widget, typeName);
+    // Apply the same filtering logic as the post-filter in handleDescribe so
+    // items that would be discarded later are never added (saves cap space).
+    // - Text: must be non-empty AND contain at least one non-private-use-area
+    //   codepoint (filters out icon-only text, codepoints 0xE000–0xF8FF).
+    // - Gestures: must include at least one gesture from _interestingGestures.
+    final hasText = text != null && text.trim().isNotEmpty && text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
     final hasKey = key != null;
-    // Only add if it would survive the post-filter in handleDescribe.
-    if (!hasText && !hasKey) return;
+    final hasInterestingGesture = gestures != null && gestures.any((g) => _interestingGestures.contains(g));
+    if (!hasText && !hasKey && !hasInterestingGesture) return;
     interactive.add({
       'type': typeName,
       'key': key,
       'text': text,
-      // Off-screen/un-built: no layout position. Use large y so these items
-      // sort after all on-screen items.
+      // Off-screen/un-built: no real layout position available.
+      // x/y are placeholders — do NOT use these coordinates to drive fdb tap
+      // --at. Use --key (if the item has a ValueKey) to target off-screen items.
+      // Callers can distinguish off-screen entries by the 'built': false field.
       'x': 0.0,
       'y': 9999999.0,
+      'built': false,
+      if (gestures != null) 'gestures': gestures,
     });
     return;
   }
