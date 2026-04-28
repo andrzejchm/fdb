@@ -38,6 +38,13 @@ Commands:
   devices     List connected devices
   deeplink    Open a deep link URL on the device
   launch      Launch a Flutter app
+               --device <id>       (required) target device/simulator ID
+               --project <path>    Flutter project root (default: CWD)
+               --flavor <name>     Build flavor
+               --target <file>     Entry-point file (default: lib/main.dart)
+               --flutter-sdk <path> Path to Flutter SDK root
+               --verbose           Pass --verbose to flutter run; full output
+                                   is captured in .fdb/logs.txt
   reload      Hot reload the running app
   restart     Hot restart the running app
   screenshot  Take a device screenshot

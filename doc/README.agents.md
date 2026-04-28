@@ -104,7 +104,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 |---------|-------------|
 | `fdb devices` | List connected devices |
 | `fdb deeplink <url>` | Open deep link on device |
-| `fdb launch --device <id> --project <path>` | Launch app, wait for start |
+| `fdb launch --device <id> --project <path> [--verbose]` | Launch app, wait for start |
 | `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
 | `fdb reload` | Hot reload (SIGUSR1) |
 | `fdb restart` | Hot restart (SIGUSR2) |
@@ -134,12 +134,14 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 ### Launch
 
 ```bash
-fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>]
+fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>] [--verbose]
 ```
 
 Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 
 Find device IDs: `fdb devices`
+
+Pass `--verbose` to forward `flutter run --verbose` output to `.fdb/logs.txt`. Use this when a launch fails for an unknown reason and you need to inspect the full Flutter tooling output after the fact.
 
 ### Doctor
 
@@ -323,6 +325,8 @@ fdb logs --tag "fdb_test" --last 20       # check logs after interaction
 **fdb: command not found** -- Ensure `~/.pub-cache/bin` is in your `PATH`.
 
 **Launch hangs** -- Check that the device ID is correct (`flutter devices`) and the project path is valid.
+
+**Launch fails with no clear error** -- Run `fdb launch --verbose` to capture Flutter's full verbose tooling output in `.fdb/logs.txt`, then inspect with `fdb logs --last 100` to diagnose the root cause.
 
 **Empty widget tree** -- Fall back to raw websocat commands (see the skill file for details).
 
