@@ -1669,6 +1669,159 @@ tasks:
           exit 1
         fi
 
+  test:session-dir:
+    desc: Verify session dir auto-resolution by walking up from a subdirectory
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        # Ensure a clean state: launch the test app so a live .fdb/ exists.
+        echo "==> Launching test app for session-dir walk-up test"
+        cd "{{.TEST_APP}}"
+        OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "APP_STARTED"; then
+          echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # Scenario 1: CWD is project root — works as before (baseline).
+        # ---------------------------------------------------------------
+        echo "==> Scenario 1: CWD is project root — status should work"
+        OUTPUT=$({{.FDB}} status 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "RUNNING=true"; then
+          echo "PASS: Scenario 1 - status from project root"
+        else
+          echo "FAIL: Scenario 1 - expected RUNNING=true from project root" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # Scenario 2: CWD is a subdirectory — walk-up finds .fdb/.
+        # ---------------------------------------------------------------
+        echo "==> Scenario 2: CWD is subdirectory — walk-up finds .fdb/"
+        mkdir -p "{{.TEST_APP}}/lib/features/checkout"
+        OUTPUT=$(cd "{{.TEST_APP}}/lib/features/checkout" && {{.FDB}} status 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: Scenario 2 - fdb status from subdirectory exited with code $EXIT_CODE" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "RUNNING=true"; then
+          echo "PASS: Scenario 2 - walk-up resolved session dir from subdirectory"
+        else
+          echo "FAIL: Scenario 2 - expected RUNNING=true from subdirectory (walk-up should find .fdb/)" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+        # Verify the INFO line was emitted to stderr (stdout+stderr merged above).
+        if echo "$OUTPUT" | grep -q "INFO: Using session dir from"; then
+          echo "PASS: Scenario 2 - INFO line emitted when resolving from parent"
+        else
+          echo "FAIL: Scenario 2 - INFO: line not found in output" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # Scenario 3: --session-dir bypasses auto-resolution.
+        # ---------------------------------------------------------------
+        echo "==> Scenario 3: --session-dir flag bypasses auto-resolution"
+        SESSION_DIR="{{.TEST_APP}}/.fdb"
+        OUTPUT=$(cd /tmp && {{.FDB}} --session-dir "$SESSION_DIR" status 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: Scenario 3 - fdb --session-dir status exited with code $EXIT_CODE" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "RUNNING=true"; then
+          echo "PASS: Scenario 3 - --session-dir flag works"
+        else
+          echo "FAIL: Scenario 3 - expected RUNNING=true with explicit --session-dir" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # Scenario 4: unrelated directory — clear error, exit 1.
+        # ---------------------------------------------------------------
+        echo "==> Scenario 4: unrelated directory — clear error"
+        TMPDIR=$(mktemp -d)
+        set +e
+        OUTPUT=$(cd "$TMPDIR" && {{.FDB}} reload 2>&1)
+        EXIT_CODE=$?
+        set -e
+        rm -rf "$TMPDIR"
+        echo "$OUTPUT"
+        if [ "$EXIT_CODE" -ne 1 ]; then
+          echo "FAIL: Scenario 4 - expected exit code 1, got $EXIT_CODE" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "FAIL: Scenario 4 - expected ERROR: message in output" >&2
+          {{.FDB}} kill >/dev/null 2>&1 || true
+          exit 1
+        fi
+        echo "PASS: Scenario 4 - exit 1 with ERROR: from unrelated directory"
+
+        # ---------------------------------------------------------------
+        # Scenario 5: fdb status with no running app — RUNNING=false, exit 0.
+        # ---------------------------------------------------------------
+        echo "==> Scenario 5: status with no running app"
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        set +e
+        OUTPUT=$({{.FDB}} status 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ "$EXIT_CODE" -ne 0 ]; then
+          echo "FAIL: Scenario 5 - expected exit code 0, got $EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "RUNNING=false"; then
+          echo "FAIL: Scenario 5 - expected RUNNING=false when app not running" >&2
+          exit 1
+        fi
+        echo "PASS: Scenario 5 - status returns RUNNING=false with exit 0 when app not running"
+
+        # ---------------------------------------------------------------
+        # Scenario 6: stale .fdb/ (dead PID, dir still on disk) — exit 1.
+        # ---------------------------------------------------------------
+        echo "==> Scenario 6: stale .fdb/ does not bypass exit-1 guard"
+        # The app is already killed from Scenario 5; .fdb/ dir remains on disk.
+        set +e
+        OUTPUT=$({{.FDB}} reload 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ "$EXIT_CODE" -ne 1 ]; then
+          echo "FAIL: Scenario 6 - expected exit code 1, got $EXIT_CODE" >&2
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "FAIL: Scenario 6 - expected ERROR: message in output" >&2
+          exit 1
+        fi
+        echo "PASS: Scenario 6 - stale .fdb/ correctly produces ERROR: and exit 1"
+
+        # Clean up.
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        echo "PASS: fdb session-dir walk-up"
+
   # ---------------------------------------------------------------------------
   # Cleanup
   # ---------------------------------------------------------------------------
@@ -1729,6 +1882,9 @@ tasks:
       - task: test:shared-prefs
       - task: test:kill
       - task: test:status-stopped
+      - task: test:session-dir
+        vars:
+          DEVICE: '{{.DEVICE}}'
 
   # ---------------------------------------------------------------------------
   # Code quality — individual steps
