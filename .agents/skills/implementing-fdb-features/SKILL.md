@@ -37,6 +37,7 @@ Manual platform tests (ALL mandatory before PR):
 - [ ] macOS — all scenarios pass, screenshots confirm correct behavior
 - [ ] Android physical — all scenarios pass, screenshots confirm
 - [ ] iOS simulator — all scenarios pass, screenshots confirm
+- [ ] Full smoke suite passes: `task smoke` (Android)
 
 Review loop (delegated):
 - [ ] Spawn review-fixing-loop agent on the worktree
@@ -230,6 +231,17 @@ For each platform, document:
 - PASS or FAIL with reason
 
 **If any platform fails:** fix the bug, relaunch, re-test. Do not skip to PR until all three pass.
+
+### Full smoke suite (mandatory before PR)
+
+After all three platforms pass their individual command tests, run the full smoke suite on **Android** (the default device for `task smoke`):
+
+```bash
+cd .worktrees/<feature-name>
+task smoke
+```
+
+All tests must pass. `task smoke` runs every command end-to-end on a real Android device. Fix any failure before opening a PR — do not skip this step even if the individual command test passed.
 
 **Platform-specific notes:**
 - macOS: `fdb restart` (SIGUSR2) is unreliable — use `kill` + `launch` between scenarios
