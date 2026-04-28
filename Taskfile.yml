@@ -1553,6 +1553,81 @@ tasks:
           exit 1
         fi
 
+  test:status-after-interrupted-launch:
+    desc: Verify status reports RUNNING=true when app is alive but PID file is missing (interrupted launch scenario)
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Scenario: PID file missing but VM URI reachable (interrupted launch)"
+        if [ ! -f .fdb/vm_uri.txt ]; then
+          echo "FAIL: .fdb/vm_uri.txt not found — run test:launch first" >&2
+          exit 1
+        fi
+
+        # Remove the PID file to simulate an interrupted fdb launch where
+        # flutter run's --pid-file was not written before fdb was killed.
+        ORIGINAL_PID=""
+        if [ -f .fdb/fdb.pid ]; then
+          ORIGINAL_PID=$(cat .fdb/fdb.pid)
+          rm .fdb/fdb.pid
+        fi
+
+        restore_pid() {
+          if [ -n "$ORIGINAL_PID" ]; then
+            printf '%s' "$ORIGINAL_PID" > .fdb/fdb.pid
+          fi
+        }
+        trap restore_pid EXIT
+
+        OUTPUT=$({{.FDB}} status 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+
+        restore_pid
+        trap - EXIT
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb status exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "RUNNING=true"; then
+          echo "PASS: fdb status correctly reports RUNNING=true via VM URI fallback"
+        else
+          echo "FAIL: fdb status - expected RUNNING=true when app is alive but PID file missing" >&2
+          exit 1
+        fi
+
+        echo "==> Scenario: PID file points to dead process but VM URI reachable"
+        ORIGINAL_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
+        printf '999999' > .fdb/fdb.pid
+
+        restore_stale_pid() {
+          if [ -n "$ORIGINAL_PID" ]; then
+            printf '%s' "$ORIGINAL_PID" > .fdb/fdb.pid
+          else
+            rm -f .fdb/fdb.pid
+          fi
+        }
+        trap restore_stale_pid EXIT
+
+        OUTPUT2=$({{.FDB}} status 2>&1)
+        EXIT_CODE2=$?
+        echo "$OUTPUT2"
+
+        restore_stale_pid
+        trap - EXIT
+
+        if [ $EXIT_CODE2 -ne 0 ]; then
+          echo "FAIL: fdb status exited with code $EXIT_CODE2" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT2" | grep -q "RUNNING=true"; then
+          echo "PASS: fdb status correctly reports RUNNING=true via VM URI fallback (stale PID)"
+        else
+          echo "FAIL: fdb status - expected RUNNING=true when VM URI reachable but PID is stale" >&2
+          exit 1
+        fi
+
   # ---------------------------------------------------------------------------
   # Cleanup
   # ---------------------------------------------------------------------------
@@ -1583,6 +1658,7 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:status
+      - task: test:status-after-interrupted-launch
       - task: test:reload
       - task: test:restart
       - task: test:logs
