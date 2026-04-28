@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'benchmark_screens.dart';
+import 'grid_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'scroll_to_test_screen.dart';
 
@@ -36,6 +37,7 @@ class FdbTestApp extends StatelessWidget {
         benchmarkStressGridRoute: (_) => const BenchmarkStressGridPage(),
         benchmarkPathologicalRoute: (_) => const BenchmarkPathologicalPage(),
         '/native-view-test': (_) => const NativeViewTestScreen(),
+        '/grid-describe-test': (_) => const GridDescribeScreen(),
         scrollToTestRoute: (_) => const ScrollToTestPage(),
         scrollToTestLazyRoute: (_) => const LazyListScrollToPage(),
         scrollToTestHorizontalRoute: (_) => const HorizontalListScrollToPage(),
@@ -202,18 +204,29 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               ),
               const SizedBox(height: 8),
               ElevatedButton(
+                key: const Key('go_to_grid_describe_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/grid-describe-test'),
+                child: const Text('Grid Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
                 key: const Key('show_native_alert'),
                 onPressed: () async {
                   try {
                     final result = await _nativeDialogChannel
                         .invokeMethod<String>('showNativeAlert');
-                    if (mounted)
+                    if (mounted) {
                       setState(() => _nativeAlertResult = result ?? 'null');
-                    developer.log('native alert result: $result',
-                        name: 'fdb_test');
+                    }
+                    developer.log(
+                      'native alert result: $result',
+                      name: 'fdb_test',
+                    );
                   } catch (e) {
-                    if (mounted)
+                    if (mounted) {
                       setState(() => _nativeAlertResult = 'ERROR: $e');
+                    }
                   }
                 },
                 child: const Text('Show Native Alert'),

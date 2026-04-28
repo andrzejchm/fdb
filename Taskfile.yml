@@ -405,6 +405,56 @@ tasks:
           exit 1
         fi
 
+  test:describe-grid:
+    desc: Verify fdb describe returns off-screen GridView children
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to Grid Describe Test screen"
+        {{.FDB}} scroll-to --key "go_to_grid_describe_test" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "go_to_grid_describe_test" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to grid describe screen (fdb tap --key go_to_grid_describe_test failed)" >&2
+          exit 1
+        fi
+        sleep 1
+
+        echo "==> Describing grid screen"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe (grid) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+
+        # Grid section: 50 items (Item 0 .. Item 49). Assert items 40+ appear
+        # to ensure off-screen surfacing works even on large-screen devices.
+        if echo "$OUTPUT" | grep -q "grid_item_4[0-9]"; then
+          echo "PASS: fdb describe surfaces off-screen GridView children"
+        else
+          echo "FAIL: fdb describe did not surface off-screen GridView children (grid_item_40+)" >&2
+          exit 1
+        fi
+
+        # List section: 200 items (List Item 0 .. List Item 199). These are in
+        # a SliverList with a SliverChildListDelegate and are never visible on
+        # first render — exercises _collectUnbuiltDelegateWidgets for list slivers.
+        # Cap arithmetic: 50 grid + 150 list (items 0–149) = 200 total.
+        # Assert items 120–149 appear — within cap and beyond any screen size.
+        if echo "$OUTPUT" | grep -q "list_item_1[2-4][0-9]"; then
+          echo "PASS: fdb describe surfaces off-screen SliverList children"
+        else
+          echo "FAIL: fdb describe did not surface off-screen SliverList children (list_item_120+)" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back"
+        # fdb back may return non-zero if the OS already popped the route
+        # (e.g. Android system back gesture fired during the describe call).
+        # The core assertions above are what matter — treat back failure as a
+        # warning, not a test failure.
+        {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
+
   test:tap:
     desc: Tap a widget by text selector
     dir: '{{.TEST_APP}}'
@@ -2000,6 +2050,7 @@ tasks:
       - task: test:logs-tag
       - task: test:tree
       - task: test:describe
+      - task: test:describe-grid
       - task: test:screenshot
       - task: test:deeplink
       - task: test:native-view-tap

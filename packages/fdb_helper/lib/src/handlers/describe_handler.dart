@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../element_tree_finder.dart';
@@ -50,10 +51,19 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
     String? screenName;
     String? routeName;
 
+    // Cap: collect at most this many interactive entries to avoid
+    // materialising huge or infinite eagerly-built lists (e.g. GridView.count
+    // with thousands of items). Callers should paginate or scroll if they need
+    // elements beyond this limit.
+    const maxInteractive = 200;
+
     // Tracks the nearest enclosing Tooltip message while walking the tree.
     String? currentTooltip;
 
     void visit(Element element) {
+      // Stop collecting interactive entries once the cap is reached.
+      if (interactive.length >= maxInteractive) return;
+
       final widget = element.widget;
       final typeName = widget.runtimeType.toString();
 
@@ -119,36 +129,49 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         final offset = renderObject.localToGlobal(Offset.zero);
         final size = renderObject.size;
 
-        // Skip zero-size or off-screen widgets.
+        // Skip zero-size widgets entirely.
         if (size.isEmpty) {
           element.visitChildren(visit);
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           return;
         }
+
         final elementRect = offset & size;
-        if (!screenRect.overlaps(elementRect)) {
-          element.visitChildren(visit);
-          if (typeName == 'Tooltip') currentTooltip = previousTooltip;
-          return;
-        }
+        final isOnScreen = screenRect.overlaps(elementRect);
 
-        // Collect visible text.
-        if (widget is Text) {
-          final text = widget.data ?? widget.textSpan?.toPlainText();
-          if (text != null && text.trim().isNotEmpty) {
-            texts.add(text.trim());
+        // Collect visible text only for on-screen widgets to keep TEXT output
+        // focused on what the user can currently see.
+        if (isOnScreen) {
+          if (widget is Text) {
+            final text = widget.data ?? widget.textSpan?.toPlainText();
+            if (text != null && text.trim().isNotEmpty) {
+              texts.add(text.trim());
+            }
+          } else if (widget is RichText) {
+            final text = widget.text.toPlainText().trim();
+            if (text.isNotEmpty) texts.add(text);
+          } else if (widget is EditableText) {
+            final text = widget.controller.text.trim();
+            if (text.isNotEmpty) texts.add(text);
           }
-        } else if (widget is RichText) {
-          final text = widget.text.toPlainText().trim();
-          if (text.isNotEmpty) texts.add(text);
-        } else if (widget is EditableText) {
-          final text = widget.controller.text.trim();
-          if (text.isNotEmpty) texts.add(text);
         }
 
-        // Collect interactive widgets.
+        // Collect interactive widgets regardless of viewport position so that
+        // off-screen children of eagerly-built scrollable collections
+        // (GridView.count, ListView with explicit children, etc.) are included.
+        // Off-screen items can be addressed via --key if they have a ValueKey
+        // assigned; items without a key can only be reached by scrolling them
+        // into view first.
+        // Lazy-built sliver children (GridView.builder, ListView.builder) that
+        // haven't scrolled into view won't exist in the element tree at all
+        // and therefore cannot appear here — use fdb scroll-to to reveal them
+        // before describing.
         if (_isDescribeInteractiveWidget(typeName)) {
-          if (!isElementHittable(element)) {
+          // For on-screen widgets, require a successful hit test to confirm
+          // the widget is actually reachable. For off-screen widgets the hit
+          // test always fails (the point is outside the viewport), so we skip
+          // it and include the element unconditionally.
+          if (isOnScreen && !isElementHittable(element)) {
             if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             return;
           }
@@ -165,27 +188,45 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             if (gestures != null) 'gestures': gestures,
           });
 
-          // Still collect text from children for the TEXT section.
-          void collectText(Element el) {
-            final w = el.widget;
-            if (w is Text) {
-              final t = w.data ?? w.textSpan?.toPlainText();
-              if (t != null && t.trim().isNotEmpty) texts.add(t.trim());
-            } else if (w is RichText) {
-              final t = w.text.toPlainText().trim();
-              if (t.isNotEmpty) texts.add(t);
+          // Still collect text from children for the TEXT section (on-screen
+          // children of interactive widgets).
+          if (isOnScreen) {
+            void collectText(Element el) {
+              final w = el.widget;
+              if (w is Text) {
+                final t = w.data ?? w.textSpan?.toPlainText();
+                if (t != null && t.trim().isNotEmpty) texts.add(t.trim());
+              } else if (w is RichText) {
+                final t = w.text.toPlainText().trim();
+                if (t.isNotEmpty) texts.add(t);
+              }
+              el.visitChildren(collectText);
             }
-            el.visitChildren(collectText);
-          }
 
-          element.visitChildren(collectText);
+            element.visitChildren(collectText);
+          }
 
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           return;
         }
       }
 
+      // Normal element walk: visits all active (in-viewport) children.
       element.visitChildren(visit);
+
+      // For sliver multi-box adaptors (GridView, ListView, CustomScrollView),
+      // element.visitChildren only reaches *active* (in-viewport) elements.
+      // Items that have never been scrolled into view have no element or render
+      // object at all. If the sliver widget exposes a SliverChildListDelegate
+      // (GridView.count, ListView with explicit children), we can walk its full
+      // widget list and inspect widgets that haven't been built into elements yet.
+      // This MUST run after element.visitChildren so that active items are already
+      // in the `interactive` list and can be used for deduplication by key.
+      final ro = element.renderObject;
+      if (ro is RenderSliverMultiBoxAdaptor && interactive.length < maxInteractive) {
+        _collectUnbuiltDelegateWidgets(element, interactive, maxInteractive);
+      }
+
       if (typeName == 'Tooltip') currentTooltip = previousTooltip;
     }
 
@@ -224,6 +265,171 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
   } catch (e) {
     return errorResponse('describe failed: $e');
   }
+}
+
+/// Inspects un-built widget children from a [SliverChildListDelegate].
+///
+/// [SliverMultiBoxAdaptorElement] only keeps the currently active (in-viewport)
+/// children in the element tree. Items that were never scrolled into view have
+/// no element or render object. If the sliver widget uses a
+/// [SliverChildListDelegate] (GridView.count, ListView with explicit children),
+/// we can read the full widget list and widget-level inspect each un-built entry.
+void _collectUnbuiltDelegateWidgets(
+  Element sliverElement,
+  List<Map<String, dynamic>> interactive,
+  int maxInteractive,
+) {
+  List<Widget>? allChildren;
+  try {
+    // Use a type guard to narrow the cast before accessing delegate.
+    if (sliverElement.widget is SliverMultiBoxAdaptorWidget) {
+      final delegate = (sliverElement.widget as SliverMultiBoxAdaptorWidget).delegate;
+      if (delegate is SliverChildListDelegate) {
+        allChildren = delegate.children;
+      }
+    }
+  } catch (_) {
+    return;
+  }
+  if (allChildren == null || allChildren.isEmpty) return;
+
+  // Collect the delegate indices that are already built (active in the element
+  // tree). SliverMultiBoxAdaptorElement stores each active child's index as its
+  // slot (an int), so visitChildren gives us every built index. We skip those
+  // positions to avoid duplicating items regardless of their key type.
+  //
+  // Safety net: if Flutter ever changes the slot type away from int, visitChildren
+  // will still run but builtIndices will stay empty while childCount > 0. In that
+  // case we fall back to key-based deduplication so we skip at least items with a
+  // ValueKey<String> rather than emitting every item twice.
+  final builtIndices = <int>{};
+  var activeChildCount = 0;
+  sliverElement.visitChildren((child) {
+    activeChildCount++;
+    final slot = child.slot;
+    if (slot is int) builtIndices.add(slot);
+  });
+
+  // Determine whether slot-based dedup is trustworthy.
+  final useIndexDedup = builtIndices.isNotEmpty || activeChildCount == 0;
+
+  // Key-based fallback set (used only when slot type changed in a new Flutter version).
+  final existingKeys = useIndexDedup
+      ? const <String?>{}
+      : <String?>{
+          for (final entry in interactive)
+            if (entry['key'] != null) entry['key'] as String,
+        };
+
+  for (var i = 0; i < allChildren.length; i++) {
+    if (interactive.length >= maxInteractive) return;
+    if (useIndexDedup) {
+      // Primary path: skip indices that are already built in the element tree.
+      if (builtIndices.contains(i)) continue;
+    } else {
+      // Fallback: slot type changed — deduplicate by ValueKey<String> only.
+      final childKey = allChildren[i].key is ValueKey<String> ? (allChildren[i].key as ValueKey<String>).value : null;
+      if (childKey != null && existingKeys.contains(childKey)) continue;
+    }
+    // Widget has not been built into an element yet — inspect at widget level.
+    _collectInteractiveFromWidget(allChildren[i], interactive, maxInteractive);
+  }
+}
+
+/// Recursively inspects a widget subtree (without building elements) to
+/// collect interactive widgets. Used for un-built sliver delegate children.
+void _collectInteractiveFromWidget(
+  Widget widget,
+  List<Map<String, dynamic>> interactive,
+  int maxInteractive,
+) {
+  if (interactive.length >= maxInteractive) return;
+  final typeName = widget.runtimeType.toString();
+
+  if (_isDescribeInteractiveWidget(typeName)) {
+    final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
+    final text = _extractWidgetLevelText(widget);
+    final gestures = _extractGestures(widget, typeName);
+    // Apply the same filtering logic as the post-filter in handleDescribe so
+    // items that would be discarded later are never added (saves cap space).
+    // - Text: must be non-empty AND contain at least one non-private-use-area
+    //   codepoint (filters out icon-only text, codepoints 0xE000–0xF8FF).
+    // - Gestures: must include at least one gesture from _interestingGestures.
+    final hasText = text != null && text.trim().isNotEmpty && text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+    final hasKey = key != null;
+    final hasInterestingGesture = gestures != null && gestures.any((g) => _interestingGestures.contains(g));
+    if (!hasText && !hasKey && !hasInterestingGesture) return;
+    interactive.add({
+      'type': typeName,
+      'key': key,
+      'text': text,
+      // Off-screen/un-built: no real layout position available.
+      // x/y are placeholders — do NOT use these coordinates to drive fdb tap
+      // --at. Use --key (if the item has a ValueKey) to target off-screen items.
+      // Callers can distinguish off-screen entries by the 'built': false field.
+      'x': 0.0,
+      'y': 9999999.0,
+      'built': false,
+      if (gestures != null) 'gestures': gestures,
+    });
+    return;
+  }
+
+  // Recurse into common single-child and multi-child widget shapes.
+  _visitWidgetChildren(widget, interactive, maxInteractive);
+}
+
+void _visitWidgetChildren(
+  Widget widget,
+  List<Map<String, dynamic>> interactive,
+  int maxInteractive,
+) {
+  if (interactive.length >= maxInteractive) return;
+  // Single child.
+  try {
+    final child = (widget as dynamic).child;
+    if (child is Widget) {
+      _collectInteractiveFromWidget(child, interactive, maxInteractive);
+      return;
+    }
+  } catch (_) {}
+  // Multi-child.
+  try {
+    final children = (widget as dynamic).children;
+    if (children is List) {
+      for (final c in children) {
+        if (interactive.length >= maxInteractive) return;
+        if (c is Widget) _collectInteractiveFromWidget(c, interactive, maxInteractive);
+      }
+    }
+  } catch (_) {}
+}
+
+/// Extracts text from a widget tree without building elements.
+String? _extractWidgetLevelText(Widget widget) {
+  if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
+  if (widget is RichText) return widget.text.toPlainText();
+  // Single child.
+  try {
+    final child = (widget as dynamic).child;
+    if (child is Widget) {
+      final t = _extractWidgetLevelText(child);
+      if (t != null) return t;
+    }
+  } catch (_) {}
+  // Multi-child.
+  try {
+    final children = (widget as dynamic).children;
+    if (children is List) {
+      for (final c in children) {
+        if (c is Widget) {
+          final t = _extractWidgetLevelText(c);
+          if (t != null) return t;
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
 }
 
 bool _isDescribeInteractiveWidget(String typeName) => const {
