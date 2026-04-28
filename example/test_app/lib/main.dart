@@ -196,7 +196,8 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_native_view_test'),
-                onPressed: () => Navigator.pushNamed(context, '/native-view-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/native-view-test'),
                 child: const Text('Native View Test'),
               ),
               const SizedBox(height: 8),
@@ -206,10 +207,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   try {
                     final result = await _nativeDialogChannel
                         .invokeMethod<String>('showNativeAlert');
-                    if (mounted) setState(() => _nativeAlertResult = result ?? 'null');
-                    developer.log('native alert result: $result', name: 'fdb_test');
+                    if (mounted)
+                      setState(() => _nativeAlertResult = result ?? 'null');
+                    developer.log('native alert result: $result',
+                        name: 'fdb_test');
                   } catch (e) {
-                    if (mounted) setState(() => _nativeAlertResult = 'ERROR: $e');
+                    if (mounted)
+                      setState(() => _nativeAlertResult = 'ERROR: $e');
                   }
                 },
                 child: const Text('Show Native Alert'),
