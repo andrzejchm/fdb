@@ -152,6 +152,14 @@ fdb kill
 | `fdb skill` | Print the AI agent skill file (SKILL.md) |
 | `fdb --version` | Print the fdb version |
 
+### Global options
+
+| Option | Description |
+|--------|-------------|
+| `fdb --session-dir <path> <command>` | Use a specific `.fdb/` session directory instead of auto-resolving |
+
+fdb automatically locates the active `.fdb/` session by walking up from the current directory, so you can run any command from a subdirectory without changing to the project root. Pass `--session-dir` to override this and point at a specific session directory.
+
 ### Widget Interaction (tap, input, scroll)
 
 Requires `fdb_helper` in your app:
@@ -186,6 +194,8 @@ void main() {
 **Empty widget tree** - App may still be starting. Retry, or use `fdb describe` instead.
 
 **`RUNNING=false` right after launch** - The process crashed. Check `fdb logs --last 50`.
+
+**`RUNNING=false` when running from a subdirectory** - fdb walks up the directory tree to find the nearest `.fdb/` session automatically. If it still shows `RUNNING=false`, the app may not be running or the session has a stale PID. Use `fdb --session-dir <project>/.fdb status` to point directly at the session directory.
 
 **Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
 

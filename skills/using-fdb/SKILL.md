@@ -337,6 +337,12 @@ fdb status    # RUNNING=true/false, PID, VM_SERVICE_URI
 fdb kill      # stop app, clean up temp files
 ```
 
+fdb auto-locates the active `.fdb/` session by walking up from the current directory, so you can run any command from a subdirectory without switching to the project root. Use `--session-dir` to override:
+
+```bash
+fdb --session-dir /path/to/project/.fdb status   # explicit session directory
+```
+
 ## Deep links
 
 ```bash
@@ -446,7 +452,7 @@ fdb screenshot
 
 ## State files
 
-All state lives in `<project>/.fdb/`:
+All state lives in `<project>/.fdb/`. fdb resolves this directory automatically by walking up from the current working directory to the nearest ancestor that contains a live `.fdb/` — so you never need to `cd` to the project root before running a command. Pass `--session-dir <path>` to bypass auto-resolution entirely.
 - `<project>/.fdb/fdb.pid` - flutter run process ID
 - `<project>/.fdb/logs.txt` - full app output
 - `<project>/.fdb/vm_uri.txt` - VM service websocket URI
