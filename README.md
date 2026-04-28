@@ -106,7 +106,7 @@ fdb kill
 | `fdb launch --device <id> --project <path>` | Launch app, wait for start |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
-| `fdb doctor` | Pre-flight check for fdb installation, app, VM service, fdb_helper, platform tools, and device state |
+| `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
 
@@ -209,7 +209,7 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 **Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
 
-**Agent setup fails mid-flow** - Run `fdb doctor` to check fdb installation, app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
+**Agent setup fails mid-flow** - Run `fdb doctor` to check app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
 
 ## Contributing
 
