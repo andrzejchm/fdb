@@ -27,19 +27,6 @@ int _tapButtons(PointerDeviceKind kind) {
   return kind == PointerDeviceKind.mouse ? kPrimaryMouseButton : kPrimaryButton;
 }
 
-/// Dispatches a native in-process tap at [globalPosition] via the platform
-/// channel, bypassing Flutter's [GestureBinding].
-///
-/// Routes through the platform's own input dispatch:
-///   iOS   — UIApplication.sendEvent() with synthetic UITouch
-///   macOS — NSApplication.sendEvent() with synthetic NSEvent
-///   Android — Activity.dispatchTouchEvent() with synthetic MotionEvent
-///
-/// This reaches native views overlaid on the Flutter surface (UIAlertController,
-/// WKWebView, platform views, AlertDialog) that [dispatchTap] cannot reach.
-///
-/// Falls back to [dispatchTap] on platforms without native channel support
-/// (web, Linux, Windows).
 /// Result of [dispatchNativeTap], indicating which path actually delivered
 /// the tap. Callers can surface this to the user so they know whether
 /// native overlays (UIAlertController, AlertDialog, WebView) were reachable.
@@ -60,6 +47,33 @@ enum NativeTapResult {
   nativeFailedFallback,
 }
 
+/// Dispatches a native in-process tap at [globalPosition] via the platform
+/// channel, bypassing Flutter's [GestureBinding].
+///
+/// Routes through the platform's own input dispatch:
+///   iOS     — UIApplication.sendEvent() with synthetic UITouch
+///   macOS   — NSApplication.sendEvent() with synthetic NSEvent
+///   Android — Activity.dispatchTouchEvent() with synthetic MotionEvent
+///
+/// This reaches native views overlaid on the Flutter surface
+/// (UIAlertController, WKWebView, platform views, AlertDialog) that
+/// [dispatchTap] cannot reach.
+///
+/// Returns [NativeTapResult] indicating which path actually delivered the tap.
+/// Falls back to [dispatchTap] (Flutter's [GestureBinding]) on:
+///   - Platforms without a native impl: web, Linux, Windows. The
+///     `fdb_helper` plugin only declares iOS, Android, and macOS in its
+///     `pubspec.yaml`, so other platforms cannot have a NativeTapApi
+///     implementation registered. Native overlays do not exist on web/Linux/
+///     Windows in a way that Flutter doesn't already handle, so this is
+///     correct by design — but it does mean callers should treat the
+///     [NativeTapResult.unsupportedPlatform] result as an informational
+///     signal, not an error.
+///   - Native injection failures on a supported platform (e.g. iOS private
+///     API drift): debugPrint a warning and return
+///     [NativeTapResult.nativeFailedFallback] so callers can surface this
+///     to users. Flutter widgets still work via the fallback; native
+///     overlays do NOT.
 Future<NativeTapResult> dispatchNativeTap(Offset globalPosition) async {
   final platform = defaultTargetPlatform;
   final hasNativeImpl =
