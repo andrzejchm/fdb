@@ -1,6 +1,6 @@
 ---
 name: using-fdb
-description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on physical devices and simulators. Launches apps, runs pre-flight health checks, hot reloads/restarts, takes screenshots, reads logs, inspects widget trees, taps/long-presses widgets, enters text, scrolls, and navigates back. Use when launching a Flutter app on device, checking fdb environment health, hot reloading after code changes, taking device screenshots, reading app logs, inspecting the widget hierarchy, debugging UI on device, or interacting with widgets via fdb.
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), inspects widget trees, describes screens including off-screen GridView/ListView children, and taps/inputs/scrolls/swipes/navigates. Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), inspecting or describing the UI, or interacting with widgets via fdb.
 license: MIT
 compatibility: opencode
 ---
@@ -114,6 +114,24 @@ fdb logs --tag "DEBUG" --last 100
 ```
 
 Reads from the tee'd log file. Use `--tag` to grep for specific tags.
+
+### Native system logs (Android logcat / iOS syslog / macOS log)
+
+```bash
+fdb syslog --since 5m --last 50            # last 50 lines from the past 5 minutes
+fdb syslog --predicate jetsam              # filter by substring
+fdb syslog --follow                        # stream live, exits on Ctrl-C
+```
+
+Use this to diagnose native crashes that don't reach Crashlytics or appear in `fdb logs` — iOS jetsam kills, Android low-memory-killer events, kernel-level errors. Dispatches per platform: `adb logcat` (Android), `xcrun simctl spawn <udid> log` (iOS simulator), `idevicesyslog` (iOS physical, requires `brew install libimobiledevice`), or host `log` (macOS).
+
+Flags:
+- `--since <duration>` — time window (`30s`, `5m`, `1h`); default `5m`. Not valid with `--follow`.
+- `--predicate <substring>` — substring match across platforms (post-filtered for adb / idevicesyslog, native NSPredicate for `log show`).
+- `--last <n>` — cap output to last N lines. Not valid with `--follow`.
+- `--follow` — stream live, exit cleanly on Ctrl-C.
+
+Output is the raw native log format — not parsed into fdb tokens. Errors print `ERROR: ...` (e.g. `ERROR: idevicesyslog not found. Install: brew install libimobiledevice`).
 
 ### Widget tree
 
@@ -453,9 +471,10 @@ fdb screenshot
 ## State files
 
 All state lives in `<project>/.fdb/`. fdb resolves this directory automatically by walking up from the current working directory to the nearest ancestor that contains a live `.fdb/` — so you never need to `cd` to the project root before running a command. Pass `--session-dir <path>` to bypass auto-resolution entirely.
-- `<project>/.fdb/fdb.pid` - flutter run process ID
+- `<project>/.fdb/fdb.pid` - flutter-tools process ID (the `flutter run` Dart VM, used for SIGUSR1/SIGUSR2 hot reload/restart and to tear down the session)
+- `<project>/.fdb/fdb.app_pid` - app VM process ID from `getVM` (the actual Dart VM hosting your app, used for liveness detection on a macOS desktop target)
 - `<project>/.fdb/logs.txt` - full app output
 - `<project>/.fdb/vm_uri.txt` - VM service websocket URI
 - `<project>/.fdb/device.txt` - device ID used at launch
-- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot)
+- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot and syslog)
 - `<project>/.fdb/screenshot.png` - last screenshot

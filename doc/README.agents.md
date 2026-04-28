@@ -172,6 +172,16 @@ fdb logs --tag "MyTag" --last 50
 
 Reads from the tee'd log file. Use `--tag` to grep for specific tags.
 
+### Native system logs
+
+```bash
+fdb syslog --since 5m --last 50      # last 50 lines from past 5 minutes
+fdb syslog --predicate jetsam        # substring filter
+fdb syslog --follow                  # stream live, Ctrl-C to exit
+```
+
+Reads native OS logs that `fdb logs` does not surface — iOS jetsam, Android LMK, kernel errors, native crashes. Dispatches per platform: `adb logcat` (Android), `xcrun simctl spawn <udid> log` (iOS simulator), `idevicesyslog` (iOS physical, requires `brew install libimobiledevice`), or host `log` (macOS). `--since` is not valid with `--follow`. Output is the raw native format.
+
 ### Widget tree
 
 ```bash
