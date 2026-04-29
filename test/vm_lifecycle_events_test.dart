@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/vm_lifecycle_events.dart';
+import 'package:fdb/core/vm_lifecycle_events.dart';
 import 'package:test/test.dart';
 
 void main() {

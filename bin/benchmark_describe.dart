@@ -17,7 +17,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/vm_service.dart';
 
 typedef _Scenario = ({String name, String route, String listTileKey});
 typedef _TimingResult = ({

@@ -1,126 +1,89 @@
 # Code Style
 
-Rules for writing Dart code in the fdb codebase.
-
-## Contents
-- Imports
-- Naming Conventions
-- Formatting
-- Dart 3.x Features
-- Types
-- Architecture
-- Error Handling
-- Doc Comments
-- Adding a New Command
+Rules for fdb's Dart codebase. For the layered architecture overview, see [`AGENTS.md`](AGENTS.md). For a worked example of adding a new command, see [`doc/adding-a-command.md`](doc/adding-a-command.md).
 
 ## Imports
 
-1. `dart:` SDK imports first, sorted alphabetically.
-2. Blank line.
-3. `package:fdb/...` imports, sorted alphabetically.
-4. Do not add new third-party packages to `packages/fdb_helper/pubspec.yaml` under `dependencies:` unless the developer has explicitly approved it AND it is mandatory to implement the given feature. Dev dependencies in `fdb_helper` and any dependencies in the `fdb` CLI are not subject to this restriction.
+- `dart:` first, blank line, `package:fdb/...` next, both alphabetised.
+- `lib/core/**` MUST NOT import `package:args/...` or `package:fdb/cli/...`.
+- `lib/cli/adapters/<name>_cli.dart` MUST import `package:fdb/core/commands/<name>.dart`.
+- `bin/fdb.dart` imports CLI adapters only.
+- Do NOT add new dependencies to `packages/fdb_helper/pubspec.yaml` without explicit approval.
 
-```dart
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+## Naming
 
-import 'package:fdb/constants.dart';
-import 'package:fdb/process_utils.dart';
-```
-
-## Naming Conventions
-
-| Element              | Convention    | Example                        |
-|----------------------|---------------|--------------------------------|
-| Files                | `snake_case`  | `process_utils.dart`           |
-| Top-level functions  | `camelCase`   | `runLaunch`, `readPid`         |
-| Private functions    | `_camelCase`  | `_extractVmUri`, `_isAlive`    |
-| Constants            | `camelCase`   | `pidFile`, `launchTimeoutSeconds` |
-| Variables            | `camelCase`   | `vmUri`, `launcherPid`         |
-| Command entry points | `runXxx`      | `runKill`, `runTree`           |
+| Element                | Convention      | Example                            |
+|------------------------|-----------------|------------------------------------|
+| Files                  | `snake_case`    | `process_utils.dart`               |
+| Top-level functions    | `camelCase`     | `tapWidget`, `readPid`             |
+| Private functions      | `_camelCase`    | `_extractVmUri`                    |
+| Constants              | `camelCase`     | `pidFile`, `launchTimeoutSeconds`  |
+| Core verb function     | verb            | `tapWidget`, `killApp`             |
+| Core input typedef     | `<Cmd>Input`    | `TapInput`, `KillInput`            |
+| Core sealed result     | `<Cmd>Result`   | `TapResult`                        |
+| Result variants        | `<Cmd><Outcome>`| `TapSuccess`, `KillNoSession`      |
+| CLI adapter entry      | `run<Cmd>Cli`   | `runTapCli`                        |
 
 ## Formatting
 
-- 2-space indentation (Dart default).
-- Single quotes for strings.
-- Trailing commas on multi-line parameter lists.
-- String interpolation: `'$variable'` / `'${expression}'`.
-- `final` for all local variables that are not reassigned.
-- `var` only when the variable is reassigned later.
-- `const` for compile-time constants (top-level and in constructors).
-
-## Dart 3.x Features
-
-- Switch expressions without `break`:
-  ```dart
-  switch (args[i]) {
-    case '--device':
-      device = args[++i];
-    case '--project':
-      project = args[++i];
-  }
-  ```
-- Collection `if` / spread: `if (flavor != null) ...['--flavor', flavor]`
-- Type casts with `as` on JSON maps: `response['result'] as Map<String, dynamic>?`
-
-## Types
-
-- Use explicit types for function signatures and return types.
-- Use `var` / `final` for local variable inference when the type is obvious.
-- JSON values are typed as `Map<String, dynamic>` or `List<dynamic>`.
-- Nullable types with `?` — always null-check before use.
+- 2-space indent. Single quotes. Trailing commas on multi-line params.
+- `final` for non-reassigned locals; `var` only when reassigned; `const` for compile-time constants.
 
 ## Architecture
 
-- **No classes.** The codebase is entirely top-level functions and constants.
-- Each command lives in its own file under `lib/commands/` and exports
-  exactly one public function: `Future<int> runXxx(List<String> args)`.
-- Shared logic goes in `lib/` root files (`process_utils.dart`,
-  `vm_service.dart`, `constants.dart`).
-- Arguments are parsed manually with a `for` loop + `switch` — no CLI framework.
+Two layers, enforced by directory:
 
-## Error Handling
+- `lib/core/**` — interface-agnostic. No `dart:io` writes to stdout/stderr. No `package:args`. Functions take typed inputs (records) and return sealed `<Cmd>Result` hierarchies. Never throw across the public API — catch and translate to a result variant. `AppDiedException` is the one allowed re-throw (dispatcher has special handling).
+- `lib/cli/**` — translates results to UPPER_SNAKE_CASE stdout tokens and `ERROR:` stderr lines. Owns `package:args`. Cross-flag validation lives here, not in core.
 
-- Every command function returns `Future<int>` — `0` for success, `1` for failure.
-- Errors go to `stderr` prefixed with `ERROR: `:
-  ```dart
-  stderr.writeln('ERROR: No PID file found. Is the app running?');
-  return 1;
-  ```
-- Machine-readable status tokens go to `stdout` in `UPPER_SNAKE_CASE`:
-  `APP_STARTED`, `APP_KILLED`, `RELOADED`, `SCREENSHOT_SAVED=<path>`.
-- Key=value pairs on stdout for structured output: `PID=12345`, `VM_SERVICE_URI=ws://...`.
-- `catch (_)` only for non-critical failures where the error value is irrelevant
-  (e.g., checking if a process is still alive).
-- `StateError` for missing preconditions (VM service URI not found).
-- `TimeoutException` is caught and rethrown — never swallowed.
-- Null-check every external data read (files, JSON fields, process output).
-- The top-level `main` in `bin/fdb.dart` has a catch-all that writes to stderr
-  and exits with code 1.
+### Per-command file split
 
-## Doc Comments
+Each command lives in its own directory with two files:
 
-- Use `///` doc comments on public functions that are non-trivial.
-- Skip doc comments on simple command entry points where the name is self-explanatory.
-- Inline `//` comments for non-obvious logic.
+```
+lib/core/commands/<name>/
+  <name>.dart            # verb function + `export '<name>_models.dart';`
+  <name>_models.dart     # <Cmd>Input typedef + sealed <Cmd>Result + variants
+```
 
-## Adding a New Command
+The verb file re-exports the models so adapters import only `<name>.dart` and get both. Adapters never import `<name>_models.dart` directly.
 
-1. Create `lib/commands/your_command.dart` with `Future<int> runYourCommand(List<String> args)`.
-2. Write errors to `stderr` prefixed with `ERROR: `, status tokens to `stdout`.
-3. Add a `case` to the `switch` in `bin/fdb.dart:_runCommand`.
-4. Add the command to the `usage` string in `bin/fdb.dart`.
-5. Update `README.md` commands table.
+## CLI rules
 
-## fdb_helper architecture
+- Use `runCliAdapter(parser, args, execute)` from `lib/cli/args_helpers.dart`. It handles `--help`/`-h` and `FormatException`. Adapters do NOT declare a `--help` flag themselves.
+- Required options: explicit `if (results.option('x') == null) { stderr.writeln('ERROR: --x is required'); return 1; }`. NOT `mandatory: true` — preserves verbatim error wording.
+- Use `runSimpleCliAdapter` for commands with no flags (only positional args).
 
-`packages/fdb_helper/` is a Flutter package that runs inside the target app and exposes VM service extensions. It has its own architecture rules — see [`packages/fdb_helper/AGENTS.md`](packages/fdb_helper/AGENTS.md) for full details.
+## Output tokens
 
-**Key rules (never violate these):**
+- stdout: UPPER_SNAKE_CASE machine-readable tokens (`APP_STARTED`, `TAPPED=<type> X=<x> Y=<y>`, `RELOADED in <ms>ms`).
+- stderr: `ERROR: <message>` for failures; `WARNING: <message>` for non-fatal issues.
+- AI agents grep for these — preserve byte-identically across refactors. Smoke tests in `Taskfile.yml` assert the exact strings.
 
-- `fdb_binding.dart` is **registration-only** — no handler logic, no imports of `dart:io`, `dart:ui`, `path_provider`, or `shared_preferences`. It only calls `_registerExtension(...)`.
-- Every VM service extension lives in its own file under `lib/src/handlers/`. The file exports exactly **one public function** `handleXxx(String method, Map<String, String> params)`.
-- **No classes** in handler files — top-level functions only.
-- Shared helpers (`errorResponse`, `findHittableElement`, `dispatchTap`, etc.) live in the existing `src/` utility files — not in the binding, not duplicated across handlers.
-- Adding a new extension means: create `handlers/your_handler.dart`, add one `_registerExtension` line to `fdb_binding.dart`. Nothing else changes in the binding.
+## Error handling
+
+- Every CLI adapter returns `Future<int>` — 0 success, 1 failure.
+- Catch `FormatException` is centralised in `runCliAdapter`. Don't catch it per-command.
+- `catch (_)` only for genuinely non-critical failures (e.g., probing process liveness).
+- Null-check every external read (files, JSON fields, process output).
+- `bin/fdb.dart` has a top-level catch-all for unexpected exceptions.
+
+## Doc comments
+
+- `///` on non-trivial public functions only.
+- Avoid `<angle brackets>` in doc comments — wrap in backticks (`` `like this` ``) to avoid `unintended_html_in_doc_comment` lints.
+
+## Adding a new command
+
+1. Create `lib/core/commands/<name>/<name>_models.dart`: input typedef + sealed result.
+2. Create `lib/core/commands/<name>/<name>.dart`: verb function + `export '<name>_models.dart';`.
+3. Create `lib/cli/adapters/<name>_cli.dart`: ArgParser + `runCliAdapter` + result→token formatting.
+4. Add the `case` in `bin/fdb.dart:_runCommand` calling `run<Name>Cli`.
+5. Add the command to the `usage` string in `bin/fdb.dart`.
+6. Update the commands table in `README.md`.
+
+For a full worked example, see [`doc/adding-a-command.md`](doc/adding-a-command.md).
+
+## fdb_helper
+
+`packages/fdb_helper/` has its own conventions — see [`packages/fdb_helper/AGENTS.md`](packages/fdb_helper/AGENTS.md).

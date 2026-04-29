@@ -13,35 +13,33 @@ over WebSocket, and stores all session state under a per-project `.fdb/` directo
 
 - **Language:** Dart 3.x (SDK `>=3.0.0 <4.0.0`)
 - **Runtime:** Dart VM (standalone — not a Flutter app)
-- **External dependencies:** none — only `dart:io`, `dart:async`, `dart:convert`
-- **Architecture:** flat, procedural — no classes, no DI, no frameworks
-- **Entry point:** `bin/fdb.dart` dispatches to command functions via `switch`
+- **External dependencies:** `package:args` (CLI argument parsing) plus the Dart SDK (`dart:io`, `dart:async`, `dart:convert`).
+- **Architecture:** layered. `lib/core/` is interface-agnostic business logic; `lib/cli/` is the CLI adapter that wraps it. The split is enforced by directory convention so a future MCP server, REST API, or library consumer can call the same core functions without going through ArgParser or stdout tokens.
+- **Entry point:** `bin/fdb.dart` dispatches to CLI adapter functions (`runXxxCli`) via `switch`. Adapters call into `lib/core/commands/`.
 
 ### Directory layout
 
 ```
-bin/fdb.dart                  # CLI entry point — command dispatcher
+bin/fdb.dart                              # CLI entry point — command dispatcher
 lib/
-  constants.dart              # File paths and timeout constants
-  process_utils.dart          # PID/process helper functions
-  vm_service.dart             # WebSocket JSON-RPC to Flutter VM service
-  commands/
-    devices.dart              # List connected devices
-    input.dart                # Enter text into a widget
-    kill.dart                 # Stop running app
-    launch.dart               # Launch Flutter app detached
-    logs.dart                 # Filtered log viewing + follow mode
-    reload.dart               # Hot reload via SIGUSR1
-    restart.dart              # Hot restart via SIGUSR2
-    screenshot.dart           # Screenshot (all platforms: adb, xcrun, screencapture, CDP, fdb_helper)
-    scroll.dart               # Scroll / swipe gesture
-    select.dart               # Toggle widget selection mode
-    selected.dart             # Get selected widget info
-    status.dart               # Check if app is running
-    tap.dart                  # Tap a widget by selector or coordinates
-    tree.dart                 # Widget tree inspection
+  constants.dart                          # File paths + timeouts (used by both layers)
+  core/                                   # Interface-agnostic business logic
+    app_died_exception.dart               # Domain exception
+    process_utils.dart                    # PID/process helpers
+    vm_service.dart                       # WebSocket VM service client
+    vm_lifecycle_events.dart
+    launch_failure_analyzer.dart
+    models/
+      command_result.dart                 # Marker base for sealed result hierarchies
+    commands/<name>/
+      <name>.dart × 28                    # verb function + `export '<name>_models.dart';`
+      <name>_models.dart × 28             # <Name>Input typedef + sealed <Name>Result
+  cli/                                    # CLI adapter layer
+    args_helpers.dart                     # runCliAdapter, runSimpleCliAdapter, parseXY
+    adapters/
+      <name>_cli.dart × 28                # runXxxCli(args) — ArgParser + token formatting
 packages/
-  fdb_helper/                 # Flutter package — registers VM service extensions
+  fdb_helper/                             # Flutter package — registers VM service extensions
 ```
 
 ## Build Commands
@@ -73,10 +71,12 @@ dart format .                         # Format
 
 ### Code style (quick reference)
 
-- No classes — top-level functions only.
-- Each command: `lib/commands/<name>.dart` exporting `Future<int> runXxx(List<String> args)`.
-- Errors to `stderr` prefixed with `ERROR: `, status tokens to `stdout` in `UPPER_SNAKE_CASE`.
-- Manual arg parsing with `for` loop + `switch`.
+- **Layered architecture**: `lib/core/` is interface-agnostic (no `package:args`, no stdio writes); `lib/cli/` is the CLI adapter.
+- Core: each command exports a `<Name>Input` typedef, sealed `<Name>Result` hierarchy, and a `Future<<Name>Result> verbName(<Name>Input)` function. Never throws (catches and translates to a result variant).
+- CLI adapter: `Future<int> runXxxCli(List<String> args)` — ArgParser + cross-flag validation + pattern-match the sealed result + write tokens.
+- Errors to `stderr` prefixed with `ERROR: `, status tokens to `stdout` in `UPPER_SNAKE_CASE`. Tokens are byte-identical contracts asserted by smoke tests.
+- Required options: explicit null-check on `results.option('name')`, NOT `mandatory: true` (preserves verbatim error wording).
+- Every command supports `--help` / `-h` (handled centrally by `runCliAdapter` — adapters do not declare their own `--help` flag).
 
 **Full details**: [CODE-STYLE.md](CODE-STYLE.md)
 

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:fdb/launch_failure_analyzer.dart';
+import 'package:fdb/core/launch_failure_analyzer.dart';
 import 'package:test/test.dart';
 
 void main() {

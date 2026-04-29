@@ -1,34 +1,34 @@
 import 'dart:io';
 
-import 'package:fdb/app_died_exception.dart';
-import 'package:fdb/commands/back.dart';
-import 'package:fdb/commands/clean.dart';
-import 'package:fdb/commands/shared_prefs.dart';
-import 'package:fdb/commands/deeplink.dart';
-import 'package:fdb/commands/describe.dart';
-import 'package:fdb/commands/devices.dart';
-import 'package:fdb/commands/doctor.dart';
-import 'package:fdb/commands/double_tap.dart';
-import 'package:fdb/commands/input.dart';
-import 'package:fdb/commands/kill.dart';
-import 'package:fdb/commands/launch.dart';
-import 'package:fdb/commands/native_tap.dart';
-import 'package:fdb/commands/longpress.dart';
-import 'package:fdb/commands/logs.dart';
-import 'package:fdb/commands/reload.dart';
-import 'package:fdb/commands/restart.dart';
-import 'package:fdb/commands/screenshot.dart';
-import 'package:fdb/commands/scroll.dart';
-import 'package:fdb/commands/scroll_to.dart';
-import 'package:fdb/commands/select.dart';
-import 'package:fdb/commands/selected.dart';
-import 'package:fdb/commands/skill.dart';
-import 'package:fdb/commands/status.dart';
-import 'package:fdb/commands/swipe.dart';
-import 'package:fdb/commands/syslog.dart';
-import 'package:fdb/commands/tap.dart';
-import 'package:fdb/commands/tree.dart';
-import 'package:fdb/commands/wait.dart';
+import 'package:fdb/core/app_died_exception.dart';
+import 'package:fdb/cli/adapters/back_cli.dart';
+import 'package:fdb/cli/adapters/clean_cli.dart';
+import 'package:fdb/cli/adapters/shared_prefs_cli.dart';
+import 'package:fdb/cli/adapters/deeplink_cli.dart';
+import 'package:fdb/cli/adapters/describe_cli.dart';
+import 'package:fdb/cli/adapters/devices_cli.dart';
+import 'package:fdb/cli/adapters/doctor_cli.dart';
+import 'package:fdb/cli/adapters/double_tap_cli.dart';
+import 'package:fdb/cli/adapters/input_cli.dart';
+import 'package:fdb/cli/adapters/kill_cli.dart';
+import 'package:fdb/cli/adapters/launch_cli.dart';
+import 'package:fdb/cli/adapters/native_tap_cli.dart';
+import 'package:fdb/cli/adapters/longpress_cli.dart';
+import 'package:fdb/cli/adapters/logs_cli.dart';
+import 'package:fdb/cli/adapters/reload_cli.dart';
+import 'package:fdb/cli/adapters/restart_cli.dart';
+import 'package:fdb/cli/adapters/screenshot_cli.dart';
+import 'package:fdb/cli/adapters/scroll_cli.dart';
+import 'package:fdb/cli/adapters/scroll_to_cli.dart';
+import 'package:fdb/cli/adapters/select_cli.dart';
+import 'package:fdb/cli/adapters/selected_cli.dart';
+import 'package:fdb/cli/adapters/skill_cli.dart';
+import 'package:fdb/cli/adapters/status_cli.dart';
+import 'package:fdb/cli/adapters/swipe_cli.dart';
+import 'package:fdb/cli/adapters/syslog_cli.dart';
+import 'package:fdb/cli/adapters/tap_cli.dart';
+import 'package:fdb/cli/adapters/tree_cli.dart';
+import 'package:fdb/cli/adapters/wait_cli.dart';
 import 'package:fdb/constants.dart';
 
 const usage = '''
@@ -115,8 +115,11 @@ Future<void> main(List<String> args) async {
 
   // Resolve session directory.
   // `launch` manages its own session dir via --project; skip auto-resolution.
+  // `--help` / `-h` is also session-agnostic — adapters print parser.usage
+  // without needing a session.
   // All other commands benefit from walking up to find an active .fdb/.
-  if (command != 'launch' && command != 'devices' && command != 'skill') {
+  final wantsHelp = commandArgs.contains('--help') || commandArgs.contains('-h');
+  if (command != 'launch' && command != 'devices' && command != 'skill' && !wantsHelp) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);
     } else {
@@ -145,61 +148,61 @@ Future<void> main(List<String> args) async {
 Future<int> _runCommand(String command, List<String> args) {
   switch (command) {
     case 'devices':
-      return runDevices(args);
+      return runDevicesCli(args);
     case 'deeplink':
-      return runDeeplink(args);
+      return runDeeplinkCli(args);
     case 'launch':
-      return runLaunch(args);
+      return runLaunchCli(args);
     case 'reload':
-      return runReload(args);
+      return runReloadCli(args);
     case 'restart':
-      return runRestart(args);
+      return runRestartCli(args);
     case 'screenshot':
-      return runScreenshot(args);
+      return runScreenshotCli(args);
     case 'logs':
-      return runLogs(args);
+      return runLogsCli(args);
     case 'syslog':
-      return runSyslog(args);
+      return runSyslogCli(args);
     case 'tree':
-      return runTree(args);
+      return runTreeCli(args);
     case 'describe':
-      return runDescribe(args);
+      return runDescribeCli(args);
     case 'doctor':
-      return runDoctor(args);
+      return runDoctorCli(args);
     case 'native-tap':
-      return runNativeTap(args);
+      return runNativeTapCli(args);
     case 'tap':
-      return runTap(args);
+      return runTapCli(args);
     case 'double-tap':
-      return runDoubleTap(args);
+      return runDoubleTapCli(args);
     case 'longpress':
-      return runLongpress(args);
+      return runLongpressCli(args);
     case 'input':
-      return runInput(args);
+      return runInputCli(args);
     case 'scroll':
-      return runScroll(args);
+      return runScrollCli(args);
     case 'scroll-to':
-      return runScrollTo(args);
+      return runScrollToCli(args);
     case 'wait':
-      return runWait(args);
+      return runWaitCli(args);
     case 'swipe':
-      return runSwipe(args);
+      return runSwipeCli(args);
     case 'back':
-      return runBack(args);
+      return runBackCli(args);
     case 'clean':
-      return runClean(args);
+      return runCleanCli(args);
     case 'shared-prefs':
-      return runSharedPrefs(args);
+      return runSharedPrefsCli(args);
     case 'select':
-      return runSelect(args);
+      return runSelectCli(args);
     case 'selected':
-      return runSelected(args);
+      return runSelectedCli(args);
     case 'status':
-      return runStatus(args);
+      return runStatusCli(args);
     case 'kill':
-      return runKill(args);
+      return runKillCli(args);
     case 'skill':
-      return runSkill(args);
+      return runSkillCli(args);
     default:
       stderr.writeln('ERROR: Unknown command: $command');
       stderr.writeln(usage);
