@@ -6,10 +6,6 @@ import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/mem/mem.dart';
 
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
-
 const _memUsage = '''
 Usage: fdb mem [subcommand] [options]
 
@@ -40,9 +36,7 @@ Future<int> runMemCli(List<String> args) async {
     return 0;
   }
 
-  if (args.isEmpty) {
-    return _runMemTotals(args);
-  }
+  if (args.isEmpty) return _runMemTotals(args);
 
   switch (args[0]) {
     case 'profile':
@@ -50,11 +44,7 @@ Future<int> runMemCli(List<String> args) async {
     case 'diff':
       return _runMemDiff(args.sublist(1));
     default:
-      // Unknown subcommand — if it starts with '--' treat it as a flag for
-      // the totals sub-command; otherwise reject it with a clear error.
-      if (args[0].startsWith('-')) {
-        return _runMemTotals(args);
-      }
+      if (args[0].startsWith('-')) return _runMemTotals(args);
       stderr.writeln('ERROR: Unknown subcommand for fdb mem: ${args[0]}');
       stderr.writeln('Run `fdb mem --help` for usage.');
       return 1;
@@ -62,15 +52,14 @@ Future<int> runMemCli(List<String> args) async {
 }
 
 // ---------------------------------------------------------------------------
-// fdb mem  — heap totals
+// fdb mem — heap totals
 // ---------------------------------------------------------------------------
 
-Future<int> _runMemTotals(List<String> args) async {
+Future<int> _runMemTotals(List<String> args) {
   final parser = ArgParser()..addFlag('json', negatable: false);
   return runCliAdapter(parser, args, (results) async {
-    final jsonMode = results['json'] as bool;
     final result = await getHeapUsage(());
-    return _formatMemResult(result, jsonMode: jsonMode);
+    return _formatMemResult(result, jsonMode: results['json'] as bool);
   });
 }
 
@@ -78,21 +67,18 @@ int _formatMemResult(MemResult result, {required bool jsonMode}) {
   switch (result) {
     case MemSuccess(:final isolates):
       if (jsonMode) {
-        stdout.writeln(
-          jsonEncode({
-            'isolates': isolates
-                .map(
-                  (i) => {
-                    'isolateId': i.id,
-                    'name': i.name,
-                    'heapUsage': i.heapUsage,
-                    'externalUsage': i.externalUsage,
-                    'heapCapacity': i.heapCapacity,
-                  },
-                )
-                .toList(),
-          }),
-        );
+        stdout.writeln(jsonEncode({
+          'isolates': [
+            for (final i in isolates)
+              {
+                'isolateId': i.id,
+                'name': i.name,
+                'heapUsage': i.heapUsage,
+                'externalUsage': i.externalUsage,
+                'heapCapacity': i.heapCapacity,
+              },
+          ],
+        }));
       } else {
         _printHeapTable(isolates);
       }
@@ -111,13 +97,15 @@ void _printHeapTable(List<IsolateHeapInfo> isolates) {
     return;
   }
 
-  const nameWidth = 30;
-  const numWidth = 12;
+  const nameW = 30;
+  const numW = 12;
+  String nameCol(String s) => s.padRight(nameW);
+  String numCol(String s) => s.padLeft(numW);
 
-  final header =
-      '${'isolate'.padRight(nameWidth)}${'heapUsage'.padLeft(numWidth)}${'external'.padLeft(numWidth)}${'capacity'.padLeft(numWidth)}';
+  final header = '${nameCol('isolate')}${numCol('heapUsage')}${numCol('external')}${numCol('capacity')}';
+  final divider = '-' * header.length;
   stdout.writeln(header);
-  stdout.writeln('-' * header.length);
+  stdout.writeln(divider);
 
   var totalHeap = 0;
   var totalExternal = 0;
@@ -125,30 +113,24 @@ void _printHeapTable(List<IsolateHeapInfo> isolates) {
 
   for (final iso in isolates) {
     stdout.writeln(
-      '${iso.name.padRight(nameWidth)}'
-      '${_fmtBytes(iso.heapUsage).padLeft(numWidth)}'
-      '${_fmtBytes(iso.externalUsage).padLeft(numWidth)}'
-      '${_fmtBytes(iso.heapCapacity).padLeft(numWidth)}',
+      '${nameCol(iso.name)}${numCol(fmtBytes(iso.heapUsage))}${numCol(fmtBytes(iso.externalUsage))}${numCol(fmtBytes(iso.heapCapacity))}',
     );
     totalHeap += iso.heapUsage;
     totalExternal += iso.externalUsage;
     totalCapacity += iso.heapCapacity;
   }
 
-  stdout.writeln('-' * header.length);
+  stdout.writeln(divider);
   stdout.writeln(
-    '${'TOTAL'.padRight(nameWidth)}'
-    '${_fmtBytes(totalHeap).padLeft(numWidth)}'
-    '${_fmtBytes(totalExternal).padLeft(numWidth)}'
-    '${_fmtBytes(totalCapacity).padLeft(numWidth)}',
+    '${nameCol('TOTAL')}${numCol(fmtBytes(totalHeap))}${numCol(fmtBytes(totalExternal))}${numCol(fmtBytes(totalCapacity))}',
   );
 }
 
 // ---------------------------------------------------------------------------
-// fdb mem profile  — capture allocation profile
+// fdb mem profile — capture allocation profile
 // ---------------------------------------------------------------------------
 
-Future<int> _runMemProfile(List<String> args) async {
+Future<int> _runMemProfile(List<String> args) {
   final parser = ArgParser()
     ..addOption('output')
     ..addOption('isolate')
@@ -160,20 +142,16 @@ Future<int> _runMemProfile(List<String> args) async {
       stderr.writeln('ERROR: --output <file> is required');
       return 1;
     }
-
     final allIsolates = results['all-isolates'] as bool;
     if (allIsolates && results.option('isolate') != null) {
       stderr.writeln('ERROR: --all-isolates and --isolate are mutually exclusive');
       return 1;
     }
-
-    final input = (
+    final result = await captureMemProfile((
       isolateId: results.option('isolate'),
       outputPath: outputPath,
       allIsolates: allIsolates,
-    );
-
-    final result = await captureMemProfile(input);
+    ));
     return _formatMemProfileResult(result);
   });
 }
@@ -195,7 +173,7 @@ int _formatMemProfileResult(MemProfileResult result) {
     case MemProfileIsolateNotFound(:final requestedId):
       stderr.writeln(
         'ERROR: Isolate "$requestedId" not found. '
-        'Run `fdb mem --json` and use the "isolateId" field (e.g. "isolates/123") as the --isolate value.',
+        'Run `fdb mem --json` and use the "isolateId" field as the --isolate value.',
       );
       return 1;
     case MemProfileAppDied(:final logLines, :final reason):
@@ -207,10 +185,10 @@ int _formatMemProfileResult(MemProfileResult result) {
 }
 
 // ---------------------------------------------------------------------------
-// fdb mem diff  — diff two allocation profiles
+// fdb mem diff — diff two allocation profiles
 // ---------------------------------------------------------------------------
 
-Future<int> _runMemDiff(List<String> args) async {
+Future<int> _runMemDiff(List<String> args) {
   final parser = ArgParser()
     ..addOption('sort', defaultsTo: 'count', allowed: ['count', 'bytes'])
     ..addOption('top', defaultsTo: '20')
@@ -226,11 +204,7 @@ Future<int> _runMemDiff(List<String> args) async {
       return 1;
     }
 
-    final beforePath = positional[0];
-    final afterPath = positional[1];
     final showAll = results['all'] as bool;
-    final jsonMode = results['json'] as bool;
-
     int? topN;
     if (!showAll) {
       final rawTop = results.option('top') ?? '20';
@@ -241,17 +215,13 @@ Future<int> _runMemDiff(List<String> args) async {
       }
     }
 
-    final sort = results.option('sort') == 'bytes' ? MemDiffSort.bytes : MemDiffSort.count;
-
-    final input = (
-      beforePath: beforePath,
-      afterPath: afterPath,
+    final result = await diffMemProfiles((
+      beforePath: positional[0],
+      afterPath: positional[1],
       topN: topN,
-      sort: sort,
-    );
-
-    final result = await diffMemProfiles(input);
-    return _formatMemDiffResult(result, jsonMode: jsonMode, topN: topN);
+      sort: results.option('sort') == 'bytes' ? MemDiffSort.bytes : MemDiffSort.count,
+    ));
+    return _formatMemDiffResult(result, jsonMode: results['json'] as bool, topN: topN);
   });
 }
 
@@ -259,26 +229,23 @@ int _formatMemDiffResult(MemDiffResult result, {required bool jsonMode, int? top
   switch (result) {
     case MemDiffSuccess(:final diffs, :final beforeIsolateName, :final afterIsolateName, :final sort):
       if (jsonMode) {
-        stdout.writeln(
-          jsonEncode({
-            'beforeIsolate': beforeIsolateName,
-            'afterIsolate': afterIsolateName,
-            'diffs': diffs
-                .map(
-                  (d) => {
-                    'className': d.className,
-                    'libraryUri': d.libraryUri,
-                    'instancesBefore': d.instancesBefore,
-                    'instancesAfter': d.instancesAfter,
-                    'instanceDelta': d.instanceDelta,
-                    'bytesBefore': d.bytesBefore,
-                    'bytesAfter': d.bytesAfter,
-                    'bytesDelta': d.bytesDelta,
-                  },
-                )
-                .toList(),
-          }),
-        );
+        stdout.writeln(jsonEncode({
+          'beforeIsolate': beforeIsolateName,
+          'afterIsolate': afterIsolateName,
+          'diffs': [
+            for (final d in diffs)
+              {
+                'className': d.className,
+                'libraryUri': d.libraryUri,
+                'instancesBefore': d.instancesBefore,
+                'instancesAfter': d.instancesAfter,
+                'instanceDelta': d.instanceDelta,
+                'bytesBefore': d.bytesBefore,
+                'bytesAfter': d.bytesAfter,
+                'bytesDelta': d.bytesDelta,
+              },
+          ],
+        }));
       } else {
         _printDiffTable(diffs, sort: sort, topN: topN);
       }
@@ -304,43 +271,21 @@ void _printDiffTable(List<ClassDiff> diffs, {required MemDiffSort sort, int? top
     stdout.writeln('No allocation changes between the two profiles.');
     return;
   }
-
+  final countLabel = topN == null ? 'All ${diffs.length}' : 'Top ${diffs.length}';
   final sortLabel = sort == MemDiffSort.bytes ? 'byte delta' : 'instance count delta';
-  final countLabel = diffs.length.toString();
-  final header = topN == null ? 'All $countLabel changed classes' : 'Top $countLabel changed classes';
-  stdout.writeln('$header (by $sortLabel):');
+  stdout.writeln('$countLabel changed classes (by $sortLabel):');
 
   for (final d in diffs) {
     if (sort == MemDiffSort.bytes) {
       final sign = d.bytesDelta >= 0 ? '+' : '';
-      final delta = '$sign${d.bytesDelta}'.padLeft(12);
       stdout.writeln(
-        '  $delta  ${d.className.padRight(40)}  ${_fmtBytes(d.bytesBefore)} -> ${_fmtBytes(d.bytesAfter)}',
+        '  ${'$sign${d.bytesDelta}'.padLeft(12)}  ${d.className.padRight(40)}  ${fmtBytes(d.bytesBefore)} -> ${fmtBytes(d.bytesAfter)}',
       );
     } else {
       final sign = d.instanceDelta >= 0 ? '+' : '';
-      final delta = '$sign${d.instanceDelta}'.padLeft(5);
       stdout.writeln(
-        '  $delta  ${d.className.padRight(40)}  ${d.instancesBefore} -> ${d.instancesAfter}',
+        '  ${'$sign${d.instanceDelta}'.padLeft(5)}  ${d.className.padRight(40)}  ${d.instancesBefore} -> ${d.instancesAfter}',
       );
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Formatting helpers
-// ---------------------------------------------------------------------------
-
-/// Formats [bytes] as a human-readable string (B / KB / MB / GB).
-String _fmtBytes(int bytes) {
-  if (bytes >= 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-  if (bytes >= 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  if (bytes >= 1024) {
-    return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  }
-  return '$bytes B';
 }

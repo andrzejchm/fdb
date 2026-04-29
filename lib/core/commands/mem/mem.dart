@@ -18,35 +18,24 @@ Future<MemResult> getHeapUsage(MemInput _) async {
   try {
     final isolateIds = await findAllIsolateIds();
     final infos = <IsolateHeapInfo>[];
-
     for (final id in isolateIds) {
       try {
-        final response = await vmServiceCall('getMemoryUsage', params: {'isolateId': id});
-        final result = response['result'] as Map<String, dynamic>?;
-        if (result == null) continue;
-
-        // Resolve human-readable name from getIsolate.
-        final nameResponse = await vmServiceCall('getIsolate', params: {'isolateId': id});
-        final isolateResult = nameResponse['result'] as Map<String, dynamic>?;
-        final name = (isolateResult?['name'] as String?) ?? id;
-
-        infos.add(
-          IsolateHeapInfo(
-            id: id,
-            name: name,
-            heapUsage: (result['heapUsage'] as num).toInt(),
-            externalUsage: (result['externalUsage'] as num).toInt(),
-            heapCapacity: (result['heapCapacity'] as num).toInt(),
-          ),
-        );
+        final mem =
+            (await vmServiceCall('getMemoryUsage', params: {'isolateId': id}))['result'] as Map<String, dynamic>?;
+        if (mem == null) continue;
+        infos.add(IsolateHeapInfo(
+          id: id,
+          name: await _isolateName(id),
+          heapUsage: (mem['heapUsage'] as num).toInt(),
+          externalUsage: (mem['externalUsage'] as num).toInt(),
+          heapCapacity: (mem['heapCapacity'] as num).toInt(),
+        ));
       } on AppDiedException {
         rethrow;
       } catch (_) {
-        // Best-effort: skip isolates that fail (e.g. system isolates that
-        // do not expose getMemoryUsage).
+        // Skip isolates that don't expose getMemoryUsage (e.g. system isolates).
       }
     }
-
     return MemSuccess(infos);
   } on AppDiedException catch (e) {
     return MemAppDied(logLines: e.logLines, reason: e.reason);
@@ -61,11 +50,9 @@ Future<MemResult> getHeapUsage(MemInput _) async {
 
 /// Captures a full allocation profile and writes it to [input.outputPath].
 ///
-/// Single-isolate: returns [MemProfileSuccess] with the actual file path written.
-///
-/// Multi-isolate (`allIsolates: true`): one file per isolate is written using
-/// the pattern `<stem>_<isolateName>.json`; returns [MemProfileMultiSuccess]
-/// with the list of actual file paths and corresponding isolate names.
+/// Single-isolate: returns [MemProfileSuccess] with the actual file path.
+/// Multi-isolate (`allIsolates: true`): writes one file per isolate using the
+/// pattern `<stem>_<isolateName>.json`; returns [MemProfileMultiSuccess].
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<MemProfileResult> captureMemProfile(MemProfileInput input) async {
@@ -74,54 +61,37 @@ Future<MemProfileResult> captureMemProfile(MemProfileInput input) async {
 
     if (input.allIsolates) {
       targetIds = await findAllIsolateIds();
-      if (targetIds.isEmpty) {
-        return const MemProfileError('No isolates found in running VM');
-      }
+      if (targetIds.isEmpty) return const MemProfileError('No isolates found in running VM');
     } else if (input.isolateId != null) {
       final allIds = await findAllIsolateIds();
-      if (!allIds.contains(input.isolateId)) {
-        return MemProfileIsolateNotFound(input.isolateId!);
-      }
+      if (!allIds.contains(input.isolateId)) return MemProfileIsolateNotFound(input.isolateId!);
       targetIds = [input.isolateId!];
     } else {
-      // Default: use the Flutter UI isolate, fall back to first available.
-      final flutterId = await findFlutterIsolateId();
-      final fallback = flutterId ?? (await findAllIsolateIds()).firstOrNull;
-      if (fallback == null) {
-        return const MemProfileError('No isolates found in running VM');
-      }
-      targetIds = [fallback];
+      final id = await findFlutterIsolateId() ?? (await findAllIsolateIds()).firstOrNull;
+      if (id == null) return const MemProfileError('No isolates found in running VM');
+      targetIds = [id];
     }
 
-    if (targetIds.length == 1) {
-      return _captureIsolateProfile(targetIds.first, input.outputPath);
-    }
+    if (targetIds.length == 1) return _captureIsolateProfile(targetIds.first, input.outputPath);
 
-    // Multi-isolate: write one file per isolate, suffixed with the isolate name.
+    // Multi-isolate: one file per isolate, name resolved once and reused for
+    // both the filename and the MemProfileSuccess inside _captureIsolateProfile.
     var totalClasses = 0;
     final writtenPaths = <String>[];
-    final writtenIsolateNames = <String>[];
+    final writtenNames = <String>[];
     for (final id in targetIds) {
-      final nameResponse = await vmServiceCall('getIsolate', params: {'isolateId': id});
-      final isolateResult = nameResponse['result'] as Map<String, dynamic>?;
-      final isolateName = (isolateResult?['name'] as String?) ?? id;
-      final path = '${_stripExtension(input.outputPath)}_${_safeFileName(isolateName)}.json';
-
-      final r = await _captureIsolateProfile(id, path);
+      final name = await _isolateName(id);
+      final path = '${_stripExtension(input.outputPath)}_${_safeFileName(name)}.json';
+      final r = await _captureIsolateProfile(id, path, resolvedName: name);
       if (r is MemProfileSuccess) {
         totalClasses += r.classCount;
         writtenPaths.add(r.outputPath);
-        writtenIsolateNames.add(r.isolateName);
+        writtenNames.add(r.isolateName);
       } else {
         return r; // Propagate first error.
       }
     }
-
-    return MemProfileMultiSuccess(
-      outputPaths: writtenPaths,
-      isolateNames: writtenIsolateNames,
-      classCount: totalClasses,
-    );
+    return MemProfileMultiSuccess(outputPaths: writtenPaths, isolateNames: writtenNames, classCount: totalClasses);
   } on AppDiedException catch (e) {
     return MemProfileAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {
@@ -129,45 +99,17 @@ Future<MemProfileResult> captureMemProfile(MemProfileInput input) async {
   }
 }
 
-Future<MemProfileResult> _captureIsolateProfile(String isolateId, String outputPath) async {
-  final profileResponse = await vmServiceCall(
-    'getAllocationProfile',
-    params: {'isolateId': isolateId},
-  );
-  final profileResult = profileResponse['result'] as Map<String, dynamic>?;
-  if (profileResult == null) {
-    return const MemProfileError('getAllocationProfile returned no result');
-  }
+Future<MemProfileResult> _captureIsolateProfile(
+  String isolateId,
+  String outputPath, {
+  String? resolvedName,
+}) async {
+  final profileResult = (await vmServiceCall('getAllocationProfile', params: {'isolateId': isolateId}))['result']
+      as Map<String, dynamic>?;
+  if (profileResult == null) return const MemProfileError('getAllocationProfile returned no result');
 
-  final nameResponse = await vmServiceCall('getIsolate', params: {'isolateId': isolateId});
-  final isolateResult = nameResponse['result'] as Map<String, dynamic>?;
-  final isolateName = (isolateResult?['name'] as String?) ?? isolateId;
-
-  final rawMembers = profileResult['members'] as List<dynamic>? ?? [];
-  final classes = <ClassAlloc>[];
-  for (final entry in rawMembers) {
-    final m = entry as Map<String, dynamic>;
-    final classRef = m['class'] as Map<String, dynamic>?;
-    if (classRef == null) continue;
-
-    final className = (classRef['name'] as String?) ?? '<unknown>';
-    final libraryUri = (classRef['library'] as Map<String, dynamic>?)?['uri'] as String? ?? '';
-    final newSpace = m['new'] as Map<String, dynamic>?;
-    final oldSpace = m['old'] as Map<String, dynamic>?;
-
-    final instancesCurrent =
-        ((newSpace?['count'] as num?)?.toInt() ?? 0) + ((oldSpace?['count'] as num?)?.toInt() ?? 0);
-    final bytesCurrent = ((newSpace?['size'] as num?)?.toInt() ?? 0) + ((oldSpace?['size'] as num?)?.toInt() ?? 0);
-
-    classes.add(
-      ClassAlloc(
-        className: className,
-        libraryUri: libraryUri,
-        instancesCurrent: instancesCurrent,
-        bytesCurrent: bytesCurrent,
-      ),
-    );
-  }
+  final isolateName = resolvedName ?? await _isolateName(isolateId);
+  final classes = _parseAllocationMembers(profileResult['members'] as List<dynamic>? ?? []);
 
   final profile = MemProfile(
     isolateId: isolateId,
@@ -180,12 +122,30 @@ Future<MemProfileResult> _captureIsolateProfile(String isolateId, String outputP
   await file.parent.create(recursive: true);
   await file.writeAsString(const JsonEncoder.withIndent('  ').convert(profile.toJson()));
 
-  return MemProfileSuccess(
-    outputPath: outputPath,
-    classCount: classes.length,
-    isolateName: isolateName,
-  );
+  return MemProfileSuccess(outputPath: outputPath, classCount: classes.length, isolateName: isolateName);
 }
+
+/// Converts the `members` array from `getAllocationProfile` into [ClassAlloc] objects.
+List<ClassAlloc> _parseAllocationMembers(List<dynamic> members) {
+  final classes = <ClassAlloc>[];
+  for (final entry in members) {
+    final m = entry as Map<String, dynamic>;
+    final classRef = m['class'] as Map<String, dynamic>?;
+    if (classRef == null) continue;
+    final newSpace = m['new'] as Map<String, dynamic>?;
+    final oldSpace = m['old'] as Map<String, dynamic>?;
+    classes.add(ClassAlloc(
+      className: (classRef['name'] as String?) ?? '<unknown>',
+      libraryUri: (classRef['library'] as Map<String, dynamic>?)?['uri'] as String? ?? '',
+      instancesCurrent: _sumSpaces(newSpace, oldSpace, 'count'),
+      bytesCurrent: _sumSpaces(newSpace, oldSpace, 'size'),
+    ));
+  }
+  return classes;
+}
+
+int _sumSpaces(Map<String, dynamic>? newSpace, Map<String, dynamic>? oldSpace, String key) =>
+    ((newSpace?[key] as num?)?.toInt() ?? 0) + ((oldSpace?[key] as num?)?.toInt() ?? 0);
 
 // ---------------------------------------------------------------------------
 // fdb mem diff — diff two allocation profiles
@@ -196,82 +156,49 @@ Future<MemProfileResult> _captureIsolateProfile(String isolateId, String outputP
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<MemDiffResult> diffMemProfiles(MemDiffInput input) async {
   try {
-    final MemProfile before;
-    final MemProfile after;
+    final (beforeErr, beforeProfile) = await _loadProfile(input.beforePath);
+    if (beforeErr != null) return MemDiffReadError(beforeErr);
+    final (afterErr, afterProfile) = await _loadProfile(input.afterPath);
+    if (afterErr != null) return MemDiffReadError(afterErr);
 
-    try {
-      before = MemProfile.fromJson(
-        jsonDecode(await File(input.beforePath).readAsString()) as Map<String, dynamic>,
-      );
-    } on FileSystemException catch (e) {
-      return MemDiffReadError('Cannot read before-profile "${input.beforePath}": ${e.message}');
-    } on FormatException catch (e) {
-      return MemDiffReadError('Cannot parse before-profile "${input.beforePath}": $e');
+    final b = beforeProfile!;
+    final a = afterProfile!;
+
+    if (b.isolateId != a.isolateId && b.isolateName != a.isolateName) {
+      return MemDiffIsolateMismatch(beforeIsolateName: b.isolateName, afterIsolateName: a.isolateName);
     }
 
-    try {
-      after = MemProfile.fromJson(
-        jsonDecode(await File(input.afterPath).readAsString()) as Map<String, dynamic>,
-      );
-    } on FileSystemException catch (e) {
-      return MemDiffReadError('Cannot read after-profile "${input.afterPath}": ${e.message}');
-    } on FormatException catch (e) {
-      return MemDiffReadError('Cannot parse after-profile "${input.afterPath}": $e');
-    }
+    final beforeMap = {for (final c in b.classes) '${c.className}|${c.libraryUri}': c};
+    final afterMap = {for (final c in a.classes) '${c.className}|${c.libraryUri}': c};
 
-    // Allow different isolate IDs as long as names match — restarts change IDs.
-    // Reject only when both ID and name differ (clearly different sessions).
-    if (before.isolateId != after.isolateId && before.isolateName != after.isolateName) {
-      return MemDiffIsolateMismatch(
-        beforeIsolateName: before.isolateName,
-        afterIsolateName: after.isolateName,
-      );
-    }
-
-    // Build lookup maps: (className + '|' + libraryUri) → ClassAlloc.
-    final beforeMap = {for (final c in before.classes) '${c.className}|${c.libraryUri}': c};
-    final afterMap = {for (final c in after.classes) '${c.className}|${c.libraryUri}': c};
-
-    final allKeys = {...beforeMap.keys, ...afterMap.keys};
     final diffs = <ClassDiff>[];
-
-    for (final key in allKeys) {
-      final b = beforeMap[key];
-      final a = afterMap[key];
-
-      final instancesBefore = b?.instancesCurrent ?? 0;
-      final instancesAfter = a?.instancesCurrent ?? 0;
-      final bytesBefore = b?.bytesCurrent ?? 0;
-      final bytesAfter = a?.bytesCurrent ?? 0;
-
+    for (final key in {...beforeMap.keys, ...afterMap.keys}) {
+      final bc = beforeMap[key];
+      final ac = afterMap[key];
+      final instancesBefore = bc?.instancesCurrent ?? 0;
+      final instancesAfter = ac?.instancesCurrent ?? 0;
+      final bytesBefore = bc?.bytesCurrent ?? 0;
+      final bytesAfter = ac?.bytesCurrent ?? 0;
       if (instancesBefore == instancesAfter && bytesBefore == bytesAfter) continue;
-
-      final ref = b ?? a!;
-      diffs.add(
-        ClassDiff(
-          className: ref.className,
-          libraryUri: ref.libraryUri,
-          instancesBefore: instancesBefore,
-          instancesAfter: instancesAfter,
-          bytesBefore: bytesBefore,
-          bytesAfter: bytesAfter,
-        ),
-      );
+      final ref = bc ?? ac!;
+      diffs.add(ClassDiff(
+        className: ref.className,
+        libraryUri: ref.libraryUri,
+        instancesBefore: instancesBefore,
+        instancesAfter: instancesAfter,
+        bytesBefore: bytesBefore,
+        bytesAfter: bytesAfter,
+      ));
     }
 
-    // Sort by selected key descending (largest absolute delta first).
-    diffs.sort((a, b) {
-      return input.sort == MemDiffSort.bytes
-          ? b.bytesDelta.abs().compareTo(a.bytesDelta.abs())
-          : b.instanceDelta.abs().compareTo(a.instanceDelta.abs());
-    });
-
-    final visible = input.topN != null ? diffs.take(input.topN!).toList() : diffs;
+    diffs.sort((x, y) => input.sort == MemDiffSort.bytes
+        ? y.bytesDelta.abs().compareTo(x.bytesDelta.abs())
+        : y.instanceDelta.abs().compareTo(x.instanceDelta.abs()));
 
     return MemDiffSuccess(
-      diffs: visible,
-      beforeIsolateName: before.isolateName,
-      afterIsolateName: after.isolateName,
+      diffs: input.topN != null ? diffs.take(input.topN!).toList() : diffs,
+      beforeIsolateName: b.isolateName,
+      afterIsolateName: a.isolateName,
       sort: input.sort,
     );
   } catch (e) {
@@ -280,8 +207,27 @@ Future<MemDiffResult> diffMemProfiles(MemDiffInput input) async {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Private helpers
 // ---------------------------------------------------------------------------
+
+/// Resolves the human-readable name for an isolate ID from the VM service.
+Future<String> _isolateName(String isolateId) async {
+  final result =
+      (await vmServiceCall('getIsolate', params: {'isolateId': isolateId}))['result'] as Map<String, dynamic>?;
+  return (result?['name'] as String?) ?? isolateId;
+}
+
+/// Returns `(errorMessage, profile)`. Exactly one of the two is non-null.
+Future<(String?, MemProfile?)> _loadProfile(String path) async {
+  try {
+    final profile = MemProfile.fromJson(jsonDecode(await File(path).readAsString()) as Map<String, dynamic>);
+    return (null, profile);
+  } on FileSystemException catch (e) {
+    return ('Cannot read profile "$path": ${e.message}', null);
+  } on FormatException catch (e) {
+    return ('Cannot parse profile "$path": $e', null);
+  }
+}
 
 String _safeFileName(String name) => name.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
 
