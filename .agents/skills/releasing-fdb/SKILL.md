@@ -116,24 +116,72 @@ The tag push triggers `.github/workflows/publish.yml` which:
 4. Generates release notes from conventional commits since the previous tag
 5. Creates a GitHub release with the generated notes
 
+**Wait for CI to complete before declaring the release done.** Watch the publish workflow:
+
+```bash
+gh run list --repo andrzejchm/fdb --limit 5
+gh run watch <run-id> --repo andrzejchm/fdb
+```
+
+If the publish workflow **fails**, do not proceed — diagnose the failure before anything else. See Troubleshooting below.
+
 ## Post-release Verification
 
-After CI completes:
+**This section is mandatory. Do not skip it.**
 
-1. **fdb on pub.dev**: Check <https://pub.dev/packages/fdb> shows the new version
-2. **fdb_helper on pub.dev**: Check <https://pub.dev/packages/fdb_helper> shows the new version
-3. **Install from pub.dev**:
+After CI completes successfully:
+
+1. **CI green**: Confirm both the `ci` and `publish` workflow runs show `success`:
+   ```bash
+   gh run list --repo andrzejchm/fdb --limit 5
+   ```
+
+2. **fdb on pub.dev**: Confirm the new version is visible — pub.dev can take up to 10 minutes:
+   ```bash
+   curl -s https://pub.dev/api/packages/fdb | python3 -c "import sys,json; print(json.load(sys.stdin)['latest']['version'])"
+   ```
+   Poll until it prints `X.Y.Z`. Do not proceed until this returns the correct version.
+
+3. **fdb_helper on pub.dev**: Same check — **both packages must be visible before the release is complete**:
+   ```bash
+   curl -s https://pub.dev/api/packages/fdb_helper | python3 -c "import sys,json; print(json.load(sys.stdin)['latest']['version'])"
+   ```
+   If `fdb_helper` is not visible but `fdb` is, the CI publish job likely failed mid-way. See Troubleshooting → "fdb_helper not published".
+
+4. **Install from pub.dev**:
    ```bash
    dart pub global activate fdb
    fdb --version                 # should print: fdb X.Y.Z
    ```
-4. **GitHub release**: Check <https://github.com/andrzejchm/fdb/releases> for the new release with auto-generated notes
-5. **Git install still works** (for users pinning to a tag):
+
+5. **GitHub release**: Check <https://github.com/andrzejchm/fdb/releases> for the new release with auto-generated notes.
+
+6. **Git install still works** (for users pinning to a tag):
    ```bash
    dart pub global activate --source git https://github.com/andrzejchm/fdb.git --git-ref vX.Y.Z
    ```
 
 ## Troubleshooting
+
+### fdb_helper not published (fdb visible on pub.dev but fdb_helper is not)
+
+The CI publish job publishes `fdb` first, then `fdb_helper`. If `fdb_helper` fails (exit code 65), `fdb` is already live but `fdb_helper` is stuck on the old version. Users who add `fdb_helper: ^X.Y.Z` to their pubspec will get a resolution error.
+
+Most likely cause: a Pigeon-generated file (e.g. `native_tap.g.dart`) imports a package that is missing from `fdb_helper`'s `dependencies` in `packages/fdb_helper/pubspec.yaml`.
+
+Fix:
+1. Check the CI failure log for the offending import (`##[error]` line)
+2. Add the missing package to `packages/fdb_helper/pubspec.yaml` under `dependencies:`
+3. Commit and push to main
+4. Publish manually from your local machine:
+   ```bash
+   cd packages/fdb_helper
+   dart pub publish --force
+   ```
+5. Create the GitHub release manually if it was also skipped:
+   ```bash
+   gh release create vX.Y.Z --repo andrzejchm/fdb --title "vX.Y.Z" --notes "..."
+   ```
 
 ### pub.dev publish fails in CI
 
