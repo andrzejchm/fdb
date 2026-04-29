@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/commands/back.dart';
+import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/commands/clean.dart';
 import 'package:fdb/commands/shared_prefs.dart';
 import 'package:fdb/commands/deeplink.dart';
@@ -15,15 +15,15 @@ import 'package:fdb/commands/launch.dart';
 import 'package:fdb/commands/native_tap.dart';
 import 'package:fdb/commands/longpress.dart';
 import 'package:fdb/commands/logs.dart';
-import 'package:fdb/commands/reload.dart';
-import 'package:fdb/commands/restart.dart';
+import 'package:fdb/cli/adapters/reload_cli.dart';
+import 'package:fdb/cli/adapters/restart_cli.dart';
 import 'package:fdb/commands/screenshot.dart';
 import 'package:fdb/commands/scroll.dart';
 import 'package:fdb/commands/scroll_to.dart';
 import 'package:fdb/commands/select.dart';
-import 'package:fdb/commands/selected.dart';
+import 'package:fdb/cli/adapters/selected_cli.dart';
 import 'package:fdb/commands/skill.dart';
-import 'package:fdb/commands/status.dart';
+import 'package:fdb/cli/adapters/status_cli.dart';
 import 'package:fdb/commands/swipe.dart';
 import 'package:fdb/commands/syslog.dart';
 import 'package:fdb/commands/tap.dart';
@@ -154,9 +154,9 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'launch':
       return runLaunch(args);
     case 'reload':
-      return runReload(args);
+      return runReloadCli(args);
     case 'restart':
-      return runRestart(args);
+      return runRestartCli(args);
     case 'screenshot':
       return runScreenshot(args);
     case 'logs':
@@ -188,7 +188,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'swipe':
       return runSwipe(args);
     case 'back':
-      return runBack(args);
+      return runBackCli(args);
     case 'clean':
       return runClean(args);
     case 'shared-prefs':
@@ -196,9 +196,9 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'select':
       return runSelect(args);
     case 'selected':
-      return runSelected(args);
+      return runSelectedCli(args);
     case 'status':
-      return runStatus(args);
+      return runStatusCli(args);
     case 'kill':
       return runKillCli(args);
     case 'skill':
