@@ -1,86 +1,134 @@
 import 'dart:io';
 
+import 'package:fdb/core/models/command_result.dart';
 import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/core/vm_service.dart';
 
-Future<int> runDoctor(List<String> args) async {
-  var failed = 0;
-  final appRunning = _checkAppRunning();
+/// Status of a single doctor check.
+enum CheckStatus { pass, warn, fail }
 
+/// Result of one diagnostic check.
+class CheckResult {
+  final String name;
+  final CheckStatus status;
+  final Map<String, String> values;
+  final String? hint;
+
+  const CheckResult({
+    required this.name,
+    required this.status,
+    this.values = const {},
+    this.hint,
+  });
+}
+
+/// Result of the full doctor diagnostic run.
+///
+/// [checks] is ordered: app_running, vm_service, fdb_helper, platform_tools, device.
+/// [failedCount] is the number of checks with [CheckStatus.fail].
+class DoctorResult extends CommandResult {
+  final List<CheckResult> checks;
+  final int failedCount;
+
+  const DoctorResult({required this.checks, required this.failedCount});
+}
+
+/// Runs all 5 diagnostic checks in order and returns a [DoctorResult].
+///
+/// Check order is part of the contract:
+/// `app_running` → `vm_service` → `fdb_helper` → `platform_tools` → `device`
+Future<DoctorResult> runDoctor(List<String> args) async {
+  final checks = <CheckResult>[];
+  var failed = 0;
+
+  // 1. app_running
+  final appRunning = _checkAppRunning();
   if (appRunning) {
-    _printCheck('app_running', 'pass');
+    checks.add(const CheckResult(name: 'app_running', status: CheckStatus.pass));
   } else {
     failed++;
-    _printCheck(
-      'app_running',
-      'fail',
+    checks.add(const CheckResult(
+      name: 'app_running',
+      status: CheckStatus.fail,
       hint: "Run 'fdb launch --device <id> --project <path>' to start the app",
-    );
+    ));
   }
 
+  // 2. vm_service
   final vmServiceUri = appRunning ? await _checkVmService() : null;
   if (vmServiceUri != null) {
-    _printCheck('vm_service', 'pass', values: {'VM_SERVICE_URI': vmServiceUri});
+    checks.add(CheckResult(
+      name: 'vm_service',
+      status: CheckStatus.pass,
+      values: {'VM_SERVICE_URI': vmServiceUri},
+    ));
   } else {
     failed++;
-    _printCheck(
-      'vm_service',
-      'fail',
+    checks.add(CheckResult(
+      name: 'vm_service',
+      status: CheckStatus.fail,
       hint: appRunning
           ? 'App is running but VM service is unreachable. Check if the app crashed.'
           : "Run 'fdb launch --device <id> --project <path>' to start the app",
-    );
+    ));
   }
 
+  // 3. fdb_helper
   if (vmServiceUri != null && await _checkFdbHelper()) {
-    _printCheck('fdb_helper', 'pass');
+    checks.add(const CheckResult(name: 'fdb_helper', status: CheckStatus.pass));
   } else {
     failed++;
-    _printCheck(
-      'fdb_helper',
-      'fail',
-      hint: 'Add fdb_helper to pubspec.yaml dev_dependencies and call FdbBinding.ensureInitialized() in main()',
-    );
+    checks.add(const CheckResult(
+      name: 'fdb_helper',
+      status: CheckStatus.fail,
+      hint:
+          'Add fdb_helper to pubspec.yaml dev_dependencies and call FdbBinding.ensureInitialized() in main()',
+    ));
   }
 
+  // 4. platform_tools
   final tools = await _checkPlatformTools();
   if (tools.missing.isEmpty) {
-    _printCheck('platform_tools', 'pass', values: {'TOOLS': tools.present.join(',')});
+    checks.add(CheckResult(
+      name: 'platform_tools',
+      status: CheckStatus.pass,
+      values: {'TOOLS': tools.present.join(',')},
+    ));
   } else {
-    _printCheck(
-      'platform_tools',
-      'warn',
+    checks.add(CheckResult(
+      name: 'platform_tools',
+      status: CheckStatus.warn,
       values: {
         'TOOLS': tools.present.join(','),
         'MISSING': tools.missing.join(','),
       },
       hint: _platformToolsHint(tools.missing),
-    );
+    ));
   }
 
-  if (_checkDevice()) {
+  // 5. device
+  final deviceOk = _checkDevice();
+  if (deviceOk) {
     final device = readDevice();
     final platformInfo = readPlatformInfo();
-    _printCheck(
-      'device',
-      'pass',
+    checks.add(CheckResult(
+      name: 'device',
+      status: CheckStatus.pass,
       values: {
         'DEVICE_ID': device!,
         'PLATFORM': platformInfo!.platform,
       },
-    );
+    ));
   } else {
     failed++;
-    _printCheck(
-      'device',
-      'fail',
+    checks.add(const CheckResult(
+      name: 'device',
+      status: CheckStatus.fail,
       hint: "Run 'fdb launch --device <id> --project <path>' to store the active device.",
-    );
+    ));
   }
 
-  final summary = failed == 0 ? 'pass' : 'fail';
-  stdout.writeln('DOCTOR_SUMMARY=$summary CHECKS=5 FAILED=$failed');
-  return 0;
+  return DoctorResult(checks: checks, failedCount: failed);
 }
 
 bool _checkAppRunning() {
@@ -131,7 +179,8 @@ String _platformToolsHint(List<String> missing) {
     hints.add('xcrun missing — iOS simulator screenshots will fail. Install Xcode.');
   }
   if (missing.contains('screencapture')) {
-    hints.add('screencapture missing — macOS screenshots will fail. Use a macOS host with screencapture available.');
+    hints.add(
+        'screencapture missing — macOS screenshots will fail. Use a macOS host with screencapture available.');
   }
   return hints.join(' ');
 }
@@ -140,20 +189,4 @@ bool _checkDevice() {
   final device = readDevice();
   final platformInfo = readPlatformInfo();
   return device != null && platformInfo != null;
-}
-
-void _printCheck(
-  String name,
-  String status, {
-  Map<String, String> values = const {},
-  String? hint,
-}) {
-  final parts = [
-    'DOCTOR_CHECK=$name',
-    'STATUS=$status',
-    for (final entry in values.entries)
-      if (entry.value.isNotEmpty) '${entry.key}=${entry.value}',
-    if (hint != null) 'HINT=$hint',
-  ];
-  stdout.writeln(parts.join(' '));
 }

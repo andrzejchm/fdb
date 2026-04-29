@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/cli/adapters/back_cli.dart';
-import 'package:fdb/commands/clean.dart';
+import 'package:fdb/cli/adapters/clean_cli.dart';
 import 'package:fdb/commands/shared_prefs.dart';
 import 'package:fdb/commands/deeplink.dart';
 import 'package:fdb/commands/describe.dart';
-import 'package:fdb/commands/devices.dart';
-import 'package:fdb/commands/doctor.dart';
+import 'package:fdb/cli/adapters/devices_cli.dart';
+import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/commands/double_tap.dart';
 import 'package:fdb/commands/input.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
@@ -20,9 +20,9 @@ import 'package:fdb/cli/adapters/restart_cli.dart';
 import 'package:fdb/commands/screenshot.dart';
 import 'package:fdb/commands/scroll.dart';
 import 'package:fdb/commands/scroll_to.dart';
-import 'package:fdb/commands/select.dart';
+import 'package:fdb/cli/adapters/select_cli.dart';
 import 'package:fdb/cli/adapters/selected_cli.dart';
-import 'package:fdb/commands/skill.dart';
+import 'package:fdb/cli/adapters/skill_cli.dart';
 import 'package:fdb/cli/adapters/status_cli.dart';
 import 'package:fdb/commands/swipe.dart';
 import 'package:fdb/commands/syslog.dart';
@@ -148,7 +148,7 @@ Future<void> main(List<String> args) async {
 Future<int> _runCommand(String command, List<String> args) {
   switch (command) {
     case 'devices':
-      return runDevices(args);
+      return runDevicesCli(args);
     case 'deeplink':
       return runDeeplink(args);
     case 'launch':
@@ -168,7 +168,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'describe':
       return runDescribe(args);
     case 'doctor':
-      return runDoctor(args);
+      return runDoctorCli(args);
     case 'native-tap':
       return runNativeTap(args);
     case 'tap':
@@ -190,11 +190,11 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'back':
       return runBackCli(args);
     case 'clean':
-      return runClean(args);
+      return runCleanCli(args);
     case 'shared-prefs':
       return runSharedPrefs(args);
     case 'select':
-      return runSelect(args);
+      return runSelectCli(args);
     case 'selected':
       return runSelectedCli(args);
     case 'status':
@@ -202,7 +202,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'kill':
       return runKillCli(args);
     case 'skill':
-      return runSkill(args);
+      return runSkillCli(args);
     default:
       stderr.writeln('ERROR: Unknown command: $command');
       stderr.writeln(usage);
