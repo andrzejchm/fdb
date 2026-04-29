@@ -23,7 +23,7 @@ void main() {
       expect(isFlutterFrameEvent(event), isTrue);
     });
 
-    test('ignores non-frame extension events for reload completion', () {
+    test('isFlutterFrameEvent ignores non-frame extension events', () {
       final event = {
         'method': 'streamNotify',
         'params': {
@@ -36,6 +36,67 @@ void main() {
       };
 
       expect(isFlutterFrameEvent(event), isFalse);
+    });
+
+    test('identifies service extension state changed events', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.ServiceExtensionStateChanged',
+          },
+        },
+      };
+
+      expect(isFlutterServiceExtensionStateChangedEvent(event), isTrue);
+    });
+
+    test('isReloadCompletionEvent matches Flutter.Frame', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.Frame',
+          },
+        },
+      };
+
+      expect(isReloadCompletionEvent(event), isTrue);
+    });
+
+    test('isReloadCompletionEvent matches Flutter.ServiceExtensionStateChanged', () {
+      // iOS simulators emit this event after reload even when Flutter.Frame is absent.
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.ServiceExtensionStateChanged',
+          },
+        },
+      };
+
+      expect(isReloadCompletionEvent(event), isTrue);
+    });
+
+    test('isReloadCompletionEvent ignores unrelated events', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.FrameworkInitialization',
+          },
+        },
+      };
+
+      expect(isReloadCompletionEvent(event), isFalse);
     });
 
     test('identifies Flutter first-frame events as restart completion signals', () {
@@ -59,7 +120,7 @@ void main() {
 
       final future = waitForVmServiceEvent(
         events: controller.stream,
-        matches: isFlutterFrameEvent,
+        matches: isReloadCompletionEvent,
         timeout: const Duration(seconds: 1),
       );
 
@@ -69,7 +130,7 @@ void main() {
           'streamId': 'Extension',
           'event': {
             'kind': 'Extension',
-            'extensionKind': 'Flutter.ServiceExtensionStateChanged',
+            'extensionKind': 'Flutter.FrameworkInitialization',
           },
         },
       });
@@ -79,7 +140,7 @@ void main() {
           'streamId': 'Extension',
           'event': {
             'kind': 'Extension',
-            'extensionKind': 'Flutter.Frame',
+            'extensionKind': 'Flutter.ServiceExtensionStateChanged',
           },
         },
       });

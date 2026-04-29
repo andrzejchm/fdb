@@ -11,6 +11,23 @@ bool isFlutterFrameEvent(Map<String, dynamic> event) {
   return _isFlutterExtensionEvent(event, 'Flutter.Frame');
 }
 
+/// Returns true when the VM event reports a service extension state change.
+///
+/// This event fires reliably on iOS simulators after a hot reload even when
+/// `Flutter.Frame` is not emitted (e.g., when 0 libraries are reloaded).
+bool isFlutterServiceExtensionStateChangedEvent(Map<String, dynamic> event) {
+  return _isFlutterExtensionEvent(event, 'Flutter.ServiceExtensionStateChanged');
+}
+
+/// Returns true when the VM event signals that a hot reload has completed.
+///
+/// Matches either a `Flutter.Frame` event (reliable on Android/desktop) or a
+/// `Flutter.ServiceExtensionStateChanged` event (reliable on iOS simulators
+/// where `Flutter.Frame` is not emitted when 0 libraries are reloaded).
+bool isReloadCompletionEvent(Map<String, dynamic> event) {
+  return isFlutterFrameEvent(event) || isFlutterServiceExtensionStateChangedEvent(event);
+}
+
 /// Returns true when the VM event reports the first frame after restart.
 bool isFlutterFirstFrameEvent(Map<String, dynamic> event) {
   return _isFlutterExtensionEvent(event, 'Flutter.FirstFrame');
