@@ -503,6 +503,11 @@ tasks:
     dir: '{{.TEST_APP}}'
     cmds:
       - |
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        if [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "macOS" ]; then
+          echo "SKIP: fdb deeplink — macOS target not supported"
+          exit 0
+        fi
         echo "==> Opening deep link"
         OUTPUT=$({{.FDB}} deeplink "fdbtest://test/hello?param=value&other=123" 2>&1)
         EXIT_CODE=$?
@@ -1713,8 +1718,26 @@ tasks:
           exit 1
         fi
 
-        # Wait for WebView to load
-        sleep 3
+        # Wait for WebView renderer to be ready — poll fdb describe until
+        # "WebView title: waiting" appears, confirming the renderer process is
+        # alive and the page has finished loading. A fixed 3s sleep is not
+        # sufficient on devices where the Android system (MIUI/OEM) kills the
+        # WebView renderer sandboxed process during the smoke run.
+        echo "==> [native-view-tap] Waiting for WebView renderer to be ready (up to 15s)"
+        WEBVIEW_READY=0
+        for i in $(seq 1 30); do
+          DESCRIBE=$({{.FDB}} describe 2>&1)
+          if echo "$DESCRIBE" | grep -q "WebView title: waiting"; then
+            echo "==> [native-view-tap] WebView renderer ready after ~$((i / 2))s"
+            WEBVIEW_READY=1
+            break
+          fi
+          sleep 0.5
+        done
+        if [ "$WEBVIEW_READY" = "0" ]; then
+          echo "FAIL: WebView renderer did not become ready within 15s — page title never appeared in describe output" >&2
+          exit 1
+        fi
 
         echo "==> [native-view-tap] Take screenshot to locate WebView button"
         {{.FDB}} screenshot >/dev/null 2>&1 || true
@@ -1746,23 +1769,47 @@ tasks:
         STATUS_TAP=$({{.FDB}} tap --key "native_tap_status_text" 2>&1)
         echo "$STATUS_TAP"
         STATUS_Y=$(echo "$STATUS_TAP" | sed -n 's/.*Y=\([0-9.]*\).*/\1/p' | head -1)
-        # Estimate screen height from device (most phones 800-900 logical pts)
+        STATUS_X=$(echo "$STATUS_TAP" | sed -n 's/.*X=\([0-9.]*\).*/\1/p' | head -1)
+        # Derive logical screen dimensions from adb.
+        # "dumpsys window displays" reports the current physical size after rotation
+        # as "cur=WxH" — this is what Flutter sees, regardless of device orientation.
+        # wm density gives the physical DPI to convert to logical (dp) units.
+        # Falls back to STATUS_X * 2 for width and portrait 853 for height if adb
+        # is unavailable.
+        DEVICE_ID=$(cat .fdb/device.txt 2>/dev/null | tr -d '[:space:]' || echo "")
+        ADB_ARGS=""
+        if [ -n "$DEVICE_ID" ]; then ADB_ARGS="-s $DEVICE_ID"; fi
+        # cur=WxH is the actual current display size (accounts for rotation)
+        CUR_SIZE=$(adb $ADB_ARGS shell dumpsys window displays 2>/dev/null | sed -n 's/.*cur=\([0-9]*\)x\([0-9]*\).*/\1 \2/p' | head -1)
+        PHYS_DPI=$(adb $ADB_ARGS shell wm density 2>/dev/null | sed -n 's/.*Physical density: *\([0-9]*\)/\1/p')
+        CUR_W=$(echo "$CUR_SIZE" | awk '{print $1}')
+        CUR_H=$(echo "$CUR_SIZE" | awk '{print $2}')
+        if [ -n "$CUR_H" ] && [ -n "$PHYS_DPI" ] && [ "$PHYS_DPI" -gt 0 ] 2>/dev/null; then
+          SCREEN_H=$(echo "scale=0; $CUR_H * 160 / $PHYS_DPI" | bc 2>/dev/null || echo "853")
+          SCREEN_W=$(echo "scale=0; $CUR_W * 160 / $PHYS_DPI" | bc 2>/dev/null || echo "384")
+        else
+          # Fallback: derive width from STATUS_X (full-width widget center = screen center)
+          SCREEN_W=$(echo "scale=0; ${STATUS_X:-192} * 2" | bc 2>/dev/null || echo "384")
+          SCREEN_H=853
+        fi
+        echo "==> [native-view-tap] Logical screen: ${SCREEN_W}x${SCREEN_H}dp"
         # WebView starts just below status text (~20pt below its center).
         # Button is centered in the WebView vertically.
-        # Approximate: tap_y = status_y + (screen_height - status_y) / 2
-        # Use bc for floating point; default to 500 if unavailable.
+        # Approximate: tap_y = appbar_bottom + (screen_height - appbar_bottom) / 2
+        # Use bc for floating point; default to half-screen if unavailable.
         if [ -n "$STATUS_Y" ]; then
           APPBAR_BOTTOM=$(echo "$STATUS_Y + 20" | bc 2>/dev/null || echo "165")
-          # Assume screen height ~853pt (typical), webview fills rest
-          TAP_Y=$(echo "($APPBAR_BOTTOM + 853) / 2" | bc 2>/dev/null || echo "510")
+          TAP_Y=$(echo "($APPBAR_BOTTOM + $SCREEN_H) / 2" | bc 2>/dev/null || echo "$(echo "$SCREEN_H / 2" | bc 2>/dev/null || echo 427)")
         else
-          TAP_Y=510
+          TAP_Y=$(echo "$SCREEN_H / 2" | bc 2>/dev/null || echo "427")
         fi
-        echo "==> Using tap_y=$TAP_Y (appbar_bottom=${APPBAR_BOTTOM:-unknown})"
+        # native_tap_status_text spans full width — its X center is the screen center
+        TAP_X=$(echo "${STATUS_X:-192}" | sed 's/\..*//')
+        echo "==> Using tap_x=$TAP_X tap_y=$TAP_Y (appbar_bottom=${APPBAR_BOTTOM:-unknown} screen=${SCREEN_W}x${SCREEN_H})"
 
         echo "==> [native-view-tap] Tap WebView button via --at (native injection)"
         set +e
-        TAP_OUTPUT=$({{.FDB}} tap --at 200,$TAP_Y 2>&1)
+        TAP_OUTPUT=$({{.FDB}} tap --at $TAP_X,$TAP_Y 2>&1)
         TAP_EXIT=$?
         set -e
         echo "$TAP_OUTPUT"
