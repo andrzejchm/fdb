@@ -1,3 +1,11 @@
+## Unreleased
+
+### Architecture
+- Migrated 28 commands from monolithic single-file structure to a layered architecture: pure business logic in `lib/core/commands/` (interface-agnostic, returns sealed result types) + CLI adapters in `lib/cli/adapters/` (ArgParser + token formatting). Future MCP/REST adapters can consume the same core functions.
+- Replaced hand-rolled `for` + `switch` argument parsing with `package:args` (`ArgParser`). Every command now supports `--help` / `-h`.
+- Bumped minimum Dart SDK to 3.3.0 (required by `args` 2.7.0).
+- All UPPER_SNAKE_CASE stdout tokens and `ERROR:` messages preserved byte-identically.
+
 ## 1.3.0
 
 ### New commands
