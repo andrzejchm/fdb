@@ -18,17 +18,17 @@ import 'package:fdb/commands/logs.dart';
 import 'package:fdb/cli/adapters/reload_cli.dart';
 import 'package:fdb/cli/adapters/restart_cli.dart';
 import 'package:fdb/cli/adapters/screenshot_cli.dart';
-import 'package:fdb/commands/scroll.dart';
-import 'package:fdb/commands/scroll_to.dart';
+import 'package:fdb/cli/adapters/scroll_cli.dart';
+import 'package:fdb/cli/adapters/scroll_to_cli.dart';
 import 'package:fdb/cli/adapters/select_cli.dart';
 import 'package:fdb/cli/adapters/selected_cli.dart';
 import 'package:fdb/cli/adapters/skill_cli.dart';
 import 'package:fdb/cli/adapters/status_cli.dart';
-import 'package:fdb/commands/swipe.dart';
+import 'package:fdb/cli/adapters/swipe_cli.dart';
 import 'package:fdb/cli/adapters/syslog_cli.dart';
 import 'package:fdb/cli/adapters/tap_cli.dart';
 import 'package:fdb/cli/adapters/tree_cli.dart';
-import 'package:fdb/commands/wait.dart';
+import 'package:fdb/cli/adapters/wait_cli.dart';
 import 'package:fdb/constants.dart';
 
 const usage = '''
@@ -180,13 +180,13 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'input':
       return runInputCli(args);
     case 'scroll':
-      return runScroll(args);
+      return runScrollCli(args);
     case 'scroll-to':
-      return runScrollTo(args);
+      return runScrollToCli(args);
     case 'wait':
-      return runWait(args);
+      return runWaitCli(args);
     case 'swipe':
-      return runSwipe(args);
+      return runSwipeCli(args);
     case 'back':
       return runBackCli(args);
     case 'clean':
