@@ -182,9 +182,9 @@ fdb selected      # get what widget was tapped
 
 ### Tap native UI (system dialogs, permission sheets)
 
-Use this when a native OS dialog is blocking the Flutter UI — iOS permission
-prompts, Android runtime-permission sheets. Unlike `fdb tap`, this command
-does NOT go through Flutter's GestureBinding.
+Use this when a native OS dialog is blocking the Flutter UI — Android
+runtime-permission sheets, or in-app native overlays like `UIAlertController`.
+Unlike `fdb tap`, this command does NOT go through Flutter's GestureBinding.
 
 ```bash
 fdb native-tap --at 200,400    # tap at device coordinates (x,y)
@@ -194,15 +194,17 @@ fdb native-tap --x 200 --y 400 # same, two-flag form
 Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 
 Platform dispatch:
-- **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels). No extra setup needed.
-- **iOS simulator** — IndigoHID via SimulatorKit private framework. No extra tools required.
-- **iOS physical** — **not yet supported.** Out-of-process tap injection on physical iOS requires WebDriverAgent (signed XCUITest runner installed on the device). Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and reaches in-app native overlays (UIAlertController, etc.) on physical iOS devices.
-- **macOS** — **not supported.** Out-of-process click injection on macOS requires Accessibility permission, which the system only grants to signed `.app` bundles. Homebrew CLIs (cliclick, opencode, tmux) are unsigned binaries and cannot receive Accessibility permission on macOS Sequoia/Tahoe. Use `fdb tap --at` instead — it performs in-process tap injection via `fdb_helper` and does not require any system permissions.
+- **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels). Reaches any on-screen UI including system dialogs. No extra setup needed.
+- **iOS simulator** — falls back to in-process tap (`UIApplication.sendEvent()`), same as `fdb tap --at`. Prints a `WARNING:` to stderr. Reaches in-app native overlays (`UIAlertController`, platform views) but **cannot reach SpringBoard-level system dialogs** ("Open in Test App?", OS permission prompts shown by SpringBoard). Use `fdb tap --at` directly if you don't need the warning.
+- **iOS physical** — **not yet supported.** Use `fdb tap --at` instead.
+- **macOS** — **not supported.** Use `fdb tap --at` instead.
 
-Workflow for dismissing an iOS permission prompt:
+**Important for iOS:** SpringBoard-level dialogs (URL scheme confirmations, some permission prompts) cannot be tapped programmatically by any in-process or IndigoHID approach. The only solution is Patrol/XCUITest infrastructure. For `UIAlertController` shown by your own app code, use `fdb tap --at` — it works reliably.
+
+Workflow for dismissing an iOS in-app alert:
 ```bash
-fdb screenshot                          # see where the "Allow" button is
-fdb native-tap --at 196,600            # tap "Allow" at its coordinates
+fdb screenshot                          # see where the button is
+fdb tap --at 285,508                    # tap Confirm/Allow at its coordinates
 fdb screenshot                          # confirm dialog dismissed
 ```
 
