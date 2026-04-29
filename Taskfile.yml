@@ -1398,6 +1398,112 @@ tasks:
           exit 1
         fi
 
+  test:ext:
+    desc: Discover and invoke VM service extensions
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> ext list: enumerate extensions across isolates"
+        OUTPUT=$({{.FDB}} ext list 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb ext list exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "EXT_LIST_COUNT=|EXT_LIST_EMPTY"; then
+          echo "PASS: fdb ext list"
+        else
+          echo "FAIL: fdb ext list - EXT_LIST_COUNT= or EXT_LIST_EMPTY not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> ext list: output contains at least one ext.flutter.* entry"
+        if echo "$OUTPUT" | grep -q "^ext\.flutter\."; then
+          echo "PASS: fdb ext list - ext.flutter.* entries present"
+        else
+          echo "FAIL: fdb ext list - no ext.flutter.* entries found" >&2
+          exit 1
+        fi
+
+        echo "==> ext call: invoke ext.flutter.platformOverride (read)"
+        OUTPUT=$({{.FDB}} ext call ext.flutter.platformOverride 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb ext call ext.flutter.platformOverride exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "{"; then
+          echo "PASS: fdb ext call ext.flutter.platformOverride"
+        else
+          echo "FAIL: fdb ext call - expected JSON output" >&2
+          exit 1
+        fi
+
+        echo "==> ext call: invoke with --arg"
+        OUTPUT=$({{.FDB}} ext call ext.flutter.platformOverride --arg value=iOS 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb ext call with --arg exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        echo "PASS: fdb ext call with --arg"
+
+        echo "==> ext: missing sub-command (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} ext 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb ext with no sub-command should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb ext missing sub-command rejected"
+        else
+          echo "FAIL: fdb ext missing sub-command — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "==> ext call: missing method (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} ext call 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb ext call with no method should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb ext call missing method rejected"
+        else
+          echo "FAIL: fdb ext call missing method — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "==> ext call: bad --arg format (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} ext call ext.flutter.platformOverride --arg badformat 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb ext call --arg badformat should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb ext call --arg bad format rejected"
+        else
+          echo "FAIL: fdb ext call --arg bad format — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb ext"
+
   test:shared-prefs:
     desc: Read/write SharedPreferences
     dir: '{{.TEST_APP}}'
@@ -2427,6 +2533,7 @@ tasks:
       - task: test:swipe
       - task: test:back
       - task: test:clean
+      - task: test:ext
       - task: test:shared-prefs
       - task: test:app-died
         vars:

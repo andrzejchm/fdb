@@ -1,21 +1,20 @@
 import 'dart:io';
 
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
-import 'package:fdb/cli/adapters/shared_prefs_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
 import 'package:fdb/cli/adapters/devices_cli.dart';
 import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/cli/adapters/double_tap_cli.dart';
+import 'package:fdb/cli/adapters/ext_cli.dart';
 import 'package:fdb/cli/adapters/input_cli.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
+import 'package:fdb/cli/adapters/logs_cli.dart';
+import 'package:fdb/cli/adapters/longpress_cli.dart';
 import 'package:fdb/cli/adapters/mem_cli.dart';
 import 'package:fdb/cli/adapters/native_tap_cli.dart';
-import 'package:fdb/cli/adapters/longpress_cli.dart';
-import 'package:fdb/cli/adapters/logs_cli.dart';
 import 'package:fdb/cli/adapters/reload_cli.dart';
 import 'package:fdb/cli/adapters/restart_cli.dart';
 import 'package:fdb/cli/adapters/screenshot_cli.dart';
@@ -23,6 +22,7 @@ import 'package:fdb/cli/adapters/scroll_cli.dart';
 import 'package:fdb/cli/adapters/scroll_to_cli.dart';
 import 'package:fdb/cli/adapters/select_cli.dart';
 import 'package:fdb/cli/adapters/selected_cli.dart';
+import 'package:fdb/cli/adapters/shared_prefs_cli.dart';
 import 'package:fdb/cli/adapters/skill_cli.dart';
 import 'package:fdb/cli/adapters/status_cli.dart';
 import 'package:fdb/cli/adapters/swipe_cli.dart';
@@ -30,6 +30,7 @@ import 'package:fdb/cli/adapters/syslog_cli.dart';
 import 'package:fdb/cli/adapters/tap_cli.dart';
 import 'package:fdb/cli/adapters/tree_cli.dart';
 import 'package:fdb/cli/adapters/wait_cli.dart';
+import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/constants.dart';
 
 const usage = '''
@@ -66,6 +67,7 @@ Commands:
   back        Navigate back (Navigator.maybePop)
   clean       Clear app cache and data directories (requires fdb_helper)
   shared-prefs get|get-all|set|remove|clear SharedPreferences (requires fdb_helper)
+  ext         list|call VM service extensions registered by the running app
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   mem         Inspect heap usage; subcommands: profile, diff
@@ -201,6 +203,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runCleanCli(args);
     case 'shared-prefs':
       return runSharedPrefsCli(args);
+    case 'ext':
+      return runExtCli(args);
     case 'select':
       return runSelectCli(args);
     case 'selected':

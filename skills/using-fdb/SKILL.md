@@ -344,6 +344,31 @@ Output tokens: `PREF_VALUE=<v>`, `PREF_NOT_FOUND`, `PREF_ALL=<json>`, `PREF_ENTR
 
 Use `get-all` to inspect current state before a test. Use `set` to seed feature flags or skip onboarding. Use `clear` to reset app state to first-run.
 
+### VM service extensions
+
+```bash
+fdb ext list                                           # list all registered ext.* extensions
+fdb ext call ext.flutter.imageCache.size               # invoke and print JSON result
+fdb ext call ext.flutter.platformOverride --arg value=iOS  # pass parameters
+fdb ext call ext.myapp.clearAuthCache                  # invoke app-specific extension
+```
+
+Output of `fdb ext list`:
+```
+EXT_LIST_COUNT=<n>
+ext.dart.io.getOpenFiles
+ext.flutter.debugPaint
+ext.flutter.imageCache.clear
+ext.flutter.imageCache.size
+ext.myapp.clearAuthCache
+...
+```
+(or `EXT_LIST_EMPTY` when no extensions are registered)
+
+Output of `fdb ext call`: pretty-printed JSON returned by the extension.
+
+Use `fdb ext list` to discover what debug hooks a Flutter app has registered, then `fdb ext call` to invoke them. Works on any platform the VM service supports (macOS, iOS, Android). Does not require `fdb_helper`.
+
 ### Heap memory inspection
 
 No `fdb_helper` required — pure VM service, works on any platform fdb supports.
