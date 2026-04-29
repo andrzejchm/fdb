@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 Future<int> runStatus(List<String> args) async {
   final pid = readPid();

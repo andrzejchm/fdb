@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/app_died_exception.dart';
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/app_died_exception.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// Sends a JSON-RPC request to the Flutter VM service over websocket.
 /// Returns the parsed JSON response.

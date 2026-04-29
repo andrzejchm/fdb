@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/app_died_exception.dart';
+import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/constants.dart';
-import 'package:fdb/process_utils.dart';
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/vm_service.dart';
 import 'package:image/image.dart' as img;
 
 Future<int> runScreenshot(List<String> args) async {

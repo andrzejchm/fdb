@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 Future<int> runKill(List<String> args) async {
   final pid = readPid();

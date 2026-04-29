@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:fdb/app_died_exception.dart';
+import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/commands/back.dart';
 import 'package:fdb/commands/clean.dart';
 import 'package:fdb/commands/shared_prefs.dart';

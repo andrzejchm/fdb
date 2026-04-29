@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/process_utils.dart';
-import 'package:fdb/vm_lifecycle_events.dart';
+import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/vm_lifecycle_events.dart';
 
 Future<int> runReload(List<String> args) async {
   final pid = readPid();

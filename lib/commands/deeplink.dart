@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// Opens a deep link URL on the connected device (Android or iOS simulator).
 Future<int> runDeeplink(List<String> args) async {

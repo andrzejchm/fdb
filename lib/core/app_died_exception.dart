@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// Thrown when the target Flutter app process has died while fdb is trying to
 /// communicate with it via the VM service.

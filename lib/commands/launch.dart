@@ -4,8 +4,8 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/process_utils.dart';
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/vm_service.dart';
 
 Future<int> runLaunch(List<String> args) async {
   String? device;

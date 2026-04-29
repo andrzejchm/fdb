@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// Reads native system logs from the device under debug.
 ///

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/vm_service.dart';
 
 /// Clears the app's cache and data directories via the ext.fdb.clean
 /// VM service extension registered by fdb_helper.

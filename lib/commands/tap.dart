@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:fdb/app_died_exception.dart';
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/app_died_exception.dart';
+import 'package:fdb/core/vm_service.dart';
 
 /// Taps a widget identified by selector, absolute coordinates, or a describe ref.
 ///

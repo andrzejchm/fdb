@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// Lists connected devices by running `flutter devices --machine` and
 /// emitting one KEY=VALUE line per device.

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/vm_service.dart';
 
 /// Reads, writes, and clears SharedPreferences via the ext.fdb.sharedPrefs
 /// VM service extension registered by fdb_helper.

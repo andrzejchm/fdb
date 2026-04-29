@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 typedef VmEventMatcher = bool Function(Map<String, dynamic> event);
 

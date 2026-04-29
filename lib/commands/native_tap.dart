@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// Taps native (non-Flutter) UI elements using platform-specific tools.
 ///

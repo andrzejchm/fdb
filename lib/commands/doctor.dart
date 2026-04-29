@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:fdb/process_utils.dart';
-import 'package:fdb/vm_service.dart';
+import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/vm_service.dart';
 
 Future<int> runDoctor(List<String> args) async {
   var failed = 0;
