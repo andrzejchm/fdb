@@ -182,10 +182,6 @@ fdb selected      # get what widget was tapped
 
 ### Tap native UI (system dialogs, permission sheets)
 
-Use this when a native OS dialog is blocking the Flutter UI — Android
-runtime-permission sheets, or in-app native overlays like `UIAlertController`.
-Unlike `fdb tap`, this command does NOT go through Flutter's GestureBinding.
-
 ```bash
 fdb native-tap --at 200,400    # tap at device coordinates (x,y)
 fdb native-tap --x 200 --y 400 # same, two-flag form
@@ -194,18 +190,16 @@ fdb native-tap --x 200 --y 400 # same, two-flag form
 Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 
 Platform dispatch:
-- **Android** — `adb shell input tap X Y`. Coordinates in Android dp (= Flutter logical pixels). Reaches any on-screen UI including system dialogs. No extra setup needed.
-- **iOS simulator** — falls back to in-process tap (`UIApplication.sendEvent()`), same as `fdb tap --at`. Prints a `WARNING:` to stderr. Reaches in-app native overlays (`UIAlertController`, platform views) but **cannot reach SpringBoard-level system dialogs** ("Open in Test App?", OS permission prompts shown by SpringBoard). Use `fdb tap --at` directly if you don't need the warning.
-- **iOS physical** — **not yet supported.** Use `fdb tap --at` instead.
-- **macOS** — **not supported.** Use `fdb tap --at` instead.
+- **Android** — `adb shell input tap X Y`. Reaches all on-screen UI including system dialogs.
+- **iOS simulator** — falls back to `fdb tap --at` (in-process). Prints `WARNING:` to stderr. Reaches `UIAlertController` and other in-app native overlays. **Cannot reach SpringBoard dialogs** (URL scheme confirmations, OS permission prompts).
+- **iOS physical** — not supported. Use `fdb tap --at`.
+- **macOS** — not supported. Use `fdb tap --at`.
 
-**Important for iOS:** SpringBoard-level dialogs (URL scheme confirmations, some permission prompts) cannot be tapped programmatically by any in-process or IndigoHID approach. The only solution is Patrol/XCUITest infrastructure. For `UIAlertController` shown by your own app code, use `fdb tap --at` — it works reliably.
-
-Workflow for dismissing an iOS in-app alert:
+For iOS in-app alerts (`UIAlertController`):
 ```bash
-fdb screenshot                          # see where the button is
-fdb tap --at 285,508                    # tap Confirm/Allow at its coordinates
-fdb screenshot                          # confirm dialog dismissed
+fdb screenshot                 # locate button coordinates
+fdb tap --at 285,508           # tap at those coordinates
+fdb screenshot                 # verify dismissed
 ```
 
 ### Tap a widget
