@@ -12,8 +12,7 @@ import 'package:fdb/core/commands/back/back.dart';
 ///   ERROR: Navigator could not pop — already at root            (at root)
 ///   ERROR: `<message>`                                           (VM error / generic)
 ///   (AppDiedException rethrown for dispatcher's `_formatAppDied`) (app died)
-Future<int> runBackCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runBackCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await navigateBack(());

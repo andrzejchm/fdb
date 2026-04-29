@@ -14,8 +14,7 @@ import 'package:fdb/core/commands/screenshot/screenshot.dart';
 ///   `SIZE=<n>B|<n.n>KB|<n.n>MB`     (stdout, success)
 ///   WARNING: …                       (stderr, zero or more, before tokens)
 ///   ERROR: …                         (stderr, failure)
-Future<int> runScreenshotCli(List<String> args) =>
-    runCliAdapter(_buildParser(), args, _execute);
+Future<int> runScreenshotCli(List<String> args) => runCliAdapter(_buildParser(), args, _execute);
 
 ArgParser _buildParser() => ArgParser()
   ..addOption(

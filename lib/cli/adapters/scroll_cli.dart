@@ -7,8 +7,7 @@ import 'package:fdb/core/commands/scroll/scroll.dart' as core;
 
 const _directions = ['up', 'down', 'left', 'right'];
 
-const _usageMessage =
-    'ERROR: Usage:\n'
+const _usageMessage = 'ERROR: Usage:\n'
     '  fdb scroll <up|down|left|right> [--at x,y] [--distance pixels]\n'
     '  fdb scroll --from x,y --to x,y';
 
@@ -19,12 +18,11 @@ Future<int> runScrollCli(List<String> args) async {
     return 1;
   }
 
-  final parser =
-      ArgParser()
-        ..addOption('at')
-        ..addOption('distance', defaultsTo: '200')
-        ..addOption('from')
-        ..addOption('to');
+  final parser = ArgParser()
+    ..addOption('at')
+    ..addOption('distance', defaultsTo: '200')
+    ..addOption('from')
+    ..addOption('to');
 
   return runCliAdapter(parser, args, _execute);
 }

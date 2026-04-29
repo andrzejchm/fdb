@@ -9,8 +9,7 @@ import 'package:fdb/core/commands/doctor/doctor.dart';
 /// Runs all 5 diagnostic checks in order, emitting one `DOCTOR_CHECK=...`
 /// line per check followed by a `DOCTOR_SUMMARY=...` line. Exit code is
 /// always 0.
-Future<int> runDoctorCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runDoctorCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await runDoctor([]);

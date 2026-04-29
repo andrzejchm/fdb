@@ -136,8 +136,7 @@ exec $flutterCmd > $logFile 2>&1
         final logExists = File(logFile).existsSync();
         if (logExists) {
           final lines = File(logFile).readAsLinesSync();
-          final tail =
-              lines.length > 10 ? lines.sublist(lines.length - 10) : lines;
+          final tail = lines.length > 10 ? lines.sublist(lines.length - 10) : lines;
           return LaunchProcessDied(tailLogLines: tail);
         } else {
           return const LaunchProcessDied(noLogFile: true);
@@ -166,9 +165,7 @@ exec $flutterCmd > $logFile 2>&1
     File(vmUriFile).writeAsStringSync(vmUri);
 
     // Read PID — flutter writes it via --pid-file, fall back to launcher PID.
-    final pid = File(pidFile).existsSync()
-        ? File(pidFile).readAsStringSync().trim()
-        : launcherPid.toString();
+    final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : launcherPid.toString();
 
     // Start the log collector — a background process that subscribes to the
     // VM service Logging/Stdout/Stderr streams and appends to the log file.
@@ -377,8 +374,7 @@ String? _extractVmUri(String logContent) {
 
   if (match == null) {
     // Fall back: check for DevTools/Observatory text, then try again.
-    if (!logContent.contains('Flutter DevTools') &&
-        !logContent.contains('An Observatory debugger')) {
+    if (!logContent.contains('Flutter DevTools') && !logContent.contains('An Observatory debugger')) {
       return null;
     }
     final fallback = RegExp(

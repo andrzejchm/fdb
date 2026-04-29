@@ -7,8 +7,7 @@ import 'package:fdb/core/commands/swipe/swipe.dart';
 
 const _directions = ['up', 'down', 'left', 'right'];
 
-const _usageMessage =
-    'ERROR: Usage: fdb swipe <left|right|up|down> '
+const _usageMessage = 'ERROR: Usage: fdb swipe <left|right|up|down> '
     '[--key KEY] [--text TEXT] [--type TYPE] [--at x,y] [--distance PIXELS]';
 
 /// CLI adapter for `fdb swipe`.
@@ -18,13 +17,12 @@ Future<int> runSwipeCli(List<String> args) {
     return Future.value(1);
   }
 
-  final parser =
-      ArgParser()
-        ..addOption('key')
-        ..addOption('text')
-        ..addOption('type')
-        ..addOption('at')
-        ..addOption('distance');
+  final parser = ArgParser()
+    ..addOption('key')
+    ..addOption('text')
+    ..addOption('type')
+    ..addOption('at')
+    ..addOption('distance');
 
   return runCliAdapter(parser, args, _execute);
 }

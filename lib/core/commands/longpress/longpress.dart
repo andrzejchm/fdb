@@ -36,17 +36,14 @@ Future<LongpressResult> longpressWidget(LongpressInput input) async {
         final error = result['error'] as String?;
 
         if (status == 'Success') {
-          final widgetType = input.usedAt
-              ? 'coordinates'
-              : result['widgetType'] as String? ?? input.type ?? 'widget';
+          final widgetType = input.usedAt ? 'coordinates' : result['widgetType'] as String? ?? input.type ?? 'widget';
           final pressedX = result['x'] ?? input.x ?? '';
           final pressedY = result['y'] ?? input.y ?? '';
           return LongpressSuccess(widgetType: widgetType, x: pressedX, y: pressedY);
         }
 
         if (error != null) {
-          final isRetryable =
-              error.contains('not found') || error.contains('No hittable element');
+          final isRetryable = error.contains('not found') || error.contains('No hittable element');
           if (isRetryable && DateTime.now().isBefore(deadline)) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
             continue;

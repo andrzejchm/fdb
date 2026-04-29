@@ -18,8 +18,7 @@ import 'package:fdb/core/commands/describe/describe.dart';
 ///   VISIBLE TEXT:                   (if non-duplicate texts exist)
 ///     "<text>"
 /// ```
-Future<int> runDescribeCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runDescribeCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await describeScreen(());

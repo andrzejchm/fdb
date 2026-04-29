@@ -332,8 +332,7 @@ Future<String?> _captureWeb(String output) async {
     try {
       final req = await client.getUrl(Uri.parse('http://localhost:$port/json'));
       final resp = await req.close().timeout(const Duration(seconds: 5));
-      final body =
-          await resp.transform(utf8.decoder).join().timeout(const Duration(seconds: 5));
+      final body = await resp.transform(utf8.decoder).join().timeout(const Duration(seconds: 5));
       final pages = jsonDecode(body) as List<dynamic>;
       if (pages.isEmpty) {
         return 'No Chrome pages found on CDP port $port.\n'
@@ -380,10 +379,8 @@ Future<String?> _captureWeb(String output) async {
 
     ws.add(jsonEncode({'id': 1, 'method': 'Page.captureScreenshot', 'params': {}}));
 
-    final response =
-        await completer.future.timeout(const Duration(seconds: 10));
-    final data =
-        (response['result'] as Map<String, dynamic>?)?['data'] as String?;
+    final response = await completer.future.timeout(const Duration(seconds: 10));
+    final data = (response['result'] as Map<String, dynamic>?)?['data'] as String?;
     if (data == null) {
       return 'CDP screenshot returned no image data.';
     }

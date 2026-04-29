@@ -11,8 +11,7 @@ import 'package:fdb/core/commands/status/status.dart';
 ///   PID=<pid>                     (only if PID file present and process alive)
 ///   VM_SERVICE_URI=<uri>          (only if running and VM URI is known)
 /// ```
-Future<int> runStatusCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runStatusCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await getStatus(());

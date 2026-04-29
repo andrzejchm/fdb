@@ -10,8 +10,7 @@ import 'package:fdb/core/commands/reload/reload.dart';
 ///   `ERROR: No PID file found. Is the app running?`  (no session)
 ///   `ERROR: Process <pid> is not running`            (process dead)
 ///   `RELOAD_FAILED`                                  (timeout)
-Future<int> runReloadCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runReloadCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await reloadApp(());

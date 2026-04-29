@@ -10,8 +10,7 @@ import 'package:fdb/core/commands/restart/restart.dart';
 ///   ERROR: No PID file found. Is the app running?   (no session)
 ///   ERROR: Process `<pid>` is not running            (process dead)
 ///   RESTART_FAILED                                   (timeout)
-Future<int> runRestartCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runRestartCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await restartApp(());

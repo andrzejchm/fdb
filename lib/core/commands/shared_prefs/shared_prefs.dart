@@ -20,8 +20,7 @@ Future<SharedPrefsResult> sharedPrefs(SharedPrefsInput input) async {
     return switch (input) {
       PrefsGetInput(:final key) => await _get(isolateId, key),
       PrefsGetAllInput() => await _getAll(isolateId),
-      PrefsSetInput(:final key, :final value, :final type) =>
-        await _set(isolateId, key, value, type),
+      PrefsSetInput(:final key, :final value, :final type) => await _set(isolateId, key, value, type),
       PrefsRemoveInput(:final key) => await _remove(isolateId, key),
       PrefsClearInput() => await _clear(isolateId),
     };

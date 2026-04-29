@@ -98,11 +98,8 @@ Future<SyslogResult> _runIosSimulator({
     return const SyslogError('No device ID found. Is the app running?');
   }
 
-  final escapedPredicate =
-      input.predicate?.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
-  final nsPredicate = escapedPredicate != null
-      ? 'eventMessage CONTAINS "$escapedPredicate"'
-      : null;
+  final escapedPredicate = input.predicate?.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+  final nsPredicate = escapedPredicate != null ? 'eventMessage CONTAINS "$escapedPredicate"' : null;
 
   if (input.follow) {
     final streamArgs = <String>[
@@ -181,11 +178,8 @@ Future<SyslogResult> _runMacos({required SyslogInput input}) async {
     );
   }
 
-  final escapedPredicate =
-      input.predicate?.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
-  final nsPredicate = escapedPredicate != null
-      ? 'eventMessage CONTAINS "$escapedPredicate"'
-      : null;
+  final escapedPredicate = input.predicate?.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+  final nsPredicate = escapedPredicate != null ? 'eventMessage CONTAINS "$escapedPredicate"' : null;
 
   if (input.follow) {
     final streamArgs = <String>[
@@ -271,9 +265,7 @@ SyslogResult _followStream({
   final exitCodeFuture = process.exitCode.then((code) => killed ? 0 : code);
 
   // Pipe stderr to our stderr.
-  process.stderr
-      .transform(const SystemEncoding().decoder)
-      .listen(stderr.write);
+  process.stderr.transform(const SystemEncoding().decoder).listen(stderr.write);
 
   // Feed filtered stdout lines into the controller.
   process.stdout
@@ -314,14 +306,10 @@ Future<SyslogResult> _snapshotStream({
   required String? predicate,
   required int? last,
 }) async {
-  final stderrFuture = process.stderr
-      .transform(const SystemEncoding().decoder)
-      .forEach(stderr.write);
+  final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
 
   final buffer = <String>[];
-  await for (final line in process.stdout
-      .transform(const SystemEncoding().decoder)
-      .transform(const LineSplitter())) {
+  await for (final line in process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter())) {
     if (predicate == null || line.contains(predicate)) {
       buffer.add(line);
     }

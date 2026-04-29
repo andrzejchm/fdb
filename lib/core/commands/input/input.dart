@@ -18,8 +18,7 @@ Future<InputResult> enterText(InputInput input) async {
       'input': input.textToEnter,
     };
 
-    final hasSelector =
-        input.text != null || input.key != null || input.type != null;
+    final hasSelector = input.text != null || input.key != null || input.type != null;
     if (!hasSelector) {
       params['focused'] = 'true';
     }
@@ -36,8 +35,7 @@ Future<InputResult> enterText(InputInput input) async {
       final error = result['error'] as String?;
 
       if (status == 'Success') {
-        final fieldType =
-            result['widgetType'] as String? ?? input.type ?? 'field';
+        final fieldType = result['widgetType'] as String? ?? input.type ?? 'field';
         return InputSuccess(fieldType: fieldType, value: input.textToEnter);
       }
 

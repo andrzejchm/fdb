@@ -15,8 +15,7 @@ import 'package:fdb/core/commands/selected/selected.dart';
 ///   ERROR: No Flutter isolate found             (no isolate)
 ///   ERROR: <message>                            (generic error)
 /// ```
-Future<int> runSelectedCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runSelectedCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await getSelected(());

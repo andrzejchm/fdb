@@ -29,8 +29,7 @@ Future<ScrollToResult> scrollTo(ScrollToInput input) async {
         final x = result['x'] as double?;
         final y = result['y'] as double?;
         if (x == null || y == null) return const ScrollToMissingCoordinates();
-        final widgetType =
-            result['widgetType'] as String? ?? input.key ?? input.text ?? input.type ?? 'widget';
+        final widgetType = result['widgetType'] as String? ?? input.key ?? input.text ?? input.type ?? 'widget';
         return ScrollToSuccess(widgetType: widgetType, x: x, y: y);
       }
 

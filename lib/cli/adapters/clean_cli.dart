@@ -14,8 +14,7 @@ import 'package:fdb/core/commands/clean/clean.dart';
 ///   ERROR: `<message>`                                     (VM error / generic)
 ///   ERROR: unexpected response: `<json>`                  (unexpected response)
 ///   (AppDiedException rethrown for dispatcher's `_formatAppDied`) (app died)
-Future<int> runCleanCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runCleanCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await cleanApp(());

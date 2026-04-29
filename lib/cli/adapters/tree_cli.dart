@@ -11,10 +11,9 @@ import 'package:fdb/core/commands/tree/tree.dart';
 ///   --depth `n`    Maximum tree depth to display (default: 10)
 ///   --user-only    Only show widgets created by the local project
 Future<int> runTreeCli(List<String> args) {
-  final parser =
-      ArgParser()
-        ..addOption('depth', defaultsTo: '10', help: 'Maximum depth to display')
-        ..addFlag('user-only', negatable: false, help: 'Show only user-project widgets');
+  final parser = ArgParser()
+    ..addOption('depth', defaultsTo: '10', help: 'Maximum depth to display')
+    ..addFlag('user-only', negatable: false, help: 'Show only user-project widgets');
   return runCliAdapter(parser, args, _execute);
 }
 

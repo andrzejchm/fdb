@@ -46,9 +46,7 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input) async {
       final error = result['error'] as String?;
 
       if (status == 'Success') {
-        final widgetType = input.usedAt
-            ? 'coordinates'
-            : result['widgetType'] as String? ?? input.type ?? 'widget';
+        final widgetType = input.usedAt ? 'coordinates' : result['widgetType'] as String? ?? input.type ?? 'widget';
         final tappedX = result['x'] ?? input.x ?? '';
         final tappedY = result['y'] ?? input.y ?? '';
         final warning = result['warning'] as String?;
@@ -56,8 +54,7 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input) async {
       }
 
       if (error != null) {
-        final isRetryable =
-            error.contains('not found') || error.contains('No hittable element');
+        final isRetryable = error.contains('not found') || error.contains('No hittable element');
         if (isRetryable && DateTime.now().isBefore(deadline)) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
           continue;

@@ -12,8 +12,7 @@ import 'package:fdb/core/commands/devices/devices.dart';
 /// ```
 ///
 /// Errors are written to stderr prefixed with `ERROR:` or `WARNING:`.
-Future<int> runDevicesCli(List<String> args) =>
-    runCliAdapter(ArgParser(), args, _execute);
+Future<int> runDevicesCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
   final result = await listDevices(());

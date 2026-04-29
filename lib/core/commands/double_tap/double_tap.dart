@@ -38,8 +38,7 @@ Future<DoubleTapResult> doubleTap(DoubleTapInput input) async {
         }
 
         if (error != null) {
-          final isRetryable =
-              error.contains('not found') || error.contains('No hittable element');
+          final isRetryable = error.contains('not found') || error.contains('No hittable element');
           if (isRetryable && DateTime.now().isBefore(deadline)) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
             continue;

@@ -54,8 +54,7 @@ Future<DoctorResult> runDoctor(List<String> args) async {
     checks.add(const CheckResult(
       name: 'fdb_helper',
       status: CheckStatus.fail,
-      hint:
-          'Add fdb_helper to pubspec.yaml dev_dependencies and call FdbBinding.ensureInitialized() in main()',
+      hint: 'Add fdb_helper to pubspec.yaml dev_dependencies and call FdbBinding.ensureInitialized() in main()',
     ));
   }
 
@@ -152,8 +151,7 @@ String _platformToolsHint(List<String> missing) {
     hints.add('xcrun missing — iOS simulator screenshots will fail. Install Xcode.');
   }
   if (missing.contains('screencapture')) {
-    hints.add(
-        'screencapture missing — macOS screenshots will fail. Use a macOS host with screencapture available.');
+    hints.add('screencapture missing — macOS screenshots will fail. Use a macOS host with screencapture available.');
   }
   return hints.join(' ');
 }

@@ -14,19 +14,19 @@ import 'package:fdb/core/commands/launch/launch.dart';
 ///   --flutter-sdk  Path to Flutter SDK root
 ///   --verbose      Pass --verbose to flutter run
 Future<int> runLaunchCli(List<String> args) => runCliAdapter(
-  ArgParser()
-    ..addOption('device', help: '(required) target device/simulator ID')
-    ..addOption('project', help: 'Flutter project root (default: CWD)')
-    ..addOption('flavor', help: 'Build flavor')
-    ..addOption(
-      'target',
-      help: 'Entry-point file (default: lib/main.dart)',
-    )
-    ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
-    ..addFlag('verbose', negatable: false, help: 'Pass --verbose to flutter run'),
-  args,
-  _execute,
-);
+      ArgParser()
+        ..addOption('device', help: '(required) target device/simulator ID')
+        ..addOption('project', help: 'Flutter project root (default: CWD)')
+        ..addOption('flavor', help: 'Build flavor')
+        ..addOption(
+          'target',
+          help: 'Entry-point file (default: lib/main.dart)',
+        )
+        ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
+        ..addFlag('verbose', negatable: false, help: 'Pass --verbose to flutter run'),
+      args,
+      _execute,
+    );
 
 Future<int> _execute(ArgResults results) async {
   final device = results['device'] as String?;
