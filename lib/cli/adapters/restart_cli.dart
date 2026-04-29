@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/restart.dart';
+import 'package:fdb/core/commands/restart/restart.dart';
 
 /// CLI adapter for `fdb restart`. Accepts no flags; emits one of:
 ///

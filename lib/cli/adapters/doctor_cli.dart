@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/doctor.dart';
+import 'package:fdb/core/commands/doctor/doctor.dart';
 
 /// CLI adapter for `fdb doctor`.
 ///

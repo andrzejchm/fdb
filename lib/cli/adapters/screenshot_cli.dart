@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/constants.dart';
-import 'package:fdb/core/commands/screenshot.dart';
+import 'package:fdb/core/commands/screenshot/screenshot.dart';
 
 /// CLI adapter for `fdb screenshot`.
 ///

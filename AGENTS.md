@@ -31,8 +31,9 @@ lib/
     launch_failure_analyzer.dart
     models/
       command_result.dart                 # Marker base for sealed result hierarchies
-    commands/
-      <name>.dart × 28                    # runXxx(<Name>Input) → <Name>Result (sealed)
+    commands/<name>/
+      <name>.dart × 28                    # verb function + `export '<name>_models.dart';`
+      <name>_models.dart × 28             # <Name>Input typedef + sealed <Name>Result
   cli/                                    # CLI adapter layer
     args_helpers.dart                     # runCliAdapter, runSimpleCliAdapter, parseXY
     adapters/

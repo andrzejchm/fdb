@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/devices.dart';
+import 'package:fdb/core/commands/devices/devices.dart';
 
 /// CLI adapter for `fdb devices`. Accepts no flags; emits one line per
 /// device:

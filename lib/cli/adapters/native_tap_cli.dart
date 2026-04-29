@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/native_tap.dart';
+import 'package:fdb/core/commands/native_tap/native_tap.dart';
 
 /// CLI adapter for `fdb native-tap`.
 ///

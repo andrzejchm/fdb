@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/shared_prefs.dart';
+import 'package:fdb/core/commands/shared_prefs/shared_prefs.dart';
 
 /// CLI adapter for `fdb shared-prefs`.
 ///

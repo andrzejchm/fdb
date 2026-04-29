@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/deeplink.dart';
+import 'package:fdb/core/commands/deeplink/deeplink.dart';
 
 /// CLI adapter for `fdb deeplink <url>`.
 ///

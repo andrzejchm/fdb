@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/syslog.dart';
+import 'package:fdb/core/commands/syslog/syslog.dart';
 
 /// CLI adapter for `fdb syslog`.
 ///

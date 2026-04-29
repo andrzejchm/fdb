@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/swipe.dart';
+import 'package:fdb/core/commands/swipe/swipe.dart';
 
 const _directions = ['up', 'down', 'left', 'right'];
 

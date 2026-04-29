@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/back.dart';
+import 'package:fdb/core/commands/back/back.dart';
 
 /// CLI adapter for `fdb back`. Accepts no flags; emits one of:
 ///

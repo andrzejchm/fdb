@@ -2,11 +2,10 @@
 
 Worked example: a hypothetical `fdb wakeup` command that wakes a sleeping device. Two arguments: `--device` (required) and `--brightness` (optional, default 100).
 
-## 1. Core: `lib/core/commands/wakeup.dart`
+## 1. Models: `lib/core/commands/wakeup/wakeup_models.dart`
 
 ```dart
 import 'package:fdb/core/models/command_result.dart';
-import 'package:fdb/core/vm_service.dart';
 
 typedef WakeupInput = ({String device, int brightness});
 
@@ -28,6 +27,17 @@ class WakeupError extends WakeupResult {
   final String message;
   const WakeupError(this.message);
 }
+```
+
+Models file holds only data types: input typedef + sealed result hierarchy. No business logic, no `dart:io`, no `package:args`.
+
+## 2. Verb function: `lib/core/commands/wakeup/wakeup.dart`
+
+```dart
+import 'package:fdb/core/commands/wakeup/wakeup_models.dart';
+import 'package:fdb/core/vm_service.dart';
+
+export 'package:fdb/core/commands/wakeup/wakeup_models.dart';
 
 Future<WakeupResult> wakeupDevice(WakeupInput input) async {
   try {
@@ -53,19 +63,18 @@ Future<WakeupResult> wakeupDevice(WakeupInput input) async {
 ```
 
 Notes:
-- Input is a record. Empty record `()` if no args.
-- Result is sealed for exhaustive matching.
+- Verb file imports models, then `export`s them so adapters import only this file.
 - Never throws across the public API. `try`/`catch` translates exceptions to `WakeupError`.
-- No `dart:io`, no `package:args`, no stdout/stderr writes.
+- No `dart:io` writes to stdout/stderr. No `package:args`.
 
-## 2. CLI adapter: `lib/cli/adapters/wakeup_cli.dart`
+## 3. CLI adapter: `lib/cli/adapters/wakeup_cli.dart`
 
 ```dart
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/wakeup.dart';
+import 'package:fdb/core/commands/wakeup/wakeup.dart';
 
 Future<int> runWakeupCli(List<String> args) =>
     runCliAdapter(_buildParser(), args, _execute);
@@ -114,7 +123,7 @@ Notes:
 - Cross-flag validation lives here, not in core.
 - `_format` is exhaustive — Dart fails compilation if a sealed variant is missed.
 
-## 3. Wire into dispatcher: `bin/fdb.dart`
+## 4. Wire into dispatcher: `bin/fdb.dart`
 
 Add the import alphabetically and a `case` in `_runCommand`:
 
@@ -125,7 +134,7 @@ case 'wakeup':
   return runWakeupCli(args);
 ```
 
-## 4. Update top-level usage
+## 5. Update top-level usage
 
 Add a line to the `usage` const in `bin/fdb.dart`:
 
@@ -133,7 +142,7 @@ Add a line to the `usage` const in `bin/fdb.dart`:
   wakeup      Wake the device (--device required, --brightness optional)
 ```
 
-## 5. README commands table
+## 6. README commands table
 
 Add a row to `README.md` under "Commands".
 

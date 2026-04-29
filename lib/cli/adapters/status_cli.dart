@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/status.dart';
+import 'package:fdb/core/commands/status/status.dart';
 
 /// CLI adapter for `fdb status`. Accepts no flags; emits:
 ///

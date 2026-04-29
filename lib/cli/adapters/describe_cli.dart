@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/describe.dart';
+import 'package:fdb/core/commands/describe/describe.dart';
 
 /// CLI adapter for `fdb describe`. Accepts no flags; emits a compact
 /// text snapshot of the current screen:

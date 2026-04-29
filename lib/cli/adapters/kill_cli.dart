@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/kill.dart';
+import 'package:fdb/core/commands/kill/kill.dart';
 
 /// CLI adapter for `fdb kill`. Accepts no flags; emits one of:
 ///

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/select.dart';
+import 'package:fdb/core/commands/select/select.dart';
 
 /// CLI adapter for `fdb select on|off`.
 ///

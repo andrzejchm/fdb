@@ -36,7 +36,17 @@ Two layers, enforced by directory:
 - `lib/core/**` — interface-agnostic. No `dart:io` writes to stdout/stderr. No `package:args`. Functions take typed inputs (records) and return sealed `<Cmd>Result` hierarchies. Never throw across the public API — catch and translate to a result variant. `AppDiedException` is the one allowed re-throw (dispatcher has special handling).
 - `lib/cli/**` — translates results to UPPER_SNAKE_CASE stdout tokens and `ERROR:` stderr lines. Owns `package:args`. Cross-flag validation lives here, not in core.
 
-Each command file exports: `<Cmd>Input` typedef + sealed `<Cmd>Result` + `Future<<Cmd>Result> verb<Cmd>(<Cmd>Input)`.
+### Per-command file split
+
+Each command lives in its own directory with two files:
+
+```
+lib/core/commands/<name>/
+  <name>.dart            # verb function + `export '<name>_models.dart';`
+  <name>_models.dart     # <Cmd>Input typedef + sealed <Cmd>Result + variants
+```
+
+The verb file re-exports the models so adapters import only `<name>.dart` and get both. Adapters never import `<name>_models.dart` directly.
 
 ## CLI rules
 
@@ -65,11 +75,12 @@ Each command file exports: `<Cmd>Input` typedef + sealed `<Cmd>Result` + `Future
 
 ## Adding a new command
 
-1. Create `lib/core/commands/<name>.dart`: input typedef + sealed result + verb function.
-2. Create `lib/cli/adapters/<name>_cli.dart`: ArgParser + `runCliAdapter` + result→token formatting.
-3. Add the `case` in `bin/fdb.dart:_runCommand` calling `run<Name>Cli`.
-4. Add the command to the `usage` string in `bin/fdb.dart`.
-5. Update the commands table in `README.md`.
+1. Create `lib/core/commands/<name>/<name>_models.dart`: input typedef + sealed result.
+2. Create `lib/core/commands/<name>/<name>.dart`: verb function + `export '<name>_models.dart';`.
+3. Create `lib/cli/adapters/<name>_cli.dart`: ArgParser + `runCliAdapter` + result→token formatting.
+4. Add the `case` in `bin/fdb.dart:_runCommand` calling `run<Name>Cli`.
+5. Add the command to the `usage` string in `bin/fdb.dart`.
+6. Update the commands table in `README.md`.
 
 For a full worked example, see [`doc/adding-a-command.md`](doc/adding-a-command.md).
 

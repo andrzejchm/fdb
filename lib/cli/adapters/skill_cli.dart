@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/commands/skill.dart';
+import 'package:fdb/core/commands/skill/skill.dart';
 
 /// CLI adapter for `fdb skill`. Prints the SKILL.md contents to stdout.
 ///

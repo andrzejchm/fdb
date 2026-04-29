@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/tree.dart';
+import 'package:fdb/core/commands/tree/tree.dart';
 
 /// CLI adapter for `fdb tree`.
 ///

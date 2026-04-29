@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/input.dart';
+import 'package:fdb/core/commands/input/input.dart';
 
 /// CLI adapter for `fdb input`. Accepts optional selector flags and a
 /// positional text argument; emits one of:

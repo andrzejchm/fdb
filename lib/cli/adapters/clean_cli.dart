@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/commands/clean.dart';
+import 'package:fdb/core/commands/clean/clean.dart';
 
 /// CLI adapter for `fdb clean`. Accepts no flags; emits one of:
 ///
