@@ -8,12 +8,12 @@ import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
 import 'package:fdb/cli/adapters/devices_cli.dart';
 import 'package:fdb/cli/adapters/doctor_cli.dart';
-import 'package:fdb/commands/double_tap.dart';
-import 'package:fdb/commands/input.dart';
+import 'package:fdb/cli/adapters/double_tap_cli.dart';
+import 'package:fdb/cli/adapters/input_cli.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/commands/launch.dart';
-import 'package:fdb/commands/native_tap.dart';
-import 'package:fdb/commands/longpress.dart';
+import 'package:fdb/cli/adapters/native_tap_cli.dart';
+import 'package:fdb/cli/adapters/longpress_cli.dart';
 import 'package:fdb/commands/logs.dart';
 import 'package:fdb/cli/adapters/reload_cli.dart';
 import 'package:fdb/cli/adapters/restart_cli.dart';
@@ -26,7 +26,7 @@ import 'package:fdb/cli/adapters/skill_cli.dart';
 import 'package:fdb/cli/adapters/status_cli.dart';
 import 'package:fdb/commands/swipe.dart';
 import 'package:fdb/cli/adapters/syslog_cli.dart';
-import 'package:fdb/commands/tap.dart';
+import 'package:fdb/cli/adapters/tap_cli.dart';
 import 'package:fdb/cli/adapters/tree_cli.dart';
 import 'package:fdb/commands/wait.dart';
 import 'package:fdb/constants.dart';
@@ -170,15 +170,15 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'doctor':
       return runDoctorCli(args);
     case 'native-tap':
-      return runNativeTap(args);
+      return runNativeTapCli(args);
     case 'tap':
-      return runTap(args);
+      return runTapCli(args);
     case 'double-tap':
-      return runDoubleTap(args);
+      return runDoubleTapCli(args);
     case 'longpress':
-      return runLongpress(args);
+      return runLongpressCli(args);
     case 'input':
-      return runInput(args);
+      return runInputCli(args);
     case 'scroll':
       return runScroll(args);
     case 'scroll-to':

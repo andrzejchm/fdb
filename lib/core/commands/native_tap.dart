@@ -1,145 +1,128 @@
 import 'dart:io';
 
+import 'package:fdb/core/models/command_result.dart';
 import 'package:fdb/core/process_utils.dart';
+
+/// Input parameters for [nativeTap].
+typedef NativeTapInput = ({double x, double y});
+
+/// Result of a [nativeTap] invocation.
+sealed class NativeTapResult extends CommandResult {
+  const NativeTapResult();
+}
+
+/// Android tap succeeded.
+class NativeTapAndroid extends NativeTapResult {
+  const NativeTapAndroid({required this.x, required this.y});
+  final int x;
+  final int y;
+}
+
+/// iOS Simulator tap succeeded via IndigoHID.
+class NativeTapIosSimulator extends NativeTapResult {
+  const NativeTapIosSimulator({required this.x, required this.y});
+  final int x;
+  final int y;
+}
+
+/// No active fdb session found.
+class NativeTapNoSession extends NativeTapResult {
+  const NativeTapNoSession();
+}
+
+/// Physical iOS device — not yet supported.
+class NativeTapPhysicalIosUnsupported extends NativeTapResult {
+  const NativeTapPhysicalIosUnsupported({required this.x, required this.y});
+  final double x;
+  final double y;
+}
+
+/// macOS — not supported.
+class NativeTapMacosUnsupported extends NativeTapResult {
+  const NativeTapMacosUnsupported({required this.x, required this.y});
+  final double x;
+  final double y;
+}
+
+/// Unsupported platform.
+class NativeTapPlatformUnsupported extends NativeTapResult {
+  const NativeTapPlatformUnsupported(this.platform);
+  final String platform;
+}
+
+/// `adb shell input tap` exited non-zero.
+class NativeTapAdbFailed extends NativeTapResult {
+  const NativeTapAdbFailed(this.details);
+  final String details;
+}
+
+/// `adb` binary could not be launched.
+class NativeTapAdbExecutionFailed extends NativeTapResult {
+  const NativeTapAdbExecutionFailed(this.error);
+  final String error;
+}
+
+/// IndigoHID swift script exited non-zero.
+class NativeTapIndigoFailed extends NativeTapResult {
+  const NativeTapIndigoFailed(this.details);
+  final String details;
+}
+
+/// IndigoHID swift script succeeded but stdout didn't contain "TAPPED".
+class NativeTapIndigoUnexpectedOutput extends NativeTapResult {
+  const NativeTapIndigoUnexpectedOutput(this.output);
+  final String output;
+}
+
+/// `swift` binary could not be launched.
+class NativeTapSwiftFailed extends NativeTapResult {
+  const NativeTapSwiftFailed(this.error);
+  final String error;
+}
 
 /// Taps native (non-Flutter) UI elements using platform-specific tools.
 ///
-/// Unlike [runTap], this command dispatches through the OS input system rather
-/// than Flutter's [GestureBinding], making it suitable for tapping system
+/// Unlike `fdb tap`, this command dispatches through the OS input system rather
+/// than Flutter's GestureBinding, making it suitable for tapping system
 /// dialogs (iOS permission prompts, Android runtime-permission sheets) that
 /// sit outside the Flutter rendering surface.
 ///
-/// Usage:
-///   fdb native-tap --at 200,400
-///   fdb native-tap --x 200 --y 400
-///
-/// Platforms and tools:
-///   Android (device or emulator) — `adb shell input tap X Y`
-///   iOS simulator                — IndigoHID via SimulatorKit private framework (no extra tools)
-///
-/// Physical iOS is not yet supported. The de-facto standard for out-of-process
-/// tap injection on physical iOS is WebDriverAgent (a signed XCUITest runner
-/// installed on the device), which has higher setup burden than the current
-/// zero-setup paths. Use `fdb tap --at` instead — it performs in-process tap
-/// injection via `fdb_helper` and reaches in-app native overlays
-/// (UIAlertController, etc.) on physical iOS devices. See beads issue fdb-6sz.
-///
-/// macOS is not supported. Out-of-process click injection on macOS requires
-/// Accessibility permission, which the system only grants to signed `.app`
-/// bundles. Homebrew CLIs (cliclick, opencode, tmux) are unsigned binaries
-/// and cannot receive Accessibility permission on macOS Sequoia/Tahoe — they
-/// don't even appear in the System Settings list when added. Shipping a
-/// signed `.app` just for this is not justified for a niche feature. Use
-/// `fdb tap --at` instead, which performs in-process tap injection via
-/// `fdb_helper` and does not require any system permissions.
-///
-/// Coordinates:
-///   Android  — Android logical pixels (dp), same as Flutter logical coords.
-///   iOS      — iOS UIKit logical points (same coordinate space as Flutter).
-Future<int> runNativeTap(List<String> args) async {
-  double? x;
-  double? y;
-
-  for (var i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--x':
-        final raw = args[++i];
-        x = double.tryParse(raw);
-        if (x == null) {
-          stderr.writeln('ERROR: Invalid value for --x: $raw');
-          return 1;
-        }
-      case '--y':
-        final raw = args[++i];
-        y = double.tryParse(raw);
-        if (y == null) {
-          stderr.writeln('ERROR: Invalid value for --y: $raw');
-          return 1;
-        }
-      case '--at':
-        final raw = args[++i];
-        final parsed = _parseAt(raw);
-        if (parsed == null) {
-          stderr.writeln('ERROR: Invalid --at value: "$raw". Expected format: x,y (e.g. 200,400).');
-          return 1;
-        }
-        x = parsed.$1;
-        y = parsed.$2;
-    }
-  }
-
-  if ((x == null) != (y == null)) {
-    stderr.writeln('ERROR: Both --x and --y are required together.');
-    return 1;
-  }
-
-  if (x == null || y == null) {
-    stderr.writeln(
-      'ERROR: No coordinates provided. Use --at x,y or --x <x> --y <y>.\n'
-      'Usage: fdb native-tap --at 200,400',
-    );
-    return 1;
-  }
-
+/// Never throws; all error conditions are represented as sealed result cases.
+Future<NativeTapResult> nativeTap(NativeTapInput input) async {
   final platformInfo = readPlatformInfo();
-  final deviceId = readDevice();
-
-  if (platformInfo == null) {
-    stderr.writeln('ERROR: No active fdb session found. Run fdb launch first.');
-    return 1;
-  }
+  if (platformInfo == null) return const NativeTapNoSession();
 
   final platform = platformInfo.platform;
   final isEmulator = platformInfo.emulator;
 
   if (platform.startsWith('android')) {
-    return _tapAndroid(deviceId: deviceId, x: x, y: y);
+    return _tapAndroid(input: input);
   }
 
   if (platform.startsWith('ios') && isEmulator) {
-    return _tapIosSimulator(deviceId: deviceId, x: x, y: y);
+    return _tapIosSimulator(input: input);
   }
 
   if (platform.startsWith('ios') && !isEmulator) {
-    stderr.writeln(
-      'ERROR: native-tap is not yet supported on physical iOS devices.\n'
-      '  Use `fdb tap --at $x,$y` instead — it performs in-process tap\n'
-      '  injection via fdb_helper, which reaches UIAlertController and other\n'
-      '  in-app native overlays on physical iOS devices.\n'
-      '\n'
-      '  Why: out-of-process tap injection on physical iOS requires\n'
-      '  WebDriverAgent (a signed XCUITest runner installed on the device).\n'
-      '  Tracking implementation in beads issue fdb-6sz.',
-    );
-    return 1;
+    return NativeTapPhysicalIosUnsupported(x: input.x, y: input.y);
   }
 
   if (platform.startsWith('darwin')) {
-    stderr.writeln(
-      'ERROR: native-tap is not supported on macOS.\n'
-      '  Use `fdb tap --at $x,$y` instead — it performs in-process tap injection\n'
-      '  via fdb_helper and does not require Accessibility permission.\n'
-      '\n'
-      '  Why: cross-process tap injection on macOS requires Accessibility\n'
-      '  permission, which is only grantable to signed .app bundles. Homebrew\n'
-      '  CLIs are unsigned and cannot be added to the Accessibility list.',
-    );
-    return 1;
+    return NativeTapMacosUnsupported(x: input.x, y: input.y);
   }
 
-  stderr.writeln('ERROR: native-tap is not supported on platform "$platform".');
-  return 1;
+  return NativeTapPlatformUnsupported(platform);
 }
 
 // ---------------------------------------------------------------------------
 // Android
 // ---------------------------------------------------------------------------
 
-/// Taps an Android device or emulator at ([x], [y]) via `adb shell input tap`.
-///
-/// Coordinates are in Android dp, which equals Flutter logical pixels.
-Future<int> _tapAndroid({required String? deviceId, required double x, required double y}) async {
+Future<NativeTapResult> _tapAndroid({required NativeTapInput input}) async {
+  final deviceId = readDevice();
   final deviceArgs = deviceId != null ? ['-s', deviceId] : <String>[];
+  final x = input.x;
+  final y = input.y;
   try {
     final result = await Process.run('adb', [
       ...deviceArgs,
@@ -151,17 +134,11 @@ Future<int> _tapAndroid({required String? deviceId, required double x, required 
     ]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
-      stderr.writeln('ERROR: adb input tap failed: $details');
-      return 1;
+      return NativeTapAdbFailed(details);
     }
-    stdout.writeln('NATIVE_TAPPED=android X=${x.toInt()} Y=${y.toInt()}');
-    return 0;
+    return NativeTapAndroid(x: x.toInt(), y: y.toInt());
   } catch (e) {
-    stderr.writeln(
-      'ERROR: Failed to run adb: $e\n'
-      '  Install adb: https://developer.android.com/studio/command-line/adb',
-    );
-    return 1;
+    return NativeTapAdbExecutionFailed(e.toString());
   }
 }
 
@@ -169,30 +146,17 @@ Future<int> _tapAndroid({required String? deviceId, required double x, required 
 // iOS simulator — IndigoHID via SimulatorKit (no third-party tools)
 // ---------------------------------------------------------------------------
 
-/// Taps inside an iOS Simulator at ([x], [y]) using IndigoHID via the
-/// SimulatorKit private framework bundled inside Xcode.
-///
-/// IndigoHID is the same Mach IPC path that Simulator.app uses internally to
-/// translate macOS mouse events into simulated iOS touch events. Injecting
-/// directly via [SimDeviceLegacyHIDClient] bypasses the Simulator.app window
-/// entirely, so it works regardless of whether the Simulator is focused and
-/// correctly reaches native OS dialogs in SpringBoard (permission prompts, etc.)
-/// that run outside the Flutter process.
-///
-/// Coordinates are iOS UIKit logical points (same space as Flutter logical px).
-/// They are normalised to xRatio/yRatio (0.0–1.0) before transmission.
-/// Screen dimensions are read from simctl to perform the normalisation.
-///
-/// No extra tools required beyond Xcode.
-Future<int> _tapIosSimulator({required String? deviceId, required double x, required double y}) async {
+Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async {
+  final deviceId = readDevice();
+  final x = input.x;
+  final y = input.y;
+
   // Resolve screen size for this simulator to normalise coordinates.
   // _simulatorScreenSize always returns a value (falls back to iPhone 17 Pro
   // dimensions on miss); good enough for IndigoHID normalisation since most
   // modern iPhones share that 393×852 resolution.
   final (screenW, screenH) = await _simulatorScreenSize(deviceId);
 
-  // Inline Swift script using SimulatorKit.SimDeviceLegacyHIDClient to
-  // send IndigoHID touch events. No idb, no cliclick, no AX permission needed.
   final udid = deviceId ?? 'booted';
   final script = _indigoTapScript(udid: udid, x: x, y: y, screenW: screenW, screenH: screenH);
 
@@ -200,19 +164,15 @@ Future<int> _tapIosSimulator({required String? deviceId, required double x, requ
     final result = await Process.run('swift', ['-e', script]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
-      stderr.writeln('ERROR: IndigoHID tap failed:\n$details');
-      return 1;
+      return NativeTapIndigoFailed(details);
     }
     final out = (result.stdout as String).trim();
     if (!out.contains('TAPPED')) {
-      stderr.writeln('ERROR: IndigoHID tap produced unexpected output: $out');
-      return 1;
+      return NativeTapIndigoUnexpectedOutput(out);
     }
-    stdout.writeln('NATIVE_TAPPED=ios-simulator X=${x.toInt()} Y=${y.toInt()}');
-    return 0;
+    return NativeTapIosSimulator(x: x.toInt(), y: y.toInt());
   } catch (e) {
-    stderr.writeln('ERROR: Failed to run swift for IndigoHID tap: $e');
-    return 1;
+    return NativeTapSwiftFailed(e.toString());
   }
 }
 
@@ -344,17 +304,4 @@ fnSend(hid,sel,up,true,nil,nil)
 Thread.sleep(forTimeInterval:0.3)
 print("TAPPED")
 ''';
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-(double, double)? _parseAt(String raw) {
-  final parts = raw.split(',');
-  if (parts.length != 2) return null;
-  final px = double.tryParse(parts[0].trim());
-  final py = double.tryParse(parts[1].trim());
-  if (px == null || py == null) return null;
-  return (px, py);
 }
