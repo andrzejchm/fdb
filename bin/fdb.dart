@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
-import 'package:fdb/commands/shared_prefs.dart';
+import 'package:fdb/cli/adapters/shared_prefs_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
 import 'package:fdb/cli/adapters/devices_cli.dart';
@@ -11,10 +11,10 @@ import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/cli/adapters/double_tap_cli.dart';
 import 'package:fdb/cli/adapters/input_cli.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
-import 'package:fdb/commands/launch.dart';
+import 'package:fdb/cli/adapters/launch_cli.dart';
 import 'package:fdb/cli/adapters/native_tap_cli.dart';
 import 'package:fdb/cli/adapters/longpress_cli.dart';
-import 'package:fdb/commands/logs.dart';
+import 'package:fdb/cli/adapters/logs_cli.dart';
 import 'package:fdb/cli/adapters/reload_cli.dart';
 import 'package:fdb/cli/adapters/restart_cli.dart';
 import 'package:fdb/cli/adapters/screenshot_cli.dart';
@@ -152,7 +152,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'deeplink':
       return runDeeplinkCli(args);
     case 'launch':
-      return runLaunch(args);
+      return runLaunchCli(args);
     case 'reload':
       return runReloadCli(args);
     case 'restart':
@@ -160,7 +160,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'screenshot':
       return runScreenshotCli(args);
     case 'logs':
-      return runLogs(args);
+      return runLogsCli(args);
     case 'syslog':
       return runSyslogCli(args);
     case 'tree':
@@ -192,7 +192,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'clean':
       return runCleanCli(args);
     case 'shared-prefs':
-      return runSharedPrefs(args);
+      return runSharedPrefsCli(args);
     case 'select':
       return runSelectCli(args);
     case 'selected':

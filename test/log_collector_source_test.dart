@@ -193,12 +193,12 @@ void main() {
 const _followLogsScript = '''
 import 'dart:io';
 
-import 'package:fdb/commands/logs.dart';
+import 'package:fdb/cli/adapters/logs_cli.dart';
 import 'package:fdb/constants.dart';
 
 Future<void> main(List<String> args) async {
   initSessionDir(args[0]);
-  exit(await runLogs(['--follow']));
+  exit(await runLogsCli(['--follow']));
 }
 ''';
 
