@@ -33,6 +33,29 @@ bool isFlutterFirstFrameEvent(Map<String, dynamic> event) {
   return _isFlutterExtensionEvent(event, 'Flutter.FirstFrame');
 }
 
+/// Returns true when the VM event signals that an isolate became runnable.
+///
+/// `IsolateRunnable` fires on the `Isolate` stream after every hot restart
+/// and is reliable on iOS simulators where `Flutter.FirstFrame` is not emitted.
+bool isIsolateRunnableEvent(Map<String, dynamic> event) {
+  if (event['method'] != 'streamNotify') return false;
+  final params = event['params'];
+  if (params is! Map<String, dynamic>) return false;
+  if (params['streamId'] != 'Isolate') return false;
+  final evt = params['event'];
+  if (evt is! Map<String, dynamic>) return false;
+  return evt['kind'] == 'IsolateRunnable';
+}
+
+/// Returns true when the VM event signals that a hot restart has completed.
+///
+/// Matches either a `Flutter.FirstFrame` extension event (reliable on Android)
+/// or an `IsolateRunnable` isolate event (reliable on iOS simulators where
+/// `Flutter.FirstFrame` is not emitted after restart).
+bool isRestartCompletionEvent(Map<String, dynamic> event) {
+  return isFlutterFirstFrameEvent(event) || isIsolateRunnableEvent(event);
+}
+
 /// Waits for the first VM event that satisfies [matches].
 Future<bool> waitForVmServiceEvent({
   required Stream<Map<String, dynamic>> events,

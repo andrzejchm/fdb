@@ -114,6 +114,70 @@ void main() {
       expect(isFlutterFirstFrameEvent(event), isTrue);
     });
 
+    test('identifies IsolateRunnable events on the Isolate stream', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Isolate',
+          'event': {'kind': 'IsolateRunnable'},
+        },
+      };
+
+      expect(isIsolateRunnableEvent(event), isTrue);
+    });
+
+    test('isIsolateRunnableEvent ignores events from other streams', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {'kind': 'IsolateRunnable'},
+        },
+      };
+
+      expect(isIsolateRunnableEvent(event), isFalse);
+    });
+
+    test('isRestartCompletionEvent matches Flutter.FirstFrame', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Extension',
+          'event': {
+            'kind': 'Extension',
+            'extensionKind': 'Flutter.FirstFrame',
+          },
+        },
+      };
+
+      expect(isRestartCompletionEvent(event), isTrue);
+    });
+
+    test('isRestartCompletionEvent matches IsolateRunnable', () {
+      // iOS simulators emit IsolateRunnable after restart but not Flutter.FirstFrame.
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Isolate',
+          'event': {'kind': 'IsolateRunnable'},
+        },
+      };
+
+      expect(isRestartCompletionEvent(event), isTrue);
+    });
+
+    test('isRestartCompletionEvent ignores unrelated events', () {
+      final event = {
+        'method': 'streamNotify',
+        'params': {
+          'streamId': 'Isolate',
+          'event': {'kind': 'IsolateStart'},
+        },
+      };
+
+      expect(isRestartCompletionEvent(event), isFalse);
+    });
+
     test('waits until a matching VM event arrives', () async {
       final controller = StreamController<Map<String, dynamic>>();
       addTearDown(controller.close);
