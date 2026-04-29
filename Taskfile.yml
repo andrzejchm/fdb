@@ -1552,6 +1552,11 @@ tasks:
         if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ]; then
           echo "==> [native-view-tap] iOS path — verify UIAlertController dismissal"
 
+          # Restart to get a clean foreground state (defends against any pending
+          # SpringBoard dialogs from earlier tests like test:deeplink).
+          {{.FDB}} restart >/dev/null 2>&1 || true
+          sleep 2
+
           # Show alert
           {{.FDB}} scroll-to --key "show_native_alert" >/dev/null 2>&1 || true
           ALERT_TAP=$({{.FDB}} tap --key "show_native_alert" 2>&1)
@@ -2271,8 +2276,8 @@ tasks:
       - task: test:describe
       - task: test:describe-grid
       - task: test:screenshot
-      - task: test:deeplink
       - task: test:native-view-tap
+      - task: test:deeplink
       - task: test:native-tap
       - task: test:select
       - task: test:tap
