@@ -44,6 +44,11 @@ Future<int> _runList(List<String> args) async {
     return 0;
   }
 
+  if (args.isNotEmpty) {
+    stderr.writeln('ERROR: unexpected argument: ${args[0]}');
+    return 1;
+  }
+
   final result = await ext(const ExtListInput());
   return _format(result);
 }

@@ -1411,7 +1411,7 @@ tasks:
           echo "FAIL: fdb ext list exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "EXT_LIST_COUNT=\|EXT_LIST_EMPTY"; then
+        if echo "$OUTPUT" | grep -qE "EXT_LIST_COUNT=|EXT_LIST_EMPTY"; then
           echo "PASS: fdb ext list"
         else
           echo "FAIL: fdb ext list - EXT_LIST_COUNT= or EXT_LIST_EMPTY not found in output" >&2

@@ -67,6 +67,7 @@ task test:wait
 task test:swipe
 task test:back
 task test:clean
+task test:ext
 task test:shared-prefs
 task test:app-died
 task test:kill
