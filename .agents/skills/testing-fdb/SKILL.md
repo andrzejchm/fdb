@@ -40,6 +40,7 @@ The app must already be running (via `task test:launch`) before running individu
 ```bash
 task test:launch DEVICE=iPhone-16
 task test:launch-verbose DEVICE=iPhone-16
+task test:devices
 task test:status
 task test:status-after-interrupted-launch
 task test:reload
@@ -48,14 +49,29 @@ task test:logs
 task test:logs-tag
 task test:syslog
 task test:tree
+task test:describe
+task test:describe-grid
 task test:screenshot
+task test:native-view-tap
+task test:deeplink
+task test:native-tap
 task test:select
 task test:tap
+task test:double-tap
+task test:longpress
+task test:tap-at
 task test:input
 task test:scroll
+task test:scroll-to
+task test:wait
+task test:swipe
+task test:back
+task test:clean
+task test:shared-prefs
 task test:app-died
 task test:kill
 task test:status-stopped
+task test:session-dir
 ```
 
 ### Static analysis
@@ -84,12 +100,12 @@ Each test task prints:
 
 ## Adding a new command
 
-1. Create `lib/commands/your_command.dart` with `Future<int> runYourCommand(List<String> args)`.
-2. Write errors to `stderr` prefixed with `ERROR: `, status tokens to `stdout`.
-3. Add a `case` to the `switch` in `bin/fdb.dart:_runCommand`.
-4. Add the command to the `usage` string in `bin/fdb.dart`.
+1. Create `lib/core/commands/<name>/<name>.dart` (verb function) and `lib/core/commands/<name>/<name>_models.dart` (Input typedef + sealed Result).
+2. Create `lib/cli/adapters/<name>_cli.dart` with `Future<int> runXxxCli(List<String> args)` using `runCliAdapter`.
+3. Add a `case` to the `switch` in `bin/fdb.dart` calling `runXxxCli(args)`.
+4. Add the command to the usage string in `bin/fdb.dart`.
 5. Add a `test:your-command` task to `Taskfile.yml` following the existing pattern.
 6. Add the new task to the `smoke` task's command sequence.
 7. Update `README.md` commands table.
-8. Update `skills/using-fdb/SKILL.md` with the new command.
-9. Update `doc/README.agents.md` commands reference table.
+8. Update `doc/README.agents.md` commands reference table.
+9. Update `.agents/skills/testing-fdb/SKILL.md` individual test list.

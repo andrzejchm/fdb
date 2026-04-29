@@ -19,7 +19,8 @@ Setup:
 - [ ] Run task setup in the worktree
 
 Implementation:
-- [ ] CLI command: lib/commands/<name>.dart (runXxx pattern)
+- [ ] Core verb: lib/core/commands/<name>/<name>.dart + lib/core/commands/<name>/<name>_models.dart
+- [ ] CLI adapter: lib/cli/adapters/<name>_cli.dart (runXxxCli pattern)
 - [ ] Register in bin/fdb.dart (case + usage string)
 - [ ] fdb_helper handler: packages/fdb_helper/lib/src/handlers/<name>_handler.dart
 - [ ] Register in fdb_binding.dart (one _registerExtension line)
@@ -122,18 +123,30 @@ Read the relevant files before writing any code:
 - `AGENTS.md` — project overview and conventions
 - `CODE-STYLE.md` — Dart style rules
 - `packages/fdb_helper/AGENTS.md` — handler architecture rules
-- `lib/commands/scroll_to.dart` — canonical recent CLI command example
+- `lib/core/commands/scroll_to/scroll_to.dart` — canonical core verb function
+- `lib/cli/adapters/scroll_to_cli.dart` — canonical CLI adapter
 - `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` — canonical handler example
 - `packages/fdb_helper/lib/src/gesture_dispatcher.dart` — if adding gestures
 - `packages/fdb_helper/lib/src/handlers/tap_handler.dart` — if similar to tap
 
-**CLI layer** (`lib/commands/<name>.dart`):
-- Export exactly one public function: `Future<int> runXxx(List<String> args)`
-- Parse args manually with `for` loop + `switch` — no CLI framework
-- Call the VM extension via `vmServiceCall(uri, 'ext.fdb.yourExt', params)`
+**Core layer** (`lib/core/commands/<name>/<name>.dart`):
+- Export exactly one public function: `Future<<Name>Result> verbName(<Name>Input input)`
+- Never throws — catches all exceptions and returns a sealed result variant
+- Call VM extension via `vmServiceCall('ext.fdb.yourExt', params: params)` (no URI argument)
+- Re-export models: `export 'package:fdb/core/commands/<name>/<name>_models.dart';`
+
+**Core models** (`lib/core/commands/<name>/<name>_models.dart`):
+- Define `<Name>Input` as a typedef (named record)
+- Define sealed `<Name>Result` hierarchy with one case per outcome
+
+**CLI adapter layer** (`lib/cli/adapters/<name>_cli.dart`):
+- Export exactly one public function: `Future<int> runXxxCli(List<String> args)`
+- Use `runCliAdapter(parser, args, _execute)` from `lib/cli/args_helpers.dart`
+- Build an `ArgParser` with `package:args` — no manual `for` loop parsing
+- Pattern-match sealed result to write stdout tokens or stderr errors
 - Errors → `stderr` prefixed with `ERROR: `, exit 1
 - Success tokens → `stdout` in `UPPER_SNAKE_CASE` (e.g. `TAPPED=`, `SCROLLED_TO=`)
-- Register in `bin/fdb.dart`: add `case 'your-command':` and add to usage string
+- Register in `bin/fdb.dart`: add `case 'your-command':` calling `runXxxCli(args)`
 
 **fdb_helper layer** (`packages/fdb_helper/lib/src/handlers/<name>_handler.dart`):
 - Export exactly one public function: `Future<developer.ServiceExtensionResponse> handleXxx(String method, Map<String, String> params)`
@@ -384,7 +397,7 @@ mcp_Git-worktree action=remove name=<feature-name>
 
 - `fdb_binding.dart` is registration-only — never add handler logic to it
 - Each handler = one file in `handlers/`, one public `handleXxx` function
-- CLI args parsed manually — no CLI framework packages
+- CLI adapters use `package:args` via `runCliAdapter` — never manual `for`-loop parsing
 - `fdb_helper` production `dependencies:` must not grow without explicit approval
 - All three platforms (macOS, Android, iOS) must pass manual tests before PR
 - The review-fix loop and checks are always spawned as separate delegated agents
@@ -400,7 +413,8 @@ mcp_Git-worktree action=remove name=<feature-name>
 | `packages/fdb_helper/AGENTS.md` | Handler file layout, binding rules |
 | `TESTING.md` | Test commands and conventions |
 | `Taskfile.yml` | All test tasks and smoke sequence |
-| `lib/commands/scroll_to.dart` | Canonical CLI command example |
+| `lib/core/commands/scroll_to/scroll_to.dart` | Canonical core verb function |
+| `lib/cli/adapters/scroll_to_cli.dart` | Canonical CLI adapter |
 | `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` | Canonical handler example |
 | `packages/fdb_helper/lib/src/gesture_dispatcher.dart` | Gesture dispatch primitives |
 | `packages/fdb_helper/lib/src/element_tree_finder.dart` | Widget tree search utilities |
