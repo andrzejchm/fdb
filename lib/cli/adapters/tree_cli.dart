@@ -1,47 +1,47 @@
 import 'dart:io';
 
+import 'package:args/args.dart';
+import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/core/commands/tree.dart';
 
-Future<int> runTree(List<String> args) async {
-  var maxDepth = 10;
-  var userOnly = false;
+/// CLI adapter for `fdb tree`.
+///
+/// Flags:
+///   --depth `n`    Maximum tree depth to display (default: 10)
+///   --user-only    Only show widgets created by the local project
+Future<int> runTreeCli(List<String> args) {
+  final parser =
+      ArgParser()
+        ..addOption('depth', defaultsTo: '10', help: 'Maximum depth to display')
+        ..addFlag('user-only', negatable: false, help: 'Show only user-project widgets');
+  return runCliAdapter(parser, args, _execute);
+}
 
-  for (var i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--depth':
-        maxDepth = int.parse(args[++i]);
-      case '--user-only':
-        userOnly = true;
-    }
-  }
+Future<int> _execute(ArgResults results) async {
+  final maxDepth = int.parse(results['depth'] as String);
+  final userOnly = results['user-only'] as bool;
 
-  try {
-    final isolateId = await findFlutterIsolateId();
-    if (isolateId == null) {
+  final result = await getWidgetTree((maxDepth: maxDepth, userOnly: userOnly));
+  return _format(result, maxDepth, userOnly);
+}
+
+int _format(TreeResult result, int maxDepth, bool userOnly) {
+  switch (result) {
+    case TreeNoIsolate():
       stderr.writeln('ERROR: No Flutter isolate found');
       return 1;
-    }
-
-    final response = await vmServiceCall(
-      'ext.flutter.inspector.getRootWidgetSummaryTree',
-      params: {'isolateId': isolateId, 'objectGroup': 'fdb_tree'},
-      timeout: const Duration(seconds: 60),
-    );
-
-    final tree = unwrapExtensionResult(response);
-    if (tree == null || tree is! Map<String, dynamic>) {
+    case TreeNoWidgetTree():
       stderr.writeln('ERROR: No widget tree returned');
       return 1;
-    }
-
-    _printTree(tree, 0, maxDepth, userOnly);
-    return 0;
-  } on AppDiedException {
-    rethrow;
-  } catch (e) {
-    stderr.writeln('ERROR: $e');
-    return 1;
+    case TreeReceived(:final rootNode):
+      _printTree(rootNode, 0, maxDepth, userOnly);
+      return 0;
+    case TreeAppDied(:final logLines, :final reason):
+      throw AppDiedException(logLines: logLines, reason: reason);
+    case TreeError(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
   }
 }
 

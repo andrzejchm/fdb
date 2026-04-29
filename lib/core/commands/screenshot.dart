@@ -3,75 +3,121 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/constants.dart';
+import 'package:fdb/core/models/command_result.dart';
 import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/core/vm_service.dart';
 import 'package:image/image.dart' as img;
 
-Future<int> runScreenshot(List<String> args) async {
-  var output = defaultScreenshotPath;
-  var fullResolution = false;
+// ---------------------------------------------------------------------------
+// Input / Result types
+// ---------------------------------------------------------------------------
 
-  for (var i = 0; i < args.length; i++) {
-    final arg = args[i];
-    switch (arg) {
-      case '--output':
-        output = args[++i];
-      case '--full':
-        fullResolution = true;
-      default:
-        if (arg.startsWith('--output=')) {
-          output = arg.substring('--output='.length);
-        }
-    }
-  }
+/// Input parameters for [captureScreenshot].
+typedef ScreenshotInput = ({String output, bool fullResolution});
 
-  // Read session state
+/// Result of a [captureScreenshot] invocation.
+///
+/// Warnings are accumulated during capture (e.g. fallback notices) and
+/// returned alongside the outcome so CLI / MCP adapters can emit them in the
+/// appropriate format and ordering.
+sealed class ScreenshotResult extends CommandResult {
+  const ScreenshotResult();
+}
+
+/// Screenshot was captured, optionally downscaled, and saved to [path].
+class ScreenshotSaved extends ScreenshotResult {
+  final String path;
+  final int sizeBytes;
+
+  /// Accumulated WARNING lines (already prefixed with "WARNING: …").
+  final List<String> warnings;
+
+  const ScreenshotSaved({
+    required this.path,
+    required this.sizeBytes,
+    this.warnings = const [],
+  });
+}
+
+/// Screenshot capture or post-processing failed.
+class ScreenshotFailed extends ScreenshotResult {
+  /// Error description WITHOUT the leading "ERROR: " prefix.
+  final String message;
+
+  /// Accumulated WARNING lines emitted before the failure (already prefixed).
+  final List<String> warnings;
+
+  const ScreenshotFailed({required this.message, this.warnings = const []});
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+/// Captures a screenshot of the running Flutter app.
+///
+/// Never throws (except [AppDiedException] which the dispatcher handles).
+/// All other error conditions are represented as [ScreenshotFailed].
+Future<ScreenshotResult> captureScreenshot(ScreenshotInput input) async {
+  final warnings = <String>[];
+  final output = input.output;
+
+  // Read session state.
   final platformInfo = readPlatformInfo();
   final deviceId = readDevice();
 
-  // Dispatch to the correct capture backend based on the stored platform.
-  // Falls back to the legacy adb/xcrun heuristic when no platform file exists
-  // (e.g. sessions launched before this change).
-  final int captureResult;
+  // Dispatch to the correct capture backend.
+  final String? captureError;
   if (platformInfo != null) {
-    captureResult = await _dispatchScreenshot(
+    captureError = await _dispatchScreenshot(
       platform: platformInfo.platform,
       emulator: platformInfo.emulator,
       deviceId: deviceId,
       output: output,
+      warnings: warnings,
     );
   } else {
-    captureResult = await _legacyCapture(output);
+    captureError = await _legacyCapture(output, warnings);
   }
-  if (captureResult != 0) return captureResult;
+
+  if (captureError != null) {
+    return ScreenshotFailed(message: captureError, warnings: warnings);
+  }
 
   final file = File(output);
   if (!file.existsSync()) {
-    stderr.writeln('ERROR: Screenshot file not created');
-    return 1;
+    return ScreenshotFailed(
+      message: 'Screenshot file not created',
+      warnings: warnings,
+    );
   }
 
-  if (!fullResolution) {
-    final resizeResult = await _resizeToMaxDimension(output);
-    if (resizeResult != 0) return resizeResult;
+  if (!input.fullResolution) {
+    final resizeError = await _resizeToMaxDimension(output);
+    if (resizeError != null) {
+      return ScreenshotFailed(message: resizeError, warnings: warnings);
+    }
   }
 
   final sizeBytes = file.lengthSync();
-  stdout.writeln('SCREENSHOT_SAVED=$output');
-  stdout.writeln('SIZE=${_formatSize(sizeBytes)}');
-  return 0;
+  return ScreenshotSaved(
+    path: output,
+    sizeBytes: sizeBytes,
+    warnings: warnings,
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Platform dispatch
 // ---------------------------------------------------------------------------
 
-Future<int> _dispatchScreenshot({
+/// Returns null on success, an error message (without "ERROR: ") on failure.
+Future<String?> _dispatchScreenshot({
   required String platform,
   required bool emulator,
   required String? deviceId,
   required String output,
+  required List<String> warnings,
 }) async {
   if (platform.startsWith('android')) {
     return _captureAndroid(deviceId, output);
@@ -82,9 +128,7 @@ Future<int> _dispatchScreenshot({
   }
 
   if (platform.startsWith('ios') && !emulator) {
-    // Physical iOS: no native CLI screenshot tool available.
-    // Fall through to fdb_helper VM extension.
-    stderr.writeln(
+    warnings.add(
       'WARNING: No native screenshot tool for physical iOS.\n'
       '  Falling back to fdb_helper (Flutter surface only, no status bar).\n'
       '  Ensure your app includes fdb_helper and calls '
@@ -94,15 +138,15 @@ Future<int> _dispatchScreenshot({
   }
 
   if (platform.startsWith('darwin')) {
-    return _captureMacOs(output);
+    return _captureMacOs(output, warnings);
   }
 
   if (platform.startsWith('linux')) {
-    return _captureLinux(output);
+    return _captureLinux(output, warnings);
   }
 
   if (platform.startsWith('windows')) {
-    stderr.writeln(
+    warnings.add(
       'WARNING: No native screenshot CLI for Windows.\n'
       '  Falling back to fdb_helper (Flutter surface only, no window chrome).\n'
       '  Ensure your app includes fdb_helper and calls '
@@ -116,7 +160,7 @@ Future<int> _dispatchScreenshot({
   }
 
   // Unknown platform — try fdb_helper as last resort.
-  stderr.writeln(
+  warnings.add(
     'WARNING: Unsupported platform "$platform".\n'
     '  Attempting fdb_helper fallback.',
   );
@@ -124,12 +168,12 @@ Future<int> _dispatchScreenshot({
 }
 
 // ---------------------------------------------------------------------------
-// Legacy capture (no platform.txt — sessions before this change)
+// Legacy capture (no platform.txt — sessions before platform tracking)
 // ---------------------------------------------------------------------------
 
 /// Heuristic capture used when no platform file exists:
 /// checks adb for Android, otherwise assumes iOS simulator.
-Future<int> _legacyCapture(String output) async {
+Future<String?> _legacyCapture(String output, List<String> warnings) async {
   if (await _isAndroidConnected()) {
     return _captureAndroid(null, output);
   }
@@ -140,7 +184,7 @@ Future<int> _legacyCapture(String output) async {
 // Android
 // ---------------------------------------------------------------------------
 
-Future<int> _captureAndroid(String? deviceId, String output) async {
+Future<String?> _captureAndroid(String? deviceId, String output) async {
   try {
     final args = deviceId != null ? ['-s', deviceId] : <String>[];
     final result = await Process.run(
@@ -149,14 +193,12 @@ Future<int> _captureAndroid(String? deviceId, String output) async {
       stdoutEncoding: null,
     );
     if (result.exitCode != 0) {
-      stderr.writeln('ERROR: adb screencap failed: ${result.stderr}');
-      return 1;
+      return 'adb screencap failed: ${result.stderr}';
     }
     File(output).writeAsBytesSync(result.stdout as List<int>);
-    return 0;
+    return null;
   } catch (e) {
-    stderr.writeln('ERROR: Failed to run adb: $e');
-    return 1;
+    return 'Failed to run adb: $e';
   }
 }
 
@@ -164,10 +206,8 @@ Future<int> _captureAndroid(String? deviceId, String output) async {
 // iOS Simulator
 // ---------------------------------------------------------------------------
 
-Future<int> _captureIosSimulator(String? deviceId, String output) async {
+Future<String?> _captureIosSimulator(String? deviceId, String output) async {
   try {
-    // Use the stored device ID (simulator UDID) when available so we target
-    // the correct simulator even if multiple are booted.
     final target = deviceId ?? 'booted';
     final result = await Process.run('xcrun', [
       'simctl',
@@ -177,13 +217,11 @@ Future<int> _captureIosSimulator(String? deviceId, String output) async {
       output,
     ]);
     if (result.exitCode != 0) {
-      stderr.writeln('ERROR: xcrun simctl screenshot failed: ${result.stderr}');
-      return 1;
+      return 'xcrun simctl screenshot failed: ${result.stderr}';
     }
-    return 0;
+    return null;
   } catch (e) {
-    stderr.writeln('ERROR: Failed to run xcrun: $e');
-    return 1;
+    return 'Failed to run xcrun: $e';
   }
 }
 
@@ -193,22 +231,19 @@ Future<int> _captureIosSimulator(String? deviceId, String output) async {
 
 /// Captures the macOS Flutter app window using `screencapture -l <windowId>`.
 ///
-/// Looks up the window by walking the process tree rooted at the stored PID
-/// (the flutter run launcher PID). Falls back to fdb_helper if the window
-/// cannot be found or `screencapture` lacks Screen Recording permission.
-Future<int> _captureMacOs(String output) async {
+/// Looks up the window by walking the process tree rooted at the stored PID.
+/// Falls back to fdb_helper if the window cannot be found or `screencapture`
+/// lacks Screen Recording permission.
+Future<String?> _captureMacOs(String output, List<String> warnings) async {
   final pid = readPid();
   if (pid == null) {
-    stderr.writeln(
-      'ERROR: No PID in session — cannot locate macOS window. Re-launch the app.',
-    );
-    return 1;
+    return 'No PID in session — cannot locate macOS window. Re-launch the app.';
   }
 
   try {
     final windowId = await _macWindowId(pid);
     if (windowId == null) {
-      stderr.writeln(
+      warnings.add(
         'WARNING: Could not find macOS window for PID $pid.\n'
         '  Falling back to fdb_helper (Flutter surface only, no title bar).',
       );
@@ -222,29 +257,24 @@ Future<int> _captureMacOs(String output) async {
       output,
     ]);
     if (result.exitCode != 0) {
-      stderr.writeln(
+      warnings.add(
         'WARNING: screencapture failed — Screen Recording permission may be\n'
         '  required: System Settings > Privacy & Security > Screen Recording.\n'
         '  Falling back to fdb_helper (Flutter surface only, no title bar).',
       );
       return _captureViaFdbHelper(output);
     }
-    return 0;
+    return null;
   } on AppDiedException {
     rethrow;
   } catch (e) {
-    stderr.writeln('ERROR: macOS screenshot failed: $e');
-    return 1;
+    return 'macOS screenshot failed: $e';
   }
 }
 
 /// Returns the CGWindowID for the on-screen window owned by [pid] or any of
 /// its child processes.
-///
-/// `flutter run` (the stored PID) spawns the actual .app as a child, so we
-/// walk one level of the process tree via `pgrep -P`.
 Future<int?> _macWindowId(int pid) async {
-  // Collect stored PID plus immediate children.
   final pids = <int>[pid];
   try {
     final pg = await Process.run('pgrep', ['-P', '$pid']);
@@ -282,12 +312,12 @@ for w in list {
 ///
 /// On X11: uses `xdotool` + ImageMagick `import` to capture the window.
 /// On Wayland (or if xdotool is unavailable): falls back to fdb_helper.
-Future<int> _captureLinux(String output) async {
+Future<String?> _captureLinux(String output, List<String> warnings) async {
   final pid = readPid();
   if (pid != null) {
-    final result = await _captureLinuxNative(pid, output);
-    if (result == 0) return 0;
-    // -1 means native attempt failed — fall through to fdb_helper.
+    final ok = await _captureLinuxNative(pid, output);
+    if (ok) return null;
+    // native attempt failed — fall through to fdb_helper.
   }
 
   final reason = pid == null
@@ -296,7 +326,7 @@ Future<int> _captureLinux(String output) async {
           'supported on Wayland).\n'
           '  For X11: install xdotool and ImageMagick '
           '(e.g. sudo apt install xdotool imagemagick)';
-  stderr.writeln(
+  warnings.add(
     'WARNING: $reason.\n'
     '  Falling back to fdb_helper (Flutter surface only, no window chrome).\n'
     '  Ensure your app includes fdb_helper and calls '
@@ -306,8 +336,8 @@ Future<int> _captureLinux(String output) async {
 }
 
 /// Tries `xdotool search --pid` + `import -window` to capture the window.
-/// Returns 0 on success, -1 to signal the caller should try the fallback.
-Future<int> _captureLinuxNative(int pid, String output) async {
+/// Returns true on success, false to signal the caller should try the fallback.
+Future<bool> _captureLinuxNative(int pid, String output) async {
   try {
     final xdo = await Process.run('xdotool', [
       'search',
@@ -315,15 +345,15 @@ Future<int> _captureLinuxNative(int pid, String output) async {
       '--pid',
       '$pid',
     ]);
-    if (xdo.exitCode != 0) return -1;
+    if (xdo.exitCode != 0) return false;
 
     final windowId = (xdo.stdout as String).trim().split('\n').first.trim();
-    if (windowId.isEmpty) return -1;
+    if (windowId.isEmpty) return false;
 
     final imp = await Process.run('import', ['-window', windowId, output]);
-    return imp.exitCode == 0 ? 0 : -1;
+    return imp.exitCode == 0;
   } catch (_) {
-    return -1;
+    return false;
   }
 }
 
@@ -332,27 +362,22 @@ Future<int> _captureLinuxNative(int pid, String output) async {
 // ---------------------------------------------------------------------------
 
 /// Captures a Flutter Web app screenshot via CDP `Page.captureScreenshot`.
-///
-/// Requires the app to be running in Chrome with `--remote-debugging-port`
-/// set. fdb does not yet plumb the CDP port through session state, so this
-/// checks a fixed default port (9222) and the CHROME_CDP_PORT env variable.
-Future<int> _captureWeb(String output) async {
+Future<String?> _captureWeb(String output) async {
   final portStr = Platform.environment['CHROME_CDP_PORT'] ?? '9222';
   final port = int.tryParse(portStr) ?? 9222;
 
-  // Fetch the page list from the CDP HTTP endpoint.
   final String wsUrl;
   try {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
     try {
       final req = await client.getUrl(Uri.parse('http://localhost:$port/json'));
       final resp = await req.close().timeout(const Duration(seconds: 5));
-      final body = await resp.transform(utf8.decoder).join().timeout(const Duration(seconds: 5));
+      final body =
+          await resp.transform(utf8.decoder).join().timeout(const Duration(seconds: 5));
       final pages = jsonDecode(body) as List<dynamic>;
       if (pages.isEmpty) {
-        stderr.writeln('ERROR: No Chrome pages found on CDP port $port.\n'
-            '  Launch Chrome with --remote-debugging-port=$port.');
-        return 1;
+        return 'No Chrome pages found on CDP port $port.\n'
+            '  Launch Chrome with --remote-debugging-port=$port.';
       }
       final page = pages.firstWhere(
         (p) => (p as Map<String, dynamic>)['type'] == 'page',
@@ -360,19 +385,16 @@ Future<int> _captureWeb(String output) async {
       ) as Map<String, dynamic>;
       final url = page['webSocketDebuggerUrl'] as String?;
       if (url == null) {
-        stderr.writeln('ERROR: No WebSocket debugger URL in CDP page list.');
-        return 1;
+        return 'No WebSocket debugger URL in CDP page list.';
       }
       wsUrl = url;
     } finally {
       client.close();
     }
   } catch (e) {
-    stderr.writeln('ERROR: Could not connect to Chrome CDP on port $port: $e');
-    return 1;
+    return 'Could not connect to Chrome CDP on port $port: $e';
   }
 
-  // Capture via CDP Page.captureScreenshot.
   WebSocket? ws;
   StreamSubscription<dynamic>? subscription;
   try {
@@ -396,24 +418,21 @@ Future<int> _captureWeb(String output) async {
       },
     );
 
-    ws.add(jsonEncode(
-      {'id': 1, 'method': 'Page.captureScreenshot', 'params': {}},
-    ));
+    ws.add(jsonEncode({'id': 1, 'method': 'Page.captureScreenshot', 'params': {}}));
 
-    final response = await completer.future.timeout(const Duration(seconds: 10));
-    final data = (response['result'] as Map<String, dynamic>?)?['data'] as String?;
+    final response =
+        await completer.future.timeout(const Duration(seconds: 10));
+    final data =
+        (response['result'] as Map<String, dynamic>?)?['data'] as String?;
     if (data == null) {
-      stderr.writeln('ERROR: CDP screenshot returned no image data.');
-      return 1;
+      return 'CDP screenshot returned no image data.';
     }
     File(output).writeAsBytesSync(base64Decode(data));
-    return 0;
+    return null;
   } on TimeoutException {
-    stderr.writeln('ERROR: CDP screenshot timed out.');
-    return 1;
+    return 'CDP screenshot timed out.';
   } catch (e) {
-    stderr.writeln('ERROR: CDP screenshot failed: $e');
-    return 1;
+    return 'CDP screenshot failed: $e';
   } finally {
     await subscription?.cancel();
     await ws?.close();
@@ -424,31 +443,23 @@ Future<int> _captureWeb(String output) async {
 // fdb_helper VM extension fallback
 // ---------------------------------------------------------------------------
 
-/// Captures a screenshot via the `ext.fdb.screenshot` VM service extension
-/// registered by `fdb_helper`. Returns the PNG as base64 and writes it to
-/// [output].
+/// Captures a screenshot via the `ext.fdb.screenshot` VM service extension.
 ///
 /// Used when no native OS screenshot tool is available (physical iOS, Windows,
 /// Linux Wayland).
-Future<int> _captureViaFdbHelper(String output) async {
+Future<String?> _captureViaFdbHelper(String output) async {
   final vmUri = readVmUri();
   if (vmUri == null) {
-    stderr.writeln(
-      'ERROR: No VM service URI in session and no native screenshot tool '
-      'available.\n  Re-launch the app.',
-    );
-    return 1;
+    return 'No VM service URI in session and no native screenshot tool '
+        'available.\n  Re-launch the app.';
   }
 
   try {
     final isolateId = await checkFdbHelper();
     if (isolateId == null) {
-      stderr.writeln(
-        'ERROR: fdb_helper not found in the running app.\n'
-        '  Add fdb_helper to pubspec.yaml and call '
-        'FdbBinding.ensureInitialized() in main().',
-      );
-      return 1;
+      return 'fdb_helper not found in the running app.\n'
+          '  Add fdb_helper to pubspec.yaml and call '
+          'FdbBinding.ensureInitialized() in main().';
     }
 
     final response = await vmServiceCall(
@@ -458,24 +469,21 @@ Future<int> _captureViaFdbHelper(String output) async {
 
     final result = unwrapRawExtensionResult(response);
     if (result is Map && result.containsKey('error')) {
-      stderr.writeln('ERROR: fdb_helper screenshot: ${result['error']}');
-      return 1;
+      return 'fdb_helper screenshot: ${result['error']}';
     }
 
     final resultMap = result as Map<String, dynamic>?;
     final base64Data = resultMap?['screenshot'] as String?;
     if (base64Data == null) {
-      stderr.writeln('ERROR: No screenshot data in fdb_helper response.');
-      return 1;
+      return 'No screenshot data in fdb_helper response.';
     }
 
     File(output).writeAsBytesSync(base64Decode(base64Data));
-    return 0;
+    return null;
   } on AppDiedException {
     rethrow;
   } catch (e) {
-    stderr.writeln('ERROR: fdb_helper screenshot failed: $e');
-    return 1;
+    return 'fdb_helper screenshot failed: $e';
   }
 }
 
@@ -489,19 +497,15 @@ const _maxScreenshotDimension = 1200;
 /// [_maxScreenshotDimension] pixels, preserving aspect ratio, then
 /// re-encodes the PNG with level-6 compression.
 ///
-/// Uses the pure-Dart `image` package — no external tools, cross-platform.
-/// No-ops if the image already fits within the limit (still re-encodes for
-/// better compression than the raw capture output).
-/// Returns 0 on success, 1 on failure.
-Future<int> _resizeToMaxDimension(String path) async {
+/// Returns null on success, an error message on failure.
+Future<String?> _resizeToMaxDimension(String path) async {
   try {
     final file = File(path);
     final bytes = await file.readAsBytes();
 
     final src = img.decodePng(bytes);
     if (src == null) {
-      stderr.writeln('ERROR: Could not decode PNG for resizing');
-      return 1;
+      return 'Could not decode PNG for resizing';
     }
 
     final img.Image resized;
@@ -520,10 +524,9 @@ Future<int> _resizeToMaxDimension(String path) async {
 
     final encoded = img.encodePng(resized, level: 6);
     await file.writeAsBytes(encoded);
-    return 0;
+    return null;
   } catch (e) {
-    stderr.writeln('ERROR: Could not resize image: $e');
-    return 1;
+    return 'Could not resize image: $e';
   }
 }
 
@@ -539,10 +542,4 @@ Future<bool> _isAndroidConnected() async {
   } catch (_) {
     return false;
   }
-}
-
-String _formatSize(int bytes) {
-  if (bytes < 1024) return '${bytes}B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
 }

@@ -4,8 +4,8 @@ import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
 import 'package:fdb/commands/shared_prefs.dart';
-import 'package:fdb/commands/deeplink.dart';
-import 'package:fdb/commands/describe.dart';
+import 'package:fdb/cli/adapters/deeplink_cli.dart';
+import 'package:fdb/cli/adapters/describe_cli.dart';
 import 'package:fdb/cli/adapters/devices_cli.dart';
 import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/commands/double_tap.dart';
@@ -17,7 +17,7 @@ import 'package:fdb/commands/longpress.dart';
 import 'package:fdb/commands/logs.dart';
 import 'package:fdb/cli/adapters/reload_cli.dart';
 import 'package:fdb/cli/adapters/restart_cli.dart';
-import 'package:fdb/commands/screenshot.dart';
+import 'package:fdb/cli/adapters/screenshot_cli.dart';
 import 'package:fdb/commands/scroll.dart';
 import 'package:fdb/commands/scroll_to.dart';
 import 'package:fdb/cli/adapters/select_cli.dart';
@@ -25,9 +25,9 @@ import 'package:fdb/cli/adapters/selected_cli.dart';
 import 'package:fdb/cli/adapters/skill_cli.dart';
 import 'package:fdb/cli/adapters/status_cli.dart';
 import 'package:fdb/commands/swipe.dart';
-import 'package:fdb/commands/syslog.dart';
+import 'package:fdb/cli/adapters/syslog_cli.dart';
 import 'package:fdb/commands/tap.dart';
-import 'package:fdb/commands/tree.dart';
+import 'package:fdb/cli/adapters/tree_cli.dart';
 import 'package:fdb/commands/wait.dart';
 import 'package:fdb/constants.dart';
 
@@ -150,7 +150,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'devices':
       return runDevicesCli(args);
     case 'deeplink':
-      return runDeeplink(args);
+      return runDeeplinkCli(args);
     case 'launch':
       return runLaunch(args);
     case 'reload':
@@ -158,15 +158,15 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'restart':
       return runRestartCli(args);
     case 'screenshot':
-      return runScreenshot(args);
+      return runScreenshotCli(args);
     case 'logs':
       return runLogs(args);
     case 'syslog':
-      return runSyslog(args);
+      return runSyslogCli(args);
     case 'tree':
-      return runTree(args);
+      return runTreeCli(args);
     case 'describe':
-      return runDescribe(args);
+      return runDescribeCli(args);
     case 'doctor':
       return runDoctorCli(args);
     case 'native-tap':

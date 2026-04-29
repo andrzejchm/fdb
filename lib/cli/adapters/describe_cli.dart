@@ -1,60 +1,56 @@
 import 'dart:io';
 
+import 'package:args/args.dart';
+import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/core/commands/describe.dart';
 
-/// Returns a compact, text-based snapshot of the current screen.
+/// CLI adapter for `fdb describe`. Accepts no flags; emits a compact
+/// text snapshot of the current screen:
 ///
-/// Interactive elements are assigned stable refs (@1, @2, ...) that can be
-/// used directly with `fdb tap @N`.
-///
-/// Usage:
-///   fdb describe
-///   fdb describe --device `<id>`
-Future<int> runDescribe(List<String> args) async {
-  for (var i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--device':
-        // Device flag is consumed by the launcher; ignore here.
-        i++;
-    }
-  }
+/// ```
+///   SCREEN: <screen>                (if present)
+///   ROUTE: <route>                  (if present)
+///   <blank line>                    (if screen or route was printed)
+///   INTERACTIVE:                    (if interactive list non-empty)
+///     @N <type>[(gestures)] ["text"] [key=<key>]
+///   <blank line>
+///   VISIBLE TEXT:                   (if non-duplicate texts exist)
+///     "<text>"
+/// ```
+Future<int> runDescribeCli(List<String> args) =>
+    runCliAdapter(ArgParser(), args, _execute);
 
-  try {
-    final isolateId = await checkFdbHelper();
-    if (isolateId == null) {
+Future<int> _execute(ArgResults _) async {
+  final result = await describeScreen(());
+  return _format(result);
+}
+
+int _format(DescribeResult result) {
+  switch (result) {
+    case DescribeSuccess(:final raw):
+      _printDescribeOutput(raw);
+      return 0;
+    case DescribeNoFdbHelper():
       stderr.writeln(
         'ERROR: fdb_helper not detected in running app. '
         'Add fdb_helper package to your Flutter app and call '
         'FdbBinding.ensureInitialized() in main()',
       );
       return 1;
-    }
-
-    final response = await vmServiceCall(
-      'ext.fdb.describe',
-      params: {'isolateId': isolateId},
-    );
-    final result = unwrapRawExtensionResult(response);
-
-    if (result is! Map<String, dynamic>) {
+    case DescribeUnexpectedResponse():
       stderr.writeln('ERROR: Unexpected response from ext.fdb.describe');
       return 1;
-    }
-
-    final error = result['error'] as String?;
-    if (error != null) {
-      stderr.writeln('ERROR: $error');
+    case DescribeRelayedError(:final message):
+      stderr.writeln('ERROR: $message');
       return 1;
-    }
-
-    _printDescribeOutput(result);
-    return 0;
-  } on AppDiedException {
-    rethrow;
-  } catch (e) {
-    stderr.writeln('ERROR: $e');
-    return 1;
+    case DescribeAppDied(:final logLines, :final reason):
+      // Reconstruct and rethrow so bin/fdb.dart's existing _formatAppDied
+      // handler produces the byte-identical output.
+      throw AppDiedException(logLines: logLines, reason: reason);
+    case DescribeError(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
   }
 }
 
