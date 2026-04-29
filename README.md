@@ -146,6 +146,34 @@ fdb kill
 | `fdb shared-prefs get\|get-all\|set\|remove\|clear` | Read/write SharedPreferences |
 | `fdb clean` | Clear app cache and data directories |
 
+**VM service extensions**
+
+| Command | Description |
+|---------|-------------|
+| `fdb ext list` | List all registered `ext.*` VM service extensions across isolates, sorted and deduplicated |
+| `fdb ext call <method> [--arg key=value ...]` | Invoke a VM service extension and print the JSON result |
+
+```bash
+# Discover what debug hooks are registered in the running app
+fdb ext list
+# ext.dart.io.getOpenFiles
+# ext.flutter.debugPaint
+# ext.flutter.imageCache.clear
+# ext.flutter.imageCache.size
+# ext.flutter.platformOverride
+# ext.myapp.clearAuthCache
+# ext.myapp.dumpRouterStack
+
+# Get image cache stats
+fdb ext call ext.flutter.imageCache.size
+
+# Switch platform overlay to iOS
+fdb ext call ext.flutter.platformOverride --arg value=iOS
+
+# Invoke an app-specific extension that collects leak reports (see fdb #46)
+fdb ext call ext.flutter.collectLeaks
+```
+
 **Utility**
 
 | Command | Description |

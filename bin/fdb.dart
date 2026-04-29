@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
+import 'package:fdb/cli/adapters/ext_cli.dart';
 import 'package:fdb/cli/adapters/shared_prefs_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
@@ -65,6 +66,7 @@ Commands:
   back        Navigate back (Navigator.maybePop)
   clean       Clear app cache and data directories (requires fdb_helper)
   shared-prefs get|get-all|set|remove|clear SharedPreferences (requires fdb_helper)
+  ext         list|call VM service extensions registered by the running app
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   status      Check if the app is running
@@ -197,6 +199,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runCleanCli(args);
     case 'shared-prefs':
       return runSharedPrefsCli(args);
+    case 'ext':
+      return runExtCli(args);
     case 'select':
       return runSelectCli(args);
     case 'selected':
