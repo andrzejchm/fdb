@@ -1,197 +1,78 @@
 # Code Style
 
-Rules for writing Dart code in the fdb codebase.
-
-## Contents
-- Imports
-- Naming Conventions
-- Formatting
-- Dart 3.x Features
-- Types
-- Architecture
-- Error Handling
-- Doc Comments
-- Adding a New Command
+Rules for fdb's Dart codebase. For the layered architecture overview, see [`AGENTS.md`](AGENTS.md). For a worked example of adding a new command, see [`doc/adding-a-command.md`](doc/adding-a-command.md).
 
 ## Imports
 
-1. `dart:` SDK imports first, sorted alphabetically.
-2. Blank line.
-3. `package:fdb/...` imports, sorted alphabetically.
-4. Do not add new third-party packages to `packages/fdb_helper/pubspec.yaml` under `dependencies:` unless the developer has explicitly approved it AND it is mandatory to implement the given feature. Dev dependencies in `fdb_helper` and any dependencies in the `fdb` CLI are not subject to this restriction.
+- `dart:` first, blank line, `package:fdb/...` next, both alphabetised.
+- `lib/core/**` MUST NOT import `package:args/...` or `package:fdb/cli/...`.
+- `lib/cli/adapters/<name>_cli.dart` MUST import `package:fdb/core/commands/<name>.dart`.
+- `bin/fdb.dart` imports CLI adapters only.
+- Do NOT add new dependencies to `packages/fdb_helper/pubspec.yaml` without explicit approval.
 
-```dart
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+## Naming
 
-import 'package:fdb/constants.dart';
-import 'package:fdb/core/process_utils.dart';
-```
-
-### Layered import rules (enforced by convention)
-
-- `lib/core/**` files MUST NOT import `package:args/...` or anything under `lib/cli/...`.
-  Core is interface-agnostic: it knows nothing about CLI argument parsing or stdout/stderr token formatting.
-- `lib/cli/adapters/<name>_cli.dart` MUST import the corresponding `lib/core/commands/<name>.dart`
-  and translate sealed `*Result` cases into stdout/stderr writes.
-- `bin/fdb.dart` imports CLI adapters only (never `lib/core/...` directly).
-
-## Naming Conventions
-
-| Element                | Convention      | Example                        |
-|------------------------|-----------------|--------------------------------|
-| Files                  | `snake_case`    | `process_utils.dart`           |
-| Top-level functions    | `camelCase`     | `tapWidget`, `readPid`         |
-| Private functions      | `_camelCase`    | `_extractVmUri`, `_isAlive`    |
-| Constants              | `camelCase`     | `pidFile`, `launchTimeoutSeconds` |
-| Variables              | `camelCase`     | `vmUri`, `launcherPid`         |
-| Core command function  | verb            | `tapWidget`, `killApp`, `reloadApp` |
-| Core input typedef     | `<Cmd>Input`    | `TapInput`, `KillInput`        |
-| Core sealed result     | `<Cmd>Result`   | `TapResult`, `KillResult`      |
-| Core result variants   | `<Cmd><Outcome>`| `TapSuccess`, `KillNoSession`  |
-| CLI adapter entry point| `run<Cmd>Cli`   | `runTapCli`, `runKillCli`      |
+| Element                | Convention      | Example                            |
+|------------------------|-----------------|------------------------------------|
+| Files                  | `snake_case`    | `process_utils.dart`               |
+| Top-level functions    | `camelCase`     | `tapWidget`, `readPid`             |
+| Private functions      | `_camelCase`    | `_extractVmUri`                    |
+| Constants              | `camelCase`     | `pidFile`, `launchTimeoutSeconds`  |
+| Core verb function     | verb            | `tapWidget`, `killApp`             |
+| Core input typedef     | `<Cmd>Input`    | `TapInput`, `KillInput`            |
+| Core sealed result     | `<Cmd>Result`   | `TapResult`                        |
+| Result variants        | `<Cmd><Outcome>`| `TapSuccess`, `KillNoSession`      |
+| CLI adapter entry      | `run<Cmd>Cli`   | `runTapCli`                        |
 
 ## Formatting
 
-- 2-space indentation (Dart default).
-- Single quotes for strings.
-- Trailing commas on multi-line parameter lists.
-- String interpolation: `'$variable'` / `'${expression}'`.
-- `final` for all local variables that are not reassigned.
-- `var` only when the variable is reassigned later.
-- `const` for compile-time constants (top-level and in constructors).
-
-## Dart 3.x Features
-
-- Sealed classes for command results — exhaustive pattern matching at every adapter:
-  ```dart
-  sealed class KillResult { const KillResult(); }
-  class KillSuccess extends KillResult { const KillSuccess(); }
-  class KillNoSession extends KillResult { const KillNoSession(); }
-  class KillFailed extends KillResult { const KillFailed(); }
-  ```
-- Switch expressions on sealed types (compile-time exhaustiveness):
-  ```dart
-  switch (result) {
-    case KillSuccess(): stdout.writeln('APP_KILLED');
-    case KillNoSession(): stderr.writeln('ERROR: No PID file found.');
-    case KillFailed(): stderr.writeln('KILL_FAILED');
-  }
-  ```
-- Records for typed inputs: `typedef KillInput = ();` or `typedef TapInput = ({String? text, String? key, ...});`
-- Collection `if` / spread: `if (flavor != null) ...['--flavor', flavor]`
-- Type casts with `as` on JSON maps: `response['result'] as Map<String, dynamic>?`
-
-## Types
-
-- Use explicit types for function signatures and return types.
-- Use `var` / `final` for local variable inference when the type is obvious.
-- JSON values are typed as `Map<String, dynamic>` or `List<dynamic>`.
-- Nullable types with `?` — always null-check before use.
+- 2-space indent. Single quotes. Trailing commas on multi-line params.
+- `final` for non-reassigned locals; `var` only when reassigned; `const` for compile-time constants.
 
 ## Architecture
 
-The codebase has two layers: a **core** layer (interface-agnostic business logic) and a **CLI adapter** layer (argument parsing + token formatting). The split is enforced by directory convention.
+Two layers, enforced by directory:
 
-```
-lib/
-  core/                            # Interface-agnostic business logic
-    commands/<name>.dart           # runXxx(<Name>Input) → <Name>Result (sealed)
-    models/command_result.dart     # Marker base for sealed result hierarchies
-    app_died_exception.dart        # Domain exception (used by VM service)
-    process_utils.dart             # Shared I/O helpers (PID files, etc.)
-    vm_service.dart                # WebSocket VM service client
-    vm_lifecycle_events.dart
-    launch_failure_analyzer.dart
-  cli/                             # CLI adapter — translates results to UPPER_SNAKE_CASE tokens
-    adapters/<name>_cli.dart       # runXxxCli(args) — ArgParser + format
-    args_helpers.dart              # runCliAdapter, runSimpleCliAdapter, parseXY
-  constants.dart                   # File paths, timeouts (used by both layers)
-bin/
-  fdb.dart                         # Dispatcher — wires command names to runXxxCli
-```
+- `lib/core/**` — interface-agnostic. No `dart:io` writes to stdout/stderr. No `package:args`. Functions take typed inputs (records) and return sealed `<Cmd>Result` hierarchies. Never throw across the public API — catch and translate to a result variant. `AppDiedException` is the one allowed re-throw (dispatcher has special handling).
+- `lib/cli/**` — translates results to UPPER_SNAKE_CASE stdout tokens and `ERROR:` stderr lines. Owns `package:args`. Cross-flag validation lives here, not in core.
 
-### Core layer rules
+Each command file exports: `<Cmd>Input` typedef + sealed `<Cmd>Result` + `Future<<Cmd>Result> verb<Cmd>(<Cmd>Input)`.
 
-- **No classes for behavior.** Sealed classes for command results AND data-only abstract base classes for sealed hierarchies are permitted — they carry no behavior, just typed data shapes.
-- **No `dart:io` write to stdout/stderr.** Core never prints. Errors and outcomes flow back via the sealed result type.
-- **No throws across the public API.** `runXxx` catches every exception and translates to a result variant. Domain exceptions like `AppDiedException` may be re-thrown in narrow scenarios where the dispatcher has special handling.
-- **No `package:args` import.** ArgParser is a CLI concern.
-- Each command file exports: a `<Name>Input` typedef (record), a sealed `<Name>Result` hierarchy, and a `Future<<Name>Result> <verbName>(<Name>Input input)` function.
+## CLI rules
 
-### CLI adapter rules
+- Use `runCliAdapter(parser, args, execute)` from `lib/cli/args_helpers.dart`. It handles `--help`/`-h` and `FormatException`. Adapters do NOT declare a `--help` flag themselves.
+- Required options: explicit `if (results.option('x') == null) { stderr.writeln('ERROR: --x is required'); return 1; }`. NOT `mandatory: true` — preserves verbatim error wording.
+- Use `runSimpleCliAdapter` for commands with no flags (only positional args).
 
-- Each adapter file exports `Future<int> run<Cmd>Cli(List<String> args)`.
-- Build an `ArgParser`, parse via `runCliAdapter` (which handles `--help` + `FormatException`), call the corresponding core function, pattern-match the sealed result, write tokens.
-- Cross-flag validation (mutually exclusive, "exactly one of") happens in the adapter, NOT core.
-- Required-option validation: explicit null-check on `results.option('name')`, NOT `mandatory: true`. Preserves verbatim `ERROR: --x is required` wording.
-- The CLI adapter is the only layer that writes to stdout/stderr.
+## Output tokens
 
-## Error Handling
+- stdout: UPPER_SNAKE_CASE machine-readable tokens (`APP_STARTED`, `TAPPED=<type> X=<x> Y=<y>`, `RELOADED in <ms>ms`).
+- stderr: `ERROR: <message>` for failures; `WARNING: <message>` for non-fatal issues.
+- AI agents grep for these — preserve byte-identically across refactors. Smoke tests in `Taskfile.yml` assert the exact strings.
 
-- Every command function returns `Future<int>` — `0` for success, `1` for failure.
-- Errors go to `stderr` prefixed with `ERROR: `:
-  ```dart
-  stderr.writeln('ERROR: No PID file found. Is the app running?');
-  return 1;
-  ```
-- Machine-readable status tokens go to `stdout` in `UPPER_SNAKE_CASE`:
-  `APP_STARTED`, `APP_KILLED`, `RELOADED`, `SCREENSHOT_SAVED=<path>`.
-- Key=value pairs on stdout for structured output: `PID=12345`, `VM_SERVICE_URI=ws://...`.
-- `catch (_)` only for non-critical failures where the error value is irrelevant
-  (e.g., checking if a process is still alive).
-- `StateError` for missing preconditions (VM service URI not found).
-- `TimeoutException` is caught and rethrown — never swallowed.
-- Null-check every external data read (files, JSON fields, process output).
-- The top-level `main` in `bin/fdb.dart` has a catch-all that writes to stderr
-  and exits with code 1.
+## Error handling
 
-## Doc Comments
+- Every CLI adapter returns `Future<int>` — 0 success, 1 failure.
+- Catch `FormatException` is centralised in `runCliAdapter`. Don't catch it per-command.
+- `catch (_)` only for genuinely non-critical failures (e.g., probing process liveness).
+- Null-check every external read (files, JSON fields, process output).
+- `bin/fdb.dart` has a top-level catch-all for unexpected exceptions.
 
-- Use `///` doc comments on public functions that are non-trivial.
-- Skip doc comments on simple command entry points where the name is self-explanatory.
-- Inline `//` comments for non-obvious logic.
+## Doc comments
 
-## Adding a New Command
+- `///` on non-trivial public functions only.
+- Avoid `<angle brackets>` in doc comments — wrap in backticks (`` `like this` ``) to avoid `unintended_html_in_doc_comment` lints.
 
-1. **Core**: Create `lib/core/commands/your_command.dart`:
-   - `typedef YourCommandInput = ({...});` (or `()` if no input)
-   - `sealed class YourCommandResult extends CommandResult { const YourCommandResult(); }` plus one variant per distinct outcome
-   - `Future<YourCommandResult> yourCommandVerb(YourCommandInput input)` — pure logic, no stdio, no throws (catch and translate to a result variant)
+## Adding a new command
 
-2. **CLI adapter**: Create `lib/cli/adapters/your_command_cli.dart`:
-   - Import `package:args/args.dart` and `package:fdb/cli/args_helpers.dart`
-   - `Future<int> runYourCommandCli(List<String> args) => runCliAdapter(_buildParser(), args, _execute)`
-   - `_buildParser()` declares all options (no `--help` — `runCliAdapter` handles that)
-   - `_execute(ArgResults)`: cross-flag validation, build the typed input, call the core function, pattern-match the sealed result, write tokens, return exit code
+1. Create `lib/core/commands/<name>.dart`: input typedef + sealed result + verb function.
+2. Create `lib/cli/adapters/<name>_cli.dart`: ArgParser + `runCliAdapter` + result→token formatting.
+3. Add the `case` in `bin/fdb.dart:_runCommand` calling `run<Name>Cli`.
+4. Add the command to the `usage` string in `bin/fdb.dart`.
+5. Update the commands table in `README.md`.
 
-3. **Dispatcher**: Add the case to `bin/fdb.dart:_runCommand` calling `runYourCommandCli`.
+For a full worked example, see [`doc/adding-a-command.md`](doc/adding-a-command.md).
 
-4. **Usage**: Add the command to the `usage` string in `bin/fdb.dart`.
+## fdb_helper
 
-5. **Docs**: Update `README.md` commands table.
-
-### Tokens
-
-- Machine-readable status tokens to `stdout`, UPPER_SNAKE_CASE:
-  `APP_STARTED`, `APP_KILLED`, `RELOADED in <ms>ms`, `SCREENSHOT_SAVED=<path>`.
-- Errors to `stderr` prefixed with `ERROR: `:
-  ```dart
-  stderr.writeln('ERROR: No PID file found. Is the app running?');
-  return 1;
-  ```
-- Key=value pairs on stdout for structured output: `PID=12345`, `VM_SERVICE_URI=ws://...`.
-- AI agents grep for these tokens — preserve byte-identically across refactors.
-
-## fdb_helper architecture
-
-`packages/fdb_helper/` is a Flutter package that runs inside the target app and exposes VM service extensions. It has its own architecture rules — see [`packages/fdb_helper/AGENTS.md`](packages/fdb_helper/AGENTS.md) for full details.
-
-**Key rules (never violate these):**
-
-- `fdb_binding.dart` is **registration-only** — no handler logic, no imports of `dart:io`, `dart:ui`, `path_provider`, or `shared_preferences`. It only calls `_registerExtension(...)`.
-- Every VM service extension lives in its own file under `lib/src/handlers/`. The file exports exactly **one public function** `handleXxx(String method, Map<String, String> params)`.
-- **No classes** in handler files — top-level functions only.
-- Shared helpers (`errorResponse`, `findHittableElement`, `dispatchTap`, etc.) live in the existing `src/` utility files — not in the binding, not duplicated across handlers.
-- Adding a new extension means: create `handlers/your_handler.dart`, add one `_registerExtension` line to `fdb_binding.dart`. Nothing else changes in the binding.
+`packages/fdb_helper/` has its own conventions — see [`packages/fdb_helper/AGENTS.md`](packages/fdb_helper/AGENTS.md).
