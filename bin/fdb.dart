@@ -10,7 +10,7 @@ import 'package:fdb/commands/devices.dart';
 import 'package:fdb/commands/doctor.dart';
 import 'package:fdb/commands/double_tap.dart';
 import 'package:fdb/commands/input.dart';
-import 'package:fdb/commands/kill.dart';
+import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/commands/launch.dart';
 import 'package:fdb/commands/native_tap.dart';
 import 'package:fdb/commands/longpress.dart';
@@ -115,8 +115,11 @@ Future<void> main(List<String> args) async {
 
   // Resolve session directory.
   // `launch` manages its own session dir via --project; skip auto-resolution.
+  // `--help` / `-h` is also session-agnostic — adapters print parser.usage
+  // without needing a session.
   // All other commands benefit from walking up to find an active .fdb/.
-  if (command != 'launch' && command != 'devices' && command != 'skill') {
+  final wantsHelp = commandArgs.contains('--help') || commandArgs.contains('-h');
+  if (command != 'launch' && command != 'devices' && command != 'skill' && !wantsHelp) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);
     } else {
@@ -197,7 +200,7 @@ Future<int> _runCommand(String command, List<String> args) {
     case 'status':
       return runStatus(args);
     case 'kill':
-      return runKill(args);
+      return runKillCli(args);
     case 'skill':
       return runSkill(args);
     default:
