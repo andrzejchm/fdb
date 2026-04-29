@@ -107,7 +107,7 @@ Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async 
 /// most modern iPhones share that resolution, and the IndigoHID xRatio/yRatio
 /// normalisation is forgiving of small mismatches.
 Future<(double, double)> _simulatorScreenSize(String? deviceId) async {
-  const fallback = (393.0, 852.0); // iPhone 17 Pro default
+  const fallback = (393.0, 852.0); // iPhone 16 / 17 default (non-Pro)
   try {
     final result = await Process.run('xcrun', ['simctl', 'list', 'devices', '--json']);
     if (result.exitCode != 0) return fallback;
@@ -135,7 +135,7 @@ Future<(double, double)> _simulatorScreenSize(String? deviceId) async {
   // Common logical point sizes by device name fragment
   const sizes = <String, (double, double)>{
     'iPhone 17 Pro Max': (440.0, 956.0),
-    'iPhone 17 Pro': (393.0, 852.0),
+    'iPhone 17 Pro': (402.0, 874.0),
     'iPhone 17 Plus': (430.0, 932.0),
     'iPhone 17': (393.0, 852.0),
     'iPhone Air': (393.0, 852.0),

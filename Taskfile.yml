@@ -1558,13 +1558,15 @@ tasks:
           echo "$ALERT_TAP"
           sleep 1
 
-          # The alert is centered; Confirm is right half. Use a reasonable center
-          # based on common iPhone widths (~390-430 logical points).
-          # Alert is roughly at y=470-510 on a 14/15/16/17 Pro.
-          # Confirm button center is around x=270, y=488 on iPhone 17 Pro / 14 Pro.
+          # The alert is centered; Confirm is right half. Use coordinates measured
+          # from a full-resolution simctl screenshot on the target device.
+          # iPhone 17 Pro logical resolution is 402×874 pts (3x scale, 1206×2622 px).
+          # UIAlertController button row: y≈508; Confirm center: x≈285.
+          # Previously 269,488 was wrong because the code mapped iPhone 17 Pro to
+          # 393×852 (iPhone 16's size) instead of 402×874.
           echo "==> [native-view-tap] Tap Confirm button via --at"
           set +e
-          TAP_OUTPUT=$({{.FDB}} tap --at 269,488 2>&1)
+          TAP_OUTPUT=$({{.FDB}} tap --at 285,508 2>&1)
           TAP_EXIT=$?
           set -e
           echo "$TAP_OUTPUT"
