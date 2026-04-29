@@ -1809,7 +1809,7 @@ tasks:
 
         echo "==> [native-view-tap] Tap WebView button via --at (native injection)"
         set +e
-        TAP_OUTPUT=$({{.FDB}} tap --at $TAP_X,$TAP_Y 2>&1)
+        TAP_OUTPUT=$({{.FDB}} tap --at "$TAP_X,$TAP_Y" 2>&1)
         TAP_EXIT=$?
         set -e
         echo "$TAP_OUTPUT"
