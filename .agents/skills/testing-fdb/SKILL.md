@@ -63,6 +63,7 @@ task test:tap-at
 task test:input
 task test:scroll
 task test:scroll-to
+task test:mem
 task test:wait
 task test:swipe
 task test:back

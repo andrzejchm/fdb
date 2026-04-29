@@ -369,6 +369,56 @@ Output of `fdb ext call`: pretty-printed JSON returned by the extension.
 
 Use `fdb ext list` to discover what debug hooks a Flutter app has registered, then `fdb ext call` to invoke them. Works on any platform the VM service supports (macOS, iOS, Android). Does not require `fdb_helper`.
 
+### Heap memory inspection
+
+No `fdb_helper` required — pure VM service, works on any platform fdb supports.
+
+```bash
+fdb mem                              # per-isolate heap totals (human-readable table)
+fdb mem --json                       # same, machine-readable JSON
+
+fdb mem profile --output before.json # capture allocation profile to file
+fdb mem profile --output before.json --isolate isolates/123  # specific isolate
+fdb mem profile --output before.json --all-isolates          # one file per isolate
+
+fdb mem diff before.json after.json           # top 20 classes by instance count delta
+fdb mem diff before.json after.json --all     # all changed classes
+fdb mem diff before.json after.json --sort bytes  # sort by byte delta instead
+fdb mem diff before.json after.json --json    # machine-readable JSON
+```
+
+`fdb mem` output:
+```
+isolate                          heapUsage    external    capacity
+------------------------------------------------------------------
+main                               81.0 MB      5.5 KB     89.5 MB
+------------------------------------------------------------------
+TOTAL                              81.0 MB      5.5 KB     89.5 MB
+```
+
+`fdb mem profile` output (one line per key):
+```
+MEM_PROFILE_SAVED=/tmp/before.json
+CLASSES=6405
+ISOLATE=main
+```
+
+`fdb mem diff` output:
+```
+Top 3 changed classes (by instance count delta):
+   +12  ProductPageBloc                           12 -> 24
+   +12  StreamSubscriptionImpl<Product>           47 -> 59
+    +8  _ProductImageState                         4 -> 12
+```
+
+Leak-hunting workflow:
+```bash
+fdb mem profile --output /tmp/before.json
+# ... navigate, trigger suspected leak ...
+fdb mem profile --output /tmp/after.json
+fdb mem diff /tmp/before.json /tmp/after.json
+```
+
 ### Status / Kill
 
 ```bash

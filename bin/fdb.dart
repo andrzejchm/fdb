@@ -13,6 +13,7 @@ import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
 import 'package:fdb/cli/adapters/logs_cli.dart';
 import 'package:fdb/cli/adapters/longpress_cli.dart';
+import 'package:fdb/cli/adapters/mem_cli.dart';
 import 'package:fdb/cli/adapters/native_tap_cli.dart';
 import 'package:fdb/cli/adapters/reload_cli.dart';
 import 'package:fdb/cli/adapters/restart_cli.dart';
@@ -69,6 +70,7 @@ Commands:
   ext         list|call VM service extensions registered by the running app
   select      Toggle widget selection mode
   selected    Get the currently selected widget
+  mem         Inspect heap usage; subcommands: profile, diff
   status      Check if the app is running
   kill        Stop the running app
   skill       Print the AI agent skill file (SKILL.md)
@@ -121,11 +123,13 @@ Future<void> main(List<String> args) async {
   // without needing a session.
   // All other commands benefit from walking up to find an active .fdb/.
   final wantsHelp = commandArgs.contains('--help') || commandArgs.contains('-h');
+  // `fdb mem diff` is pure file I/O — no VM connection required.
+  final isMemDiff = command == 'mem' && commandArgs.isNotEmpty && commandArgs[0] == 'diff';
   // Commands that manage their own session dir or must run even on unhealthy sessions.
   const sessionResolutionExempt = {'launch', 'devices', 'skill'};
   // Commands that run against a potentially dead/missing session (soft-fail on null).
   const sessionSoftFail = {'status', 'doctor'};
-  if (!sessionResolutionExempt.contains(command) && !wantsHelp) {
+  if (!sessionResolutionExempt.contains(command) && !wantsHelp && !isMemDiff) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);
     } else {
@@ -209,6 +213,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runStatusCli(args);
     case 'kill':
       return runKillCli(args);
+    case 'mem':
+      return runMemCli(args);
     case 'skill':
       return runSkillCli(args);
     default:

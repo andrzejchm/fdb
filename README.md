@@ -174,6 +174,19 @@ fdb ext call ext.flutter.platformOverride --arg value=iOS
 fdb ext call ext.flutter.collectLeaks
 ```
 
+**Memory & heap** *(pure VM service — no `fdb_helper` needed)*
+
+| Command | Description |
+|---------|-------------|
+| `fdb mem [--json]` | Per-isolate heap totals (usage, external, capacity) |
+| `fdb mem profile --output <file> [--isolate <id>] [--all-isolates]` | Capture a full allocation profile to a JSON file |
+| `fdb mem diff <before.json> <after.json> [--sort count\|bytes] [--top N] [--all] [--json]` | Show classes that grew between two profiles |
+
+**Three-tier heap workflow:**
+1. `fdb mem` — inspect live per-isolate heap state (usage, external, capacity) to get a quick health check.
+2. `fdb mem profile --output before.json` — capture a full allocation-profile snapshot as a baseline before exercising the feature under test.
+3. `fdb mem profile --output after.json` followed by `fdb mem diff before.json after.json` — compare the two snapshots to see exactly which classes grew in instance count or byte size.
+
 **Utility**
 
 | Command | Description |

@@ -7,23 +7,23 @@ metadata:
 
 ## Workflow checklist
 
-Copy and track progress for each feature:
+Copy this into `mcp_Todowrite` at the start of every feature session and tick off each item as you go:
 
 ```
 Capture:
-- [ ] If starting from chat: create a GitHub issue first (Step 1a)
-- [ ] If starting from an issue: read it in full and claim it (Step 1b)
+- [ ] Read issue in full and claim it (bd update <id> --claim)
 
 Setup:
-- [ ] Create a worktree: mcp_Git-worktree create <feature-name> main fetch=true
+- [ ] Create worktree (mcp_Git-worktree create <name> main)
 - [ ] Run task setup in the worktree
 
 Implementation:
-- [ ] Core verb: lib/core/commands/<name>/<name>.dart + lib/core/commands/<name>/<name>_models.dart
-- [ ] CLI adapter: lib/cli/adapters/<name>_cli.dart (runXxxCli pattern)
-- [ ] Register in bin/fdb.dart (case + usage string)
-- [ ] fdb_helper handler: packages/fdb_helper/lib/src/handlers/<name>_handler.dart
-- [ ] Register in fdb_binding.dart (one _registerExtension line)
+- [ ] Core models: lib/core/commands/<name>/<name>_models.dart
+- [ ] Core verb:   lib/core/commands/<name>/<name>.dart
+- [ ] CLI adapter: lib/cli/adapters/<name>_cli.dart
+- [ ] Register case + usage string in bin/fdb.dart
+- [ ] fdb_helper handler (if needed): packages/fdb_helper/lib/src/handlers/<name>_handler.dart
+- [ ] Register in fdb_binding.dart (if handler added)
 - [ ] Test app changes in example/test_app/lib/main.dart (if needed)
 
 Taskfile tests:
@@ -31,33 +31,36 @@ Taskfile tests:
 - [ ] Task added to smoke sequence
 - [ ] task analyze passes (dart analyze + dart format + flutter analyze)
 
-Docs (see Step 3 for full list):
-- [ ] README.md, doc/README.agents.md, testing-fdb/SKILL.md updated
+Docs:
+- [ ] README.md — commands table
+- [ ] .agents/skills/testing-fdb/SKILL.md — individual test list
+- [ ] skills/using-fdb/SKILL.md — usage examples
 
-Manual platform tests (ALL mandatory before PR):
-- [ ] macOS — all scenarios pass, screenshots confirm correct behavior
-- [ ] Android physical — all scenarios pass, screenshots confirm
-- [ ] iOS simulator — all scenarios pass, screenshots confirm
-- [ ] Full smoke suite passes: `task smoke` (Android)
+Platform tests (ALL mandatory before PR):
+- [ ] macOS — task test:<command> passes
+- [ ] Android physical — task test:<command> passes
+- [ ] iOS simulator — task test:<command> passes
+- [ ] Full smoke suite: task smoke (Android)
 
 Review loop (delegated):
-- [ ] Spawn review-fixing-loop agent on the worktree
-- [ ] All findings resolved or triaged, loop converges
+- [ ] Spawn reviewing-fixing-loop agent
+- [ ] All findings resolved or triaged
 
 Checks (delegated):
-- [ ] Spawn checks agent: dart analyze + flutter analyze + dart format
+- [ ] Spawn checks agent (dart analyze + flutter analyze + dart format)
 - [ ] All clean
 
-Beads:
-- [ ] bd close <id> for the implemented issue
-- [ ] issues.jsonl copied from repo root into worktree and committed (worktree rule — see managing-beads skill)
-
 PR:
+- [ ] Load humanizing-ai-text skill before writing PR body
+- [ ] Load managing-pr-descriptions-global skill
 - [ ] Push branch
-- [ ] CI green
-- [ ] PR opened following managing-pr-descriptions skill
-- [ ] bd close <id> run on the feature branch; issues.jsonl committed on that same branch
-- [ ] Worktree removed after merge
+- [ ] Open PR (gh pr create)
+- [ ] CI green (gh pr checks --watch)
+
+Merge:
+- [ ] bd close <id> + copy issues.jsonl into worktree + commit + push
+- [ ] gh pr merge --squash --delete-branch
+- [ ] Remove worktree (mcp_Git-worktree remove <name>)
 ```
 
 ---
@@ -66,15 +69,7 @@ PR:
 
 ### 1a — Starting from a chat pitch (no issue yet)
 
-When the user describes a feature in conversation rather than pointing at an issue, **create the GitHub issue before touching any code**. A good issue is the contract the implementation is held to.
-
-The issue must include:
-- **Problem** — what agents/users cannot do today
-- **CLI interface** — exact command, flags, and usage examples
-- **Output tokens** — exact stdout tokens (`THING=value`) and stderr error format
-- **Implementation notes** — which files to create/modify, which existing utilities to reuse
-- **Test app changes** — any new widget needed in `example/test_app/lib/main.dart`
-- **Acceptance criteria** — numbered checkboxes, one per testable behaviour
+Create the GitHub issue before touching any code:
 
 ```bash
 gh issue create \
@@ -83,93 +78,77 @@ gh issue create \
   --repo andrzejchm/fdb
 ```
 
-Only proceed to Step 2 after the issue is created. Reference it throughout as the source of truth.
+Issue must include: problem statement, exact CLI interface + flags, stdout output tokens (`THING=value`), stderr error format, implementation notes, test app widget changes (if any), acceptance criteria checkboxes.
+
+Only proceed to Step 2 after the issue is created.
 
 ### 1b — Starting from an existing issue
 
-Read the full issue and claim it before writing any code:
 ```bash
 gh issue view <number> --repo andrzejchm/fdb
 bd update <id> --claim
 ```
 
-The issue contains acceptance criteria, CLI interface, output token format, implementation notes, and Taskfile test scenarios. Do not deviate from the specified output tokens or CLI flags without updating the issue first.
+Do not deviate from the specified output tokens or CLI flags without updating the issue first.
 
 ---
 
 ## Step 2 — Create a worktree
 
-Never work on `main` directly. Use a dedicated worktree:
-
 ```bash
 # Via mcp_Git-worktree tool:
-mcp_Git-worktree action=create name=<feature-name> ref=main fetch=true
+mcp_Git-worktree action=create name=<feature-name> ref=main
 # Worktree lands at: .worktrees/<feature-name>/
 ```
 
 Run setup inside the worktree:
 ```bash
-cd .worktrees/<feature-name>
-task setup
+task setup   # dart pub get + flutter pub get
 ```
 
 ---
 
 ## Step 3 — Implement
 
-Read the relevant files before writing any code:
-
-**Always read first:**
-- `AGENTS.md` — project overview and conventions
+Read these files before writing any code:
+- `AGENTS.md` — project overview and directory layout
 - `CODE-STYLE.md` — Dart style rules
 - `packages/fdb_helper/AGENTS.md` — handler architecture rules
-- `lib/core/commands/scroll_to/scroll_to.dart` — canonical core verb function
+- `lib/core/commands/scroll_to/scroll_to.dart` — canonical core verb
 - `lib/cli/adapters/scroll_to_cli.dart` — canonical CLI adapter
-- `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` — canonical handler example
-- `packages/fdb_helper/lib/src/gesture_dispatcher.dart` — if adding gestures
-- `packages/fdb_helper/lib/src/handlers/tap_handler.dart` — if similar to tap
-
-**Core layer** (`lib/core/commands/<name>/<name>.dart`):
-- Export exactly one public function: `Future<<Name>Result> verbName(<Name>Input input)`
-- Never throws — catches all exceptions and returns a sealed result variant
-- Call VM extension via `vmServiceCall('ext.fdb.yourExt', params: params)` (no URI argument)
-- Re-export models: `export 'package:fdb/core/commands/<name>/<name>_models.dart';`
+- `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` — canonical handler
 
 **Core models** (`lib/core/commands/<name>/<name>_models.dart`):
-- Define `<Name>Input` as a typedef (named record)
-- Define sealed `<Name>Result` hierarchy with one case per outcome
+- `<Name>Input` typedef (named record)
+- Sealed `<Name>Result` hierarchy — one variant per outcome
 
-**CLI adapter layer** (`lib/cli/adapters/<name>_cli.dart`):
-- Export exactly one public function: `Future<int> runXxxCli(List<String> args)`
+**Core verb** (`lib/core/commands/<name>/<name>.dart`):
+- One public function: `Future<<Name>Result> verbName(<Name>Input input)`
+- Never throws — catch everything, return a sealed result variant
+- Re-export models: `export 'package:fdb/core/commands/<name>/<name>_models.dart';`
+- VM calls: `vmServiceCall('ext.fdb.yourExt', params: params)`
+
+**CLI adapter** (`lib/cli/adapters/<name>_cli.dart`):
+- One public function: `Future<int> runXxxCli(List<String> args)`
 - Use `runCliAdapter(parser, args, _execute)` from `lib/cli/args_helpers.dart`
-- Build an `ArgParser` with `package:args` — no manual `for` loop parsing
-- Pattern-match sealed result to write stdout tokens or stderr errors
-- Errors → `stderr` prefixed with `ERROR: `, exit 1
-- Success tokens → `stdout` in `UPPER_SNAKE_CASE` (e.g. `TAPPED=`, `SCROLLED_TO=`)
-- Register in `bin/fdb.dart`: add `case 'your-command':` calling `runXxxCli(args)`
+- `package:args` ArgParser — no manual for-loop parsing
+- Required option check: `if (results.option('x') == null) { stderr.writeln('ERROR: ...'); return 1; }`
+- Success tokens → stdout `UPPER_SNAKE_CASE`; errors → stderr `ERROR: `
+- Register in `bin/fdb.dart`: `case 'your-command': return runXxxCli(args);` + usage string
 
-**fdb_helper layer** (`packages/fdb_helper/lib/src/handlers/<name>_handler.dart`):
-- Export exactly one public function: `Future<developer.ServiceExtensionResponse> handleXxx(String method, Map<String, String> params)`
-- All helpers and constants are private (`_prefixed`) in the same file
-- No classes — top-level functions only
-- Register in `fdb_binding.dart`: add ONE `_registerExtension('ext.fdb.xxx', handleXxx)` line
-- Add the extension name to the FdbBinding doc comment
+**fdb_helper handler** (`packages/fdb_helper/lib/src/handlers/<name>_handler.dart`) — only if the command needs the Flutter app side:
+- One public function: `Future<developer.ServiceExtensionResponse> handleXxx(String method, Map<String, String> params)`
+- No classes — top-level functions only; helpers are private
+- Register in `fdb_binding.dart`: one `_registerExtension('ext.fdb.xxx', handleXxx)` line
 
-**Docs to update (new command):**
-- `README.md` — add to commands table
-- `doc/README.agents.md` — add to commands reference table; update troubleshooting section if relevant
-- `.agents/skills/testing-fdb/SKILL.md` — add the new `task test:<command>` to the individual test list
-- `.agents/skills/using-fdb/SKILL.md` — add usage examples (if the skill exists)
-
-**Docs to update (bug fix that changes existing behaviour):**
-- `doc/README.agents.md` — update any affected troubleshooting tips or output token descriptions
-- `.agents/skills/testing-fdb/SKILL.md` — add any new test tasks that were added to the smoke sequence
+**Docs to update:**
+- `README.md` — commands table
+- `.agents/skills/testing-fdb/SKILL.md` — add `task test:<command>` to individual test list
+- `skills/using-fdb/SKILL.md` — add usage examples with output tokens
 
 ---
 
 ## Step 4 — Add Taskfile tests
-
-Every new command needs a `test:<command>` task in `Taskfile.yml` following the exact existing pattern:
 
 ```yaml
 test:your-command:
@@ -177,7 +156,7 @@ test:your-command:
   dir: '{{.TEST_APP}}'
   cmds:
     - |
-      echo "==> <scenario description>"
+      echo "==> <scenario>"
       OUTPUT=$({{.FDB}} your-command --flag value 2>&1)
       EXIT_CODE=$?
       echo "$OUTPUT"
@@ -188,18 +167,18 @@ test:your-command:
       if echo "$OUTPUT" | grep -q "YOUR_TOKEN="; then
         echo "PASS: fdb your-command"
       else
-        echo "FAIL: fdb your-command - YOUR_TOKEN= not found in output" >&2
+        echo "FAIL: fdb your-command - YOUR_TOKEN= not found" >&2
         exit 1
       fi
 ```
 
-- Add it to the `smoke` task sequence in the right position (after similar commands)
-- Test scenarios must match the acceptance criteria in the issue
-- The app must be running (via `task test:launch`) for most tests
+- Add to `smoke` task sequence in the right position
+- Cover all acceptance criteria from the issue
+- Use `mktemp -d` for temp files (macOS + Linux compatible — never `mktemp path/XXXXXX.ext`)
 
-Run to verify:
+Verify:
 ```bash
-task test:launch DEVICE=<simulator_id>
+task test:launch DEVICE=<id>
 task test:your-command
 task analyze
 ```
@@ -208,132 +187,77 @@ task analyze
 
 ## Step 5 — Manual platform testing (MANDATORY)
 
-**All three platforms must pass before opening a PR. No exceptions.**
+All three platforms must pass before opening a PR. No exceptions.
 
-Available devices (run `fdb devices` to confirm):
-- **macOS**: `DEVICE_ID=macos`
-- **Android physical**: `DEVICE_ID=b433094a` (or current device)
-- **iOS simulator**: `DEVICE_ID=C1DE4562-CFBF-45D8-B79E-740A11E86171` (iPhone 17 Pro) or run `fdb devices` to find it
+Devices:
+- macOS: `DEVICE_ID=macos`
+- Android physical: `DEVICE_ID=b433094a`
+- iOS simulator: `DEVICE_ID=C1DE4562-CFBF-45D8-B79E-740A11E86171`
 
 For each platform:
-
 ```bash
-# 1. Kill any running app
 cd .worktrees/<feature-name>/example/test_app
-dart run ../../bin/fdb.dart kill
-
-# 2. Launch (first build may take up to 3 min)
+dart run ../../bin/fdb.dart kill 2>/dev/null || true
 dart run ../../bin/fdb.dart launch --device <DEVICE_ID>
-
-# 3. Run the new command's test task
-cd .worktrees/<feature-name>
+# from worktree root:
 task test:<command>
-
-# 4. Take a screenshot and visually confirm correct behavior
-cd example/test_app
-dart run ../../bin/fdb.dart screenshot
-# Read the screenshot file with Read tool to confirm the UI state
-
-# 5. Kill
-dart run ../../bin/fdb.dart kill
+dart run bin/fdb.dart kill
 ```
 
-For each platform, document:
-- Command output (exact stdout/stderr)
-- Screenshot showing the expected result
-- PASS or FAIL with reason
+Platform notes:
+- macOS: `fdb restart` (SIGUSR2) is unreliable — use kill + launch between scenarios
+- Android: first build is slow (3-5 min); `adb` must be on PATH
+- iOS simulator: `xcrun` must be on PATH
 
-**If any platform fails:** fix the bug, relaunch, re-test. Do not skip to PR until all three pass.
-
-### Full smoke suite (mandatory before PR)
-
-After all three platforms pass their individual command tests, run the full smoke suite on **Android** (the default device for `task smoke`):
-
+**Full smoke suite** (after all three platforms pass):
 ```bash
-cd .worktrees/<feature-name>
-task smoke
+task smoke   # runs on Android
 ```
-
-All tests must pass. `task smoke` runs every command end-to-end on a real Android device. Fix any failure before opening a PR — do not skip this step even if the individual command test passed.
-
-**Platform-specific notes:**
-- macOS: `fdb restart` (SIGUSR2) is unreliable — use `kill` + `launch` between scenarios
-- iOS simulator: `xcrun simctl` must be on PATH for screenshots (installed with Xcode)
-- Android: `adb` must be on PATH; first build is slow (~3–5 min)
-- Physical iOS requires a provisioning profile — use the simulator instead
 
 ---
 
 ## Step 6 — Spawn review-fix loop agent (DELEGATE)
 
-After all platform tests pass, spawn a review agent. Do not inline the review — delegate it:
-
 ```
-Spawn a coding subagent with prompt:
-/review-fixing-loop
+Spawn a coding subagent with this prompt:
 
-Work in the git worktree at `.worktrees/<feature-name>`.
+Run a review-fixing loop on the <feature-name> implementation in the git
+worktree at `.worktrees/<feature-name>`.
 
-Review the changes introduced by this feature. Focus on:
-1. Correctness of the implementation against the GitHub issue acceptance criteria
-2. Code style — matches CODE-STYLE.md and packages/fdb_helper/AGENTS.md
-3. Edge cases — error handling, invalid inputs, missing selectors
-4. Output tokens — match the specified format exactly
-5. Taskfile test quality — scenarios cover the acceptance criteria
-6. Doc accuracy — README, agents doc, skill file
+Review against:
+1. GitHub issue acceptance criteria
+2. CODE-STYLE.md and packages/fdb_helper/AGENTS.md
+3. Edge cases and error handling
+4. Output token format
+5. Taskfile test coverage
+6. Doc completeness (README, testing-fdb/SKILL.md, using-fdb/SKILL.md)
 
-After all fixes converge, commit and push.
+Fix all real findings. Commit and push when the loop converges.
 ```
-
-Wait for the review agent to complete before proceeding.
 
 ---
 
 ## Step 7 — Spawn checks agent (DELEGATE)
 
-After the review loop converges, spawn a separate checks agent:
-
 ```
-Spawn a coding subagent with prompt:
+Spawn a coding subagent with this prompt:
+
 Run all static analysis and format checks on the fdb worktree at
 `.worktrees/<feature-name>`.
 
-1. dart pub get && flutter pub get --directory packages/fdb_helper
-2. dart analyze (from worktree root)
-3. dart format --set-exit-if-changed . (from worktree root)
-4. flutter analyze packages/fdb_helper
+1. dart pub get
+2. dart analyze lib/ bin/ test/
+3. dart format --page-width 120 --trailing-commas preserve --set-exit-if-changed lib/ bin/ test/
+4. cd packages/fdb_helper && flutter analyze --suppress-analytics
 
-Fix ALL issues. Commit and push.
-Return: exact output of each check and confirmation all pass.
+Fix ALL issues. Commit and push. Return exact output of each check.
 ```
 
 ---
 
-## Step 8 — Close issue, sync jsonl, and push
+## Step 8 — Open PR
 
-Close the beads issue, then sync `issues.jsonl` into the worktree before pushing.
-See the **Working in a git worktree** section of the managing-beads skill for the exact copy command — the pre-commit hook writes to the main repo, not the worktree.
-
-```bash
-bd close <issue-id>
-# copy + stage + commit issues.jsonl per managing-beads worktree rule
-git push -u origin <branch-name>
-```
-
-Wait for CI to run:
-```bash
-gh pr checks <pr-number> --repo andrzejchm/fdb
-# or watch the run:
-gh run list --repo andrzejchm/fdb --branch <branch-name>
-```
-
-CI runs `task verify` which includes format, analyze, and unit tests. It must be green before merging.
-
----
-
-## Step 9 — Open PR (DELEGATE)
-
-Load the `managing-pr-descriptions-global` skill and create the PR:
+Load `humanizing-ai-text` and `managing-pr-descriptions-global` skills before writing the PR body.
 
 ```bash
 gh pr create \
@@ -342,67 +266,47 @@ gh pr create \
   --repo andrzejchm/fdb
 ```
 
-PR description rules (from managing-pr-descriptions skill):
-- 2–3 sentences max
-- Explain WHY the feature exists and what it enables
-- No file lists, no implementation details, no counts
-- Reference the issue: "Closes #<number>"
+PR body: 1-2 sentences explaining why this exists and what it enables. No file lists. No counts. `Closes #<number>`.
+
+Wait for CI:
+```bash
+gh pr checks <pr-number> --repo andrzejchm/fdb --watch
+```
+
+Do not merge until CI is green.
 
 ---
 
-## Step 10 — Merge and clean up
-
-### How `bd` and worktrees interact
-
-All worktrees share **one Dolt database** in the main repo's `.beads/embeddeddolt/`.
-`bd` discovers it via git's common-directory mechanism — any `bd` write (claim,
-close, update) from any worktree goes to that same shared DB immediately.
-
-`issues.jsonl` is a **git-tracked file** that lives in each branch's checkout.
-The pre-commit hook auto-exports the current DB state into whichever branch's
-`issues.jsonl` is being committed. This means:
-
-- `bd close <id>` updates the shared DB regardless of which worktree you run it from
-- The commit that carries the updated `issues.jsonl` to `main` is whatever branch
-  you commit to **after** running `bd close`
-- Therefore: run `bd close` and commit **on the feature branch**, before merging,
-  so the closed state reaches `main` via the squash commit
-
-### Steps
-
-Run from inside the feature worktree before merging:
+## Step 9 — Merge and clean up
 
 ```bash
-bd close <id>
-# The pre-commit hook auto-exports issues.jsonl — just stage and commit:
+# Close issue and sync issues.jsonl into the worktree (pre-commit hook writes to
+# main repo, not worktree — must copy manually before committing):
+bd close <issue-id>
+cp <repo-root>/.beads/issues.jsonl .beads/issues.jsonl
 git add .beads/issues.jsonl
-git commit -m "chore: close issue <id>"
+git commit -m "chore(bd): close <issue-id>"
 git push
-```
 
-Then merge:
-```bash
+# Squash-merge
 gh pr merge <number> --squash --delete-branch --repo andrzejchm/fdb
-```
 
-Remove the worktree:
-```bash
+# Remove worktree
 # Via mcp_Git-worktree tool:
 mcp_Git-worktree action=remove name=<feature-name>
 ```
 
 ---
 
-## Key invariants (never break these)
+## Key invariants
 
-- `fdb_binding.dart` is registration-only — never add handler logic to it
-- Each handler = one file in `handlers/`, one public `handleXxx` function
-- CLI adapters use `package:args` via `runCliAdapter` — never manual `for`-loop parsing
+- `fdb_binding.dart` is registration-only — no handler logic
+- Each handler = one file, one public `handleXxx` function, no classes
+- CLI adapters use `package:args` via `runCliAdapter` — no manual for-loop parsing
 - `fdb_helper` production `dependencies:` must not grow without explicit approval
-- All three platforms (macOS, Android, iOS) must pass manual tests before PR
-- The review-fix loop and checks are always spawned as separate delegated agents
-- `bd close <id>` must be run before merging; the resulting `issues.jsonl` commit goes on the feature branch — all worktrees share one DB so the close takes effect immediately regardless of CWD, but only the branch you commit to carries the update to `main`
-- Worktrees are always cleaned up after merge
+- All three platforms must pass before PR — no exceptions
+- Review-fix loop and checks are always delegated to subagents
+- `bd close` must run on the feature branch before merging
 
 ## Reference files
 
@@ -413,9 +317,9 @@ mcp_Git-worktree action=remove name=<feature-name>
 | `packages/fdb_helper/AGENTS.md` | Handler file layout, binding rules |
 | `TESTING.md` | Test commands and conventions |
 | `Taskfile.yml` | All test tasks and smoke sequence |
-| `lib/core/commands/scroll_to/scroll_to.dart` | Canonical core verb function |
+| `lib/core/commands/scroll_to/scroll_to.dart` | Canonical core verb |
 | `lib/cli/adapters/scroll_to_cli.dart` | Canonical CLI adapter |
-| `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` | Canonical handler example |
+| `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` | Canonical handler |
 | `packages/fdb_helper/lib/src/gesture_dispatcher.dart` | Gesture dispatch primitives |
 | `packages/fdb_helper/lib/src/element_tree_finder.dart` | Widget tree search utilities |
 | `packages/fdb_helper/lib/src/widget_matcher.dart` | Selector parsing |

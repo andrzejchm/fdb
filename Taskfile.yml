@@ -2055,6 +2055,137 @@ tasks:
           exit 1
         fi
 
+  test:mem:
+    desc: Verify fdb mem heap totals, fdb mem profile, and fdb mem diff
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> fdb mem — heap totals"
+        OUTPUT=$({{.FDB}} mem 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb mem exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TOTAL"; then
+          echo "PASS: fdb mem (human-readable)"
+        else
+          echo "FAIL: fdb mem - TOTAL not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> fdb mem --json — machine-readable heap totals"
+        OUTPUT=$({{.FDB}} mem --json 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb mem --json exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q '"isolates"'; then
+          echo "PASS: fdb mem --json"
+        else
+          echo "FAIL: fdb mem --json - 'isolates' key not found" >&2
+          exit 1
+        fi
+
+        echo "==> fdb mem profile — capture allocation profile"
+        MEM_TMP_DIR=$(mktemp -d)
+        BEFORE_FILE="$MEM_TMP_DIR/before.json"
+        OUTPUT=$({{.FDB}} mem profile --output "$BEFORE_FILE" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb mem profile exited with code $EXIT_CODE" >&2
+          rm -f "$BEFORE_FILE"
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "MEM_PROFILE_SAVED="; then
+          echo "PASS: fdb mem profile"
+        else
+          echo "FAIL: fdb mem profile - MEM_PROFILE_SAVED= not found" >&2
+          rm -f "$BEFORE_FILE"
+          exit 1
+        fi
+        if [ ! -f "$BEFORE_FILE" ] || [ ! -s "$BEFORE_FILE" ]; then
+          echo "FAIL: fdb mem profile - output file not created or empty" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+        echo "PASS: fdb mem profile wrote non-empty file"
+
+        echo "==> fdb mem diff — capture second profile and diff"
+        AFTER_FILE="$MEM_TMP_DIR/after.json"
+        {{.FDB}} mem profile --output "$AFTER_FILE" 2>&1
+        OUTPUT=$({{.FDB}} mem diff "$BEFORE_FILE" "$AFTER_FILE" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb mem diff exited with code $EXIT_CODE" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+        echo "PASS: fdb mem diff"
+
+        echo "==> fdb mem diff --json"
+        OUTPUT=$({{.FDB}} mem diff --json "$BEFORE_FILE" "$AFTER_FILE" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb mem diff --json exited with code $EXIT_CODE" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q '"diffs"'; then
+          echo "PASS: fdb mem diff --json"
+        else
+          echo "FAIL: fdb mem diff --json - 'diffs' key not found" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+
+        echo "==> fdb mem diff missing positional args (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} mem diff 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb mem diff with no args should have failed" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb mem diff missing args rejected"
+        else
+          echo "FAIL: fdb mem diff missing args - expected ERROR: in output" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+
+        echo "==> fdb mem diff non-existent file (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} mem diff /nonexistent_a.json /nonexistent_b.json 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb mem diff with bad files should have failed" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb mem diff non-existent files rejected"
+        else
+          echo "FAIL: fdb mem diff non-existent files - expected ERROR: in output" >&2
+          rm -rf "$MEM_TMP_DIR"
+          exit 1
+        fi
+
+        rm -rf "$MEM_TMP_DIR"
+        echo "PASS: fdb mem"
+
   test:status-stopped:
     desc: Verify status shows not running after kill
     dir: '{{.TEST_APP}}'
@@ -2397,6 +2528,7 @@ tasks:
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to
+      - task: test:mem
       - task: test:wait
       - task: test:swipe
       - task: test:back

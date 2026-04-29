@@ -60,3 +60,13 @@ Future<int> runSimpleCliAdapter(
   if (x == null || y == null) return null;
   return (x, y);
 }
+
+/// Formats [bytes] as a human-readable string with one decimal place.
+///
+/// Used by CLI adapters that display memory sizes (e.g. `fdb mem`).
+String fmtBytes(int bytes) {
+  if (bytes >= 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  if (bytes >= 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '$bytes B';
+}
