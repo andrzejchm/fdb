@@ -138,10 +138,14 @@ Future<int> _execute(ArgResults results) async {
   );
 
   final result = await tapWidget(input);
-  return _format(result);
+  return formatTapResult(result);
 }
 
-int _format(TapResult result) {
+/// Formats a [TapResult] to stdout/stderr and returns the exit code.
+///
+/// Exposed so other CLI adapters (e.g. `native_tap_cli`) can reuse the
+/// same result formatting without duplicating the switch.
+int formatTapResult(TapResult result) {
   switch (result) {
     case TapSuccess(:final widgetType, :final x, :final y, :final warning):
       final warningSuffix = warning != null ? ' WARNING=$warning' : '';

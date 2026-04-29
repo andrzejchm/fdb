@@ -12,6 +12,12 @@ export 'package:fdb/core/commands/restart/restart_models.dart';
 /// Returns [RestartSuccess] on success, [RestartNoSession] if no PID file is
 /// present, [RestartProcessDead] if the process is no longer alive, or
 /// [RestartFailed] if the restart did not complete within the timeout.
+///
+/// Completion is detected by [isRestartCompletionEvent] which matches either a
+/// `Flutter.FirstFrame` extension event (reliable on Android) or an
+/// `IsolateRunnable` isolate event (reliable on iOS simulators where
+/// `Flutter.FirstFrame` is not emitted after restart). Both the `Extension`
+/// and `Isolate` streams are subscribed so either signal can arrive first.
 Future<RestartResult> restartApp(RestartInput _) async {
   final pid = readPid();
   if (pid == null) return const RestartNoSession();
@@ -21,8 +27,8 @@ Future<RestartResult> restartApp(RestartInput _) async {
   final stopwatch = Stopwatch()..start();
 
   final completed = await waitForVmEventAfterSignal(
-    streamIds: const ['Extension'],
-    matches: isFlutterFirstFrameEvent,
+    streamIds: const ['Extension', 'Isolate'],
+    matches: isRestartCompletionEvent,
     signal: () => Process.killPid(pid, ProcessSignal.sigusr2),
     timeout: const Duration(seconds: restartTimeoutSeconds),
   );

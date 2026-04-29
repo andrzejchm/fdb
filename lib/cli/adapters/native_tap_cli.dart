@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
+import 'package:fdb/cli/adapters/tap_cli.dart';
 import 'package:fdb/core/commands/native_tap/native_tap.dart';
 
 /// CLI adapter for `fdb native-tap`.
@@ -79,7 +80,13 @@ int _format(NativeTapResult result) {
     case NativeTapAndroid(:final x, :final y):
       stdout.writeln('NATIVE_TAPPED=android X=$x Y=$y');
       return 0;
-    case NativeTapIosSimulator(:final x, :final y):
+    case NativeTapIosSimulator(:final x, :final y, :final tapResult):
+      stderr.writeln(
+        'WARNING: iOS simulator native-tap falls back to in-process tap '
+        '(UIApplication.sendEvent). SpringBoard-level system dialogs are unreachable.',
+      );
+      final tapExitCode = formatTapResult(tapResult);
+      if (tapExitCode != 0) return tapExitCode;
       stdout.writeln('NATIVE_TAPPED=ios-simulator X=$x Y=$y');
       return 0;
     case NativeTapNoSession():
@@ -119,15 +126,6 @@ int _format(NativeTapResult result) {
         'ERROR: Failed to run adb: $error\n'
         '  Install adb: https://developer.android.com/studio/command-line/adb',
       );
-      return 1;
-    case NativeTapIndigoFailed(:final details):
-      stderr.writeln('ERROR: IndigoHID tap failed:\n$details');
-      return 1;
-    case NativeTapIndigoUnexpectedOutput(:final output):
-      stderr.writeln('ERROR: IndigoHID tap produced unexpected output: $output');
-      return 1;
-    case NativeTapSwiftFailed(:final error):
-      stderr.writeln('ERROR: Failed to run swift for IndigoHID tap: $error');
       return 1;
   }
 }

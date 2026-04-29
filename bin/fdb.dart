@@ -119,12 +119,16 @@ Future<void> main(List<String> args) async {
   // without needing a session.
   // All other commands benefit from walking up to find an active .fdb/.
   final wantsHelp = commandArgs.contains('--help') || commandArgs.contains('-h');
-  if (command != 'launch' && command != 'devices' && command != 'skill' && !wantsHelp) {
+  // Commands that manage their own session dir or must run even on unhealthy sessions.
+  const sessionResolutionExempt = {'launch', 'devices', 'skill'};
+  // Commands that run against a potentially dead/missing session (soft-fail on null).
+  const sessionSoftFail = {'status', 'doctor'};
+  if (!sessionResolutionExempt.contains(command) && !wantsHelp) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);
     } else {
       final resolved = resolveSessionDir();
-      if (command != 'status' && resolved == null) {
+      if (!sessionSoftFail.contains(command) && resolved == null) {
         stderr.writeln(
           'ERROR: No .fdb/ session found. Run from the project root or pass --session-dir <path>.',
         );
