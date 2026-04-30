@@ -55,14 +55,20 @@ class LaunchInvalidLauncherPid extends LaunchResult {
 /// The flutter process exited before the VM service URI appeared in the log.
 ///
 /// If [noLogFile] is true, no log file was created at all.
-/// Otherwise [tailLogLines] contains the last 10 lines of the log.
+/// Otherwise [fullLog] contains the complete log content and [tailLogLines]
+/// contains the last 10 lines (kept for backward compat with callers that
+/// only need the tail).
 class LaunchProcessDied extends LaunchResult {
   final List<String> tailLogLines;
   final bool noLogFile;
 
+  /// Full log content passed to [analyzeLaunchFailure]. Empty when [noLogFile].
+  final String fullLog;
+
   const LaunchProcessDied({
     this.tailLogLines = const [],
     this.noLogFile = false,
+    this.fullLog = '',
   });
 }
 

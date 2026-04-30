@@ -14,6 +14,12 @@ typedef _CategoryHeuristic = ({
   List<String> weakTokens,
   String label,
   String remediationHint,
+
+  /// When true, the category is matched against the full log text rather than
+  /// only the top signal lines. Use only for categories whose strong tokens are
+  /// highly specific (exact Xcode/adb error strings) and would never produce
+  /// false positives on an unrelated log.
+  bool fullLogScan,
 });
 
 LaunchFailureAnalysis analyzeLaunchFailure(
@@ -102,30 +108,39 @@ String? _findNearbyLineContaining(List<String> lines, int index, String token) {
   List<String> lines,
   List<int> signalLineIndexes,
 ) {
-  final searchCorpus = <String>[];
-
+  // Build a corpus from the top signal lines. This narrows the search to the
+  // most informative lines and avoids noise from verbose flutter output.
+  final signalCorpus = <String>[];
   if (signalLineIndexes.isEmpty) {
-    searchCorpus.addAll(lines.map((line) => line.toLowerCase()));
+    signalCorpus.addAll(lines.map((line) => line.toLowerCase()));
   } else {
     for (final index in signalLineIndexes.take(25)) {
-      searchCorpus.add(lines[index].toLowerCase());
+      signalCorpus.add(lines[index].toLowerCase());
     }
   }
+  final signalJoined = signalCorpus.join('\n');
 
-  final joined = searchCorpus.join('\n');
+  // Some categories have highly specific tokens that are never present in
+  // unrelated failures (e.g. exact Xcode error strings). For these we also
+  // scan the full log so that adjacent high-signal lines (which the proximity
+  // deduplication in _findSignalLineIndexes may collapse into one) are not
+  // silently dropped from the search window.
+  final fullJoined = lines.map((l) => l.toLowerCase()).join('\n');
+
   var bestCategory = 'UNKNOWN';
   String? bestHint;
   var bestScore = 0;
 
   for (final heuristic in _categoryHeuristics) {
+    final corpus = heuristic.fullLogScan ? fullJoined : signalJoined;
     var score = 0;
 
     for (final token in heuristic.strongTokens) {
-      if (joined.contains(token)) score += 6;
+      if (corpus.contains(token)) score += 6;
     }
 
     for (final token in heuristic.weakTokens) {
-      if (joined.contains(token)) score += 2;
+      if (corpus.contains(token)) score += 2;
     }
 
     if (score > bestScore) {
@@ -190,8 +205,16 @@ int _lineSignalScore(String line) {
   if (lower.contains('xcodebuild')) score += 4;
   if (lower.contains('adb')) score += 4;
   if (lower.contains('install_failed')) score += 6;
+  if (lower.contains('package install error')) score += 6;
   if (lower.contains('android sdk')) score += 5;
   if (lower.contains('flutter doctor')) score += 3;
+  if (lower.contains('build failed')) score += 5;
+  if (lower.contains('registering bundle identifier')) score += 8;
+  if (lower.contains('no account for team')) score += 8;
+  if (lower.contains('no profiles for')) score += 6;
+  if (lower.contains('your device is locked')) score += 8;
+  if (lower.contains('license agreements')) score += 7;
+  if (lower.contains('flutter doctor --android-licenses')) score += 6;
 
   return score;
 }
@@ -315,39 +338,118 @@ String? _categoryLabel(String category) {
 }
 
 final _categoryHeuristics = <_CategoryHeuristic>[
+  // Matched on exact Xcode xcresult error strings surfaced verbatim by Flutter
+  // tool (mac.dart _handleXCResultIssue). Seen in real flutter run output when
+  // the bundle ID is already registered to another team.
+  // fullLogScan: true because this line is often adjacent to the "No profiles
+  // for" line, so proximity deduplication in _findSignalLineIndexes may drop it.
+  (
+    category: 'IOS_BUNDLE_ID_CLAIMED',
+    strongTokens: [
+      'failed registering bundle identifier',
+      'cannot be registered to your development team because it is not available',
+    ],
+    weakTokens: ['no profiles for', 'change your bundle identifier'],
+    label: 'iOS bundle identifier already claimed',
+    remediationHint:
+        'Change your bundle identifier in Xcode (Runner target → Signing & Capabilities) to a unique value, or reclaim it at developer.apple.com.',
+    fullLogScan: true,
+  ),
+  // Matched on exact Xcode xcresult error string for a missing/invalid Apple ID.
+  // fullLogScan: true because this line is adjacent to the "No profiles for"
+  // line, so proximity deduplication may exclude it from the signal corpus.
+  (
+    category: 'IOS_NO_ACCOUNT_FOR_TEAM',
+    strongTokens: ['no account for team', 'add a new account in accounts settings'],
+    weakTokens: ['verify that your accounts have valid credentials', 'no profiles for'],
+    label: 'No Apple ID account found for Xcode team',
+    remediationHint: 'Open Xcode → Settings → Accounts, add or re-authenticate the Apple ID for this team.',
+    fullLogScan: true,
+  ),
+  // Matched on exact Flutter tool strings from code_signing.dart /
+  // ios_deploy.dart. Covers errSecInternalComponent (bad keychain),
+  // Error 0xe8008015 / 0xe8000067 (no provisioning profile via ios-deploy),
+  // and the "Failed to codesign … with identity" xcodebuild line.
   (
     category: 'IOS_CODESIGN_PROVISIONING',
     strongTokens: ['codesign', 'errsec', 'provisioning profile'],
     weakTokens: ['signing identity', 'development team', 'no signing certificate'],
     label: 'iOS codesigning/provisioning failed',
     remediationHint: 'Open iOS Signing & Capabilities and verify team, certificate, and provisioning profile.',
+    fullLogScan: false,
   ),
+  // Matched on exact Flutter tool strings from ios_deploy.dart
+  // (deviceLockedError = 'e80000e2', deviceLockedErrorMessage).
+  (
+    category: 'IOS_DEVICE_LOCKED',
+    strongTokens: ['your device is locked', 'e80000e2', 'the device was not, or could not be, unlocked'],
+    weakTokens: ['unlock your device'],
+    label: 'iOS device is locked',
+    remediationHint: 'Unlock the device, then rerun `fdb launch`.',
+    fullLogScan: false,
+  ),
+  // Matched on exact Xcode build output strings (PhaseScriptExecution /
+  // xcodebuild failed with exit code 65 / Failed to build iOS app).
+  // "failed to build ios app" is iOS-specific and does not appear in Android
+  // Gradle failures, preventing false positives from "xcodebuild failed"
+  // being a substring of no other context.
   (
     category: 'IOS_BUILD_SCRIPT',
-    strongTokens: ['phasescriptexecution', 'xcodebuild failed'],
-    weakTokens: ['[cp] embed pods frameworks', 'script-', 'command phasescriptexecution failed'],
+    strongTokens: ['phasescriptexecution', 'xcodebuild failed', 'failed to build ios app'],
+    weakTokens: ['[cp] embed pods frameworks', 'command phasescriptexecution failed'],
     label: 'iOS/Xcode build script failed',
     remediationHint: 'Inspect the failing Xcode script phase in LOG_FILE or rerun from Xcode for full script output.',
+    fullLogScan: false,
   ),
+  // Matched on exact Flutter tool string from android_device.dart
+  // ("Package install error: Failure [INSTALL_FAILED_*]") and raw adb output
+  // ("adb: failed to install … Failure [INSTALL_FAILED_*]").
   (
     category: 'ANDROID_INSTALL_ADB',
-    strongTokens: ['install_failed', 'adb: failed to install'],
-    weakTokens: ['device offline', 'no devices/emulators found', 'performing streamed install'],
+    strongTokens: ['install_failed', 'adb: failed to install', 'package install error'],
+    weakTokens: ['performing streamed install', 'error: adb exited with exit code'],
     label: 'Android install/adb failed',
     remediationHint: 'Check `adb devices`, reconnect the device, and uninstall conflicting app versions if needed.',
+    fullLogScan: false,
   ),
+  // Matched on exact Gradle error string detected by Flutter tool
+  // (gradle_errors.dart licenseNotAcceptedHandler).
+  (
+    category: 'ANDROID_LICENSE_NOT_ACCEPTED',
+    strongTokens: [
+      'you have not accepted the license agreements of the following sdk components',
+      'flutter doctor --android-licenses',
+    ],
+    weakTokens: ['license agreements'],
+    label: 'Android SDK license not accepted',
+    remediationHint: 'Run `flutter doctor --android-licenses` to accept the required SDK licenses.',
+    fullLogScan: false,
+  ),
+  // Matched on exact Flutter tool strings from user_messages.dart
+  // ("Unable to locate Android SDK") and sdk_toolchain fixture.
   (
     category: 'SDK_TOOLCHAIN',
     strongTokens: ['android sdk not found', 'unable to locate android sdk', 'command not found: flutter'],
     weakTokens: ['android_home', 'flutter doctor', 'xcode not installed', 'cocoapods not installed'],
     label: 'Missing SDK/toolchain dependency',
     remediationHint: 'Install or repair required SDK/toolchain components, then run `flutter doctor -v`.',
+    fullLogScan: false,
   ),
+  // Matched on Flutter tool strings for Dart/Gradle compile errors.
+  // "gradle task assembledebug failed" and "build failed with an exception" are
+  // Gradle-specific strings that do not appear in Xcode failures.
+  // "target kernel_snapshot_program failed" is from the Dart front-end.
   (
     category: 'FLUTTER_BUILD',
-    strongTokens: ['build failed', 'gradle task', 'target kernel_snapshot_program failed'],
+    strongTokens: [
+      'gradle task assembledebug failed',
+      'gradle task assemblerelease failed',
+      'build failed with an exception',
+      'target kernel_snapshot_program failed',
+    ],
     weakTokens: ['compilation failed', 'execution failed for task', 'error launching application'],
     label: 'Flutter build failed',
     remediationHint: 'Fix the first compile/build error in LOG_FILE before addressing follow-up failures.',
+    fullLogScan: false,
   ),
 ];

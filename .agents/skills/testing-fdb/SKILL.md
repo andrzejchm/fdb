@@ -87,8 +87,10 @@ task analyze    # dart analyze + dart format --set-exit-if-changed
 ### Unit tests
 
 ```bash
-task test:unit    # dart test (when tests exist)
+task test:unit    # dart test
 ```
+
+Unit tests cover `launch_failure_analyzer.dart` — classification of `flutter run` failures into structured categories (`IOS_BUNDLE_ID_CLAIMED`, `IOS_NO_ACCOUNT_FOR_TEAM`, `IOS_CODESIGN_PROVISIONING`, `IOS_DEVICE_LOCKED`, `IOS_BUILD_SCRIPT`, `ANDROID_INSTALL_ADB`, `ANDROID_LICENSE_NOT_ACCEPTED`, `SDK_TOOLCHAIN`, `FLUTTER_BUILD`, `UNKNOWN`). Each category has a fixture under `test/fixtures/launch_failures/` containing real flutter run output strings.
 
 ### Cleanup
 

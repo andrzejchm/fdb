@@ -1,0 +1,7 @@
+Launching lib/main.dart on iPhone 17 Pro in debug mode...
+Running Xcode build...
+Xcode build done.                                            9.9s
+/Users/me/project/ios/Runner.xcodeproj: error: Failed Registering Bundle Identifier: The app identifier "com.example.myapp" cannot be registered to your development team because it is not available. Change your bundle identifier to a unique string to try again. (in target 'Runner' from project 'Runner')
+/Users/me/project/ios/Runner.xcodeproj: error: No profiles for 'com.example.myapp' were found: Xcode couldn't find any iOS App Development provisioning profiles matching 'com.example.myapp'. (in target 'Runner' from project 'Runner')
+** BUILD FAILED **
+Failed to build iOS app

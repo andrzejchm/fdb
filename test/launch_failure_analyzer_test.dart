@@ -66,6 +66,84 @@ void main() {
       expect(result.rootCause, contains('Unhandled exception: socket closed'));
       expect(result.contextLines, isNotEmpty);
     });
+
+    // New categories grounded in real flutter run / Xcode / adb output strings.
+
+    test('classifies iOS bundle ID already claimed by another team', () {
+      // Fixture uses exact Xcode xcresult error strings surfaced by Flutter tool
+      // (mac.dart _handleXCResultIssue): "Failed Registering Bundle Identifier:
+      // The app identifier … cannot be registered to your development team because
+      // it is not available."
+      final output = _readFixture('ios_bundle_id_claimed.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'IOS_BUNDLE_ID_CLAIMED');
+      expect(result.rootCause.toLowerCase(), contains('ios bundle identifier already claimed'));
+      expect(result.contextLines.join('\n'), contains('Failed Registering Bundle Identifier'));
+      expect(result.remediationHint, contains('bundle identifier'));
+    });
+
+    test('classifies iOS no Apple ID account found for Xcode team', () {
+      // Fixture uses exact Xcode xcresult string: "No Account for Team "XXXXXXXXX".
+      // Add a new account in Accounts settings or verify that your accounts have
+      // valid credentials."
+      final output = _readFixture('ios_no_account_for_team.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'IOS_NO_ACCOUNT_FOR_TEAM');
+      expect(result.rootCause.toLowerCase(), contains('no apple id account found for xcode team'));
+      expect(result.contextLines.join('\n'), contains('No Account for Team'));
+      expect(result.remediationHint, contains('Apple ID'));
+    });
+
+    test('classifies Android SDK license not accepted', () {
+      // Fixture uses exact Gradle output line matched by Flutter tool
+      // (gradle_errors.dart licenseNotAcceptedHandler):
+      // "You have not accepted the license agreements of the following SDK components"
+      final output = _readFixture('android_license_not_accepted.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'ANDROID_LICENSE_NOT_ACCEPTED');
+      expect(
+        result.rootCause.toLowerCase(),
+        contains('android sdk license not accepted'),
+      );
+      expect(
+        result.contextLines.join('\n'),
+        contains('flutter doctor --android-licenses'),
+      );
+      expect(result.remediationHint, contains('flutter doctor --android-licenses'));
+    });
+
+    test('classifies Android adb install failure via Package install error string', () {
+      // Fixture uses exact Flutter tool string from android_device.dart:
+      // "Package install error: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: …]"
+      // and "Error: ADB exited with exit code 1".
+      final output = _readFixture('android_adb_install_failed.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'ANDROID_INSTALL_ADB');
+      expect(result.rootCause.toLowerCase(), contains('android install/adb failed'));
+      expect(result.contextLines.join('\n'), contains('INSTALL_FAILED_UPDATE_INCOMPATIBLE'));
+    });
+
+    test('classifies iOS device locked via Flutter tool string', () {
+      // Fixture uses exact Flutter tool string from ios_deploy.dart
+      // (_monitorIOSDeployFailure, deviceLockedError = 'e80000e2'):
+      // "Your device is locked. Unlock your device first before running."
+      final output = _readFixture('ios_device_locked.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'IOS_DEVICE_LOCKED');
+      expect(result.rootCause.toLowerCase(), contains('ios device is locked'));
+      expect(result.contextLines.join('\n'), contains('locked'));
+      expect(result.remediationHint, contains('Unlock'));
+    });
   });
 }
 
