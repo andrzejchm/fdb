@@ -89,7 +89,7 @@ int _format(LaunchResult result) {
       );
       return 1;
 
-    case LaunchProcessDied(:final fullLog) when fullLog.isNotEmpty:
+    case LaunchProcessDied(:final fullLog):
       final analysis = analyzeLaunchFailure(fullLog);
       stderr.writeln('ERROR: flutter process exited unexpectedly');
       stderr.writeln('LAUNCH_ERROR=${analysis.category}');
@@ -103,13 +103,6 @@ int _format(LaunchResult result) {
           stderr.writeln(line);
         }
         stderr.writeln('---');
-      }
-      return 1;
-
-    case LaunchProcessDied(:final tailLogLines):
-      stderr.writeln('ERROR: flutter process exited unexpectedly');
-      for (final line in tailLogLines) {
-        stderr.writeln(line);
       }
       return 1;
 
