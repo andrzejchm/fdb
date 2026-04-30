@@ -2093,10 +2093,10 @@ tasks:
           echo "FAIL: fdb grant-permission unknown token should have failed" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "ERROR: Unknown permission"; then
+        if echo "$OUTPUT" | grep -q "ERROR: Unsupported permission"; then
           echo "PASS: fdb grant-permission unknown token rejected"
         else
-          echo "FAIL: fdb grant-permission unknown token — expected ERROR: Unknown permission" >&2
+          echo "FAIL: fdb grant-permission unknown token — expected ERROR: Unsupported permission" >&2
           exit 1
         fi
 
