@@ -583,7 +583,7 @@ Key gotcha: apps have multiple isolates. Try each until one returns a non-null w
 
 ```bash
 # Standard launch + inspect workflow
-DEVICE=$(fdb devices 2>/dev/null | grep '^DEVICE_ID=' | head -1 | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
+DEVICE=$(fdb devices --connected-only 2>/dev/null | grep '^DEVICE_ID=' | head -1 | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
 fdb launch --device "$DEVICE" --project /path/to/flutter/app
 fdb describe                               # compact screen snapshot — preferred over screenshot for navigation
 fdb tree --depth 5 --user-only
