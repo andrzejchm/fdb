@@ -1,3 +1,8 @@
+## 1.4.0
+
+### Fixes
+- `ext.fdb.describe` now walks the full subtree of `GestureDetector` and `InkWell` widgets, surfacing nested interactive children that were previously silently dropped
+
 ## 1.3.0
 
 ### New

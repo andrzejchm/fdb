@@ -1,10 +1,20 @@
-## Unreleased
+## 1.4.0
 
-### Architecture
-- Migrated 28 commands from monolithic single-file structure to a layered architecture: pure business logic in `lib/core/commands/` (interface-agnostic, returns sealed result types) + CLI adapters in `lib/cli/adapters/` (ArgParser + token formatting). Future MCP/REST adapters can consume the same core functions.
-- Replaced hand-rolled `for` + `switch` argument parsing with `package:args` (`ArgParser`). Every command now supports `--help` / `-h`.
-- Bumped minimum Dart SDK to 3.3.0 (required by `args` 2.7.0).
-- All UPPER_SNAKE_CASE stdout tokens and `ERROR:` messages preserved byte-identically.
+### New commands
+- `fdb crash-report` — fetches OS-level crash and OOM records from the system log (Android logcat, iOS Console, macOS unified log), filtered to the running app
+- `fdb ext list` — enumerates all registered VM service extensions across isolates
+- `fdb ext call <method>` — invokes any VM service extension and prints the JSON result
+- `fdb mem` — shows heap totals (usage, external, capacity) per isolate with human-readable formatting
+- `fdb mem --json` — same as above in machine-readable JSON
+- `fdb mem profile` — captures an allocation profile snapshot to a file
+- `fdb mem diff` — diffs two allocation profile snapshots and reports allocation changes
+
+### Improvements
+- `fdb launch` smoke readiness detection now uses `fdb wait` instead of a manual poll loop, making it more reliable and readable
+
+### Fixes
+- `fdb describe` now surfaces all `GestureDetector` and `InkWell` widgets at any nesting depth inside `Stack`/`Positioned`; previously the walk stopped at the first interactive ancestor, silently dropping inner buttons
+- iOS simulator smoke tests stabilised
 
 ## 1.3.0
 
