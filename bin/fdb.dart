@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
-import 'package:fdb/cli/adapters/gc_cli.dart';
 import 'package:fdb/cli/adapters/crash_report_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
@@ -10,6 +9,7 @@ import 'package:fdb/cli/adapters/devices_cli.dart';
 import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/cli/adapters/double_tap_cli.dart';
 import 'package:fdb/cli/adapters/ext_cli.dart';
+import 'package:fdb/cli/adapters/gc_cli.dart';
 import 'package:fdb/cli/adapters/input_cli.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';

@@ -42,7 +42,7 @@ int _format(GcResult result, {required bool jsonMode}) {
       if (jsonMode) {
         stdout.writeln('HEAP_BEFORE=$heapBefore');
         stdout.writeln('HEAP_AFTER=$heapAfter');
-        stdout.writeln('HEAP_DELTA=$heapDelta');
+        stdout.writeln('HEAP_DELTA=${heapDelta < 0 ? '' : '+'}$heapDelta');
       } else {
         final beforeStr = fmtBytes(heapBefore);
         final afterStr = fmtBytes(heapAfter);
@@ -57,8 +57,8 @@ int _format(GcResult result, {required bool jsonMode}) {
     case GcAllFailed():
       stderr.writeln('ERROR: All isolates failed to GC.');
       return 1;
-    case GcError(:final message):
-      stderr.writeln('ERROR: $message');
+    case GcError():
+      stderr.writeln('ERROR: No app is running.');
       return 1;
   }
 }
