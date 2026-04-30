@@ -18,7 +18,12 @@ export 'package:fdb/core/commands/devices/devices_models.dart';
 /// Never throws; never writes to stdio. All error conditions are represented
 /// as distinct [DevicesResult] subtypes.
 Future<DevicesResult> listDevices(DevicesInput input) async {
-  final result = await Process.run('flutter', ['devices', '--machine']);
+  final ProcessResult result;
+  try {
+    result = await Process.run('flutter', ['devices', '--machine']);
+  } catch (e) {
+    return DevicesFlutterFailed(e.toString());
+  }
 
   if (result.exitCode != 0) {
     return DevicesFlutterFailed(result.stderr.toString());
@@ -54,17 +59,16 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
 
   for (final entry in raw) {
     if (entry is! Map<String, dynamic>) continue;
-    final d = entry;
-    final id = d['id'] as String?;
-    final name = d['name'] as String?;
-    final platform = d['targetPlatform'] as String?;
+    final id = entry['id'] as String?;
+    final name = entry['name'] as String?;
+    final platform = entry['targetPlatform'] as String?;
 
     if (id == null || name == null || platform == null) {
-      skipped.add(d);
+      skipped.add(entry);
       continue;
     }
 
-    final emulator = d['emulator'] is bool ? d['emulator'] as bool : false;
+    final emulator = entry['emulator'] is bool ? entry['emulator'] as bool : false;
     final connected = _isConnected(
       id: id,
       platform: platform,
@@ -123,9 +127,9 @@ Future<Set<String>?> _fetchUnavailableIosUdids() async {
 
       final unavailable = <String>{};
       for (final entry in devicesList) {
-        final deviceMap = entry as Map<String, dynamic>;
-        final conn = deviceMap['connectionProperties'] as Map<String, dynamic>?;
-        final hw = deviceMap['hardwareProperties'] as Map<String, dynamic>?;
+        if (entry is! Map<String, dynamic>) continue;
+        final conn = entry['connectionProperties'] as Map<String, dynamic>?;
+        final hw = entry['hardwareProperties'] as Map<String, dynamic>?;
         if (conn == null || hw == null) continue;
 
         final tunnelState = conn['tunnelState'] as String?;

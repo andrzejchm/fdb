@@ -28,8 +28,8 @@ sealed class DevicesResult extends CommandResult {
   const DevicesResult();
 }
 
-/// At least one device was found; [skippedRaw] holds any entries that were
-/// missing required fields (id / name / targetPlatform).
+/// Listing succeeded (zero or more devices); [skippedRaw] holds any entries
+/// that were missing required fields (id / name / targetPlatform).
 class DevicesListed extends DevicesResult {
   const DevicesListed({required this.devices, this.skippedRaw = const []});
 
