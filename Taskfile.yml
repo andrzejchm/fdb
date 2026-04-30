@@ -1982,6 +1982,143 @@ tasks:
         {{.FDB}} back >/dev/null 2>&1 || true
         exit 1
 
+  test:grant-permission:
+    desc: Grant, revoke, and reset runtime permissions via xcrun simctl (iOS sim) or adb (Android)
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        IS_EMULATOR=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $2}' || echo "")
+
+        echo "==> [grant-permission] grant camera (expect success or platform unsupported)"
+        set +e
+        OUTPUT=$({{.FDB}} grant-permission camera 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+
+        if echo "$OUTPUT" | grep -q "ERROR: grant-permission is not supported on platform:"; then
+          echo "SKIP: grant-permission — unsupported platform ($PLATFORM)"
+          exit 0
+        fi
+
+        if echo "$OUTPUT" | grep -q "ERROR: grant-permission is not supported on physical iOS"; then
+          echo "SKIP: grant-permission — physical iOS not supported"
+          exit 0
+        fi
+
+        if echo "$OUTPUT" | grep -q "ERROR: Cannot grant permissions on macOS"; then
+          echo "SKIP: grant-permission grant on macOS not supported (expected)"
+          # macOS: test reset instead
+          echo "==> [grant-permission] reset camera on macOS"
+          OUTPUT=$({{.FDB}} grant-permission camera --reset 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb grant-permission camera --reset on macOS exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if echo "$OUTPUT" | grep -q "PERMISSION_RESET="; then
+            echo "PASS: fdb grant-permission camera --reset (macOS)"
+          else
+            echo "FAIL: fdb grant-permission camera --reset — PERMISSION_RESET= not found" >&2
+            exit 1
+          fi
+          exit 0
+        fi
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb grant-permission camera exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "PERMISSION_GRANTED=camera"; then
+          echo "PASS: fdb grant-permission camera"
+        else
+          echo "FAIL: fdb grant-permission camera — PERMISSION_GRANTED=camera not found" >&2
+          exit 1
+        fi
+
+        echo "==> [grant-permission] revoke camera"
+        OUTPUT=$({{.FDB}} grant-permission camera --revoke 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb grant-permission camera --revoke exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "PERMISSION_REVOKED=camera"; then
+          echo "PASS: fdb grant-permission camera --revoke"
+        else
+          echo "FAIL: fdb grant-permission camera --revoke — PERMISSION_REVOKED=camera not found" >&2
+          exit 1
+        fi
+
+        echo "==> [grant-permission] reset camera"
+        OUTPUT=$({{.FDB}} grant-permission camera --reset 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb grant-permission camera --reset exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "PERMISSION_RESET=camera"; then
+          echo "PASS: fdb grant-permission camera --reset"
+        else
+          echo "FAIL: fdb grant-permission camera --reset — PERMISSION_RESET=camera not found" >&2
+          exit 1
+        fi
+
+        echo "==> [grant-permission] reset-all"
+        OUTPUT=$({{.FDB}} grant-permission --reset-all 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb grant-permission --reset-all exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "PERMISSION_RESET_ALL=true|PERMISSION_RESET=all"; then
+          echo "PASS: fdb grant-permission --reset-all"
+        else
+          echo "FAIL: fdb grant-permission --reset-all — PERMISSION_RESET_ALL=true not found" >&2
+          exit 1
+        fi
+
+        echo "==> [grant-permission] unknown token (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} grant-permission totally_fake_permission 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb grant-permission unknown token should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR: Unknown permission"; then
+          echo "PASS: fdb grant-permission unknown token rejected"
+        else
+          echo "FAIL: fdb grant-permission unknown token — expected ERROR: Unknown permission" >&2
+          exit 1
+        fi
+
+        echo "==> [grant-permission] no token and no --reset-all (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} grant-permission 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb grant-permission with no args should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb grant-permission no-args rejected"
+        else
+          echo "FAIL: fdb grant-permission no-args — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb grant-permission"
+
   test:native-tap:
     desc: Tap native UI elements via adb (Android) or xcrun simctl (iOS simulator)
     dir: '{{.TEST_APP}}'
@@ -2746,6 +2883,7 @@ tasks:
       - task: test:native-view-tap
       - task: test:deeplink
       - task: test:native-tap
+      - task: test:grant-permission
       - task: test:select
       - task: test:tap
         vars:

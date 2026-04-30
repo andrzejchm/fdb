@@ -10,6 +10,7 @@ import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/cli/adapters/double_tap_cli.dart';
 import 'package:fdb/cli/adapters/ext_cli.dart';
 import 'package:fdb/cli/adapters/gc_cli.dart';
+import 'package:fdb/cli/adapters/grant_permission_cli.dart';
 import 'package:fdb/cli/adapters/input_cli.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
@@ -61,6 +62,10 @@ Commands:
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
+  grant-permission <perm> [--revoke] [--reset] [--reset-all] [--bundle <id>]
+               Grant, revoke, or reset a runtime permission
+               iOS sim: xcrun simctl privacy; Android: adb pm grant/revoke
+               macOS: reset only (tccutil); physical iOS/Windows/Linux: unsupported
   native-tap  Tap native (non-Flutter) UI at coordinates via platform tools
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector or coordinates
@@ -227,6 +232,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runMemCli(args);
     case 'gc':
       return runGcCli(args);
+    case 'grant-permission':
+      return runGrantPermissionCli(args);
     case 'skill':
       return runSkillCli(args);
     default:

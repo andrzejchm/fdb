@@ -128,6 +128,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
+| `fdb grant-permission <perm> [--revoke] [--reset] [--reset-all] [--bundle <id>]` | Grant, revoke, or reset a runtime permission. iOS sim: `xcrun simctl privacy`; Android: `adb pm grant/revoke`. macOS: reset only (`tccutil`). Physical iOS, Windows, Linux: unsupported. Tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `photos`, `calendar`, `reminders`, `notifications` (Android only), `motion`, `media-library` |
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
 | `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
