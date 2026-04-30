@@ -458,6 +458,90 @@ tasks:
           exit 1
         fi
 
+  test:crash-report:
+    desc: Fetch OS-level crash records for the running app
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> fdb crash-report (default: --last 1h)"
+        OUTPUT=$({{.FDB}} crash-report 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb crash-report exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "CRASH_REPORT_FOUND|CRASH_REPORT_NONE"; then
+          echo "PASS: fdb crash-report"
+        else
+          echo "FAIL: fdb crash-report - expected CRASH_REPORT_FOUND or CRASH_REPORT_NONE" >&2
+          exit 1
+        fi
+
+        echo "==> fdb crash-report --last 5m"
+        OUTPUT=$({{.FDB}} crash-report --last 5m 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb crash-report --last 5m exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "CRASH_REPORT_FOUND|CRASH_REPORT_NONE"; then
+          echo "PASS: fdb crash-report --last 5m"
+        else
+          echo "FAIL: fdb crash-report --last 5m - expected CRASH_REPORT_FOUND or CRASH_REPORT_NONE" >&2
+          exit 1
+        fi
+
+        echo "==> fdb crash-report --all"
+        OUTPUT=$({{.FDB}} crash-report --all 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb crash-report --all exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "CRASH_REPORT_FOUND|CRASH_REPORT_NONE"; then
+          echo "PASS: fdb crash-report --all"
+        else
+          echo "FAIL: fdb crash-report --all - expected CRASH_REPORT_FOUND or CRASH_REPORT_NONE" >&2
+          exit 1
+        fi
+
+        echo "==> fdb crash-report invalid --last format (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} crash-report --last bad 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb crash-report --last bad should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb crash-report invalid --last rejected"
+        else
+          echo "FAIL: fdb crash-report invalid --last — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "==> fdb crash-report --app-id com.example.nonexistent"
+        OUTPUT=$({{.FDB}} crash-report --app-id com.example.nonexistent 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb crash-report --app-id nonexistent exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "CRASH_REPORT_FOUND|CRASH_REPORT_NONE"; then
+          echo "PASS: fdb crash-report --app-id (no records expected)"
+        else
+          echo "FAIL: fdb crash-report --app-id nonexistent - expected CRASH_REPORT_FOUND or CRASH_REPORT_NONE" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb crash-report"
+
   test:tree:
     desc: Inspect widget tree
     dir: '{{.TEST_APP}}'
@@ -2556,6 +2640,7 @@ tasks:
       - task: test:logs
       - task: test:logs-tag
       - task: test:syslog
+      - task: test:crash-report
       - task: test:tree
       - task: test:describe
       - task: test:describe-grid
