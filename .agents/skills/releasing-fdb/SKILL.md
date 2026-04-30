@@ -29,7 +29,7 @@ Copy and track progress:
 ```
 - [ ] Pre-release verification (analyze, unit tests, smoke tests)
 - [ ] Determine version bump type (major / minor / patch)
-- [ ] Update version in all 10 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, lib/skill/SKILL.md, CHANGELOG.md, fdb_helper/CHANGELOG.md, README.md, example/example.md, doc/README.agents.md (fdb_helper version in snippets)
+- [ ] Update version in all 10 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, lib/skill/SKILL.md (2 changes: fdb version + fdb_helper version in setup snippet), CHANGELOG.md, fdb_helper/CHANGELOG.md, README.md, example/example.md, doc/README.agents.md (fdb_helper version in snippets)
 - [ ] Verify no stale OLD_VERSION references remain (grep check)
 - [ ] Commit: `chore: bump version to X.Y.Z`
 - [ ] Tag: `git tag vX.Y.Z`

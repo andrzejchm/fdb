@@ -51,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 gemini skills install https://github.com/andrzejchm/fdb.git --path skills/using-fdb
 ```
 
-For other agents, place the SKILL.md wherever your agent reads skill definitions from.
+For other agents, place the SKILL.md wherever your agent reads skill definitions from, or run `fdb skill` to print its contents directly.
 
 ## Step 3: Verify
 
