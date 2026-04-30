@@ -64,7 +64,9 @@ Future<CrashReportResult> _runAndroid({
     );
   }
 
-  final adbPrefix = <String>[if (device != null) ...['-s', device]];
+  final adbPrefix = <String>[
+    if (device != null) ...['-s', device]
+  ];
   final entries = <CrashReportEntry>[];
 
   // --- logcat crash buffer ---
@@ -197,11 +199,7 @@ Future<CrashReportResult> _runIosPhysical({
       return CrashReportError('idevicecrashreport failed: $err');
     }
 
-    final ipsFiles = tmpDir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.ips'))
-        .toList()
+    final ipsFiles = tmpDir.listSync().whereType<File>().where((f) => f.path.endsWith('.ips')).toList()
       ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
 
     if (ipsFiles.isEmpty) return const CrashReportNone();
