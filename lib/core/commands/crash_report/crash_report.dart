@@ -207,16 +207,12 @@ Future<CrashReportResult> _runIosPhysical({
 
   // When --all is true, skip the mtime filter (consistent with iOS Simulator).
   final duration = input.all ? null : _parseDuration(input.last);
-  final ipsFiles = tmpDir
-      .listSync()
-      .whereType<File>()
-      .where((f) {
-        if (!f.path.endsWith('.ips')) return false;
-        if (duration == null) return true;
-        final cutoff = DateTime.now().subtract(duration);
-        return f.statSync().modified.isAfter(cutoff);
-      })
-      .toList()
+  final ipsFiles = tmpDir.listSync().whereType<File>().where((f) {
+    if (!f.path.endsWith('.ips')) return false;
+    if (duration == null) return true;
+    final cutoff = DateTime.now().subtract(duration);
+    return f.statSync().modified.isAfter(cutoff);
+  }).toList()
     ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
 
   if (ipsFiles.isEmpty) return const CrashReportNone();
@@ -327,5 +323,3 @@ String? _safeReadFile(File file) {
     return null;
   }
 }
-
-
