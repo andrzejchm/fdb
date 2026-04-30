@@ -36,12 +36,6 @@ Docs:
 - [ ] .agents/skills/testing-fdb/SKILL.md — individual test list
 - [ ] skills/using-fdb/SKILL.md — usage examples
 
-Platform tests (ALL mandatory before PR):
-- [ ] macOS — task test:<command> passes
-- [ ] Android physical — task test:<command> passes
-- [ ] iOS simulator — task test:<command> passes
-- [ ] Full smoke suite: task smoke (Android)
-
 Review loop (delegated):
 - [ ] Spawn reviewing-fixing-loop agent
 - [ ] All findings resolved or triaged
@@ -49,6 +43,12 @@ Review loop (delegated):
 Checks (delegated):
 - [ ] Spawn checks agent (dart analyze + flutter analyze + dart format)
 - [ ] All clean
+
+Platform tests (ALL mandatory before PR):
+- [ ] macOS — task test:<command> passes
+- [ ] Android physical — task test:<command> passes
+- [ ] iOS simulator — task test:<command> passes
+- [ ] Full smoke suite: task smoke (Android)
 
 PR:
 - [ ] Load humanizing-ai-text skill before writing PR body
@@ -185,7 +185,46 @@ task analyze
 
 ---
 
-## Step 5 — Manual platform testing (MANDATORY)
+## Step 5 — Spawn review-fix loop agent (DELEGATE)
+
+```
+Spawn a coding subagent with this prompt:
+
+Run a review-fixing loop on the <feature-name> implementation in the git
+worktree at `.worktrees/<feature-name>`.
+
+Review against:
+1. GitHub issue acceptance criteria
+2. CODE-STYLE.md and packages/fdb_helper/AGENTS.md
+3. Edge cases and error handling
+4. Output token format
+5. Taskfile test coverage
+6. Doc completeness (README, testing-fdb/SKILL.md, using-fdb/SKILL.md)
+
+Fix all real findings. Commit and push when the loop converges.
+```
+
+---
+
+## Step 6 — Spawn checks agent (DELEGATE)
+
+```
+Spawn a coding subagent with this prompt:
+
+Run all static analysis and format checks on the fdb worktree at
+`.worktrees/<feature-name>`.
+
+1. dart pub get
+2. dart analyze lib/ bin/ test/
+3. dart format --page-width 120 --trailing-commas preserve --set-exit-if-changed lib/ bin/ test/
+4. cd packages/fdb_helper && flutter analyze --suppress-analytics
+
+Fix ALL issues. Commit and push. Return exact output of each check.
+```
+
+---
+
+## Step 7 — Manual platform testing (MANDATORY)
 
 All three platforms must pass before opening a PR. No exceptions.
 
@@ -212,45 +251,6 @@ Platform notes:
 **Full smoke suite** (after all three platforms pass):
 ```bash
 task smoke   # runs on Android
-```
-
----
-
-## Step 6 — Spawn review-fix loop agent (DELEGATE)
-
-```
-Spawn a coding subagent with this prompt:
-
-Run a review-fixing loop on the <feature-name> implementation in the git
-worktree at `.worktrees/<feature-name>`.
-
-Review against:
-1. GitHub issue acceptance criteria
-2. CODE-STYLE.md and packages/fdb_helper/AGENTS.md
-3. Edge cases and error handling
-4. Output token format
-5. Taskfile test coverage
-6. Doc completeness (README, testing-fdb/SKILL.md, using-fdb/SKILL.md)
-
-Fix all real findings. Commit and push when the loop converges.
-```
-
----
-
-## Step 7 — Spawn checks agent (DELEGATE)
-
-```
-Spawn a coding subagent with this prompt:
-
-Run all static analysis and format checks on the fdb worktree at
-`.worktrees/<feature-name>`.
-
-1. dart pub get
-2. dart analyze lib/ bin/ test/
-3. dart format --page-width 120 --trailing-commas preserve --set-exit-if-changed lib/ bin/ test/
-4. cd packages/fdb_helper && flutter analyze --suppress-analytics
-
-Fix ALL issues. Commit and push. Return exact output of each check.
 ```
 
 ---
