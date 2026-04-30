@@ -72,7 +72,8 @@ String? _resolveRemediationHint(
   final combined = lines.join('\n').toLowerCase();
   if (!combined.contains('errsecinternalcomponent')) return defaultHint;
 
-  return '$defaultHint Possible locked keychain / SSH non-interactive codesign access. Unlock the login keychain and allow codesign key access for non-interactive sessions.';
+  final prefix = defaultHint != null ? '$defaultHint ' : '';
+  return '${prefix}Possible locked keychain / SSH non-interactive codesign access. Unlock the login keychain and allow codesign key access for non-interactive sessions.';
 }
 
 String _buildRootCause(
@@ -423,7 +424,7 @@ final _categoryHeuristics = <_CategoryHeuristic>[
     weakTokens: ['license agreements'],
     label: 'Android SDK license not accepted',
     remediationHint: 'Run `flutter doctor --android-licenses` to accept the required SDK licenses.',
-    fullLogScan: false,
+    fullLogScan: true,
   ),
   // Matched on exact Flutter tool strings from user_messages.dart
   // ("Unable to locate Android SDK") and sdk_toolchain fixture.
