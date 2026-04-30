@@ -61,6 +61,8 @@ Future<GcResult> runGc(GcInput _) async {
       heapDelta: totalAfter - totalBefore,
       warnings: warnings,
     );
+  } on AppDiedException {
+    rethrow;
   } catch (e) {
     return GcError(e.toString());
   }

@@ -47,7 +47,7 @@ int _format(GcResult result, {required bool jsonMode}) {
         final beforeStr = fmtBytes(heapBefore);
         final afterStr = fmtBytes(heapAfter);
         final deltaStr = fmtBytes(heapDelta.abs());
-        final sign = heapDelta <= 0 ? '-' : '+';
+        final sign = heapDelta < 0 ? '-' : '+';
         stdout.writeln('GC_COMPLETE HEAP_BEFORE=$beforeStr HEAP_AFTER=$afterStr HEAP_DELTA=$sign$deltaStr');
       }
       return 0;
