@@ -2045,8 +2045,10 @@ tasks:
         fi
 
         echo "==> [grant-permission] revoke camera"
+        set +e
         OUTPUT=$({{.FDB}} grant-permission camera --revoke 2>&1)
         EXIT_CODE=$?
+        set -e
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
           echo "FAIL: fdb grant-permission camera --revoke exited with code $EXIT_CODE" >&2
@@ -2060,8 +2062,10 @@ tasks:
         fi
 
         echo "==> [grant-permission] reset camera"
+        set +e
         OUTPUT=$({{.FDB}} grant-permission camera --reset 2>&1)
         EXIT_CODE=$?
+        set -e
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
           echo "FAIL: fdb grant-permission camera --reset exited with code $EXIT_CODE" >&2
@@ -2075,8 +2079,10 @@ tasks:
         fi
 
         echo "==> [grant-permission] reset-all"
+        set +e
         OUTPUT=$({{.FDB}} grant-permission --reset-all 2>&1)
         EXIT_CODE=$?
+        set -e
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
           echo "FAIL: fdb grant-permission --reset-all exited with code $EXIT_CODE" >&2
