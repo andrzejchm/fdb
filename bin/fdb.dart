@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
+import 'package:fdb/cli/adapters/gc_cli.dart';
 import 'package:fdb/cli/adapters/crash_report_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
@@ -76,6 +77,8 @@ Commands:
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   mem         Inspect heap usage; subcommands: profile, diff
+  gc          Force a full garbage collection across all isolates
+               --json              Output KEY=value tokens (HEAP_BEFORE, HEAP_AFTER, HEAP_DELTA)
   status      Check if the app is running
   kill        Stop the running app
   skill       Print the AI agent skill file (SKILL.md)
@@ -222,6 +225,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runKillCli(args);
     case 'mem':
       return runMemCli(args);
+    case 'gc':
+      return runGcCli(args);
     case 'skill':
       return runSkillCli(args);
     default:

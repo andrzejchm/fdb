@@ -1,11 +1,11 @@
 ---
 name: using-fdb
-description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, and taps/inputs/scrolls/swipes/navigates. Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, or interacting with widgets via fdb.
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, taps/inputs/scrolls/swipes/navigates, and forces garbage collection (`fdb gc`). Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, interacting with widgets via fdb, or forcing a GC to disambiguate live-retained vs unreachable-but-uncollected memory.
 license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.4.0
+## Overview - skill version 1.5.0
 
 > **Version check:** Run `fdb --version`. This skill may describe unreleased branch behavior,
 > so do not assume the published `1.4.0` release includes every command example below. To use
@@ -430,6 +430,37 @@ Leak-hunting workflow:
 ```bash
 fdb mem profile --output /tmp/before.json
 # ... navigate, trigger suspected leak ...
+fdb mem profile --output /tmp/after.json
+fdb mem diff /tmp/before.json /tmp/after.json
+```
+
+### Forced garbage collection
+
+No `fdb_helper` required — pure VM service, works on any platform fdb supports.
+
+```bash
+fdb gc           # force GC across all isolates; print human-readable summary
+fdb gc --json    # same, KEY=value tokens for scripting
+```
+
+`fdb gc` output:
+```
+GC_COMPLETE HEAP_BEFORE=322.4 MB HEAP_AFTER=287.1 MB HEAP_DELTA=-35.3 MB
+```
+
+`fdb gc --json` output (one line per key):
+```
+HEAP_BEFORE=338033664
+HEAP_AFTER=301020160
+HEAP_DELTA=-37013504
+```
+
+Force GC before/after a suspected-leak navigation to remove GC noise from `fdb mem` readings:
+```bash
+fdb gc
+fdb mem profile --output /tmp/before.json
+# ... navigate through the suspected-leak scenario ...
+fdb gc
 fdb mem profile --output /tmp/after.json
 fdb mem diff /tmp/before.json /tmp/after.json
 ```

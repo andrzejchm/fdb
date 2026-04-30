@@ -2353,6 +2353,43 @@ tasks:
         rm -rf "$MEM_TMP_DIR"
         echo "PASS: fdb mem"
 
+  test:gc:
+    desc: Force full GC across all isolates and verify output
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> fdb gc — human-readable summary"
+        OUTPUT=$({{.FDB}} gc 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb gc exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "GC_COMPLETE"; then
+          echo "PASS: fdb gc (human-readable)"
+        else
+          echo "FAIL: fdb gc - GC_COMPLETE not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> fdb gc --json — KEY=value output"
+        OUTPUT=$({{.FDB}} gc --json 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb gc --json exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "HEAP_BEFORE=" && echo "$OUTPUT" | grep -q "HEAP_AFTER=" && echo "$OUTPUT" | grep -q "HEAP_DELTA="; then
+          echo "PASS: fdb gc --json"
+        else
+          echo "FAIL: fdb gc --json - expected HEAP_BEFORE=, HEAP_AFTER=, HEAP_DELTA= in output" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb gc"
+
   test:status-stopped:
     desc: Verify status shows not running after kill
     dir: '{{.TEST_APP}}'
@@ -2698,6 +2735,7 @@ tasks:
       - task: test:scroll
       - task: test:scroll-to
       - task: test:mem
+      - task: test:gc
       - task: test:wait
       - task: test:swipe
       - task: test:back
