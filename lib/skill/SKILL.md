@@ -67,7 +67,31 @@ Lists all devices Flutter can target: physical phones, emulators, simulators, de
 fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>]
 ```
 
-Output: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+
+Output on failure (process exited before VM service appeared):
+```
+ERROR: flutter process exited unexpectedly
+LAUNCH_ERROR=<CATEGORY>
+LAUNCH_ERROR_CAUSE=<one-line description>
+HINT: <remediation hint>          # omitted when category is UNKNOWN
+--- log context ---
+L42: <most informative log lines>
+---
+```
+
+Known `LAUNCH_ERROR` categories and their meanings:
+
+| Category | Meaning |
+|---|---|
+| `IOS_BUNDLE_ID_CLAIMED` | Bundle ID registered to a different team — change or reclaim it |
+| `IOS_NO_ACCOUNT_FOR_TEAM` | Apple ID for the Xcode team is not signed in on this Mac |
+| `IOS_CODESIGN_PROVISIONING` | Code signing or provisioning profile failure (may include keychain issues) |
+| `IOS_BUILD_SCRIPT` | An Xcode build script phase failed (CocoaPods embed, etc.) |
+| `ANDROID_INSTALL_ADB` | ADB install failed — incompatible signatures, storage, or device offline |
+| `SDK_TOOLCHAIN` | Flutter SDK, Android SDK, or Xcode toolchain is missing or misconfigured |
+| `FLUTTER_BUILD` | Dart/Gradle compile error — fix the first error and retry |
+| `UNKNOWN` | No recognised pattern matched — open LOG_FILE for full output |
 
 Find device IDs: `fdb devices`
 
