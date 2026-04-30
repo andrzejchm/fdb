@@ -21,10 +21,10 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
   final result = await Process.run('flutter', ['devices', '--machine']);
 
   if (result.exitCode != 0) {
-    return DevicesFlutterFailed(result.stderr as String);
+    return DevicesFlutterFailed(result.stderr.toString());
   }
 
-  final json = extractDevicesJson(result.stdout as String);
+  final json = extractDevicesJson(result.stdout.toString());
   if (json == null) return const DevicesNotFound();
 
   final List<dynamic> raw;
@@ -39,11 +39,18 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
   final devices = <DeviceInfo>[];
   final skipped = <Map<String, dynamic>>[];
 
-  // Fetch reachability info once for all iOS physical devices.
-  // null  → xcrun unavailable/failed (fall back: treat all as connected).
-  // non-null → xcrun ran OK; unavailableUdids contains UDIDs explicitly
-  //            listed with tunnelState == 'unavailable'.
-  final xcrunResult = await _fetchIosUdidSets();
+  // Only invoke xcrun when at least one iOS physical device is present.
+  // null  → xcrun unavailable/failed or not needed (fall back: treat all as connected).
+  // non-null → xcrun ran OK; set contains UDIDs explicitly listed with
+  //            tunnelState == 'unavailable'.
+  final hasIosPhysical = raw.any((entry) {
+    final d = entry as Map<String, dynamic>;
+    final platform = d['targetPlatform'] as String?;
+    final emulator = d['emulator'] as bool? ?? false;
+    return platform == 'ios' && !emulator;
+  });
+  final xcrunResult =
+      hasIosPhysical ? await _fetchUnavailableIosUdids() : null;
 
   for (final entry in raw) {
     final d = entry as Map<String, dynamic>;
@@ -83,7 +90,7 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
 /// `tunnelState == 'unavailable'`. Devices absent from xcrun output entirely
 /// default to connected — xcrun only lists network-tunnel-visible devices, so
 /// a USB-connected device may not appear at all even though it is reachable.
-Future<Set<String>?> _fetchIosUdidSets() async {
+Future<Set<String>?> _fetchUnavailableIosUdids() async {
   try {
     final tmpFile = await _createTempFile();
     try {
