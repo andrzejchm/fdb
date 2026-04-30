@@ -18,11 +18,11 @@ fdb grant-permission camera
 # stdout: PERMISSION_GRANTED=camera
 
 # Revoke a permission
-fdb grant-permission --revoke camera
+fdb grant-permission camera --revoke
 # stdout: PERMISSION_REVOKED=camera
 
 # Reset a single permission (re-prompts on next access)
-fdb grant-permission --reset camera
+fdb grant-permission camera --reset
 # stdout: PERMISSION_RESET=camera
 
 # Reset ALL permissions for the app

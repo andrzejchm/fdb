@@ -2007,7 +2007,7 @@ tasks:
           exit 0
         fi
 
-        if echo "$OUTPUT" | grep -q "ERROR: Cannot grant permissions on macOS"; then
+        if echo "$OUTPUT" | grep -q "Cannot grant permissions on macOS"; then
           echo "SKIP: grant-permission grant on macOS not supported (expected)"
           # macOS: test reset instead
           echo "==> [grant-permission] reset camera on macOS"
@@ -2035,6 +2035,12 @@ tasks:
           echo "PASS: fdb grant-permission camera"
         else
           echo "FAIL: fdb grant-permission camera — PERMISSION_GRANTED=camera not found" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "WARNING: Permission change may have terminated the app"; then
+          echo "PASS: fdb grant-permission camera — termination warning present"
+        else
+          echo "FAIL: fdb grant-permission camera — termination WARNING not found" >&2
           exit 1
         fi
 
@@ -2080,6 +2086,31 @@ tasks:
           echo "PASS: fdb grant-permission --reset-all"
         else
           echo "FAIL: fdb grant-permission --reset-all — PERMISSION_RESET_ALL=true not found" >&2
+          exit 1
+        fi
+
+        echo "==> [grant-permission] no app ID (expect error)"
+        APP_ID_FILE=".fdb/fdb.app_id"
+        APP_ID_BACKUP=".fdb/fdb.app_id.bak"
+        if [ -f "$APP_ID_FILE" ]; then
+          mv "$APP_ID_FILE" "$APP_ID_BACKUP"
+        fi
+        set +e
+        OUTPUT=$({{.FDB}} grant-permission camera 2>&1)
+        EXIT_CODE=$?
+        set -e
+        if [ -f "$APP_ID_BACKUP" ]; then
+          mv "$APP_ID_BACKUP" "$APP_ID_FILE"
+        fi
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb grant-permission with no app ID should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR: No app ID found. Run fdb launch first or pass --bundle"; then
+          echo "PASS: fdb grant-permission no app ID rejected"
+        else
+          echo "FAIL: fdb grant-permission no app ID — expected ERROR: No app ID found" >&2
           exit 1
         fi
 
