@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'benchmark_screens.dart';
 import 'grid_describe_screen.dart';
 import 'native_view_test_screen.dart';
-import 'overlay_tap_test_screen.dart';
 import 'scroll_to_test_screen.dart';
 
 void main() {
@@ -45,7 +44,6 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
         scrollToTestAlreadyVisibleRoute: (_) =>
             const AlreadyVisibleScrollToPage(),
-        '/overlay-tap-test': (_) => const OverlayTapTestScreen(),
       },
     );
   }
@@ -210,13 +208,6 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/grid-describe-test'),
                 child: const Text('Grid Describe Test'),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                key: const Key('go_to_overlay_tap_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/overlay-tap-test'),
-                child: const Text('Overlay Tap Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
