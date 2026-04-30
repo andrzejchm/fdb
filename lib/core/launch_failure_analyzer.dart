@@ -399,7 +399,8 @@ final _categoryHeuristics = <_CategoryHeuristic>[
     strongTokens: ['phasescriptexecution', 'xcodebuild failed', 'failed to build ios app'],
     weakTokens: ['[cp] embed pods frameworks', 'command phasescriptexecution failed'],
     label: 'iOS/Xcode build script failed',
-    remediationHint: 'Inspect the failing Xcode script phase in the flutter run output above or rerun from Xcode for full script output.',
+    remediationHint:
+        'Inspect the failing Xcode script phase in the flutter run output above or rerun from Xcode for full script output.',
     fullLogScan: false,
   ),
   // Matched on exact Flutter tool string from android_device.dart
@@ -450,7 +451,8 @@ final _categoryHeuristics = <_CategoryHeuristic>[
     ],
     weakTokens: ['compilation failed', 'execution failed for task', 'error launching application'],
     label: 'Flutter build failed',
-    remediationHint: 'Fix the first compile/build error in the flutter run output above before addressing follow-up failures.',
+    remediationHint:
+        'Fix the first compile/build error in the flutter run output above before addressing follow-up failures.',
     fullLogScan: false,
   ),
 ];

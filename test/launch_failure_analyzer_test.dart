@@ -148,8 +148,7 @@ void main() {
     test('classifies iOS device locked via e80000e2 hex error code', () {
       // Exercises the e80000e2 strong token variant and the
       // "the device was not, or could not be, unlocked" strong token.
-      const output =
-          'Installing and launching...\n'
+      const output = 'Installing and launching...\n'
           'Error 0xe80000e2: The device was not, or could not be, unlocked.\n'
           'Try relaunching Xcode and reconnecting the device.';
 
