@@ -1718,24 +1718,19 @@ tasks:
           exit 1
         fi
 
-        # Wait for WebView renderer to be ready — poll fdb describe until
-        # "WebView title: waiting" appears, confirming the renderer process is
-        # alive and the page has finished loading. A fixed 3s sleep is not
+        # Wait for the WebView renderer to finish loading the HTML page.
+        # "WebView title: waiting" appears in fdb describe once onPageFinished
+        # fires, confirming the renderer process is alive. A fixed sleep is not
         # sufficient on devices where the Android system (MIUI/OEM) kills the
-        # WebView renderer sandboxed process during the smoke run.
+        # WebView sandboxed renderer process during earlier smoke tests.
         echo "==> [native-view-tap] Waiting for WebView renderer to be ready (up to 15s)"
-        WEBVIEW_READY=0
-        for i in $(seq 1 30); do
-          DESCRIBE=$({{.FDB}} describe 2>&1)
-          if echo "$DESCRIBE" | grep -q "WebView title: waiting"; then
-            echo "==> [native-view-tap] WebView renderer ready after ~$((i / 2))s"
-            WEBVIEW_READY=1
-            break
-          fi
-          sleep 0.5
-        done
-        if [ "$WEBVIEW_READY" = "0" ]; then
-          echo "FAIL: WebView renderer did not become ready within 15s — page title never appeared in describe output" >&2
+        set +e
+        WAIT_OUTPUT=$({{.FDB}} wait --text "WebView title: waiting" --present --timeout 15000 2>&1)
+        WAIT_EXIT=$?
+        set -e
+        echo "$WAIT_OUTPUT"
+        if [ $WAIT_EXIT -ne 0 ]; then
+          echo "FAIL: WebView renderer did not become ready within 15s — 'WebView title: waiting' never appeared" >&2
           exit 1
         fi
 
