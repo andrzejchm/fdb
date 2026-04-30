@@ -136,14 +136,18 @@ Future<CrashReportResult> _runIosSimulator({
   }
   final predicate = predicateParts.join(' AND ');
 
-  // When --all is true, omit --last so the query is not time-bounded.
+  // --all returns all crash sources (log + every .ips file) but still bounds the
+  // log query to 24h to avoid scanning the entire simulator log history, which
+  // can be very large and cause the command to hang.
+  final logWindow = input.all ? '24h' : input.last;
   final logArgs = [
     'simctl',
     'spawn',
     device,
     'log',
     'show',
-    if (!input.all) ...['--last', input.last],
+    '--last',
+    logWindow,
     '--style',
     'compact',
     '--predicate',
@@ -244,10 +248,14 @@ Future<CrashReportResult> _runMacos({
   final entries = <CrashReportEntry>[];
 
   // --- system log ---
-  // When --all is true, omit --last so the query is not time-bounded.
+  // --all returns all crash sources (log + every .ips file) but still bounds the
+  // log query to 24h to avoid scanning the entire macOS log archive, which can
+  // take minutes and produce gigabytes of output.
+  final logWindow = input.all ? '24h' : input.last;
   final logArgs = [
     'show',
-    if (!input.all) ...['--last', input.last],
+    '--last',
+    logWindow,
     '--style',
     'compact',
     if (appId != null) ...['--predicate', 'process == "$appId"'],

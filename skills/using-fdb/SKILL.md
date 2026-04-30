@@ -150,6 +150,8 @@ Output tokens:
 - `CRASH_REPORT_FOUND ENTRIES=N` — one or more crash records found; followed by `---`, `LABEL=`, optional `FILE=`, and raw text for each entry.
 - `CRASH_REPORT_NONE` — no crash records found in the time window.
 
+Note: `--all` returns all available crash sources (logcat buffers, `.ips` files) rather than just the most recent one. The underlying log query is still capped at 24h on iOS simulator and macOS to avoid scanning the entire log archive.
+
 Platform dispatch:
 - **Android**: `adb logcat -b crash` + `adb shell dumpsys dropbox` + `adb logcat -b system -s lowmemorykiller`
 - **iOS simulator**: `xcrun simctl spawn <udid> log show` (jetsam predicate) + `~/Library/Logs/DiagnosticReports/*.ips`
