@@ -144,6 +144,29 @@ void main() {
       expect(result.contextLines.join('\n'), contains('Your device is locked'));
       expect(result.remediationHint, contains('Unlock'));
     });
+
+    test('classifies iOS device locked via e80000e2 hex error code', () {
+      // Exercises the e80000e2 strong token variant and the
+      // "the device was not, or could not be, unlocked" strong token.
+      const output =
+          'Installing and launching...\n'
+          'Error 0xe80000e2: The device was not, or could not be, unlocked.\n'
+          'Try relaunching Xcode and reconnecting the device.';
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'IOS_DEVICE_LOCKED');
+      expect(result.rootCause.toLowerCase(), contains('ios device is locked'));
+      expect(result.remediationHint, contains('Unlock'));
+    });
+
+    test('returns UNKNOWN category with non-empty hint for empty log', () {
+      final result = analyzeLaunchFailure('');
+
+      expect(result.category, 'UNKNOWN');
+      expect(result.remediationHint, isNotNull);
+      expect(result.remediationHint, isNotEmpty);
+    });
   });
 }
 

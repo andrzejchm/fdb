@@ -89,7 +89,7 @@ int _format(LaunchResult result) {
       );
       return 1;
 
-    case LaunchProcessDied(:final fullLog):
+    case LaunchProcessDied(noLogFile: false, :final fullLog):
       final analysis = analyzeLaunchFailure(fullLog);
       stderr.writeln('ERROR: flutter process exited unexpectedly');
       stderr.writeln('LAUNCH_ERROR=${analysis.category}');
