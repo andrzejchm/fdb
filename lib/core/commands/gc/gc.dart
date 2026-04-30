@@ -11,8 +11,8 @@ export 'package:fdb/core/commands/gc/gc_models.dart';
 /// `getMemoryUsage` again after. Returns a single [GcSuccess] with the
 /// summed before/after heap bytes.
 ///
-/// Per-isolate failures are tolerated: the failed isolate is logged to
-/// stderr and processing continues. Returns [GcAllFailed] only when every
+/// Per-isolate failures are tolerated: the failure is recorded as a warning
+/// in the result and processing continues. Returns [GcAllFailed] only when every
 /// isolate fails. Returns [GcNoIsolates] when no isolates are found.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
