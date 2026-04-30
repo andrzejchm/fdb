@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/commands/launch/launch.dart';
+import 'package:fdb/core/launch_failure_analyzer.dart';
 
 /// CLI adapter for `fdb launch`.
 ///
@@ -88,10 +89,20 @@ int _format(LaunchResult result) {
       );
       return 1;
 
-    case LaunchProcessDied(:final tailLogLines):
+    case LaunchProcessDied(noLogFile: false, :final fullLog):
+      final analysis = analyzeLaunchFailure(fullLog);
       stderr.writeln('ERROR: flutter process exited unexpectedly');
-      for (final line in tailLogLines) {
-        stderr.writeln(line);
+      stderr.writeln('LAUNCH_ERROR=${analysis.category}');
+      stderr.writeln('LAUNCH_ERROR_CAUSE=${analysis.rootCause}');
+      if (analysis.remediationHint != null) {
+        stderr.writeln('HINT: ${analysis.remediationHint}');
+      }
+      if (analysis.contextLines.isNotEmpty) {
+        stderr.writeln('--- log context ---');
+        for (final line in analysis.contextLines) {
+          stderr.writeln(line);
+        }
+        stderr.writeln('---');
       }
       return 1;
 

@@ -103,7 +103,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
-| `fdb launch --device <id> --project <path> [--verbose]` | Launch app, wait for start |
+| `fdb launch --device <id> --project <path> [--verbose]` | Launch app, wait for start; emits `LAUNCH_ERROR=` / `LAUNCH_ERROR_CAUSE=` / `HINT:` on stderr for failures |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
 | `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
@@ -237,7 +237,7 @@ void main() {
 
 **Empty widget tree** - App may still be starting. Retry, or use `fdb describe` instead.
 
-**`RUNNING=false` right after launch** - The process crashed. Check `fdb logs --last 50`.
+**`RUNNING=false` right after launch** - The process crashed. When the log contains a recognisable failure, `fdb launch` prints `LAUNCH_ERROR=<CATEGORY>`, `LAUNCH_ERROR_CAUSE=<description>`, and `HINT: <remediation>` to stderr so you can act on it directly without reading the raw log. If the category is `UNKNOWN`, inspect the flutter run output above for the first error near the end. See also `fdb logs --last 50`.
 
 **`RUNNING=false` when running from a subdirectory** - fdb walks up the directory tree to find the nearest `.fdb/` session automatically. If it still shows `RUNNING=false`, the app may not be running or the session has a stale PID. Use `fdb --session-dir <project>/.fdb status` to point directly at the session directory.
 

@@ -1,0 +1,17 @@
+            /Users/andrzejchm/Developer/andrzejchm/fdb/example/test_app/ios/Runner.xcodeproj: error: No Account for Team "A78FQ5GDJ4". Add a new account in Accounts settings or verify that your accounts have valid credentials. (in target 'Runner' from project 'Runner')
+            /Users/andrzejchm/Developer/andrzejchm/fdb/example/test_app/ios/Runner.xcodeproj: error: No profiles for 'com.fdb.test.testApp' were found: Xcode couldn't find any iOS App Development provisioning profiles matching 'com.fdb.test.testApp'. (in target 'Runner' from project 'Runner')
+            note: Run script build phase 'Run Script' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Runner' from project 'Runner')
+            note: Run script build phase 'Thin Binary' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Runner' from project 'Runner')
+
+
+            ** BUILD FAILED **
+
+
+            The following build commands failed:
+            	Building workspace Runner with scheme Runner and configuration Debug
+            (1 failure)
+[   +1 ms] Running Xcode build... (completed in 4.9s)
+[        ] Xcode build done.                                            4.9s
+[   +2 ms] Failed to build iOS app
+[   +1 ms] "flutter run" took 11,772ms.
+[  +30 ms] exiting with code 1

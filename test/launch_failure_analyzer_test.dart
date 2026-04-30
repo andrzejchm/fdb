@@ -66,6 +66,36 @@ void main() {
       expect(result.rootCause, contains('Unhandled exception: socket closed'));
       expect(result.contextLines, isNotEmpty);
     });
+
+    test('classifies iOS bundle ID already claimed by another team', () {
+      final output = _readFixture('ios_bundle_id_claimed.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'IOS_BUNDLE_ID_CLAIMED');
+      expect(result.rootCause.toLowerCase(), contains('ios bundle identifier already claimed'));
+      expect(result.contextLines.join('\n'), contains('Failed Registering Bundle Identifier'));
+      expect(result.remediationHint, contains('bundle identifier'));
+    });
+
+    test('classifies iOS no Apple ID account found for Xcode team', () {
+      final output = _readFixture('ios_no_account_for_team.log');
+
+      final result = analyzeLaunchFailure(output);
+
+      expect(result.category, 'IOS_NO_ACCOUNT_FOR_TEAM');
+      expect(result.rootCause.toLowerCase(), contains('no apple id account found for xcode team'));
+      expect(result.contextLines.join('\n'), contains('No Account for Team'));
+      expect(result.remediationHint, contains('Apple ID'));
+    });
+
+    test('returns UNKNOWN category with non-empty hint for empty log', () {
+      final result = analyzeLaunchFailure('');
+
+      expect(result.category, 'UNKNOWN');
+      expect(result.remediationHint, isNotNull);
+      expect(result.remediationHint, isNotEmpty);
+    });
   });
 }
 
