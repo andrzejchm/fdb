@@ -140,9 +140,7 @@ exec $flutterCmd > $logFile 2>&1
         final logExists = File(logFile).existsSync();
         if (logExists) {
           final logContent = File(logFile).readAsStringSync();
-          final lines = const LineSplitter().convert(logContent);
-          final tail = lines.length > 10 ? lines.sublist(lines.length - 10) : lines;
-          return LaunchProcessDied(tailLogLines: tail, fullLog: logContent);
+          return LaunchProcessDied(fullLog: logContent);
         } else {
           return const LaunchProcessDied(noLogFile: true);
         }
