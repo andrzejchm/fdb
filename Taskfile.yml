@@ -732,6 +732,71 @@ tasks:
           exit 1
         fi
 
+  test:opaque-ancestor-tap:
+    desc: >
+      Verify fdb tap --key fires ONLY the target GestureDetector's onTap even
+      when an opaque ancestor GestureDetector covers the same area
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> [opaque-ancestor-tap] Navigate to OverlayTapTest screen"
+        {{.FDB}} scroll-to --key "go_to_overlay_tap_test" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "go_to_overlay_tap_test" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to overlay tap test screen" >&2
+          exit 1
+        fi
+        sleep 1
+
+        echo "==> [opaque-ancestor-tap] Show overlay (tap photo_area)"
+        {{.FDB}} tap --key "photo_area" >/dev/null 2>&1
+        sleep 0.3
+
+        echo "==> [opaque-ancestor-tap] Verify overlay is visible (overlayTapCount=1)"
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        echo "$DESCRIBE"
+        if ! echo "$DESCRIBE" | grep -q "overlayTapCount: 1"; then
+          echo "FAIL: overlay should be visible after tapping photo_area" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> [opaque-ancestor-tap] Tap approve_btn 3 times — only approve callback should fire"
+        for i in 1 2 3; do
+          OUTPUT=$({{.FDB}} tap --key "approve_btn" --timeout 2 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb tap --key approve_btn exited with code $EXIT_CODE" >&2
+            {{.FDB}} back >/dev/null 2>&1 || true
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -q "TAPPED="; then
+            echo "FAIL: TAPPED= not found in output" >&2
+            {{.FDB}} back >/dev/null 2>&1 || true
+            exit 1
+          fi
+        done
+
+        echo "==> [opaque-ancestor-tap] Verify: approveCount=3, overlayTapCount still=1"
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        echo "$DESCRIBE"
+        if ! echo "$DESCRIBE" | grep -q "approveCount: 3"; then
+          echo "FAIL: expected approveCount: 3 — approve callback did not fire 3 times" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+        echo "PASS: approveCount=3"
+        if ! echo "$DESCRIBE" | grep -q "overlayTapCount: 1"; then
+          echo "FAIL: overlayTapCount changed — opaque ancestor onTap fired as side-effect" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+        echo "PASS: overlayTapCount still=1 — opaque ancestor was NOT triggered"
+
+        echo "==> [opaque-ancestor-tap] Navigate back"
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb opaque-ancestor-tap"
+
   test:double-tap:
     desc: Double-tap a widget by selector and coordinates
     dir: '{{.TEST_APP}}'
@@ -2647,6 +2712,7 @@ tasks:
       - task: test:tap
         vars:
           DEVICE: '{{.DEVICE}}'
+      - task: test:opaque-ancestor-tap
       - task: test:double-tap
         vars:
           DEVICE: '{{.DEVICE}}'
