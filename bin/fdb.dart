@@ -32,8 +32,8 @@ import 'package:fdb/cli/adapters/syslog_cli.dart';
 import 'package:fdb/cli/adapters/tap_cli.dart';
 import 'package:fdb/cli/adapters/tree_cli.dart';
 import 'package:fdb/cli/adapters/wait_cli.dart';
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/constants.dart';
+import 'package:fdb/core/app_died_exception.dart';
 
 const usage = '''
 Usage: fdb [--session-dir <path>] <command> [args]
