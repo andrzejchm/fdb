@@ -134,7 +134,7 @@ Future<CrashReportResult> _runIosSimulator({
   if (appId != null) {
     predicateParts.add('eventMessage CONTAINS "$appId"');
   }
-  final predicate = predicateParts.join(' OR ');
+  final predicate = predicateParts.join(' AND ');
 
   // When --all is true, omit --last so the query is not time-bounded.
   final logArgs = [

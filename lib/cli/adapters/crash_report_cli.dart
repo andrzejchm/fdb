@@ -55,17 +55,17 @@ Future<int> _execute(ArgResults results) async {
     all: results['all'] as bool,
   );
 
-  final result = await fetchCrashReport(input);
-
   // Warn when the user explicitly passed --last but the platform is Android,
   // where logcat has no native time filter and the flag is ignored.
-  if (results.wasParsed('last') && result is CrashReportFound) {
+  // Emitted before result processing so it fires regardless of result variant.
+  if (results.wasParsed('last')) {
     final platformInfo = readPlatformInfo();
     if (platformInfo != null && platformInfo.platform.toLowerCase().startsWith('android')) {
       stderr.writeln('WARNING: --last is not supported on Android, the flag was ignored');
     }
   }
 
+  final result = await fetchCrashReport(input);
   return _format(result);
 }
 
