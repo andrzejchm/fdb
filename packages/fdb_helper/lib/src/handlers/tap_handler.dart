@@ -68,9 +68,13 @@ Future<developer.ServiceExtensionResponse> handleTap(
 
     final center = renderObject.size.center(Offset.zero);
     final globalCenter = renderObject.localToGlobal(center);
+    // Capture widgetType before the async gap: the tap may cause the widget
+    // to disappear (e.g. a button that navigates away or hides itself), which
+    // unmounts the element. Accessing element.widget after the await would
+    // throw "Null check operator used on a null value".
+    final widgetType = element.widget.runtimeType.toString();
     await dispatchTap(globalCenter, holdDuration: holdDuration);
 
-    final widgetType = element.widget.runtimeType.toString();
     return developer.ServiceExtensionResponse.result(
       jsonEncode({
         'status': 'Success',
