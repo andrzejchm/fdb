@@ -1,3 +1,7 @@
+## 1.5.0
+
+No functional changes.
+
 ## 1.4.0
 
 ### Fixes

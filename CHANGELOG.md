@@ -1,3 +1,15 @@
+## 1.5.0
+
+### New commands
+- `fdb gc` — force a full garbage collection across all isolates; prints heap before/after delta
+
+### Improvements
+- `fdb launch` now surfaces structured `LAUNCH_ERROR=<CATEGORY>` tokens when flutter process exits before the VM service appears, with `LAUNCH_ERROR_CAUSE` and `HINT` for known failure patterns (iOS bundle ID, code signing, Android ADB install, SDK toolchain, build errors)
+- `skills/using-fdb/SKILL.md` is now a lean install-once shim; `fdb skill` reads the full reference from the bundled `lib/skill/SKILL.md`
+
+### Fixes
+- `fdb tap` on a widget that disappears during or after the tap now returns graceful success instead of an error
+
 ## 1.4.0
 
 ### New commands
