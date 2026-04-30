@@ -105,16 +105,10 @@ Future<CrashReportResult> _runAndroid({
 
   if (entries.isEmpty) return const CrashReportNone();
 
-  // Android logcat has no native --last filter. All available records from
-  // logcat buffers are returned; the --last flag is ignored.
+  // Android logcat has no native --last filter; the flag is ignored.
   // When --all is false, entries.first (logcat crash buffer) is returned as the
   // most likely source of the most recent crash.
-  final returnedEntries = input.all ? entries : [entries.first];
-  final warnings = [
-    '--last is not supported on Android, '
-        '${input.all ? 'returning all available records' : 'returning first available record'}',
-  ];
-  return CrashReportFound(returnedEntries, warnings: warnings);
+  return CrashReportFound(input.all ? entries : [entries.first]);
 }
 
 Future<CrashReportResult> _runIosSimulator({
@@ -205,13 +199,14 @@ Future<CrashReportResult> _runIosPhysical({
   // Each invocation creates a fresh temp dir so they do not accumulate
   // unboundedly; the OS will eventually reclaim them.
   final tmpDir = Directory.systemTemp.createTempSync('fdb_crash_');
-  final result = Process.runSync('idevicecrashreport', ['-e', '-k', appId, tmpDir.path]);
+  final result = Process.runSync('idevicecrashreport', ['-e', '-k', '-f', appId, tmpDir.path]);
   if (result.exitCode != 0) {
     final err = (result.stderr as String).trim();
     return CrashReportError('idevicecrashreport failed: $err');
   }
 
-  final duration = _parseDuration(input.last);
+  // When --all is true, skip the mtime filter (consistent with iOS Simulator).
+  final duration = input.all ? null : _parseDuration(input.last);
   final ipsFiles = tmpDir
       .listSync()
       .whereType<File>()
@@ -253,10 +248,14 @@ Future<CrashReportResult> _runMacos({
   final entries = <CrashReportEntry>[];
 
   // --- system log ---
-  final logArgs = ['show', '--last', input.last, '--style', 'compact'];
-  if (appId != null) {
-    logArgs.addAll(['--predicate', 'process == "$appId"']);
-  }
+  // When --all is true, omit --last so the query is not time-bounded.
+  final logArgs = [
+    'show',
+    if (!input.all) ...['--last', input.last],
+    '--style',
+    'compact',
+    if (appId != null) ...['--predicate', 'process == "$appId"'],
+  ];
 
   final logResult = Process.runSync('log', logArgs);
   final logText = (logResult.stdout as String).trim();

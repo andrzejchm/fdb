@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/commands/crash_report/crash_report.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// CLI adapter for `fdb crash-report`.
 ///
@@ -55,15 +56,22 @@ Future<int> _execute(ArgResults results) async {
   );
 
   final result = await fetchCrashReport(input);
+
+  // Warn when the user explicitly passed --last but the platform is Android,
+  // where logcat has no native time filter and the flag is ignored.
+  if (results.wasParsed('last') && result is CrashReportFound) {
+    final platformInfo = readPlatformInfo();
+    if (platformInfo != null && platformInfo.platform.toLowerCase().startsWith('android')) {
+      stderr.writeln('WARNING: --last is not supported on Android, the flag was ignored');
+    }
+  }
+
   return _format(result);
 }
 
 int _format(CrashReportResult result) {
   switch (result) {
-    case CrashReportFound(:final entries, :final warnings):
-      for (final w in warnings) {
-        stderr.writeln('WARNING: $w');
-      }
+    case CrashReportFound(:final entries):
       stdout.writeln('CRASH_REPORT_FOUND ENTRIES=${entries.length}');
       for (final entry in entries) {
         stdout.writeln('---');
