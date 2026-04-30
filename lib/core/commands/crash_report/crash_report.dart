@@ -105,14 +105,16 @@ Future<CrashReportResult> _runAndroid({
 
   if (entries.isEmpty) return const CrashReportNone();
 
-  // Android logcat has no native --last filter. We return all available records
-  // and emit an advisory warning so callers know filtering was not applied.
-  // logcat entries are returned in chronological order; logcat crash buffer is
-  // checked first, so entries.first is the most likely source for the latest crash.
+  // Android logcat has no native --last filter. All available records from
+  // logcat buffers are returned; the --last flag is ignored.
+  // When --all is false, entries.first (logcat crash buffer) is returned as the
+  // most likely source of the most recent crash.
+  final returnedEntries = input.all ? entries : [entries.first];
   final warnings = [
-    '--last is not supported on Android, returning all available records',
+    '--last is not supported on Android, '
+        '${input.all ? 'returning all available records' : 'returning first available record'}',
   ];
-  return CrashReportFound(input.all ? entries : [entries.first], warnings: warnings);
+  return CrashReportFound(returnedEntries, warnings: warnings);
 }
 
 Future<CrashReportResult> _runIosSimulator({
@@ -140,14 +142,14 @@ Future<CrashReportResult> _runIosSimulator({
   }
   final predicate = predicateParts.join(' OR ');
 
+  // When --all is true, omit --last so the query is not time-bounded.
   final logArgs = [
     'simctl',
     'spawn',
     device,
     'log',
     'show',
-    '--last',
-    input.last,
+    if (!input.all) ...['--last', input.last],
     '--style',
     'compact',
     '--predicate',
@@ -198,40 +200,43 @@ Future<CrashReportResult> _runIosPhysical({
     return const CrashReportMissingAppId();
   }
 
+  // The temp dir is intentionally NOT deleted after the call. The caller
+  // requested these files and their paths are surfaced via FILE= tokens.
+  // Each invocation creates a fresh temp dir so they do not accumulate
+  // unboundedly; the OS will eventually reclaim them.
   final tmpDir = Directory.systemTemp.createTempSync('fdb_crash_');
-  try {
-    final result = Process.runSync('idevicecrashreport', ['-e', '-k', appId, tmpDir.path]);
-    if (result.exitCode != 0) {
-      final err = (result.stderr as String).trim();
-      return CrashReportError('idevicecrashreport failed: $err');
-    }
-
-    final cutoff = DateTime.now().subtract(_parseDuration(input.last));
-    final ipsFiles = tmpDir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.ips') && f.statSync().modified.isAfter(cutoff))
-        .toList()
-      ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
-
-    if (ipsFiles.isEmpty) return const CrashReportNone();
-
-    final filesToRead = input.all ? ipsFiles : [ipsFiles.first];
-    final entries = <CrashReportEntry>[];
-    for (final file in filesToRead) {
-      final text = _safeReadFile(file);
-      if (text != null) {
-        entries.add(CrashReportEntry(label: '[iOS physical .ips]', filePath: file.path, text: text));
-      }
-    }
-
-    if (entries.isEmpty) return const CrashReportNone();
-    return CrashReportFound(entries);
-  } finally {
-    try {
-      tmpDir.deleteSync(recursive: true);
-    } catch (_) {}
+  final result = Process.runSync('idevicecrashreport', ['-e', '-k', appId, tmpDir.path]);
+  if (result.exitCode != 0) {
+    final err = (result.stderr as String).trim();
+    return CrashReportError('idevicecrashreport failed: $err');
   }
+
+  final duration = _parseDuration(input.last);
+  final ipsFiles = tmpDir
+      .listSync()
+      .whereType<File>()
+      .where((f) {
+        if (!f.path.endsWith('.ips')) return false;
+        if (duration == null) return true;
+        final cutoff = DateTime.now().subtract(duration);
+        return f.statSync().modified.isAfter(cutoff);
+      })
+      .toList()
+    ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+
+  if (ipsFiles.isEmpty) return const CrashReportNone();
+
+  final filesToRead = input.all ? ipsFiles : [ipsFiles.first];
+  final entries = <CrashReportEntry>[];
+  for (final file in filesToRead) {
+    final text = _safeReadFile(file);
+    if (text != null) {
+      entries.add(CrashReportEntry(label: '[iOS physical .ips]', filePath: file.path, text: text));
+    }
+  }
+
+  if (entries.isEmpty) return const CrashReportNone();
+  return CrashReportFound(entries);
 }
 
 Future<CrashReportResult> _runMacos({
@@ -301,17 +306,17 @@ String _filterLines(String text, String substring) =>
     text.split('\n').where((l) => l.contains(substring)).join('\n').trim();
 
 /// Parses a duration string of the form `<n>s`, `<n>m`, or `<n>h`.
-/// Returns [Duration.zero] if the string cannot be parsed.
-Duration _parseDuration(String s) {
-  if (s.isEmpty) return Duration.zero;
+/// Returns null if the string cannot be parsed.
+Duration? _parseDuration(String s) {
+  if (s.isEmpty) return null;
   final suffix = s[s.length - 1];
   final n = int.tryParse(s.substring(0, s.length - 1));
-  if (n == null) return Duration.zero;
+  if (n == null) return null;
   return switch (suffix) {
     's' => Duration(seconds: n),
     'm' => Duration(minutes: n),
     'h' => Duration(hours: n),
-    _ => Duration.zero,
+    _ => null,
   };
 }
 
