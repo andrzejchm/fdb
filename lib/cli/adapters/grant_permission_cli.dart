@@ -83,7 +83,11 @@ int _format(GrantPermissionResult result) {
       return 0;
 
     case GrantPermissionMacosResetSuccess(:final permission):
-      stdout.writeln('PERMISSION_RESET=$permission');
+      if (permission == 'all') {
+        stdout.writeln('PERMISSION_RESET_ALL=true');
+      } else {
+        stdout.writeln('PERMISSION_RESET=$permission');
+      }
       return 0;
 
     case GrantPermissionMacosGrantUnsupported(:final action):

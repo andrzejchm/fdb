@@ -197,7 +197,7 @@ Future<GrantPermissionResult> _handleAndroid(GrantPermissionInput input) async {
   final action = input.action;
   if (action == GrantPermissionAction.reset) {
     // Android has no per-permission reset; revoke all mapped permissions instead.
-    return _runAdbPmBatch(deviceArgs, packageName, 'revoke', androidPerms, token, GrantPermissionAction.revoke);
+    return _runAdbPmBatch(deviceArgs, packageName, 'revoke', androidPerms, token, GrantPermissionAction.reset);
   }
 
   final verb = action == GrantPermissionAction.grant ? 'grant' : 'revoke';
