@@ -67,6 +67,7 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
   int _indexedDoubleTapPrimaryCount = 0;
   int _indexedDoubleTapSecondaryCount = 0;
   bool _showDelayed = false;
+  bool _showDisappearing = true;
   final _textController = TextEditingController();
   late final Timer _heartbeat;
 
@@ -262,6 +263,18 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   key: const Key('delayed_button'),
                   onPressed: () {},
                   child: const Text('I was delayed'),
+                ),
+              const SizedBox(height: 16),
+              if (_showDisappearing)
+                ElevatedButton(
+                  key: const Key('disappearing_button'),
+                  onPressed: () {
+                    setState(() {
+                      _showDisappearing = false;
+                    });
+                    developer.log('disappearing_button tapped — hiding self', name: 'fdb_test');
+                  },
+                  child: const Text('Disappearing Button'),
                 ),
               const SizedBox(height: 16),
               Text(
