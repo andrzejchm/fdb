@@ -12,7 +12,7 @@ Requires Dart SDK >= 3.0.0. Ensure `~/.pub-cache/bin` is in your `PATH`.
 
 ## Step 2: Install the skill file
 
-Install the skill so your agent automatically knows how to use fdb:
+Install the skill once so your agent automatically knows how to use fdb:
 
 **OpenCode:**
 ```bash
