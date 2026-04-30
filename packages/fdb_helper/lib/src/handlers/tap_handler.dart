@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/widgets.dart';
 
-import '../gesture_dispatcher.dart';
 import '../element_tree_finder.dart';
+import '../gesture_dispatcher.dart';
 import '../widget_matcher.dart';
 import 'handler_utils.dart';
 
@@ -80,8 +80,8 @@ Future<developer.ServiceExtensionResponse> handleTap(
     // photo-area toggle GestureDetector to fire every time a toolbar button is
     // tapped, immediately hiding the overlay.
     //
-    // Direct invocation finds the nearest GestureDetector with onTap at or
-    // above the matched element and calls the callback directly, bypassing the
+    // Direct invocation finds the nearest GestureDetector with onTap that IS
+    // the matched element and calls the callback directly, bypassing the
     // gesture arena entirely. Coordinates are still computed and returned so
     // callers know where the widget is.
     //
