@@ -153,7 +153,7 @@ String? _findNearbyLineContaining(List<String> lines, int index, String token) {
   if (bestScore == 0) {
     return (
       category: 'UNKNOWN',
-      remediationHint: 'Open LOG_FILE and inspect the first error/failed line near the end.',
+      remediationHint: 'Inspect the flutter run output above for the first error/failed line near the end.',
     );
   }
 
@@ -398,7 +398,7 @@ final _categoryHeuristics = <_CategoryHeuristic>[
     strongTokens: ['phasescriptexecution', 'xcodebuild failed', 'failed to build ios app'],
     weakTokens: ['[cp] embed pods frameworks', 'command phasescriptexecution failed'],
     label: 'iOS/Xcode build script failed',
-    remediationHint: 'Inspect the failing Xcode script phase in LOG_FILE or rerun from Xcode for full script output.',
+    remediationHint: 'Inspect the failing Xcode script phase in the flutter run output above or rerun from Xcode for full script output.',
     fullLogScan: false,
   ),
   // Matched on exact Flutter tool string from android_device.dart
@@ -449,7 +449,7 @@ final _categoryHeuristics = <_CategoryHeuristic>[
     ],
     weakTokens: ['compilation failed', 'execution failed for task', 'error launching application'],
     label: 'Flutter build failed',
-    remediationHint: 'Fix the first compile/build error in LOG_FILE before addressing follow-up failures.',
+    remediationHint: 'Fix the first compile/build error in the flutter run output above before addressing follow-up failures.',
     fullLogScan: false,
   ),
 ];
