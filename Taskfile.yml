@@ -64,6 +64,10 @@ tasks:
           exit 1
         fi
       - |
+        echo "==> Listing all devices (for count baseline)"
+        ALL_OUTPUT=$({{.FDB}} devices 2>&1)
+        ALL_COUNT=$(echo "$ALL_OUTPUT" | grep -c "DEVICE_ID=" || true)
+
         echo "==> Listing devices with --connected-only"
         OUTPUT=$({{.FDB}} devices --connected-only 2>&1)
         EXIT_CODE=$?
@@ -83,6 +87,13 @@ tasks:
           exit 1
         fi
         echo "PASS: fdb devices --connected-only - no CONNECTED=false devices"
+        CONNECTED_COUNT=$(echo "$OUTPUT" | grep -c "DEVICE_ID=" || true)
+        if [ "$CONNECTED_COUNT" -le "$ALL_COUNT" ]; then
+          echo "PASS: fdb devices --connected-only ($CONNECTED_COUNT) <= fdb devices ($ALL_COUNT)"
+        else
+          echo "FAIL: fdb devices --connected-only returned more devices ($CONNECTED_COUNT) than fdb devices ($ALL_COUNT)" >&2
+          exit 1
+        fi
 
   test:launch:
     desc: "Launch the test app on a device (set DEVICE or auto-detect)"

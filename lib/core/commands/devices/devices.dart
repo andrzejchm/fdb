@@ -18,8 +18,7 @@ export 'package:fdb/core/commands/devices/devices_models.dart';
 /// Never throws; never writes to stdio. All error conditions are represented
 /// as distinct [DevicesResult] subtypes.
 Future<DevicesResult> listDevices(DevicesInput input) async {
-  final ProcessResult result;
-  result = await Process.run('flutter', ['devices', '--machine']);
+  final result = await Process.run('flutter', ['devices', '--machine']);
 
   if (result.exitCode != 0) {
     return DevicesFlutterFailed(result.stderr as String);
@@ -41,7 +40,10 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
   final skipped = <Map<String, dynamic>>[];
 
   // Fetch reachability info once for all iOS physical devices.
-  final reachableIosUdids = await _fetchReachableIosUdids();
+  // null  → xcrun unavailable/failed (fall back: treat all as connected).
+  // non-null → xcrun ran OK; unavailableUdids contains UDIDs explicitly
+  //            listed with tunnelState == 'unavailable'.
+  final xcrunResult = await _fetchIosUdidSets();
 
   for (final entry in raw) {
     final d = entry as Map<String, dynamic>;
@@ -59,7 +61,7 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
       id: id,
       platform: platform,
       emulator: emulator,
-      reachableIosUdids: reachableIosUdids,
+      unavailableIosUdids: xcrunResult,
     );
 
     if (input.connectedOnly && !connected) continue;
@@ -70,17 +72,18 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
   return DevicesListed(devices: devices, skippedRaw: skipped);
 }
 
-/// Returns the set of iOS physical device UDIDs that are currently reachable,
-/// according to `xcrun devicectl`.
+/// Returns the set of iOS physical device UDIDs explicitly listed by
+/// `xcrun devicectl` with `tunnelState == 'unavailable'`.
 ///
-/// A device is considered reachable when its `connectionProperties.tunnelState`
-/// is anything other than `"unavailable"`. This matches the `available` state
-/// shown in `xcrun devicectl list devices` human-readable output.
+/// Returns `null` when `xcrun` is unavailable (non-macOS, no Xcode) or when
+/// `devicectl` fails for any reason — callers treat all iOS devices as
+/// connected in that case (graceful degradation).
 ///
-/// Returns an empty set when `xcrun` is unavailable (non-macOS, no Xcode) or
-/// when `devicectl` fails for any reason — callers treat all iOS devices as
-/// connected in that case.
-Future<Set<String>> _fetchReachableIosUdids() async {
+/// Returns an empty set when xcrun ran successfully but found no devices with
+/// `tunnelState == 'unavailable'`. Devices absent from xcrun output entirely
+/// default to connected — xcrun only lists network-tunnel-visible devices, so
+/// a USB-connected device may not appear at all even though it is reachable.
+Future<Set<String>?> _fetchIosUdidSets() async {
   try {
     final tmpFile = await _createTempFile();
     try {
@@ -92,25 +95,25 @@ Future<Set<String>> _fetchReachableIosUdids() async {
         tmpFile.path,
       ]);
 
-      if (result.exitCode != 0) return {};
+      if (result.exitCode != 0) return null;
 
       final content = await tmpFile.readAsString();
-      if (content.isEmpty) return {};
+      if (content.isEmpty) return null;
 
       final Map<String, dynamic> parsed;
       try {
         parsed = jsonDecode(content) as Map<String, dynamic>;
       } catch (_) {
-        return {};
+        return null;
       }
 
       final resultMap = parsed['result'] as Map<String, dynamic>?;
-      if (resultMap == null) return {};
+      if (resultMap == null) return null;
 
       final devicesList = resultMap['devices'] as List<dynamic>?;
-      if (devicesList == null) return {};
+      if (devicesList == null) return null;
 
-      final reachable = <String>{};
+      final unavailable = <String>{};
       for (final entry in devicesList) {
         final deviceMap = entry as Map<String, dynamic>;
         final conn = deviceMap['connectionProperties'] as Map<String, dynamic>?;
@@ -121,14 +124,11 @@ Future<Set<String>> _fetchReachableIosUdids() async {
         final udid = hw['udid'] as String?;
         if (udid == null) continue;
 
-        // Any tunnelState other than 'unavailable' means the device can be
-        // reached (e.g. 'disconnected' when visible on the network but not
-        // yet tunnelled, 'connected' when fully active).
-        if (tunnelState != 'unavailable') {
-          reachable.add(udid);
+        if (tunnelState == 'unavailable') {
+          unavailable.add(udid);
         }
       }
-      return reachable;
+      return unavailable;
     } finally {
       try {
         await tmpFile.delete();
@@ -138,7 +138,7 @@ Future<Set<String>> _fetchReachableIosUdids() async {
     }
   } catch (_) {
     // xcrun not available or any other unexpected error — degrade gracefully.
-    return {};
+    return null;
   }
 }
 
@@ -151,24 +151,25 @@ Future<File> _createTempFile() async {
   return File('${dir.path}/$name');
 }
 
-/// Returns whether [id] is considered connected given the current
-/// [reachableIosUdids] set.
+/// Returns whether [id] is considered connected.
 ///
 /// - Simulators (`emulator == true`) are always connected — Flutter only
 ///   lists booted simulators.
 /// - Non-iOS platforms (Android, macOS, web) are always connected — Flutter
 ///   only surfaces them when available.
-/// - iOS physical devices: connected iff [id] appears in [reachableIosUdids].
-///   When [reachableIosUdids] is empty (xcrun unavailable), falls back to
-///   `true` so existing behaviour is preserved.
+/// - iOS physical devices:
+///   - [unavailableIosUdids] == `null` → xcrun failed; fall back to `true`.
+///   - [unavailableIosUdids] contains [id] → device is explicitly unavailable.
+///   - [id] absent from [unavailableIosUdids] → device is connected (USB-
+///     connected devices may not appear in xcrun output at all).
 bool _isConnected({
   required String id,
   required String platform,
   required bool emulator,
-  required Set<String> reachableIosUdids,
+  required Set<String>? unavailableIosUdids,
 }) {
   if (emulator) return true;
   if (platform != 'ios') return true;
-  if (reachableIosUdids.isEmpty) return true;
-  return reachableIosUdids.contains(id);
+  if (unavailableIosUdids == null) return true;
+  return !unavailableIosUdids.contains(id);
 }
