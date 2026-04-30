@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/gc/gc.dart';
 
 /// CLI adapter for `fdb gc`.
@@ -36,7 +35,10 @@ Future<int> _execute(ArgResults results) async {
 
 int _format(GcResult result, {required bool jsonMode}) {
   switch (result) {
-    case GcSuccess(:final heapBefore, :final heapAfter, :final heapDelta):
+    case GcSuccess(:final heapBefore, :final heapAfter, :final heapDelta, :final warnings):
+      for (final w in warnings) {
+        stderr.writeln('WARNING: $w');
+      }
       if (jsonMode) {
         stdout.writeln('HEAP_BEFORE=$heapBefore');
         stdout.writeln('HEAP_AFTER=$heapAfter');
@@ -55,8 +57,6 @@ int _format(GcResult result, {required bool jsonMode}) {
     case GcAllFailed():
       stderr.writeln('ERROR: All isolates failed to GC.');
       return 1;
-    case GcAppDied(:final logLines, :final reason):
-      throw AppDiedException(logLines: logLines, reason: reason);
     case GcError(:final message):
       stderr.writeln('ERROR: $message');
       return 1;

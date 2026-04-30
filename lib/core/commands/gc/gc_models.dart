@@ -17,6 +17,7 @@ class GcSuccess extends GcResult {
     required this.heapBefore,
     required this.heapAfter,
     required this.heapDelta,
+    this.warnings = const [],
   });
 
   /// Total heap usage in bytes before GC (summed across all isolates).
@@ -27,6 +28,9 @@ class GcSuccess extends GcResult {
 
   /// Delta in bytes (heapAfter - heapBefore; negative means reclaimed).
   final int heapDelta;
+
+  /// Per-isolate warning messages for isolates that failed to GC.
+  final List<String> warnings;
 }
 
 /// No isolates were found in the running VM.
@@ -37,14 +41,6 @@ class GcNoIsolates extends GcResult {
 /// Every isolate failed to GC — nothing succeeded.
 class GcAllFailed extends GcResult {
   const GcAllFailed();
-}
-
-/// The app process died while fdb was communicating with it.
-class GcAppDied extends GcResult {
-  const GcAppDied({required this.logLines, this.reason});
-
-  final List<String> logLines;
-  final String? reason;
 }
 
 /// Generic / unrecognised error.

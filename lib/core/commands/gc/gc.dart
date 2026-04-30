@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/gc/gc_models.dart';
 import 'package:fdb/core/vm_service.dart';
@@ -26,6 +24,7 @@ Future<GcResult> runGc(GcInput _) async {
     var totalBefore = 0;
     var totalAfter = 0;
     var successCount = 0;
+    final warnings = <String>[];
 
     for (final id in isolateIds) {
       try {
@@ -37,7 +36,7 @@ Future<GcResult> runGc(GcInput _) async {
         // Trigger GC via getAllocationProfile with gc: true.
         // The response also includes post-GC memoryUsage, but we re-query
         // getMemoryUsage for consistency with the before measurement.
-        await vmServiceCall('getAllocationProfile', params: {'isolateId': id, 'gc': 'true', 'reset': 'false'});
+        await vmServiceCall('getAllocationProfile', params: {'isolateId': id, 'gc': true, 'reset': false});
 
         // Capture heap usage after GC.
         final afterMem =
@@ -50,7 +49,7 @@ Future<GcResult> runGc(GcInput _) async {
       } on AppDiedException {
         rethrow;
       } catch (e) {
-        stderr.writeln('WARNING: GC failed for isolate $id: $e');
+        warnings.add('GC failed for isolate $id: $e');
       }
     }
 
@@ -60,9 +59,8 @@ Future<GcResult> runGc(GcInput _) async {
       heapBefore: totalBefore,
       heapAfter: totalAfter,
       heapDelta: totalAfter - totalBefore,
+      warnings: warnings,
     );
-  } on AppDiedException catch (e) {
-    return GcAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {
     return GcError(e.toString());
   }
