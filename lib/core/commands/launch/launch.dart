@@ -78,6 +78,10 @@ Future<LaunchResult> launchApp(
     // Non-fatal: screenshot falls back to the old heuristic if this fails.
     await _writePlatformInfo(device, flutter);
 
+    // Persist the app bundle id / package name for later use by crash-report.
+    // Non-fatal: crash-report will ask the user for --app-id if this fails.
+    _writeAppIdFromProject(project, device);
+
     // Build the flutter run command string.
     final flutterArgs = [
       flutter,
@@ -310,6 +314,88 @@ Future<void> _writePlatformInfo(String device, String flutter) async {
   } catch (_) {
     // Non-fatal: screenshot will work without platform info.
   }
+}
+
+// ---------------------------------------------------------------------------
+// App id
+// ---------------------------------------------------------------------------
+
+/// Reads the app bundle id (iOS/macOS) or application id (Android) from the
+/// project's native config files and persists it to [appIdFile].
+///
+/// Silently no-ops on any failure — crash-report falls back to --app-id flag.
+void _writeAppIdFromProject(String projectPath, String device) {
+  try {
+    // Android: android/app/build.gradle or build.gradle.kts
+    final androidGradleKts = File('$projectPath/android/app/build.gradle.kts');
+    final androidGradle = File('$projectPath/android/app/build.gradle');
+    if (androidGradleKts.existsSync()) {
+      final id = _extractApplicationId(androidGradleKts.readAsStringSync());
+      if (id != null) {
+        writeAppId(id);
+        return;
+      }
+    }
+    if (androidGradle.existsSync()) {
+      final id = _extractApplicationId(androidGradle.readAsStringSync());
+      if (id != null) {
+        writeAppId(id);
+        return;
+      }
+    }
+
+    // iOS: ios/Runner/Info.plist
+    final iosPlist = File('$projectPath/ios/Runner/Info.plist');
+    if (iosPlist.existsSync()) {
+      final id = _extractPlistBundleId(iosPlist.readAsStringSync());
+      if (id != null) {
+        writeAppId(id);
+        return;
+      }
+    }
+
+    // macOS: macos/Runner/Info.plist
+    final macosPlist = File('$projectPath/macos/Runner/Info.plist');
+    if (macosPlist.existsSync()) {
+      final id = _extractPlistBundleId(macosPlist.readAsStringSync());
+      if (id != null) {
+        writeAppId(id);
+        return;
+      }
+    }
+  } catch (_) {
+    // Non-fatal: crash-report will prompt for --app-id.
+  }
+}
+
+/// Extracts `applicationId` or `namespace` from a Gradle build file.
+String? _extractApplicationId(String content) {
+  // Kotlin DSL: applicationId = "com.example.app" or namespace = "com.example.app"
+  // Groovy DSL: applicationId "com.example.app" or namespace "com.example.app"
+  final patterns = [
+    RegExp(r'applicationId\s*[=\s]\s*["\x27]([a-zA-Z0-9._]+)["\x27]'),
+    RegExp(r'namespace\s*[=\s]\s*["\x27]([a-zA-Z0-9._]+)["\x27]'),
+  ];
+  for (final pattern in patterns) {
+    final match = pattern.firstMatch(content);
+    if (match != null) return match.group(1);
+  }
+  return null;
+}
+
+/// Extracts `CFBundleIdentifier` from an Info.plist file.
+///
+/// Handles both literal values and `$(PRODUCT_BUNDLE_IDENTIFIER)` references.
+/// Returns null for placeholder values that cannot be resolved statically.
+String? _extractPlistBundleId(String content) {
+  final match = RegExp(
+    r'<key>CFBundleIdentifier</key>\s*<string>([^<]+)</string>',
+  ).firstMatch(content);
+  if (match == null) return null;
+  final value = match.group(1)!;
+  // Skip unresolved Xcode variable substitutions like $(VAR) or ${VAR}.
+  if (value.contains(r'$(') || value.contains(r'${')) return null;
+  return value;
 }
 
 // ---------------------------------------------------------------------------

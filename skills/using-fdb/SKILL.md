@@ -1,6 +1,6 @@
 ---
 name: using-fdb
-description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), inspects widget trees, describes screens including off-screen GridView/ListView children, and taps/inputs/scrolls/swipes/navigates. Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), inspecting or describing the UI, or interacting with widgets via fdb.
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, and taps/inputs/scrolls/swipes/navigates. Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, or interacting with widgets via fdb.
 license: MIT
 compatibility: opencode
 ---
@@ -132,6 +132,21 @@ Flags:
 - `--follow` — stream live, exit cleanly on Ctrl-C.
 
 Output is the raw native log format — not parsed into fdb tokens. Errors print `ERROR: ...` (e.g. `ERROR: idevicesyslog not found. Install: brew install libimobiledevice`).
+
+### OS-level crash and OOM records
+
+```bash
+fdb crash-report                           # most recent record, last 1h
+fdb crash-report --last 30m               # custom time window
+fdb crash-report --all                    # all crash sources in window
+fdb crash-report --app-id com.example.app # explicit bundle id / package name
+```
+
+Fetches jetsam kills, Android LMK events, and native crash files that never reach Crashlytics. Works after the app has died — no running session required, only `.fdb/platform.txt`.
+
+App id auto-read from `.fdb/app_id.txt` (written by `fdb launch`). Pass `--app-id` to override.
+
+Output tokens: `CRASH_REPORT_FOUND ENTRIES=N` (followed by `---` / `LABEL=` / optional `FILE=` / raw text per entry) or `CRASH_REPORT_NONE`. Errors include install hints when a required platform tool is missing.
 
 ### Widget tree
 
@@ -547,5 +562,6 @@ All state lives in `<project>/.fdb/`. fdb resolves this directory automatically 
 - `<project>/.fdb/logs.txt` - full app output
 - `<project>/.fdb/vm_uri.txt` - VM service websocket URI
 - `<project>/.fdb/device.txt` - device ID used at launch
-- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot and syslog)
+- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot, syslog, and crash-report)
+- `<project>/.fdb/app_id.txt` - app bundle id / package name (written at launch, read by crash-report)
 - `<project>/.fdb/screenshot.png` - last screenshot

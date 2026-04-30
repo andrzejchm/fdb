@@ -117,6 +117,7 @@ fdb kill
 | `fdb screenshot [--output <path>] [--full]` | Screenshot (all platforms; `--full` skips downscaling) |
 | `fdb logs --tag <tag> --last <n>` | Filtered logs |
 | `fdb syslog [--since <dur>] [--predicate <str>] [--last <n>] [--follow]` | Native system logs (Android logcat, iOS syslog, macOS log) |
+| `fdb crash-report [--app-id <id>] [--last <dur>] [--all]` | Fetch the most recent OS-level crash record (jetsam, LMK, native crashes) |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
 | `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)* |
 | `fdb select on/off` | Widget selection mode |

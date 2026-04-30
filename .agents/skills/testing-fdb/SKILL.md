@@ -48,6 +48,7 @@ task test:restart
 task test:logs
 task test:logs-tag
 task test:syslog
+task test:crash-report
 task test:tree
 task test:describe
 task test:describe-grid

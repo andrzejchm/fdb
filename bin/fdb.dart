@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/cli/adapters/back_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
+import 'package:fdb/cli/adapters/crash_report_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
 import 'package:fdb/cli/adapters/devices_cli.dart';
@@ -52,6 +53,10 @@ Commands:
   screenshot  Take a device screenshot
   logs        Get filtered app logs
   syslog      Read native system logs (Android logcat, iOS syslog, macOS log)
+  crash-report Fetch the most recent OS-level crash record for the app
+               --app-id <id>       Bundle id / package name (auto from .fdb/app_id.txt)
+               --last <duration>   Time window to search (default: 1h)
+               --all               Return all crash records in the window
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
@@ -128,7 +133,7 @@ Future<void> main(List<String> args) async {
   // Commands that manage their own session dir or must run even on unhealthy sessions.
   const sessionResolutionExempt = {'launch', 'devices', 'skill'};
   // Commands that run against a potentially dead/missing session (soft-fail on null).
-  const sessionSoftFail = {'status', 'doctor'};
+  const sessionSoftFail = {'status', 'doctor', 'crash-report'};
   if (!sessionResolutionExempt.contains(command) && !wantsHelp && !isMemDiff) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);
@@ -173,6 +178,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runLogsCli(args);
     case 'syslog':
       return runSyslogCli(args);
+    case 'crash-report':
+      return runCrashReportCli(args);
     case 'tree':
       return runTreeCli(args);
     case 'describe':
