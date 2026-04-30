@@ -33,7 +33,7 @@ Future<int> runCrashReportCli(List<String> args) => runCliAdapter(
         ..addFlag(
           'all',
           negatable: false,
-          help: 'Return all crash records in the window, not just the latest.',
+          help: 'Return all crash records (no time limit), not just the latest.',
         ),
       args,
       _execute,

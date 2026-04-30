@@ -138,7 +138,7 @@ Output is the raw native log format — not parsed into fdb tokens. Errors print
 ```bash
 fdb crash-report                           # last 1h, most recent record
 fdb crash-report --last 30m               # custom time window
-fdb crash-report --all                    # all records in the window
+fdb crash-report --all                    # all records (no time limit)
 fdb crash-report --app-id com.example.app # explicit bundle id / package name
 ```
 
