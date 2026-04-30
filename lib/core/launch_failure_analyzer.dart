@@ -114,7 +114,7 @@ String? _findNearbyLineContaining(List<String> lines, int index, String token) {
   if (signalLineIndexes.isEmpty) {
     signalCorpus.addAll(lines.map((line) => line.toLowerCase()));
   } else {
-    for (final index in signalLineIndexes.take(25)) {
+    for (final index in signalLineIndexes.take(5)) {
       signalCorpus.add(lines[index].toLowerCase());
     }
   }

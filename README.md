@@ -103,7 +103,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
-| `fdb launch --device <id> --project <path> [--verbose]` | Launch app, wait for start |
+| `fdb launch --device <id> --project <path> [--verbose]` | Launch app, wait for start; emits `LAUNCH_ERROR=` / `LAUNCH_ERROR_CAUSE=` / `HINT:` on stderr for failures |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
 | `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |

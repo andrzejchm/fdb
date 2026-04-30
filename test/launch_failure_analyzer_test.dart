@@ -141,7 +141,7 @@ void main() {
 
       expect(result.category, 'IOS_DEVICE_LOCKED');
       expect(result.rootCause.toLowerCase(), contains('ios device is locked'));
-      expect(result.contextLines.join('\n'), contains('locked'));
+      expect(result.contextLines.join('\n'), contains('Your device is locked'));
       expect(result.remediationHint, contains('Unlock'));
     });
   });
