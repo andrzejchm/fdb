@@ -1,9 +1,3 @@
-## Unreleased
-
-### Improvements
-- `skills/using-fdb/SKILL.md` is now a static lean shim: it no longer needs to be reinstalled after fdb upgrades. When loaded, it instructs the agent to run `fdb skill` to fetch the full reference.
-- Full bundled skill content moved to `lib/skill/SKILL.md`; `fdb skill` reads from the new path.
-
 ## 1.4.0
 
 ### New commands

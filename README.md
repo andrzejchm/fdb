@@ -46,7 +46,7 @@ The [Dart & Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) handles 
 | **Architecture** | CLI -- plain bash commands | MCP protocol -- requires a compatible client |
 | **Context cost** | Minimal. Agent runs a command, gets text output. | MCP tool schemas and responses are injected into context on every call, eating tokens even when unused. |
 | **Works with** | Any agent that can run bash (Claude Code, OpenCode, Cursor, custom scripts, CI) | Only MCP-compatible clients |
-| **Progressive disclosure** | Ships a [skill file](skills/using-fdb/SKILL.md) — agent loads it on demand, then runs `fdb skill` to get the full, version-matched reference from the installed CLI | All tools exposed at once |
+| **Progressive disclosure** | Ships a [skill file](skills/using-fdb/SKILL.md) — agent loads best practices on demand, not upfront | All tools exposed at once |
 | **Device interaction** | Launch, hot reload, screenshot, logs, widget tree, tap, input, scroll, swipe, back, deeplink, SharedPreferences, clean | Widget tree inspection and runtime errors via Flutter inspector (read-only) |
 | **Setup** | `dart pub global activate` -- done | Per-client MCP config (JSON, YAML, or GUI depending on client) |
 
