@@ -127,6 +127,7 @@ Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) as
   if (service == null) {
     return GrantPermissionUnknownToken(
       token: token,
+      platform: 'ios-simulator',
       supportedTokens: _iosSimctlServices.keys.toList()..sort(),
     );
   }
@@ -149,7 +150,7 @@ Future<GrantPermissionResult> _runSimctl(
     return GrantPermissionIosSimulatorSuccess(
       action: action,
       permission: permission,
-      appMayHaveTerminated: true,
+      appMayHaveTerminated: action == GrantPermissionAction.grant,
     );
   } catch (e) {
     return GrantPermissionSimctlExecutionFailed(e.toString());
@@ -188,6 +189,7 @@ Future<GrantPermissionResult> _handleAndroid(GrantPermissionInput input) async {
   if (androidPerms == null) {
     return GrantPermissionUnknownToken(
       token: token,
+      platform: 'android',
       supportedTokens: _androidPermissions.keys.toList()..sort(),
     );
   }
@@ -269,7 +271,7 @@ Future<GrantPermissionResult> _handleMacos(GrantPermissionInput input) async {
   if (bundleId == null) return const GrantPermissionNoAppId();
 
   if (input.resetAll) {
-    return _runTccutil('All', bundleId);
+    return _runTccutil('All', 'all', bundleId);
   }
 
   final token = input.permission!;
@@ -277,21 +279,22 @@ Future<GrantPermissionResult> _handleMacos(GrantPermissionInput input) async {
   if (service == null) {
     return GrantPermissionUnknownToken(
       token: token,
+      platform: 'macos',
       supportedTokens: _macosServices.keys.toList()..sort(),
     );
   }
 
-  return _runTccutil(service, bundleId);
+  return _runTccutil(service, token, bundleId);
 }
 
-Future<GrantPermissionResult> _runTccutil(String service, String bundleId) async {
+Future<GrantPermissionResult> _runTccutil(String service, String canonicalToken, String bundleId) async {
   try {
     final result = await Process.run('tccutil', ['reset', service, bundleId]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
       return GrantPermissionTccutilFailed(details);
     }
-    return GrantPermissionMacosResetSuccess(permission: service.toLowerCase());
+    return GrantPermissionMacosResetSuccess(permission: canonicalToken);
   } catch (e) {
     return GrantPermissionError(e.toString());
   }

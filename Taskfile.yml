@@ -2076,7 +2076,7 @@ tasks:
           echo "FAIL: fdb grant-permission --reset-all exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -qE "PERMISSION_RESET_ALL=true|PERMISSION_RESET=all"; then
+        if echo "$OUTPUT" | grep -qE "PERMISSION_RESET_ALL=true"; then
           echo "PASS: fdb grant-permission --reset-all"
         else
           echo "FAIL: fdb grant-permission --reset-all — PERMISSION_RESET_ALL=true not found" >&2

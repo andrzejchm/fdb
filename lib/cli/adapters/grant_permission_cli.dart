@@ -72,7 +72,7 @@ int _format(GrantPermissionResult result) {
       _printSuccess(action, permission);
       if (appMayHaveTerminated) {
         stderr.writeln(
-          'WARNING: Permission change may have terminated the running app. '
+          'WARNING: Permission change may have terminated the app. '
           'Run `fdb reload` or `fdb launch` to restart.',
         );
       }
@@ -89,7 +89,7 @@ int _format(GrantPermissionResult result) {
     case GrantPermissionMacosGrantUnsupported(:final action):
       final verb = action == GrantPermissionAction.grant ? 'grant' : 'revoke';
       stderr.writeln(
-        'ERROR: Cannot $verb permissions on macOS via CLI — Apple requires user approval. '
+        'WARNING: Cannot $verb permissions on macOS via CLI — Apple requires user approval. '
         'Use --reset to clear the decision and trigger a re-prompt on next access.',
       );
       return 1;
@@ -105,13 +105,13 @@ int _format(GrantPermissionResult result) {
       stderr.writeln('ERROR: grant-permission is not supported on platform: $platform');
       return 1;
 
-    case GrantPermissionUnknownToken(:final token, :final supportedTokens):
-      stderr.writeln("ERROR: Unknown permission '$token'. Supported tokens: ${supportedTokens.join(', ')}");
+    case GrantPermissionUnknownToken(:final token, :final platform, :final supportedTokens):
+      stderr.writeln("ERROR: Unsupported permission '$token' on $platform. Supported: ${supportedTokens.join(', ')}");
       return 1;
 
     case GrantPermissionNoAppId():
       stderr.writeln(
-        'ERROR: No app ID found. Run `fdb launch` first or pass --bundle <id>',
+        'ERROR: No app ID found. Run fdb launch first or pass --bundle <id>',
       );
       return 1;
 
@@ -120,7 +120,7 @@ int _format(GrantPermissionResult result) {
       return 1;
 
     case GrantPermissionSimctlFailed(:final details):
-      stderr.writeln('ERROR: xcrun simctl failed: $details');
+      stderr.writeln('ERROR: xcrun simctl exited with code 1: $details');
       return 1;
 
     case GrantPermissionSimctlExecutionFailed(:final error):
@@ -128,7 +128,7 @@ int _format(GrantPermissionResult result) {
       return 1;
 
     case GrantPermissionAdbFailed(:final details):
-      stderr.writeln('ERROR: adb failed: $details');
+      stderr.writeln('ERROR: adb exited with code 1: $details');
       return 1;
 
     case GrantPermissionAdbExecutionFailed(:final error):

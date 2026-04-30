@@ -75,9 +75,10 @@ class GrantPermissionPlatformUnsupported extends GrantPermissionResult {
 
 /// The permission token is not recognised for the current platform.
 class GrantPermissionUnknownToken extends GrantPermissionResult {
-  const GrantPermissionUnknownToken({required this.token, required this.supportedTokens});
+  const GrantPermissionUnknownToken({required this.token, required this.platform, required this.supportedTokens});
 
   final String token;
+  final String platform;
   final List<String> supportedTokens;
 }
 
