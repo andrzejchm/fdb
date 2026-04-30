@@ -712,6 +712,47 @@ tasks:
         # warning, not a test failure.
         {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
 
+  test:describe-nested-gestures:
+    desc: Verify fdb describe surfaces GestureDetectors nested inside Positioned/Stack
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to Nested Gesture Describe Test screen"
+        {{.FDB}} scroll-to --key "go_to_nested_gesture_describe_test" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "go_to_nested_gesture_describe_test" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to nested gesture describe screen" >&2
+          exit 1
+        fi
+        sleep 1
+
+        echo "==> Describing nested gesture screen"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe (nested gestures) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+
+        # Both inner GestureDetectors must appear — keyed so they are
+        # stable regardless of describe output ordering.
+        if echo "$OUTPUT" | grep -q "nested_gesture_reject"; then
+          echo "PASS: fdb describe surfaces nested_gesture_reject"
+        else
+          echo "FAIL: fdb describe did not surface nested_gesture_reject (inner GestureDetector inside Positioned/Stack)" >&2
+          exit 1
+        fi
+
+        if echo "$OUTPUT" | grep -q "nested_gesture_approve"; then
+          echo "PASS: fdb describe surfaces nested_gesture_approve"
+        else
+          echo "FAIL: fdb describe did not surface nested_gesture_approve (inner GestureDetector inside Positioned/Stack)" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back"
+        {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
+
   test:tap:
     desc: Tap a widget by text selector
     dir: '{{.TEST_APP}}'
@@ -2639,6 +2680,7 @@ tasks:
       - task: test:tree
       - task: test:describe
       - task: test:describe-grid
+      - task: test:describe-nested-gestures
       - task: test:screenshot
       - task: test:native-view-tap
       - task: test:deeplink

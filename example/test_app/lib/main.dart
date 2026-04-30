@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'benchmark_screens.dart';
 import 'grid_describe_screen.dart';
 import 'native_view_test_screen.dart';
+import 'nested_gesture_describe_screen.dart';
 import 'scroll_to_test_screen.dart';
 
 void main() {
@@ -44,6 +45,7 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
         scrollToTestAlreadyVisibleRoute: (_) =>
             const AlreadyVisibleScrollToPage(),
+        '/nested-gesture-describe-test': (_) => const NestedGestureDescribeScreen(),
       },
     );
   }
@@ -208,6 +210,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/grid-describe-test'),
                 child: const Text('Grid Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_nested_gesture_describe_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/nested-gesture-describe-test'),
+                child: const Text('Nested Gesture Describe Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(

@@ -173,6 +173,9 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           // it and include the element unconditionally.
           if (isOnScreen && !isElementHittable(element)) {
             if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+            // Still recurse: an unhittable ancestor may have hittable children
+            // (e.g. Opacity(opacity:0) around individual buttons).
+            element.visitChildren(visit);
             return;
           }
 
@@ -188,9 +191,18 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             if (gestures != null) 'gestures': gestures,
           });
 
-          // Still collect text from children for the TEXT section (on-screen
-          // children of interactive widgets).
-          if (isOnScreen) {
+          // Gesture-transparent widgets (GestureDetector, InkWell) are pure
+          // wrappers — their children may contain additional independent
+          // interactive widgets (e.g. buttons inside a toolbar
+          // GestureDetector). Continue the walk so nested targets are found.
+          //
+          // Self-contained widgets (ElevatedButton, TextField, etc.) own their
+          // entire subtree — descending into them would expose internal
+          // framework InkWell/GestureDetector children as noise. Stop here.
+          if (_isGestureTransparent(typeName)) {
+            element.visitChildren(visit);
+          } else if (isOnScreen) {
+            // Still collect text from children for the TEXT section.
             void collectText(Element el) {
               final w = el.widget;
               if (w is Text) {
@@ -431,6 +443,19 @@ String? _extractWidgetLevelText(Widget widget) {
   } catch (_) {}
   return null;
 }
+
+/// Returns true for interactive widgets that are pure gesture wrappers whose
+/// children may contain additional independent interactive targets.
+///
+/// These widgets do not own their subtree semantically — descending into their
+/// children is safe and necessary to find nested buttons/gestures.
+///
+/// Self-contained widgets (ElevatedButton, TextField, etc.) are NOT transparent:
+/// their children are internal framework widgets that should not be surfaced.
+bool _isGestureTransparent(String typeName) => const {
+      'GestureDetector',
+      'InkWell',
+    }.contains(typeName);
 
 bool _isDescribeInteractiveWidget(String typeName) => const {
       'Checkbox',
