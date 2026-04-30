@@ -89,50 +89,6 @@ void main() {
       expect(result.remediationHint, contains('Apple ID'));
     });
 
-    test('classifies Android SDK license not accepted', () {
-      final output = _readFixture('android_license_not_accepted.log');
-
-      final result = analyzeLaunchFailure(output);
-
-      expect(result.category, 'ANDROID_LICENSE_NOT_ACCEPTED');
-      expect(result.rootCause.toLowerCase(), contains('android sdk license not accepted'));
-      expect(result.contextLines.join('\n'), contains('flutter doctor --android-licenses'));
-      expect(result.remediationHint, contains('flutter doctor --android-licenses'));
-    });
-
-    test('classifies Android adb install failure via Package install error string', () {
-      final output = _readFixture('android_adb_install_failed.log');
-
-      final result = analyzeLaunchFailure(output);
-
-      expect(result.category, 'ANDROID_INSTALL_ADB');
-      expect(result.rootCause.toLowerCase(), contains('android install/adb failed'));
-      expect(result.contextLines.join('\n'), contains('INSTALL_FAILED_UPDATE_INCOMPATIBLE'));
-    });
-
-    test('classifies iOS device locked', () {
-      final output = _readFixture('ios_device_locked.log');
-
-      final result = analyzeLaunchFailure(output);
-
-      expect(result.category, 'IOS_DEVICE_LOCKED');
-      expect(result.rootCause.toLowerCase(), contains('ios device is locked'));
-      expect(result.contextLines.join('\n'), contains('Your device is locked'));
-      expect(result.remediationHint, contains('Unlock'));
-    });
-
-    test('classifies iOS device locked via e80000e2 hex error code', () {
-      const output = 'Installing and launching...\n'
-          'Error 0xe80000e2: The device was not, or could not be, unlocked.\n'
-          'Try relaunching Xcode and reconnecting the device.';
-
-      final result = analyzeLaunchFailure(output);
-
-      expect(result.category, 'IOS_DEVICE_LOCKED');
-      expect(result.rootCause.toLowerCase(), contains('ios device is locked'));
-      expect(result.remediationHint, contains('Unlock'));
-    });
-
     test('returns UNKNOWN category with non-empty hint for empty log', () {
       final result = analyzeLaunchFailure('');
 

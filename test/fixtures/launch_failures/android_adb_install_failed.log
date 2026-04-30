@@ -1,9 +1,0 @@
-Launching lib/main.dart on Pixel 7 in debug mode...
-Running Gradle task 'assembleDebug'...                             12.1s
-Built build/app/outputs/flutter-apk/app-debug.apk.
-Installing build/app/outputs/flutter-apk/app-debug.apk...         5.1s
-Package install error: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.example.myapp signatures do not match the previously installed version; ignoring!]
-Error: ADB exited with exit code 1
-Performing Streamed Install
-Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]
-Error launching application on Pixel 7.

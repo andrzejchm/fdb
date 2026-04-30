@@ -206,16 +206,12 @@ int _lineSignalScore(String line) {
   if (lower.contains('xcodebuild')) score += 4;
   if (lower.contains('adb')) score += 4;
   if (lower.contains('install_failed')) score += 6;
-  if (lower.contains('package install error')) score += 6;
   if (lower.contains('android sdk')) score += 5;
   if (lower.contains('flutter doctor')) score += 3;
   if (lower.contains('build failed')) score += 5;
   if (lower.contains('registering bundle identifier')) score += 8;
   if (lower.contains('no account for team')) score += 8;
   if (lower.contains('no profiles for')) score += 6;
-  if (lower.contains('your device is locked')) score += 8;
-  if (lower.contains('license agreements')) score += 7;
-  if (lower.contains('flutter doctor --android-licenses')) score += 6;
 
   return score;
 }
@@ -379,16 +375,6 @@ final _categoryHeuristics = <_CategoryHeuristic>[
     remediationHint: 'Open iOS Signing & Capabilities and verify team, certificate, and provisioning profile.',
     fullLogScan: false,
   ),
-  // Matched on exact Flutter tool strings from ios_deploy.dart
-  // (deviceLockedError = 'e80000e2', deviceLockedErrorMessage).
-  (
-    category: 'IOS_DEVICE_LOCKED',
-    strongTokens: ['your device is locked', 'e80000e2', 'the device was not, or could not be, unlocked'],
-    weakTokens: ['unlock your device'],
-    label: 'iOS device is locked',
-    remediationHint: 'Unlock the device, then rerun `fdb launch`.',
-    fullLogScan: false,
-  ),
   // Matched on exact Xcode build output strings (PhaseScriptExecution /
   // xcodebuild failed with exit code 65 / Failed to build iOS app).
   // "failed to build ios app" is iOS-specific and does not appear in Android
@@ -403,29 +389,13 @@ final _categoryHeuristics = <_CategoryHeuristic>[
         'Inspect the failing Xcode script phase in the flutter run output above or rerun from Xcode for full script output.',
     fullLogScan: false,
   ),
-  // Matched on exact Flutter tool string from android_device.dart
-  // ("Package install error: Failure [INSTALL_FAILED_*]") and raw adb output
-  // ("adb: failed to install … Failure [INSTALL_FAILED_*]").
   (
     category: 'ANDROID_INSTALL_ADB',
-    strongTokens: ['install_failed', 'adb: failed to install', 'package install error'],
-    weakTokens: ['performing streamed install', 'error: adb exited with exit code'],
+    strongTokens: ['install_failed', 'adb: failed to install'],
+    weakTokens: ['device offline', 'no devices/emulators found', 'performing streamed install'],
     label: 'Android install/adb failed',
     remediationHint: 'Check `adb devices`, reconnect the device, and uninstall conflicting app versions if needed.',
     fullLogScan: false,
-  ),
-  // Matched on exact Gradle error string detected by Flutter tool
-  // (gradle_errors.dart licenseNotAcceptedHandler).
-  (
-    category: 'ANDROID_LICENSE_NOT_ACCEPTED',
-    strongTokens: [
-      'you have not accepted the license agreements of the following sdk components',
-      'flutter doctor --android-licenses',
-    ],
-    weakTokens: ['license agreements'],
-    label: 'Android SDK license not accepted',
-    remediationHint: 'Run `flutter doctor --android-licenses` to accept the required SDK licenses.',
-    fullLogScan: true,
   ),
   // Matched on exact Flutter tool strings from user_messages.dart
   // ("Unable to locate Android SDK") and sdk_toolchain fixture.

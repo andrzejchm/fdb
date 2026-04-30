@@ -1,8 +1,0 @@
-Launching lib/main.dart on sdk gphone64 arm64 in debug mode...
-Running Gradle task 'assembleDebug'...
-You have not accepted the license agreements of the following SDK components:
-  [Android SDK Platform 33, Android SDK Build-Tools 33.0.2]
-To resolve this, please run the following command in a Terminal:
-  flutter doctor --android-licenses
-Gradle task assembleDebug failed with exit code 1
-Error launching application on sdk gphone64 arm64.

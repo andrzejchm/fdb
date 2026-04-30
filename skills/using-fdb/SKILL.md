@@ -87,10 +87,8 @@ Known `LAUNCH_ERROR` categories and their meanings:
 | `IOS_BUNDLE_ID_CLAIMED` | Bundle ID registered to a different team — change or reclaim it |
 | `IOS_NO_ACCOUNT_FOR_TEAM` | Apple ID for the Xcode team is not signed in on this Mac |
 | `IOS_CODESIGN_PROVISIONING` | Code signing or provisioning profile failure (may include keychain issues) |
-| `IOS_DEVICE_LOCKED` | Physical device is locked — unlock and retry |
 | `IOS_BUILD_SCRIPT` | An Xcode build script phase failed (CocoaPods embed, etc.) |
 | `ANDROID_INSTALL_ADB` | ADB install failed — incompatible signatures, storage, or device offline |
-| `ANDROID_LICENSE_NOT_ACCEPTED` | Android SDK licenses not accepted — run `flutter doctor --android-licenses` |
 | `SDK_TOOLCHAIN` | Flutter SDK, Android SDK, or Xcode toolchain is missing or misconfigured |
 | `FLUTTER_BUILD` | Dart/Gradle compile error — fix the first error and retry |
 | `UNKNOWN` | No recognised pattern matched — open LOG_FILE for full output |
