@@ -1144,6 +1144,30 @@ tasks:
           exit 1
         fi
 
+  test:tap-disappearing-widget:
+    desc: Tap a widget that disappears during/after the tap — must return Success, not throw
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Resetting app state before disappearing-widget tap test"
+        {{.FDB}} restart >/dev/null 2>&1 || true
+        sleep 1
+
+        echo "==> Tapping disappearing_button (widget hides itself on tap)"
+        OUTPUT=$({{.FDB}} tap --key "disappearing_button" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap on disappearing widget exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TAPPED="; then
+          echo "PASS: fdb tap on disappearing widget returned success"
+        else
+          echo "FAIL: fdb tap on disappearing widget - TAPPED= not found in output" >&2
+          exit 1
+        fi
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -2694,6 +2718,7 @@ tasks:
           DEVICE: '{{.DEVICE}}'
       - task: test:longpress
       - task: test:tap-at
+      - task: test:tap-disappearing-widget
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to
