@@ -44,16 +44,17 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
   // non-null → xcrun ran OK; set contains UDIDs explicitly listed with
   //            tunnelState == 'unavailable'.
   final hasIosPhysical = raw.any((entry) {
-    final d = entry as Map<String, dynamic>;
-    final platform = d['targetPlatform'] as String?;
-    final emulator = d['emulator'] as bool? ?? false;
+    if (entry is! Map<String, dynamic>) return false;
+    final platform = entry['targetPlatform'] as String?;
+    final emulator = entry['emulator'] is bool ? entry['emulator'] as bool : false;
     return platform == 'ios' && !emulator;
   });
   final xcrunResult =
       hasIosPhysical ? await _fetchUnavailableIosUdids() : null;
 
   for (final entry in raw) {
-    final d = entry as Map<String, dynamic>;
+    if (entry is! Map<String, dynamic>) continue;
+    final d = entry;
     final id = d['id'] as String?;
     final name = d['name'] as String?;
     final platform = d['targetPlatform'] as String?;
@@ -63,7 +64,7 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
       continue;
     }
 
-    final emulator = d['emulator'] as bool? ?? false;
+    final emulator = d['emulator'] is bool ? d['emulator'] as bool : false;
     final connected = _isConnected(
       id: id,
       platform: platform,
@@ -92,7 +93,7 @@ Future<DevicesResult> listDevices(DevicesInput input) async {
 /// a USB-connected device may not appear at all even though it is reachable.
 Future<Set<String>?> _fetchUnavailableIosUdids() async {
   try {
-    final tmpFile = await _createTempFile();
+    final tmpFile = _createTempFile();
     try {
       final result = await Process.run('xcrun', [
         'devicectl',
@@ -152,7 +153,7 @@ Future<Set<String>?> _fetchUnavailableIosUdids() async {
 /// Creates a temporary file for `devicectl --json-output`.
 ///
 /// Uses a name that is safe on both macOS and Linux.
-Future<File> _createTempFile() async {
+File _createTempFile() {
   final dir = Directory.systemTemp;
   final name = 'fdb_devicectl_${DateTime.now().microsecondsSinceEpoch}.json';
   return File('${dir.path}/$name');
