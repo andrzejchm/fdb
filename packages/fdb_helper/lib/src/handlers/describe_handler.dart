@@ -60,6 +60,11 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
     // Tracks the nearest enclosing Tooltip message while walking the tree.
     String? currentTooltip;
 
+    // The route that was "current" the last time we saw a ModalRoute boundary
+    // while descending. Used to detect when we enter a non-current route's
+    // subtree so we can skip it entirely.
+    ModalRoute<dynamic>? activeRouteContext;
+
     void visit(Element element) {
       // Stop collecting interactive entries once the cap is reached.
       if (interactive.length >= maxInteractive) return;
@@ -75,10 +80,21 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         } catch (_) {}
       }
 
-      // Collect route name from ModalRoute.
+      // Skip subtrees belonging to non-current routes (e.g. underlying screens
+      // kept alive by the Navigator stack). When a StatefulElement introduces a
+      // new ModalRoute boundary that is not the current (topmost) route, its
+      // entire subtree is off-screen from the user's perspective — even though
+      // the render objects may report valid pixel coordinates — so we prune it.
       if (element is StatefulElement) {
         final route = ModalRoute.of(element);
-        if (route != null) {
+        if (route != null && route != activeRouteContext) {
+          // We have crossed into a new route boundary.
+          if (!route.isCurrent) {
+            // This route is not the topmost active route — skip its subtree.
+            return;
+          }
+          // This is the current route: record it and collect the route name.
+          activeRouteContext = route;
           routeName = route.settings.name;
         }
       }
