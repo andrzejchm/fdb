@@ -52,14 +52,23 @@ After adding `fdb_helper`, run `flutter pub get` and relaunch the app.
 
 ```bash
 fdb devices
+fdb devices --connected-only   # skip iOS devices not reachable on the local network
+fdb devices -c                 # shorthand for --connected-only
 ```
 
 Output (one line per device):
 ```
-DEVICE_ID=<id> NAME=<name> PLATFORM=<targetPlatform> EMULATOR=<true|false>
+DEVICE_ID=<id> NAME=<name> PLATFORM=<targetPlatform> EMULATOR=<true|false> CONNECTED=<true|false>
 ```
 
 Lists all devices Flutter can target: physical phones, emulators, simulators, desktop, and web.
+
+`CONNECTED` is `true` for all non-iOS-physical devices. For iOS physical devices it is determined
+via `xcrun devicectl`: `true` when the device is reachable on the local network, `false` when it
+is a paired-but-absent device (wireless pairing, different network, powered off). When `xcrun` is
+unavailable, `CONNECTED` is always `true` and `--connected-only` does not filter anything.
+
+Use `--connected-only` to eliminate stale entries when iterating over devices to launch.
 
 ### Launch app
 

@@ -4,18 +4,33 @@ import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/commands/devices/devices.dart';
 
-/// CLI adapter for `fdb devices`. Accepts no flags; emits one line per
-/// device:
+/// CLI adapter for `fdb devices`.
+///
+/// Output contract — one line per device on stdout:
 ///
 /// ```
-///   DEVICE_ID=<id> NAME=<name> PLATFORM=<platform> EMULATOR=<bool>
+///   DEVICE_ID=<id> NAME=<name> PLATFORM=<platform> EMULATOR=<bool> CONNECTED=<bool>
 /// ```
+///
+/// With `--connected-only` only reachable devices are printed. For iOS
+/// physical devices reachability is checked via `xcrun devicectl`; when
+/// `xcrun` is unavailable all iOS devices pass through (backward-compatible).
 ///
 /// Errors are written to stderr prefixed with `ERROR:` or `WARNING:`.
-Future<int> runDevicesCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
+Future<int> runDevicesCli(List<String> args) {
+  final parser = ArgParser()
+    ..addFlag(
+      'connected-only',
+      abbr: 'c',
+      negatable: false,
+      help: 'Only list devices that are currently reachable',
+    );
+  return runCliAdapter(parser, args, _execute);
+}
 
-Future<int> _execute(ArgResults _) async {
-  final result = await listDevices(());
+Future<int> _execute(ArgResults results) async {
+  final connectedOnly = results['connected-only'] as bool;
+  final result = await listDevices((connectedOnly: connectedOnly));
   return _format(result);
 }
 
@@ -36,9 +51,13 @@ int _format(DevicesResult result) {
           'WARNING: Skipping device with missing required fields: $raw',
         );
       }
+      if (devices.isEmpty) {
+        stderr.writeln('ERROR: No devices found');
+        return 1;
+      }
       for (final d in devices) {
         stdout.writeln(
-          'DEVICE_ID=${d.id} NAME=${d.name} PLATFORM=${d.platform} EMULATOR=${d.emulator}',
+          'DEVICE_ID=${d.id} NAME=${d.name} PLATFORM=${d.platform} EMULATOR=${d.emulator} CONNECTED=${d.connected}',
         );
       }
       return 0;

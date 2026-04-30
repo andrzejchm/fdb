@@ -40,6 +40,8 @@ Usage: fdb [--session-dir <path>] <command> [args]
 
 Commands:
   devices     List connected devices
+               --connected-only, -c  Exclude iOS devices not reachable on the
+                                     local network (uses xcrun devicectl)
   deeplink    Open a deep link URL on the device
   launch      Launch a Flutter app
                --device <id>       (required) target device/simulator ID

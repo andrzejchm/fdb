@@ -102,7 +102,7 @@ fdb kill
 
 | Command | Description |
 |---------|-------------|
-| `fdb devices` | List connected devices |
+| `fdb devices [--connected-only]` | List devices; `--connected-only` / `-c` skips iOS devices not reachable on the local network (uses `xcrun devicectl`) |
 | `fdb launch --device <id> --project <path> [--verbose]` | Launch app, wait for start; emits `LAUNCH_ERROR=` / `LAUNCH_ERROR_CAUSE=` / `HINT:` on stderr for failures |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |

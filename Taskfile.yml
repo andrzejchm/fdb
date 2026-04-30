@@ -23,10 +23,10 @@ tasks:
   # Device detection
   # ---------------------------------------------------------------------------
   detect-device:
-    desc: Auto-detect a connected device ID (first device reported by fdb devices)
+    desc: Auto-detect a connected device ID (first reachable device reported by fdb devices)
     cmds:
       - |
-        DEVICE=$({{.FDB}} devices 2>/dev/null \
+        DEVICE=$({{.FDB}} devices --connected-only 2>/dev/null \
           | grep '^DEVICE_ID=' \
           | head -1 \
           | sed 's/DEVICE_ID=\([^ ]*\).*/\1/')
@@ -40,10 +40,10 @@ tasks:
   # Individual fdb command tests
   # ---------------------------------------------------------------------------
   test:devices:
-    desc: "List connected devices"
+    desc: "List connected devices (plain and --connected-only)"
     cmds:
       - |
-        echo "==> Listing devices"
+        echo "==> Listing all devices"
         OUTPUT=$({{.FDB}} devices 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
@@ -57,6 +57,32 @@ tasks:
           echo "FAIL: fdb devices - no DEVICE_ID= lines in output" >&2
           exit 1
         fi
+        if echo "$OUTPUT" | grep -q "CONNECTED="; then
+          echo "PASS: fdb devices emits CONNECTED= token"
+        else
+          echo "FAIL: fdb devices - CONNECTED= token not found in output" >&2
+          exit 1
+        fi
+      - |
+        echo "==> Listing devices with --connected-only"
+        OUTPUT=$({{.FDB}} devices --connected-only 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb devices --connected-only exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "DEVICE_ID="; then
+          echo "PASS: fdb devices --connected-only"
+        else
+          echo "FAIL: fdb devices --connected-only - no DEVICE_ID= lines in output" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "CONNECTED=false"; then
+          echo "FAIL: fdb devices --connected-only should not include CONNECTED=false devices" >&2
+          exit 1
+        fi
+        echo "PASS: fdb devices --connected-only - no CONNECTED=false devices"
 
   test:launch:
     desc: "Launch the test app on a device (set DEVICE or auto-detect)"

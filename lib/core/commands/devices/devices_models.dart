@@ -1,16 +1,24 @@
 import 'package:fdb/core/models/command_result.dart';
 
 /// A single connected device entry returned by `flutter devices --machine`.
+///
+/// [connected] is `true` when the device is confirmed reachable. For iOS
+/// physical devices this is determined by `xcrun devicectl`; for all other
+/// platforms (Android, macOS, simulators) it is always `true` because
+/// `flutter devices` only reports them when they are actually available.
 typedef DeviceInfo = ({
   String id,
   String name,
   String platform,
   bool emulator,
+  bool connected,
 });
 
-/// Input parameters for [listDevices]. Empty record because `fdb devices`
-/// takes no arguments today.
-typedef DevicesInput = ();
+/// Input parameters for [listDevices].
+typedef DevicesInput = ({
+  /// When `true`, only devices confirmed reachable are returned.
+  bool connectedOnly,
+});
 
 /// Result of a [listDevices] invocation.
 ///
