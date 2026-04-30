@@ -133,32 +133,20 @@ Flags:
 
 Output is the raw native log format — not parsed into fdb tokens. Errors print `ERROR: ...` (e.g. `ERROR: idevicesyslog not found. Install: brew install libimobiledevice`).
 
-### Crash report (OS-level crash and OOM diagnostics)
+### OS-level crash and OOM records
 
 ```bash
-fdb crash-report                           # last 1h, most recent record
+fdb crash-report                           # most recent record, last 1h
 fdb crash-report --last 30m               # custom time window
-fdb crash-report --all                    # all records (no time limit)
+fdb crash-report --all                    # all crash sources in window
 fdb crash-report --app-id com.example.app # explicit bundle id / package name
 ```
 
-Use this to retrieve OS-level crash records that never reach Crashlytics: iOS jetsam kills, Android low-memory-killer (LMK) events, and native crash reports. Runs after the fact — "what killed the app 10 minutes ago?" Requires a session (`.fdb/platform.txt`) but the app does not need to be running.
+Fetches jetsam kills, Android LMK events, and native crash files that never reach Crashlytics. Works after the app has died — no running session required, only `.fdb/platform.txt`.
 
-The app bundle id / package name is auto-detected from `.fdb/app_id.txt` (written by `fdb launch`). Pass `--app-id` to override.
+App id auto-read from `.fdb/app_id.txt` (written by `fdb launch`). Pass `--app-id` to override.
 
-Output tokens:
-- `CRASH_REPORT_FOUND ENTRIES=N` — one or more crash records found; followed by `---`, `LABEL=`, optional `FILE=`, and raw text for each entry.
-- `CRASH_REPORT_NONE` — no crash records found in the time window.
-
-Note: `--all` returns all available crash sources (logcat buffers, `.ips` files) rather than just the most recent one. The underlying log query is still capped at 24h on iOS simulator and macOS to avoid scanning the entire log archive.
-
-Platform dispatch:
-- **Android**: `adb logcat -b crash` + `adb shell dumpsys dropbox` + `adb logcat -b system -s lowmemorykiller`
-- **iOS simulator**: `xcrun simctl spawn <udid> log show` (jetsam predicate) + `~/Library/Logs/DiagnosticReports/*.ips`
-- **iOS physical**: `idevicecrashreport` (requires `brew install libimobiledevice`)
-- **macOS**: `log show` + `~/Library/Logs/DiagnosticReports/*.ips`
-
-Errors print `ERROR: ...` with install hints when a required tool is missing.
+Output tokens: `CRASH_REPORT_FOUND ENTRIES=N` (followed by `---` / `LABEL=` / optional `FILE=` / raw text per entry) or `CRASH_REPORT_NONE`. Errors include install hints when a required platform tool is missing.
 
 ### Widget tree
 
