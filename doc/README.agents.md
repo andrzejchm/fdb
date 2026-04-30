@@ -12,7 +12,11 @@ Requires Dart SDK >= 3.0.0. Ensure `~/.pub-cache/bin` is in your `PATH`.
 
 ## Step 2: Install the skill file
 
-Install the skill so your agent automatically knows how to use fdb:
+Install the skill so your agent automatically knows how to use fdb.
+
+The skill file is a lean shim — it never needs to be reinstalled after fdb updates. When loaded,
+it instructs the agent to run `fdb skill`, which prints the full, version-matched reference
+straight from the installed CLI.
 
 **OpenCode:**
 ```bash
@@ -47,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/andrzejchm/fdb/main/skills/using-fd
 gemini skills install https://github.com/andrzejchm/fdb.git --path skills/using-fdb
 ```
 
-For other agents, place the SKILL.md wherever your agent reads skill definitions from, or run `fdb skill` to print its contents directly.
+For other agents, place the SKILL.md wherever your agent reads skill definitions from.
 
 ## Step 3: Verify
 

@@ -5,7 +5,12 @@ import 'package:fdb/core/commands/skill/skill_models.dart';
 
 export 'package:fdb/core/commands/skill/skill_models.dart';
 
-/// Resolves and reads the using-fdb SKILL.md from the package root.
+/// Resolves and reads the bundled SKILL.md from the package root.
+///
+/// The authoritative skill content lives at `lib/skill/SKILL.md` (internal,
+/// bundled with the CLI). This is intentionally separate from
+/// `skills/using-fdb/SKILL.md`, which is the lean shim users install into
+/// their OpenCode config — it simply instructs the agent to run `fdb skill`.
 ///
 /// Package-root resolution strategy:
 ///   This file lives at `lib/core/commands/skill/skill.dart`.
@@ -18,7 +23,7 @@ export 'package:fdb/core/commands/skill/skill_models.dart';
 ///   `Platform.script` which points to `bin/fdb.dart`; one `.parent` up is
 ///   `bin/`, and one more is the package root.
 Future<SkillResult> resolveSkill() async {
-  const relativePath = 'skills/using-fdb/SKILL.md';
+  const relativePath = 'lib/skill/SKILL.md';
 
   // Primary: resolve via package URI — works for both `dart run` and
   // `dart pub global activate` installs.

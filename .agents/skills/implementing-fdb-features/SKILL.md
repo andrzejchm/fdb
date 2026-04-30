@@ -34,7 +34,7 @@ Taskfile tests:
 Docs:
 - [ ] README.md — commands table
 - [ ] .agents/skills/testing-fdb/SKILL.md — individual test list
-- [ ] skills/using-fdb/SKILL.md — usage examples (load creating-opencode-skills skill first)
+- [ ] lib/skill/SKILL.md — usage examples (load creating-opencode-skills skill first)
 
 Review loop (delegated):
 - [ ] Spawn reviewing-fixing-loop agent
@@ -144,7 +144,7 @@ Read these files before writing any code:
 **Docs to update:**
 - `README.md` — commands table
 - `.agents/skills/testing-fdb/SKILL.md` — add `task test:<command>` to individual test list
-- `skills/using-fdb/SKILL.md` — add usage examples with output tokens; load `creating-opencode-skills` skill before editing to follow spec-sheet style rules
+- `lib/skill/SKILL.md` — add usage examples with output tokens; load `creating-opencode-skills` skill before editing to follow spec-sheet style rules
 
 ---
 
@@ -199,7 +199,7 @@ Review against:
 3. Edge cases and error handling
 4. Output token format
 5. Taskfile test coverage
-6. Doc completeness (README, testing-fdb/SKILL.md, using-fdb/SKILL.md)
+6. Doc completeness (README, testing-fdb/SKILL.md, lib/skill/SKILL.md)
 
 Fix all real findings. Commit and push when the loop converges.
 ```
