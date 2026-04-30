@@ -9,6 +9,7 @@ import 'package:fdb/cli/adapters/devices_cli.dart';
 import 'package:fdb/cli/adapters/doctor_cli.dart';
 import 'package:fdb/cli/adapters/double_tap_cli.dart';
 import 'package:fdb/cli/adapters/ext_cli.dart';
+import 'package:fdb/cli/adapters/gc_cli.dart';
 import 'package:fdb/cli/adapters/input_cli.dart';
 import 'package:fdb/cli/adapters/kill_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
@@ -31,8 +32,8 @@ import 'package:fdb/cli/adapters/syslog_cli.dart';
 import 'package:fdb/cli/adapters/tap_cli.dart';
 import 'package:fdb/cli/adapters/tree_cli.dart';
 import 'package:fdb/cli/adapters/wait_cli.dart';
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/constants.dart';
+import 'package:fdb/core/app_died_exception.dart';
 
 const usage = '''
 Usage: fdb [--session-dir <path>] <command> [args]
@@ -76,6 +77,8 @@ Commands:
   select      Toggle widget selection mode
   selected    Get the currently selected widget
   mem         Inspect heap usage; subcommands: profile, diff
+  gc          Force a full garbage collection across all isolates
+               --json              Output KEY=value tokens (HEAP_BEFORE, HEAP_AFTER, HEAP_DELTA)
   status      Check if the app is running
   kill        Stop the running app
   skill       Print the AI agent skill file (SKILL.md)
@@ -222,6 +225,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runKillCli(args);
     case 'mem':
       return runMemCli(args);
+    case 'gc':
+      return runGcCli(args);
     case 'skill':
       return runSkillCli(args);
     default:
