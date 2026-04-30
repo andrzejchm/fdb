@@ -97,7 +97,7 @@ Future<GrantPermissionResult> grantPermission(GrantPermissionInput input) async 
       return const GrantPermissionPhysicalIosUnsupported();
     }
 
-    if (platform == 'macos') {
+    if (platform == 'macos' || platform.startsWith('darwin')) {
       return _handleMacos(input);
     }
 

@@ -2009,10 +2009,14 @@ tasks:
 
         if echo "$OUTPUT" | grep -q "Cannot grant permissions on macOS"; then
           echo "SKIP: grant-permission grant on macOS not supported (expected)"
-          # macOS: test reset instead
-          echo "==> [grant-permission] reset camera on macOS"
-          OUTPUT=$({{.FDB}} grant-permission camera --reset 2>&1)
+          # macOS: test reset with explicit --bundle (Info.plist uses variable substitution,
+          # so fdb.app_id may not be written by fdb launch on macOS — pass bundle directly).
+          MACOS_BUNDLE="dev.andrzejchm.fdb.testApp"
+          echo "==> [grant-permission] reset camera on macOS (--bundle $MACOS_BUNDLE)"
+          set +e
+          OUTPUT=$({{.FDB}} grant-permission camera --reset --bundle "$MACOS_BUNDLE" 2>&1)
           EXIT_CODE=$?
+          set -e
           echo "$OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
             echo "FAIL: fdb grant-permission camera --reset on macOS exited with code $EXIT_CODE" >&2
@@ -2037,11 +2041,14 @@ tasks:
           echo "FAIL: fdb grant-permission camera — PERMISSION_GRANTED=camera not found" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "WARNING: Permission change may have terminated the app"; then
-          echo "PASS: fdb grant-permission camera — termination warning present"
-        else
-          echo "FAIL: fdb grant-permission camera — termination WARNING not found" >&2
-          exit 1
+        # iOS simulator only: xcrun simctl may terminate the app after granting
+        if [ "$PLATFORM" = "ios" ] && [ "$IS_EMULATOR" = "true" ]; then
+          if echo "$OUTPUT" | grep -q "WARNING: Permission change may have terminated the app"; then
+            echo "PASS: fdb grant-permission camera — termination warning present (iOS sim)"
+          else
+            echo "FAIL: fdb grant-permission camera — termination WARNING not found on iOS sim" >&2
+            exit 1
+          fi
         fi
 
         echo "==> [grant-permission] revoke camera"
@@ -2096,8 +2103,8 @@ tasks:
         fi
 
         echo "==> [grant-permission] no app ID (expect error)"
-        APP_ID_FILE=".fdb/fdb.app_id"
-        APP_ID_BACKUP=".fdb/fdb.app_id.bak"
+        APP_ID_FILE=".fdb/app_id.txt"
+        APP_ID_BACKUP=".fdb/app_id.txt.bak"
         if [ -f "$APP_ID_FILE" ]; then
           mv "$APP_ID_FILE" "$APP_ID_BACKUP"
         fi
