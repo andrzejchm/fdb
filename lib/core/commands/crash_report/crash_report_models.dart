@@ -19,10 +19,14 @@ sealed class CrashReportResult extends CommandResult {
 ///
 /// Each [CrashReportEntry] carries a platform label, a path to the crash file
 /// on disk (if any), and the raw log text to display.
+///
+/// [warnings] carries non-fatal advisory messages (e.g. unsupported flags on
+/// a given platform) that the CLI adapter should print to stderr.
 class CrashReportFound extends CrashReportResult {
-  const CrashReportFound(this.entries);
+  const CrashReportFound(this.entries, {this.warnings = const []});
 
   final List<CrashReportEntry> entries;
+  final List<String> warnings;
 }
 
 /// No crash records were found in the requested time window.

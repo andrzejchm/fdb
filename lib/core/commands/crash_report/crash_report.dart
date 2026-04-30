@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/crash_report/crash_report_models.dart';
 import 'package:fdb/core/process_utils.dart';
 
@@ -105,7 +104,15 @@ Future<CrashReportResult> _runAndroid({
   }
 
   if (entries.isEmpty) return const CrashReportNone();
-  return CrashReportFound(input.all ? entries : [entries.last]);
+
+  // Android logcat has no native --last filter. We return all available records
+  // and emit an advisory warning so callers know filtering was not applied.
+  // logcat entries are returned in chronological order; logcat crash buffer is
+  // checked first, so entries.first is the most likely source for the latest crash.
+  final warnings = [
+    '--last is not supported on Android, returning all available records',
+  ];
+  return CrashReportFound(input.all ? entries : [entries.first], warnings: warnings);
 }
 
 Future<CrashReportResult> _runIosSimulator({
@@ -199,7 +206,12 @@ Future<CrashReportResult> _runIosPhysical({
       return CrashReportError('idevicecrashreport failed: $err');
     }
 
-    final ipsFiles = tmpDir.listSync().whereType<File>().where((f) => f.path.endsWith('.ips')).toList()
+    final cutoff = DateTime.now().subtract(_parseDuration(input.last));
+    final ipsFiles = tmpDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.ips') && f.statSync().modified.isAfter(cutoff))
+        .toList()
       ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
 
     if (ipsFiles.isEmpty) return const CrashReportNone();
@@ -288,6 +300,21 @@ bool _isToolOnPath(String tool) {
 String _filterLines(String text, String substring) =>
     text.split('\n').where((l) => l.contains(substring)).join('\n').trim();
 
+/// Parses a duration string of the form `<n>s`, `<n>m`, or `<n>h`.
+/// Returns [Duration.zero] if the string cannot be parsed.
+Duration _parseDuration(String s) {
+  if (s.isEmpty) return Duration.zero;
+  final suffix = s[s.length - 1];
+  final n = int.tryParse(s.substring(0, s.length - 1));
+  if (n == null) return Duration.zero;
+  return switch (suffix) {
+    's' => Duration(seconds: n),
+    'm' => Duration(minutes: n),
+    'h' => Duration(hours: n),
+    _ => Duration.zero,
+  };
+}
+
 /// Reads a file's content, returning null on any error.
 String? _safeReadFile(File file) {
   try {
@@ -297,18 +324,4 @@ String? _safeReadFile(File file) {
   }
 }
 
-/// Reads the persisted app bundle id / package name from `.fdb/app_id.txt`.
-///
-/// Returns null if the file does not exist or is empty.
-String? readAppId() {
-  final file = File(appIdFile);
-  if (!file.existsSync()) return null;
-  final content = file.readAsStringSync().trim();
-  return content.isEmpty ? null : content;
-}
 
-/// Persists [appId] to `.fdb/app_id.txt` so later commands (e.g. crash-report)
-/// can use it without requiring `--app-id`.
-void writeAppId(String appId) {
-  File(appIdFile).writeAsStringSync(appId);
-}

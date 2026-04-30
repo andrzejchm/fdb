@@ -102,6 +102,22 @@ Future<bool> isVmServiceReachable(String uri) async {
   }
 }
 
+/// Reads the persisted app bundle id / package name from `.fdb/app_id.txt`.
+///
+/// Returns null if the file does not exist or is empty.
+String? readAppId() {
+  final file = File(appIdFile);
+  if (!file.existsSync()) return null;
+  final content = file.readAsStringSync().trim();
+  return content.isEmpty ? null : content;
+}
+
+/// Persists [appId] to `.fdb/app_id.txt` so later commands (e.g. crash-report)
+/// can use it without requiring `--app-id`.
+void writeAppId(String appId) {
+  File(appIdFile).writeAsStringSync(appId);
+}
+
 void cleanupTempFiles() {
   for (final path in [
     pidFile,

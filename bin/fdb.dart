@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:fdb/cli/adapters/back_cli.dart';
-import 'package:fdb/cli/adapters/crash_report_cli.dart';
 import 'package:fdb/cli/adapters/clean_cli.dart';
+import 'package:fdb/cli/adapters/crash_report_cli.dart';
 import 'package:fdb/cli/adapters/deeplink_cli.dart';
 import 'package:fdb/cli/adapters/describe_cli.dart';
 import 'package:fdb/cli/adapters/devices_cli.dart';

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:fdb/constants.dart';
-import 'package:fdb/core/commands/crash_report/crash_report.dart';
 import 'package:fdb/core/commands/launch/launch_models.dart';
 import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/core/vm_service.dart';

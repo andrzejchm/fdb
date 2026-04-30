@@ -60,7 +60,10 @@ Future<int> _execute(ArgResults results) async {
 
 int _format(CrashReportResult result) {
   switch (result) {
-    case CrashReportFound(:final entries):
+    case CrashReportFound(:final entries, :final warnings):
+      for (final w in warnings) {
+        stderr.writeln('WARNING: $w');
+      }
       stdout.writeln('CRASH_REPORT_FOUND ENTRIES=${entries.length}');
       for (final entry in entries) {
         stdout.writeln('---');
