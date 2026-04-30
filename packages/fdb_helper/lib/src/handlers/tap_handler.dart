@@ -80,9 +80,9 @@ Future<developer.ServiceExtensionResponse> handleTap(
     // photo-area toggle GestureDetector to fire every time a toolbar button is
     // tapped, immediately hiding the overlay.
     //
-    // Direct invocation finds the nearest GestureDetector with onTap that IS
-    // the matched element and calls the callback directly, bypassing the
-    // gesture arena entirely. Coordinates are still computed and returned so
+    // Direct invocation checks whether the matched element itself is a
+    // `GestureDetector` with `onTap` and calls the callback directly,
+    // bypassing the gesture arena entirely. Coordinates are still computed and returned so
     // callers know where the widget is.
     //
     // Long-press (rawDuration != null) cannot be direct-invoked this way
@@ -125,32 +125,32 @@ Future<developer.ServiceExtensionResponse> handleTap(
   }
 }
 
-/// Attempts to invoke the [onTap] callback of the [GestureDetector] that IS
-/// [element] (i.e. only if the matched element itself is a [GestureDetector]
-/// with a non-null [onTap]) without dispatching a synthetic pointer event.
-///
-/// Returns true if [element] is a [GestureDetector] with [onTap] and the
-/// callback was invoked. Returns false otherwise, leaving the caller to fall
-/// back to [dispatchTap].
-///
-/// **Why only the matched element — not ancestors?**
-///
-/// [findHittableElement] already resolves the target upward: if the keyed
-/// widget is not hittable, the ancestor walk inside [findHittableElement]
-/// finds the nearest interactive ancestor. So by the time [element] arrives
-/// here, it IS the intended tap target. Walking further up would risk hitting
-/// unrelated ancestor [GestureDetector]s (e.g. [Scaffold]'s drawer gesture,
-/// or a page-level scroll handler).
-///
-/// This check handles the critical [PhotoActionsToolbar] pattern where:
-/// - The toolbar button widget has `key: Key('approve_btn')`.
-/// - That widget is a [GestureDetector] with [onTap].
-/// - An ancestor [GestureDetector] wrapping the whole screen has
-///   [HitTestBehavior.opaque], so [dispatchTap] at the button's coordinates
-///   also triggers the ancestor's [onTap], hiding the overlay as a side effect.
-///
-/// Direct invocation bypasses [GestureBinding] entirely, so only the target's
-/// [onTap] fires.
+// Attempts to invoke the onTap callback of the GestureDetector that IS
+// element (i.e. only if the matched element itself is a GestureDetector
+// with a non-null onTap) without dispatching a synthetic pointer event.
+//
+// Returns true if element is a GestureDetector with onTap and the
+// callback was invoked. Returns false otherwise, leaving the caller to fall
+// back to dispatchTap.
+//
+// Why only the matched element — not ancestors?
+//
+// findHittableElement already resolves the target upward: if the keyed
+// widget is not hittable, the ancestor walk inside findHittableElement
+// finds the nearest interactive ancestor. So by the time element arrives
+// here, it IS the intended tap target. Walking further up would risk hitting
+// unrelated ancestor GestureDetectors (e.g. Scaffold's drawer gesture,
+// or a page-level scroll handler).
+//
+// This check handles the critical PhotoActionsToolbar pattern where:
+// - The toolbar button widget has `key: Key('approve_btn')`.
+// - That widget is a GestureDetector with onTap.
+// - An ancestor GestureDetector wrapping the whole screen has
+//   HitTestBehavior.opaque, so dispatchTap at the button's coordinates
+//   also triggers the ancestor's onTap, hiding the overlay as a side effect.
+//
+// Direct invocation bypasses GestureBinding entirely, so only the target's
+// onTap fires.
 bool _tryDirectInvokeTap(Element element) {
   final widget = element.widget;
   if (widget is GestureDetector && widget.onTap != null) {
