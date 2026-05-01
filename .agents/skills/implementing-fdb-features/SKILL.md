@@ -35,6 +35,11 @@ Docs:
 - [ ] README.md — commands table
 - [ ] .agents/skills/testing-fdb/SKILL.md — individual test list
 - [ ] lib/skill/SKILL.md — usage examples (load creating-opencode-skills skill first)
+- [ ] doc/agent-scenarios.md — add scenario for the new/changed command
+
+Agent scenarios (run and evaluate output — not just token grep):
+- [ ] Run relevant scenarios from doc/agent-scenarios.md
+- [ ] All scenario outputs look semantically correct (right screen, right elements, no leaks)
 
 Review loop (delegated):
 - [ ] Spawn reviewing-fixing-loop agent
@@ -185,6 +190,30 @@ task analyze
 
 ---
 
+## Step 4b — Run and evaluate agent scenarios
+
+The Taskfile tests grep for output tokens — they are binary pass/fail and cannot
+catch semantic regressions (wrong screen scope, elements leaking from other routes,
+incorrect VISIBLE TEXT content, etc.).
+
+Read `doc/agent-scenarios.md`. Run every scenario that touches the command you
+changed, plus the baseline `S1 · describe — home screen` as a sanity check.
+For each scenario: run the commands exactly as written, read the actual output,
+and verify every point in the **What to verify** list.
+
+If you added a new command, also add a new scenario section to
+`doc/agent-scenarios.md` following the existing pattern before proceeding.
+
+```bash
+# Example — if you changed describe, run at minimum:
+# S1 (home screen baseline), S2 (child route isolation), S3 (two levels deep)
+# then whatever scenario matches your new/changed feature
+```
+
+Do not proceed to Step 5 until all scenario checks pass.
+
+---
+
 ## Step 5 — Spawn review-fix loop agent (DELEGATE)
 
 ```
@@ -316,6 +345,7 @@ mcp_Git-worktree action=remove name=<feature-name>
 | `CODE-STYLE.md` | Dart style, architecture rules |
 | `packages/fdb_helper/AGENTS.md` | Handler file layout, binding rules |
 | `TESTING.md` | Test commands and conventions |
+| `doc/agent-scenarios.md` | Semantic scenarios for agent-driven regression testing |
 | `Taskfile.yml` | All test tasks and smoke sequence |
 | `lib/core/commands/scroll_to/scroll_to.dart` | Canonical core verb |
 | `lib/cli/adapters/scroll_to_cli.dart` | Canonical CLI adapter |
