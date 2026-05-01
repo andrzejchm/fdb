@@ -141,6 +141,22 @@ fdb kill
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb deeplink <url>` | Open a deep link |
 
+**iOS Simulator** *(no session required — works against any booted simulator)*
+
+| Command | Description |
+|---------|-------------|
+| `fdb simulator appearance dark\|light\|get` | Toggle or query dark/light mode |
+| `fdb simulator push <payload.apns> [--bundle-id <id>]` | Send a simulated remote push notification |
+| `fdb simulator location set <lat,lon>` | Set a static GPS location |
+| `fdb simulator location route <scenario>` | Play a movement scenario (`City Run`, `City Bicycle Ride`, `Freeway Drive`) |
+| `fdb simulator location clear` | Stop location simulation |
+| `fdb simulator text-size <size>\|get` | Set or query Dynamic Type content size (`extra-small` … `accessibility-extra-extra-extra-large`) |
+| `fdb simulator status-bar override [--time <str>] [--battery-level <n>] …` | Override status bar (clean 9:41 screenshots) |
+| `fdb simulator status-bar clear` | Clear all status bar overrides |
+| `fdb simulator defaults read [--bundle-id <id>] [<key>]` | Read NSUserDefaults for an app |
+| `fdb simulator defaults write [--bundle-id <id>] <key> <value> [--type string\|int\|float\|bool]` | Write an NSUserDefaults key |
+| `fdb simulator defaults delete [--bundle-id <id>] <key>` | Delete an NSUserDefaults key |
+
 **Data & state** *(requires `fdb_helper`)*
 
 | Command | Description |

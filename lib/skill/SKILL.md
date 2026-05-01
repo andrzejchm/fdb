@@ -625,6 +625,59 @@ fdb tap --text "Login"
 fdb screenshot
 ```
 
+## iOS simulator commands
+
+`fdb simulator` controls the booted iOS simulator directly. No running app session required — commands work from any directory.
+
+```bash
+# Toggle dark/light mode
+fdb simulator appearance dark
+fdb simulator appearance light
+fdb simulator appearance get              # → APPEARANCE=dark
+
+# Dynamic Type size (affects all apps system-wide)
+fdb simulator text-size extra-extra-extra-large
+fdb simulator text-size large             # reset to default
+fdb simulator text-size get              # → TEXT_SIZE=large
+
+# Clean status bar for screenshots
+fdb simulator status-bar override --time "9:41" --battery-state charged --battery-level 100 --wifi-bars 3 --cellular-bars 4 --operator "Carrier"
+fdb simulator status-bar clear
+
+# Location simulation
+fdb simulator location set 48.8584,2.2945          # Eiffel Tower
+fdb simulator location route "Freeway Drive"        # animate along a route
+fdb simulator location route "City Run"
+fdb simulator location clear
+
+# Simulated push notification (requires notification permission in the app)
+cat > /tmp/push.apns <<'EOF'
+{
+  "aps": { "alert": { "title": "Hello", "body": "Test notification" }, "sound": "default" },
+  "deeplink": "myapp://some/path"
+}
+EOF
+fdb simulator push /tmp/push.apns                          # auto-detects bundle ID from session
+fdb simulator push --bundle-id com.example.app /tmp/push.apns  # explicit bundle ID
+
+# NSUserDefaults — read/write/delete app settings without rebuilding
+fdb simulator defaults write --bundle-id com.example.app featureFlag "true"
+fdb simulator defaults read --bundle-id com.example.app featureFlag   # → true
+fdb simulator defaults read --bundle-id com.example.app               # → all defaults
+fdb simulator defaults delete --bundle-id com.example.app featureFlag
+```
+
+Output tokens:
+- `APPEARANCE=dark|light`
+- `TEXT_SIZE=<size>`
+- `STATUS_BAR_OVERRIDDEN` / `STATUS_BAR_CLEARED`
+- `LOCATION_SET LAT=<lat> LON=<lon>`
+- `LOCATION_ROUTE=<scenario>`
+- `LOCATION_CLEARED`
+- `PUSH_SENT BUNDLE_ID=<id>`
+- `DEFAULTS_WRITTEN KEY=<key> VALUE=<value>`
+- `DEFAULTS_DELETED KEY=<key>`
+
 ## State files
 
 All state lives in `<project>/.fdb/`. fdb resolves this directory automatically by walking up from the current working directory to the nearest ancestor that contains a live `.fdb/` — so you never need to `cd` to the project root before running a command. Pass `--session-dir <path>` to bypass auto-resolution entirely.
