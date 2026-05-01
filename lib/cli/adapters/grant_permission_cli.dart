@@ -68,8 +68,22 @@ Future<int> _execute(ArgResults results) async {
 
 int _format(GrantPermissionResult result) {
   switch (result) {
-    case GrantPermissionIosSimulatorSuccess(:final action, :final permission, :final appMayHaveTerminated):
+    case GrantPermissionIosSimulatorSuccess(
+        :final action,
+        :final permission,
+        :final appMayHaveTerminated,
+        :final photosUnreliable,
+      ):
       _printSuccess(action, permission);
+      if (photosUnreliable) {
+        stderr.writeln(
+          'WARNING: Photos permission via simctl is unreliable on iOS simulator. '
+          'Apple\'s PHPhotoLibrary may not honor the TCC grant — the app may still '
+          'show a permission dialog or report denied. This is a known Apple '
+          'limitation confirmed across iOS 11-26. Camera, microphone, location, '
+          'and contacts work correctly.',
+        );
+      }
       if (appMayHaveTerminated) {
         stderr.writeln(
           'WARNING: Permission change may have terminated the app. '

@@ -133,13 +133,20 @@ Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) as
   }
 
   final actionStr = _simctlAction(action);
-  return _runSimctl(['privacy', 'booted', actionStr, service, bundleId], permission: token, action: action);
+  final isPhotos = token == 'photos' || token == 'photos-add';
+  return _runSimctl(
+    ['privacy', 'booted', actionStr, service, bundleId],
+    permission: token,
+    action: action,
+    photosUnreliable: isPhotos && action == GrantPermissionAction.grant,
+  );
 }
 
 Future<GrantPermissionResult> _runSimctl(
   List<String> args, {
   required String permission,
   required GrantPermissionAction action,
+  bool photosUnreliable = false,
 }) async {
   try {
     final result = await Process.run('xcrun', ['simctl', ...args]);
@@ -151,6 +158,7 @@ Future<GrantPermissionResult> _runSimctl(
       action: action,
       permission: permission,
       appMayHaveTerminated: action == GrantPermissionAction.grant,
+      photosUnreliable: photosUnreliable,
     );
   } catch (e) {
     return GrantPermissionSimctlExecutionFailed(e.toString());

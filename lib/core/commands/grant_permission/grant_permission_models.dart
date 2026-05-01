@@ -30,6 +30,7 @@ class GrantPermissionIosSimulatorSuccess extends GrantPermissionResult {
     required this.action,
     required this.permission,
     this.appMayHaveTerminated = false,
+    this.photosUnreliable = false,
   });
 
   final GrantPermissionAction action;
@@ -37,6 +38,11 @@ class GrantPermissionIosSimulatorSuccess extends GrantPermissionResult {
 
   /// xcrun simctl warns that some permission changes terminate the app.
   final bool appMayHaveTerminated;
+
+  /// Photos permission via simctl is a known Apple limitation — the TCC entry
+  /// is written but PHPhotoLibrary may not honor it. Confirmed broken across
+  /// iOS 11 through iOS 26 by multiple ecosystems (Appium, Detox, Flutter).
+  final bool photosUnreliable;
 }
 
 /// Android: grant/revoke succeeded.
