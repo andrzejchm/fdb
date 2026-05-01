@@ -210,11 +210,15 @@ Spawn a general subagent with this prompt:
 Read doc/agent-scenarios.md, then run scenarios <S1, S2, ...> against the
 app running in `.worktrees/<feature-name>/example/test_app`.
 
-Run each step exactly as written — no workarounds, no retries with different
-selectors, no fixes. If a step fails or the output doesn't match the "What to
-verify" list, mark the scenario FAIL and record what was wrong.
+Rules — NO EXCEPTIONS:
+- Run every step EXACTLY as written. Do NOT modify commands or add flags.
+- Do NOT retry with different selectors or workarounds.
+- Do NOT fix code, app state, or test setup.
+- If a step errors or output doesn't match "What to verify", mark FAIL and stop that scenario.
+- Your only job is to execute and report.
 
-Return PASS or FAIL for each scenario with the exact output and failed checks.
+Return PASS or FAIL for each scenario with the exact output and the specific
+checks that failed.
 ```
 
 Do not proceed to Step 5 until the subagent reports all scenarios passing.
