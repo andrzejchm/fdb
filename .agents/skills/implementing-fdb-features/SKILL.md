@@ -39,7 +39,9 @@ Docs:
 
 Agent scenarios (delegated):
 - [ ] Spawn scenarios agent with worktree path + scenario IDs to run
-- [ ] Agent reports all scenarios pass (semantically correct output)
+- [ ] Triage every failure: scenario doc fix, pre-existing bug, or regression
+- [ ] User approves triage findings before any bug issues are filed
+- [ ] All failures resolved (fixed, scenario corrected, or filed as separate bugs)
 
 Review loop (delegated):
 - [ ] Spawn reviewing-fixing-loop agent
@@ -221,7 +223,21 @@ Return PASS or FAIL for each scenario with the exact output and the specific
 checks that failed.
 ```
 
-Do not proceed to Step 5 until the subagent reports all scenarios passing.
+When the subagent returns, triage every failure before proceeding:
+
+**For each failing scenario, ask:**
+1. Is the "What to verify" assertion itself wrong (bad token, wrong type name,
+   missing setup step)? → Update the scenario in `doc/agent-scenarios.md`.
+   Do NOT open a bug. Explain the correction to the user.
+2. Is the failure caused by pre-existing broken behavior unrelated to this
+   feature? → Investigate the root cause. Report findings to the user with a
+   clear description of expected vs actual behavior, then propose a new bug
+   issue. Wait for user approval before filing.
+3. Is the failure a regression introduced by this feature? → Fix it before
+   proceeding. This is a blocker.
+
+Do not proceed to Step 5 until all failures are triaged and either fixed,
+corrected in the scenario doc, or approved as separate bug issues by the user.
 
 ---
 
