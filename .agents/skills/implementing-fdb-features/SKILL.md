@@ -37,9 +37,9 @@ Docs:
 - [ ] lib/skill/SKILL.md — usage examples (load creating-opencode-skills skill first)
 - [ ] doc/agent-scenarios.md — add scenario for the new/changed command
 
-Agent scenarios (run and evaluate output — not just token grep):
-- [ ] Run relevant scenarios from doc/agent-scenarios.md
-- [ ] All scenario outputs look semantically correct (right screen, right elements, no leaks)
+Agent scenarios (delegated):
+- [ ] Spawn scenarios agent with worktree path + scenario IDs to run
+- [ ] Agent reports all scenarios pass (semantically correct output)
 
 Review loop (delegated):
 - [ ] Spawn reviewing-fixing-loop agent
@@ -190,27 +190,39 @@ task analyze
 
 ---
 
-## Step 4b — Run and evaluate agent scenarios
+## Step 4b — Spawn agent scenarios runner (DELEGATE)
 
-The Taskfile tests grep for output tokens — they are binary pass/fail and cannot
-catch semantic regressions (wrong screen scope, elements leaking from other routes,
-incorrect VISIBLE TEXT content, etc.).
+Taskfile tests grep for output tokens — binary pass/fail. They cannot catch
+semantic regressions (wrong screen scope, elements leaking from other routes,
+incorrect visible text, etc.). The scenarios in `doc/agent-scenarios.md` fill
+this gap: the subagent runs fdb commands against the live test app and evaluates
+the actual output against a semantic checklist.
 
-Read `doc/agent-scenarios.md`. Run every scenario that touches the command you
-changed, plus the baseline `S1 · describe — home screen` as a sanity check.
-For each scenario: run the commands exactly as written, read the actual output,
-and verify every point in the **What to verify** list.
+Decide which scenarios to run:
+- Always include `S1` (home screen baseline) as a sanity check.
+- Include every scenario that covers the command you added or changed.
+- If you added a new command, add its scenario to `doc/agent-scenarios.md`
+  first, then include it in the delegation.
 
-If you added a new command, also add a new scenario section to
-`doc/agent-scenarios.md` following the existing pattern before proceeding.
+```
+Spawn a general subagent with this prompt:
 
-```bash
-# Example — if you changed describe, run at minimum:
-# S1 (home screen baseline), S2 (child route isolation), S3 (two levels deep)
-# then whatever scenario matches your new/changed feature
+You are a scenario runner for the fdb test suite. The app is already running
+in the worktree at `.worktrees/<feature-name>/example/test_app`.
+
+Read doc/agent-scenarios.md in full, then execute scenarios <S1, S2, ...>
+exactly as written. For each scenario:
+1. Run every setup and command step from the worktree's example/test_app dir
+   using `dart run ../../bin/fdb.dart <command>`.
+2. Read the actual output.
+3. Verify every point in the "What to verify" list.
+4. Report PASS or FAIL for each scenario with a brief reason.
+
+After all scenarios, return a summary: how many passed, how many failed, and
+the full output + verdict for any that failed.
 ```
 
-Do not proceed to Step 5 until all scenario checks pass.
+Do not proceed to Step 5 until the subagent reports all scenarios passing.
 
 ---
 
