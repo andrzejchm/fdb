@@ -106,6 +106,8 @@ class SimTextSizeFailed extends SimTextSizeResult {
 // Status bar
 // ---------------------------------------------------------------------------
 
+typedef SimStatusBarClearInput = ();
+
 typedef SimStatusBarOverrideInput = ({
   String? time,
   String? dataNetwork,

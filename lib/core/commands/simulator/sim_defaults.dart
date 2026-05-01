@@ -1,6 +1,5 @@
 import 'package:fdb/core/commands/simulator/simulator_models.dart';
 import 'package:fdb/core/commands/simulator/simulator_utils.dart';
-import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/simulator/simulator_models.dart';
 
@@ -52,9 +51,9 @@ Future<SimDefaultsResult> writeSimDefaults(SimDefaultsWriteInput input) async {
     input.value,
   ];
 
-  final result = await runSimctlWithOutput(args);
-  if (result.error != null) {
-    return SimDefaultsFailed(result.error!);
+  final error = await runSimctl(args);
+  if (error != null) {
+    return SimDefaultsFailed(error);
   }
   return SimDefaultsWritten(key: input.key, value: input.value);
 }
@@ -77,16 +76,9 @@ Future<SimDefaultsResult> deleteSimDefaults(SimDefaultsDeleteInput input) async 
     input.key,
   ];
 
-  final result = await runSimctlWithOutput(args);
-  if (result.error != null) {
-    return SimDefaultsFailed(result.error!);
+  final error = await runSimctl(args);
+  if (error != null) {
+    return SimDefaultsFailed(error);
   }
   return SimDefaultsDeleted(key: input.key);
-}
-
-/// Resolves the bundle ID from the input or the fdb session.
-///
-/// Returns null if no bundle ID could be determined.
-String? resolveBundleId(String? explicit) {
-  return explicit ?? readAppId();
 }

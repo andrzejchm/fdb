@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/simulator/simulator_models.dart';
 import 'package:fdb/core/commands/simulator/simulator_utils.dart';
-import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/simulator/simulator_models.dart';
 
@@ -17,7 +16,7 @@ export 'package:fdb/core/commands/simulator/simulator_models.dart';
 Future<SimPushResult> sendSimPush(SimPushInput input) async {
   final device = await resolveSimulatorDevice();
 
-  final bundleId = input.bundleId ?? readAppId();
+  final bundleId = input.bundleId;
 
   // Validate payload file exists (unless reading from stdin).
   if (input.payload != '-') {
@@ -39,5 +38,5 @@ Future<SimPushResult> sendSimPush(SimPushInput input) async {
     return SimPushFailed(error);
   }
 
-  return SimPushSent(bundleId: bundleId ?? '(from payload)');
+  return SimPushSent(bundleId: bundleId ?? 'payload');
 }

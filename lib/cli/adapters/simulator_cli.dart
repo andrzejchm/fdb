@@ -8,6 +8,12 @@ import 'package:fdb/core/commands/simulator/sim_location.dart';
 import 'package:fdb/core/commands/simulator/sim_push.dart';
 import 'package:fdb/core/commands/simulator/sim_status_bar.dart';
 import 'package:fdb/core/commands/simulator/sim_text_size.dart';
+import 'package:fdb/core/process_utils.dart';
+
+/// Resolves the bundle ID from the explicit CLI option or the fdb session.
+///
+/// Returns null if no bundle ID could be determined.
+String? _resolveBundleId(String? explicit) => explicit ?? readAppId();
 
 const _usage = '''
 Usage: fdb simulator <subcommand> [args]
@@ -98,7 +104,7 @@ Future<int> _runPush(List<String> args) => runCliAdapter(
           return 1;
         }
         final payload = rest[0];
-        final bundleId = results.option('bundle-id');
+        final bundleId = _resolveBundleId(results.option('bundle-id'));
         final result = await sendSimPush((bundleId: bundleId, payload: payload));
         switch (result) {
           case SimPushSent(:final bundleId):
@@ -135,7 +141,7 @@ Future<int> _runLocation(List<String> args) {
     case 'route':
       return _locationRoute(actionArgs);
     case 'clear':
-      return _locationClear();
+      return _locationClear(actionArgs);
     default:
       stderr.writeln('ERROR: Unknown location action: $action. Expected set, route, or clear');
       return Future.value(1);
@@ -143,16 +149,25 @@ Future<int> _runLocation(List<String> args) {
 }
 
 Future<int> _locationSet(List<String> args) async {
+  if (args.contains('--help') || args.contains('-h')) {
+    stdout.writeln('Usage: fdb simulator location set <lat,lon>');
+    return 0;
+  }
   if (args.isEmpty) {
     stderr.writeln('ERROR: Expected: fdb simulator location set <lat,lon>');
     return 1;
   }
-  final coords = parseXY(args[0]);
-  if (coords == null) {
+  final coordParts = args[0].split(',');
+  if (coordParts.length != 2) {
     stderr.writeln('ERROR: Invalid coordinates: ${args[0]}. Expected format: lat,lon (e.g. 37.7749,-122.4194)');
     return 1;
   }
-  final (lat, lon) = coords;
+  final lat = double.tryParse(coordParts[0].trim());
+  final lon = double.tryParse(coordParts[1].trim());
+  if (lat == null || lon == null) {
+    stderr.writeln('ERROR: Invalid coordinates: ${args[0]}. Expected format: lat,lon (e.g. 37.7749,-122.4194)');
+    return 1;
+  }
   final result = await setSimLocation((latitude: lat.toString(), longitude: lon.toString()));
   switch (result) {
     case SimLocationSet(:final latitude, :final longitude):
@@ -168,6 +183,10 @@ Future<int> _locationSet(List<String> args) async {
 }
 
 Future<int> _locationRoute(List<String> args) async {
+  if (args.contains('--help') || args.contains('-h')) {
+    stdout.writeln('Usage: fdb simulator location route <scenario>');
+    return 0;
+  }
   if (args.isEmpty) {
     stderr.writeln('ERROR: Expected: fdb simulator location route <scenario>');
     return 1;
@@ -187,7 +206,11 @@ Future<int> _locationRoute(List<String> args) async {
   }
 }
 
-Future<int> _locationClear() async {
+Future<int> _locationClear(List<String> args) async {
+  if (args.contains('--help') || args.contains('-h')) {
+    stdout.writeln('Usage: fdb simulator location clear');
+    return 0;
+  }
   final result = await clearSimLocation(());
   switch (result) {
     case SimLocationCleared():
@@ -271,7 +294,7 @@ Future<int> _runStatusBar(List<String> args) {
     case 'override':
       return _statusBarOverride(args.sublist(1));
     case 'clear':
-      return _statusBarClear();
+      return _statusBarClear(args.sublist(1));
     default:
       stderr.writeln('ERROR: Unknown status-bar action: $action. Expected override or clear');
       return Future.value(1);
@@ -322,15 +345,35 @@ Future<int> _statusBarOverride(List<String> args) => runCliAdapter(
           }
         }
 
+        final time = results.option('time');
+        final dataNetwork = results.option('data-network');
+        final wifiMode = results.option('wifi-mode');
+        final cellularMode = results.option('cellular-mode');
+        final operatorName = results.option('operator');
+        final batteryState = results.option('battery-state');
+
+        if (time == null &&
+            dataNetwork == null &&
+            wifiMode == null &&
+            wifiBars == null &&
+            cellularMode == null &&
+            cellularBars == null &&
+            operatorName == null &&
+            batteryState == null &&
+            batteryLevel == null) {
+          stderr.writeln('ERROR: At least one override option is required. See: fdb simulator status-bar --help');
+          return 1;
+        }
+
         final input = (
-          time: results.option('time'),
-          dataNetwork: results.option('data-network'),
-          wifiMode: results.option('wifi-mode'),
+          time: time,
+          dataNetwork: dataNetwork,
+          wifiMode: wifiMode,
           wifiBars: wifiBars,
-          cellularMode: results.option('cellular-mode'),
+          cellularMode: cellularMode,
           cellularBars: cellularBars,
-          operatorName: results.option('operator'),
-          batteryState: results.option('battery-state'),
+          operatorName: operatorName,
+          batteryState: batteryState,
           batteryLevel: batteryLevel,
         );
 
@@ -348,8 +391,12 @@ Future<int> _statusBarOverride(List<String> args) => runCliAdapter(
       },
     );
 
-Future<int> _statusBarClear() async {
-  final result = await clearSimStatusBar();
+Future<int> _statusBarClear(List<String> args) async {
+  if (args.contains('--help') || args.contains('-h')) {
+    stdout.writeln('Usage: fdb simulator status-bar clear');
+    return 0;
+  }
+  final result = await clearSimStatusBar(());
   switch (result) {
     case SimStatusBarCleared():
       stdout.writeln('STATUS_BAR_CLEARED');
@@ -398,7 +445,7 @@ Future<int> _defaultsRead(List<String> args) => runCliAdapter(
       ArgParser()..addOption('bundle-id', abbr: 'b', help: 'App bundle ID (auto-detected from session)'),
       args,
       (results) async {
-        final bundleId = resolveBundleId(results.option('bundle-id'));
+        final bundleId = _resolveBundleId(results.option('bundle-id'));
         if (bundleId == null) {
           stderr.writeln(
             'ERROR: No bundle ID. Pass --bundle-id or run from a project with an active fdb session.',
@@ -427,7 +474,7 @@ Future<int> _defaultsWrite(List<String> args) => runCliAdapter(
         ..addOption('type', abbr: 't', defaultsTo: 'string', help: 'Value type: string, int, float, bool'),
       args,
       (results) async {
-        final bundleId = resolveBundleId(results.option('bundle-id'));
+        final bundleId = _resolveBundleId(results.option('bundle-id'));
         if (bundleId == null) {
           stderr.writeln(
             'ERROR: No bundle ID. Pass --bundle-id or run from a project with an active fdb session.',
@@ -440,7 +487,7 @@ Future<int> _defaultsWrite(List<String> args) => runCliAdapter(
         }
         final key = results.rest[0];
         final value = results.rest[1];
-        final type = results['type'] as String;
+        final type = results.option('type')!;
         if (!const {'string', 'int', 'float', 'bool'}.contains(type)) {
           stderr.writeln('ERROR: Invalid type: $type. Expected: string, int, float, bool');
           return 1;
@@ -464,7 +511,7 @@ Future<int> _defaultsDelete(List<String> args) => runCliAdapter(
       ArgParser()..addOption('bundle-id', abbr: 'b', help: 'App bundle ID (auto-detected from session)'),
       args,
       (results) async {
-        final bundleId = resolveBundleId(results.option('bundle-id'));
+        final bundleId = _resolveBundleId(results.option('bundle-id'));
         if (bundleId == null) {
           stderr.writeln(
             'ERROR: No bundle ID. Pass --bundle-id or run from a project with an active fdb session.',

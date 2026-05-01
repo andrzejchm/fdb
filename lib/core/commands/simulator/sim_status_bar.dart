@@ -35,7 +35,7 @@ Future<SimStatusBarResult> overrideSimStatusBar(SimStatusBarOverrideInput input)
 /// Clears all status bar overrides on the iOS simulator.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
-Future<SimStatusBarResult> clearSimStatusBar() async {
+Future<SimStatusBarResult> clearSimStatusBar(SimStatusBarClearInput _) async {
   final device = await resolveSimulatorDevice();
   final error = await runSimctl(['status_bar', device, 'clear']);
   if (error != null) {
