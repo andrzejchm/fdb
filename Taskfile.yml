@@ -2289,8 +2289,7 @@ tasks:
           STATUS_OK=0
           for _ in $(seq 1 10); do
             DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
-            if echo "$DESCRIBE_OUTPUT" | grep -q "perm_status_camera" && \
-               echo "$DESCRIBE_OUTPUT" | grep -q "status: granted"; then
+            if echo "$DESCRIBE_OUTPUT" | grep "perm_status_camera" | grep -q "status: granted"; then
               STATUS_OK=1
               break
             fi

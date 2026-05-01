@@ -171,7 +171,7 @@ Future<GrantPermissionResult> _runSimctl(
     final result = await Process.run('xcrun', ['simctl', ...args]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
-      return GrantPermissionSimctlFailed(details);
+      return GrantPermissionSimctlFailed(details, exitCode: result.exitCode);
     }
     return GrantPermissionIosSimulatorSuccess(
       action: action,
@@ -267,7 +267,7 @@ Future<GrantPermissionResult?> _runAdbPm(
       // Some permissions are not declared in the manifest — treat as soft skip,
       // not a hard failure, to allow the batch to continue.
       if (details.contains('has not requested permission')) return null;
-      return GrantPermissionAdbFailed(details);
+      return GrantPermissionAdbFailed(details, exitCode: result.exitCode);
     }
     return null;
   } catch (e) {
@@ -280,7 +280,7 @@ Future<GrantPermissionResult> _runAdbResetPermissions(List<String> deviceArgs, S
     final result = await Process.run('adb', [...deviceArgs, 'shell', 'pm', 'reset-permissions', packageName]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
-      return GrantPermissionAdbFailed(details);
+      return GrantPermissionAdbFailed(details, exitCode: result.exitCode);
     }
     return GrantPermissionAndroidSuccess(action: GrantPermissionAction.reset, permission: 'all');
   } catch (e) {

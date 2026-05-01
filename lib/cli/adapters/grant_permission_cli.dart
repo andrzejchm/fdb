@@ -98,6 +98,13 @@ int _format(GrantPermissionResult result) {
         :final photosAndroidUnreliable,
       ):
       _printSuccess(action, permission);
+      if (action == GrantPermissionAction.reset && permission != 'all') {
+        stderr.writeln(
+          'WARNING: Android does not support resetting a single permission to undecided. '
+          'The permission has been revoked (denied), not cleared. '
+          'Use --reset-all for a full reset.',
+        );
+      }
       if (photosAndroidUnreliable) {
         stderr.writeln(
           'WARNING: Android photos permissions differ by API level. '
@@ -155,16 +162,16 @@ int _format(GrantPermissionResult result) {
       stderr.writeln('ERROR: No active fdb session. Run `fdb launch` first.');
       return 1;
 
-    case GrantPermissionSimctlFailed(:final details):
-      stderr.writeln('ERROR: xcrun simctl exited with code 1: $details');
+    case GrantPermissionSimctlFailed(:final details, :final exitCode):
+      stderr.writeln('ERROR: xcrun simctl exited with code $exitCode: $details');
       return 1;
 
     case GrantPermissionSimctlExecutionFailed(:final error):
       stderr.writeln('ERROR: Could not run xcrun simctl: $error');
       return 1;
 
-    case GrantPermissionAdbFailed(:final details):
-      stderr.writeln('ERROR: adb exited with code 1: $details');
+    case GrantPermissionAdbFailed(:final details, :final exitCode):
+      stderr.writeln('ERROR: adb exited with code $exitCode: $details');
       return 1;
 
     case GrantPermissionAdbExecutionFailed(:final error):

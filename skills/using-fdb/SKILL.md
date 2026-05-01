@@ -36,6 +36,6 @@ fdb grant-permission --bundle com.example.app camera
 Supported tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `motion`, `media-library`, `siri` (iOS), `notifications` (Android), `screen-capture` (macOS).
 
 Notes:
-- iOS simulator only — physical iOS devices are not supported.
+- Supported on iOS simulator and Android. Physical iOS devices are not supported.
 - macOS supports `--reset` only; grant/revoke emit `WARNING:` and exit 1.
 - On iOS simulator, a successful grant emits `WARNING: Permission change may have terminated the app. Run \`fdb reload\` or \`fdb launch\` to restart.` on stderr.

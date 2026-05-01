@@ -109,9 +109,10 @@ class GrantPermissionNoSession extends GrantPermissionResult {
 
 /// xcrun simctl exited with a non-zero code.
 class GrantPermissionSimctlFailed extends GrantPermissionResult {
-  const GrantPermissionSimctlFailed(this.details);
+  const GrantPermissionSimctlFailed(this.details, {required this.exitCode});
 
   final String details;
+  final int exitCode;
 }
 
 /// xcrun could not be launched.
@@ -123,9 +124,10 @@ class GrantPermissionSimctlExecutionFailed extends GrantPermissionResult {
 
 /// adb exited with a non-zero code.
 class GrantPermissionAdbFailed extends GrantPermissionResult {
-  const GrantPermissionAdbFailed(this.details);
+  const GrantPermissionAdbFailed(this.details, {required this.exitCode});
 
   final String details;
+  final int exitCode;
 }
 
 /// adb could not be launched.
