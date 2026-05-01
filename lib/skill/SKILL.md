@@ -191,25 +191,37 @@ Requires `fdb_helper` in the app (see setup section above).
 fdb describe
 ```
 
-Returns a compact, text-based snapshot of what's on screen — interactive elements with stable refs and all visible text. Use this instead of a screenshot when you need to understand the UI and interact with it.
+Returns a compact, text-based snapshot of what's on screen - interactive elements with stable refs, ancestor breadcrumbs for context, and all visible text. Use this instead of a screenshot when you need to understand the UI and interact with it.
 
 Example output:
 ```
-SCREEN: HomeScreen
-ROUTE: /home
+SCREEN: Permissions
+ROUTE: /settings/permissions
 
 INTERACTIVE:
-  @1 ElevatedButton "Start" key=start_btn
-  @2 IconButton key=nav_back
-  @3 TextField "Search" key=search_field
-  @4 FloatingActionButton key=fab_add
+  @1 ElevatedButton "Save" key=save_btn
+  ListTile "Camera · granted"
+    @2 ElevatedButton "Request" key=perm_request_camera
+  ListTile "Location · denied"
+    @3 ElevatedButton "Request" key=perm_request_location
+  Card(key=contact_card) > ListTile "John Doe"
+    @4 IconButton key=call_john
+    @5 IconButton key=delete_john
+  @6 ListTile "Notifications · enabled" key=notif_tile
 
-TEXT:
-  "Welcome"
-  "3 items"
+VISIBLE TEXT:
+  "Manage your app permissions"
+  "Permissions"
 ```
 
-Refs are NOT stable across navigation changes — re-run `fdb describe` after navigating.
+**Breadcrumbs:** When an interactive widget is nested inside a container that has a key or text (like a `ListTile`, `Card`, `Tab`), its parent context is printed above it. This tells you *which* list item or card a button belongs to. Widgets with no meaningful parent show no breadcrumb.
+
+**ListTile handling:**
+- `ListTile` with `onTap` is surfaced as its own interactive entry (e.g. `@6` above)
+- `ListTile` without `onTap` is NOT surfaced, but its interactive children are (e.g. `@2`, `@3` above get their own refs with the tile as breadcrumb context)
+- Display-only tiles (no `onTap`, no interactive children) appear only in VISIBLE TEXT
+
+Refs are NOT stable across navigation changes - re-run `fdb describe` after navigating.
 
 ### Widget selection
 
@@ -582,9 +594,13 @@ fdb screenshot
 
 # Describe-driven interaction workflow (requires fdb_helper in the app)
 fdb describe                               # see what's on screen + get refs
-fdb tap @1                                 # tap the first interactive element by ref
-fdb tap @3                                 # tap the third interactive element by ref
-fdb describe                               # re-describe after navigation to get fresh refs
+# Output shows:
+#   ListTile "Camera · granted"
+#     @2 ElevatedButton "Request" key=perm_request_camera
+# The breadcrumb tells you @2 is inside the Camera tile.
+fdb tap @2                                 # tap the Request button by ref
+fdb tap --key perm_request_camera          # or tap by key (more stable)
+fdb describe                               # re-describe after navigation for fresh refs
 
 # Widget interaction workflow (requires fdb_helper in the app)
 fdb tap --key "submit_button"              # tap a button
