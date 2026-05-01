@@ -325,38 +325,64 @@ Future<void> _writePlatformInfo(String device, String flutter) async {
 /// Silently no-ops on any failure — crash-report falls back to --app-id flag.
 void _writeAppIdFromProject(String projectPath, String device) {
   try {
-    // Android: android/app/build.gradle or build.gradle.kts
-    final androidGradleKts = File('$projectPath/android/app/build.gradle.kts');
-    final androidGradle = File('$projectPath/android/app/build.gradle');
-    if (androidGradleKts.existsSync()) {
-      final id = _extractApplicationId(androidGradleKts.readAsStringSync());
-      if (id != null) {
-        writeAppId(id);
-        return;
-      }
-    }
-    if (androidGradle.existsSync()) {
-      final id = _extractApplicationId(androidGradle.readAsStringSync());
-      if (id != null) {
-        writeAppId(id);
-        return;
-      }
-    }
+    // Determine target platform from the session info written by _writePlatformInfo
+    // (called immediately before this function). This ensures we consult the
+    // correct native config file first, avoiding e.g. an Android package name
+    // being written for an iOS simulator launch.
+    final platformInfo = readPlatformInfo();
+    final platform = platformInfo?.platform ?? '';
+    final isIos = platform.startsWith('ios');
+    final isMacos = platform == 'macos' || platform.startsWith('darwin');
 
-    // iOS: ios/Runner/Info.plist
-    final iosPlist = File('$projectPath/ios/Runner/Info.plist');
-    if (iosPlist.existsSync()) {
-      final id = _extractPlistBundleId(iosPlist.readAsStringSync());
-      if (id != null) {
-        writeAppId(id);
-        return;
-      }
-    }
+    // Build a prioritised list of extractors for this target platform.
+    // Each entry is a closure that returns the app id or null.
+    final extractors = <String? Function()>[
+      if (isIos)
+        () {
+          final f = File('$projectPath/ios/Runner/Info.plist');
+          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+        },
+      if (isMacos)
+        () {
+          final f = File('$projectPath/macos/Runner/Info.plist');
+          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+        },
+      if (!isIos && !isMacos) ...[
+        () {
+          final f = File('$projectPath/android/app/build.gradle.kts');
+          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
+        },
+        () {
+          final f = File('$projectPath/android/app/build.gradle');
+          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
+        },
+      ],
+      // Fallbacks: try remaining platforms so Android-only projects without
+      // Info.plist still work when platform is unknown, and iOS projects with a
+      // missing plist can fall back to other files.
+      if (!isIos) ...[
+        () {
+          final f = File('$projectPath/ios/Runner/Info.plist');
+          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+        },
+        () {
+          final f = File('$projectPath/android/app/build.gradle.kts');
+          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
+        },
+        () {
+          final f = File('$projectPath/android/app/build.gradle');
+          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
+        },
+      ],
+      if (!isMacos)
+        () {
+          final f = File('$projectPath/macos/Runner/Info.plist');
+          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+        },
+    ];
 
-    // macOS: macos/Runner/Info.plist
-    final macosPlist = File('$projectPath/macos/Runner/Info.plist');
-    if (macosPlist.existsSync()) {
-      final id = _extractPlistBundleId(macosPlist.readAsStringSync());
+    for (final extractor in extractors) {
+      final id = extractor();
       if (id != null) {
         writeAppId(id);
         return;
