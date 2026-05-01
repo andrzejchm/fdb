@@ -10,6 +10,7 @@ import 'benchmark_screens.dart';
 import 'grid_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
+import 'permission_test_screen.dart';
 import 'scroll_to_test_screen.dart';
 
 void main() {
@@ -46,6 +47,7 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestAlreadyVisibleRoute: (_) =>
             const AlreadyVisibleScrollToPage(),
         '/nested-gesture-describe-test': (_) => const NestedGestureDescribeScreen(),
+        '/permission-test': (_) => const PermissionTestScreen(),
       },
     );
   }
@@ -218,6 +220,12 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/nested-gesture-describe-test'),
                 child: const Text('Nested Gesture Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_permission_test'),
+                onPressed: () => Navigator.pushNamed(context, '/permission-test'),
+                child: const Text('Permission Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
