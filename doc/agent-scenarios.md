@@ -744,6 +744,81 @@ dart run ../../bin/fdb.dart back
 
 ---
 
+## S33 · simulator — appearance, status-bar, location, text-size, push, defaults
+
+**Purpose:** verifies all `fdb simulator` subcommands work end-to-end on a
+booted iOS simulator. Does not require a running app session for most
+subcommands, but push delivery verification uses the Notification Test screen.
+
+> **iOS simulator only** — skip on Android, macOS, physical iOS.
+
+```bash
+# Confirm a simulator is booted
+xcrun simctl list devices booted
+
+# --- appearance ---
+dart run ../../bin/fdb.dart simulator appearance get
+dart run ../../bin/fdb.dart simulator appearance dark
+dart run ../../bin/fdb.dart simulator appearance get
+dart run ../../bin/fdb.dart simulator appearance light
+
+# --- text-size ---
+dart run ../../bin/fdb.dart simulator text-size get
+dart run ../../bin/fdb.dart simulator text-size accessibility-extra-extra-large
+dart run ../../bin/fdb.dart simulator text-size get
+dart run ../../bin/fdb.dart simulator text-size large
+
+# --- status-bar ---
+dart run ../../bin/fdb.dart simulator status-bar override --time "9:41" --battery-state charged --battery-level 100 --wifi-bars 3 --cellular-bars 4 --operator "fdb"
+dart run ../../bin/fdb.dart simulator status-bar clear
+
+# --- location ---
+dart run ../../bin/fdb.dart simulator location set 48.8584,2.2945
+dart run ../../bin/fdb.dart simulator location route "City Run"
+dart run ../../bin/fdb.dart simulator location clear
+
+# --- defaults (use the real app bundle ID) ---
+dart run ../../bin/fdb.dart simulator defaults write --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key "hello_fdb"
+dart run ../../bin/fdb.dart simulator defaults read --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
+dart run ../../bin/fdb.dart simulator defaults delete --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
+
+# --- push (app must be running, navigate to Notification Test screen first) ---
+dart run ../../bin/fdb.dart tap --key go_to_notification_test_top
+cat > /tmp/s33_push.apns <<'EOF'
+{
+  "aps": { "alert": { "title": "S33 push", "body": "fdb simulator push scenario" }, "sound": "default" },
+  "deeplink": "fdbtest://scenarios/s33",
+  "case": "s33"
+}
+EOF
+dart run ../../bin/fdb.dart simulator push --bundle-id dev.andrzejchm.fdb.testApp /tmp/s33_push.apns
+sleep 2
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- `appearance get` returns `APPEARANCE=light` or `APPEARANCE=dark` (not empty)
+- `appearance dark` returns `APPEARANCE=dark`; second `get` confirms `APPEARANCE=dark`
+- `appearance light` returns `APPEARANCE=light`; simulator visibly switches back to light
+- `text-size get` returns `TEXT_SIZE=<any valid size>`
+- `text-size accessibility-extra-extra-large` returns `TEXT_SIZE=accessibility-extra-extra-large`
+- second `text-size get` confirms the change
+- `text-size large` resets back to `TEXT_SIZE=large`
+- `status-bar override` returns `STATUS_BAR_OVERRIDDEN`; status bar shows 9:41 and "fdb" carrier
+- `status-bar clear` returns `STATUS_BAR_CLEARED`; status bar snaps back to real values
+- `location set` returns `LOCATION_SET LAT=48.8584 LON=2.2945`; Maps shows Eiffel Tower area
+- `location route` returns `LOCATION_ROUTE=City Run`; Maps blue dot starts moving
+- `location clear` returns `LOCATION_CLEARED`; moving dot stops (may stay at last position)
+- `defaults write` returns `DEFAULTS_WRITTEN KEY=fdb_scenario_key VALUE=hello_fdb`
+- `defaults read` prints `hello_fdb`
+- `defaults delete` returns `DEFAULTS_DELETED KEY=fdb_scenario_key`
+- Push: `PUSH_SENT BUNDLE_ID=dev.andrzejchm.fdb.testApp`
+- After push + describe on Notification Test screen: `VISIBLE TEXT:` contains `"Last foreground push"`, `"Title: S33 push"`, `"Body: fdb simulator push scenario"`, `"Deeplink: fdbtest://scenarios/s33"`
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

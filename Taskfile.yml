@@ -2077,6 +2077,399 @@ tasks:
         {{.FDB}} back >/dev/null 2>&1 || true
         exit 1
 
+  test:simulator:
+    desc: "fdb simulator subcommands — appearance, push, location, text-size, status-bar, defaults (iOS simulator only)"
+    dir: '{{.TEST_APP}}'
+    vars:
+      BUNDLE_ID: 'dev.andrzejchm.fdb.testApp'
+    cmds:
+      - |
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        IS_EMULATOR=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $2}' || echo "")
+
+        if [ "$PLATFORM" != "ios" ] || [ "$IS_EMULATOR" != "true" ]; then
+          echo "SKIP: fdb simulator — iOS simulator only (platform=$PLATFORM emulator=$IS_EMULATOR)"
+          exit 0
+        fi
+
+        # ---------------------------------------------------------------
+        # appearance
+        # ---------------------------------------------------------------
+        echo "==> [simulator] appearance get"
+        OUTPUT=$({{.FDB}} simulator appearance get 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator appearance get exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -qE "APPEARANCE=(dark|light)"; then
+          echo "PASS: fdb simulator appearance get"
+        else
+          echo "FAIL: fdb simulator appearance get — APPEARANCE= not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] appearance dark"
+        OUTPUT=$({{.FDB}} simulator appearance dark 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator appearance dark exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "APPEARANCE=dark"; then
+          echo "PASS: fdb simulator appearance dark"
+        else
+          echo "FAIL: fdb simulator appearance dark — APPEARANCE=dark not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] appearance light"
+        OUTPUT=$({{.FDB}} simulator appearance light 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator appearance light exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "APPEARANCE=light"; then
+          echo "PASS: fdb simulator appearance light"
+        else
+          echo "FAIL: fdb simulator appearance light — APPEARANCE=light not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] appearance invalid mode (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator appearance bogus 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator appearance bogus should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator appearance invalid mode rejected"
+        else
+          echo "FAIL: fdb simulator appearance invalid mode — expected ERROR:" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # text-size
+        # ---------------------------------------------------------------
+        echo "==> [simulator] text-size get"
+        OUTPUT=$({{.FDB}} simulator text-size get 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator text-size get exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TEXT_SIZE="; then
+          echo "PASS: fdb simulator text-size get"
+        else
+          echo "FAIL: fdb simulator text-size get — TEXT_SIZE= not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] text-size extra-large"
+        OUTPUT=$({{.FDB}} simulator text-size extra-large 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator text-size extra-large exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TEXT_SIZE=extra-large"; then
+          echo "PASS: fdb simulator text-size extra-large"
+        else
+          echo "FAIL: fdb simulator text-size extra-large — TEXT_SIZE=extra-large not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] text-size large (reset to default)"
+        OUTPUT=$({{.FDB}} simulator text-size large 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator text-size large exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TEXT_SIZE=large"; then
+          echo "PASS: fdb simulator text-size large (reset)"
+        else
+          echo "FAIL: fdb simulator text-size large — TEXT_SIZE=large not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] text-size invalid (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator text-size bogus 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator text-size bogus should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator text-size invalid rejected"
+        else
+          echo "FAIL: fdb simulator text-size invalid — expected ERROR:" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # status-bar
+        # ---------------------------------------------------------------
+        echo "==> [simulator] status-bar override"
+        OUTPUT=$({{.FDB}} simulator status-bar override --time "9:41" --battery-state charged --battery-level 100 --wifi-bars 3 --cellular-bars 4 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator status-bar override exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "STATUS_BAR_OVERRIDDEN"; then
+          echo "PASS: fdb simulator status-bar override"
+        else
+          echo "FAIL: fdb simulator status-bar override — STATUS_BAR_OVERRIDDEN not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] status-bar override with no options (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator status-bar override 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator status-bar override with no options should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator status-bar override no-options rejected"
+        else
+          echo "FAIL: fdb simulator status-bar override no-options — expected ERROR:" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] status-bar clear"
+        OUTPUT=$({{.FDB}} simulator status-bar clear 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator status-bar clear exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "STATUS_BAR_CLEARED"; then
+          echo "PASS: fdb simulator status-bar clear"
+        else
+          echo "FAIL: fdb simulator status-bar clear — STATUS_BAR_CLEARED not found" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # location
+        # ---------------------------------------------------------------
+        echo "==> [simulator] location set"
+        OUTPUT=$({{.FDB}} simulator location set 48.8584,2.2945 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator location set exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LOCATION_SET"; then
+          echo "PASS: fdb simulator location set"
+        else
+          echo "FAIL: fdb simulator location set — LOCATION_SET not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] location route"
+        OUTPUT=$({{.FDB}} simulator location route "City Run" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator location route exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LOCATION_ROUTE="; then
+          echo "PASS: fdb simulator location route"
+        else
+          echo "FAIL: fdb simulator location route — LOCATION_ROUTE= not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] location clear"
+        OUTPUT=$({{.FDB}} simulator location clear 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator location clear exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LOCATION_CLEARED"; then
+          echo "PASS: fdb simulator location clear"
+        else
+          echo "FAIL: fdb simulator location clear — LOCATION_CLEARED not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] location set invalid coords (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator location set "abc,def" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator location set invalid coords should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator location set invalid coords rejected"
+        else
+          echo "FAIL: fdb simulator location set invalid coords — expected ERROR:" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # defaults
+        # ---------------------------------------------------------------
+        echo "==> [simulator] defaults write"
+        OUTPUT=$({{.FDB}} simulator defaults write --bundle-id "{{.BUNDLE_ID}}" fdb_smoke_test smoke_value 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator defaults write exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "DEFAULTS_WRITTEN KEY=fdb_smoke_test VALUE=smoke_value"; then
+          echo "PASS: fdb simulator defaults write"
+        else
+          echo "FAIL: fdb simulator defaults write — DEFAULTS_WRITTEN not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] defaults read specific key"
+        OUTPUT=$({{.FDB}} simulator defaults read --bundle-id "{{.BUNDLE_ID}}" fdb_smoke_test 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator defaults read exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "smoke_value"; then
+          echo "PASS: fdb simulator defaults read"
+        else
+          echo "FAIL: fdb simulator defaults read — expected value 'smoke_value' not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] defaults delete"
+        OUTPUT=$({{.FDB}} simulator defaults delete --bundle-id "{{.BUNDLE_ID}}" fdb_smoke_test 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator defaults delete exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "DEFAULTS_DELETED KEY=fdb_smoke_test"; then
+          echo "PASS: fdb simulator defaults delete"
+        else
+          echo "FAIL: fdb simulator defaults delete — DEFAULTS_DELETED not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] defaults read deleted key (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator defaults read --bundle-id "{{.BUNDLE_ID}}" fdb_smoke_test 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator defaults read deleted key should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator defaults read missing key correctly errors"
+        else
+          echo "FAIL: fdb simulator defaults read missing key — expected ERROR:" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] defaults no bundle-id (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator defaults read 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator defaults read with no bundle-id should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator defaults no bundle-id rejected"
+        else
+          echo "FAIL: fdb simulator defaults no bundle-id — expected ERROR:" >&2
+          exit 1
+        fi
+
+        # ---------------------------------------------------------------
+        # push — requires app running with correct bundle ID
+        # ---------------------------------------------------------------
+        echo "==> [simulator] push — foreground delivery"
+        PUSH_PAYLOAD=$(mktemp /tmp/fdb_smoke_push.XXXXXX.apns)
+        cat > "$PUSH_PAYLOAD" <<'APNS'
+        {
+          "aps": {
+            "alert": {
+              "title": "Smoke test push",
+              "body": "fdb simulator push smoke test"
+            },
+            "sound": "default"
+          },
+          "case": "smoke_test"
+        }
+        APNS
+        OUTPUT=$({{.FDB}} simulator push --bundle-id "{{.BUNDLE_ID}}" "$PUSH_PAYLOAD" 2>&1)
+        EXIT_CODE=$?
+        rm -f "$PUSH_PAYLOAD"
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb simulator push exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "PUSH_SENT BUNDLE_ID={{.BUNDLE_ID}}"; then
+          echo "PASS: fdb simulator push"
+        else
+          echo "FAIL: fdb simulator push — PUSH_SENT BUNDLE_ID={{.BUNDLE_ID}} not found" >&2
+          exit 1
+        fi
+
+        echo "==> [simulator] push missing payload file (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} simulator push /tmp/nonexistent_fdb_push.apns 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb simulator push with missing file should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb simulator push missing file rejected"
+        else
+          echo "FAIL: fdb simulator push missing file — expected ERROR:" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb simulator"
+
   test:grant-permission:
     desc: Grant, revoke, and reset runtime permissions via xcrun simctl (iOS sim) or adb (Android)
     dir: '{{.TEST_APP}}'
@@ -3110,6 +3503,7 @@ tasks:
       - task: test:deeplink
       - task: test:native-tap
       - task: test:grant-permission
+      - task: test:simulator
       - task: test:select
       - task: test:tap
         vars:

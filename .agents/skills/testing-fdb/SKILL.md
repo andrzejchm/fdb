@@ -59,6 +59,7 @@ task test:native-view-tap
 task test:deeplink
 task test:native-tap
 task test:grant-permission
+task test:simulator
 task test:select
 task test:tap
 task test:double-tap
