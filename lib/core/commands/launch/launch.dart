@@ -337,16 +337,27 @@ void _writeAppIdFromProject(String projectPath, String device) {
     // Build a prioritised list of extractors for this target platform.
     // Each entry is a closure that returns the app id or null.
     final extractors = <String? Function()>[
-      if (isIos)
+      if (isIos) ...[
         () {
           final f = File('$projectPath/ios/Runner/Info.plist');
-          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          // Info.plist uses a variable reference — resolve from project.pbxproj.
+          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
         },
-      if (isMacos)
+      ],
+      if (isMacos) ...[
         () {
           final f = File('$projectPath/macos/Runner/Info.plist');
-          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          // Info.plist uses a variable reference — try xcconfig first, then pbxproj.
+          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
+              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
         },
+      ],
       if (!isIos && !isMacos) ...[
         () {
           final f = File('$projectPath/android/app/build.gradle.kts');
@@ -363,7 +374,10 @@ void _writeAppIdFromProject(String projectPath, String device) {
       if (!isIos) ...[
         () {
           final f = File('$projectPath/ios/Runner/Info.plist');
-          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
         },
         () {
           final f = File('$projectPath/android/app/build.gradle.kts');
@@ -377,7 +391,11 @@ void _writeAppIdFromProject(String projectPath, String device) {
       if (!isMacos)
         () {
           final f = File('$projectPath/macos/Runner/Info.plist');
-          return f.existsSync() ? _extractPlistBundleId(f.readAsStringSync()) : null;
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
+              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
         },
     ];
 
@@ -410,8 +428,10 @@ String? _extractApplicationId(String content) {
 
 /// Extracts `CFBundleIdentifier` from an Info.plist file.
 ///
-/// Handles both literal values and `$(PRODUCT_BUNDLE_IDENTIFIER)` references.
-/// Returns null for placeholder values that cannot be resolved statically.
+/// Returns the literal bundle ID when present. Returns null when the value is
+/// an Xcode variable substitution (e.g. `$(PRODUCT_BUNDLE_IDENTIFIER)`) —
+/// callers should then resolve via `_resolvePbxprojBundleId` or
+/// `_resolveXcconfigBundleId`.
 String? _extractPlistBundleId(String content) {
   final match = RegExp(
     r'<key>CFBundleIdentifier</key>\s*<string>([^<]+)</string>',
@@ -421,6 +441,47 @@ String? _extractPlistBundleId(String content) {
   // Skip unresolved Xcode variable substitutions like $(VAR) or ${VAR}.
   if (value.contains(r'$(') || value.contains(r'${')) return null;
   return value;
+}
+
+/// Reads `PRODUCT_BUNDLE_IDENTIFIER` for the main Runner target from an Xcode
+/// `project.pbxproj` file.
+///
+/// Scans every `PRODUCT_BUNDLE_IDENTIFIER = ...` assignment and returns the
+/// first value that does not contain a dot-separated `.RunnerTests` or other
+/// test-target suffix, i.e. the value that is shortest / least qualified.
+/// Returns null when the file does not exist or contains no matching entry.
+String? _resolvePbxprojBundleId(String pbxprojPath) {
+  final f = File(pbxprojPath);
+  if (!f.existsSync()) return null;
+  final content = f.readAsStringSync();
+  final matches = RegExp(
+    r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([A-Za-z0-9._-]+)\s*;',
+  ).allMatches(content);
+
+  String? best;
+  for (final m in matches) {
+    final id = m.group(1)!;
+    // Skip test-target identifiers (they append .RunnerTests or similar).
+    if (best == null || id.length < best.length) {
+      best = id;
+    }
+  }
+  return best;
+}
+
+/// Reads `PRODUCT_BUNDLE_IDENTIFIER` from an Xcode `.xcconfig` file.
+///
+/// Used for macOS targets where the bundle ID is typically stored in
+/// `macos/Runner/Configs/AppInfo.xcconfig` rather than in `project.pbxproj`.
+/// Returns null when the file does not exist or contains no matching entry.
+String? _resolveXcconfigBundleId(String xcconfigPath) {
+  final f = File(xcconfigPath);
+  if (!f.existsSync()) return null;
+  final match = RegExp(
+    r'^\s*PRODUCT_BUNDLE_IDENTIFIER\s*=\s*(.+)$',
+    multiLine: true,
+  ).firstMatch(f.readAsStringSync());
+  return match?.group(1)?.trim();
 }
 
 // ---------------------------------------------------------------------------
