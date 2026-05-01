@@ -95,11 +95,11 @@ Future<GrantPermissionResult> grantPermission(GrantPermissionInput input) async 
     final isEmulator = platformInfo.emulator;
 
     if (platform.startsWith('android')) {
-      return _handleAndroid(input);
+      return await _handleAndroid(input);
     }
 
     if (platform.startsWith('ios') && isEmulator) {
-      return _handleIosSimulator(input);
+      return await _handleIosSimulator(input);
     }
 
     if (platform.startsWith('ios') && !isEmulator) {
@@ -107,7 +107,7 @@ Future<GrantPermissionResult> grantPermission(GrantPermissionInput input) async 
     }
 
     if (platform == 'macos' || platform.startsWith('darwin')) {
-      return _handleMacos(input);
+      return await _handleMacos(input);
     }
 
     return GrantPermissionPlatformUnsupported(platform);
@@ -147,7 +147,10 @@ Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) as
     return GrantPermissionUnknownToken(
       token: token,
       platform: 'ios-simulator',
-      supportedTokens: _iosSimctlServices.keys.toList()..sort(),
+      supportedTokens: [
+        ..._iosSimctlServices.keys,
+        ..._iosRequiresExternal.keys,
+      ]..sort(),
     );
   }
 
