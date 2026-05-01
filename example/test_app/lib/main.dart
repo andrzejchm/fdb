@@ -8,8 +8,10 @@ import 'package:flutter/services.dart';
 
 import 'benchmark_screens.dart';
 import 'grid_describe_screen.dart';
+import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
+import 'permission_test_screen.dart';
 import 'scroll_to_test_screen.dart';
 
 void main() {
@@ -45,7 +47,10 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
         scrollToTestAlreadyVisibleRoute: (_) =>
             const AlreadyVisibleScrollToPage(),
-        '/nested-gesture-describe-test': (_) => const NestedGestureDescribeScreen(),
+        '/nested-gesture-describe-test': (_) =>
+            const NestedGestureDescribeScreen(),
+        '/listtile-describe-test': (_) => const ListTileDescribeScreen(),
+        '/permission-test': (_) => const PermissionTestScreen(),
       },
     );
   }
@@ -215,9 +220,25 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_nested_gesture_describe_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/nested-gesture-describe-test'),
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  '/nested-gesture-describe-test',
+                ),
                 child: const Text('Nested Gesture Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_listtile_describe_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/listtile-describe-test'),
+                child: const Text('ListTile Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_permission_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/permission-test'),
+                child: const Text('Permission Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
@@ -272,7 +293,10 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                     setState(() {
                       _showDisappearing = false;
                     });
-                    developer.log('disappearing_button tapped — hiding self', name: 'fdb_test');
+                    developer.log(
+                      'disappearing_button tapped — hiding self',
+                      name: 'fdb_test',
+                    );
                   },
                   child: const Text('Disappearing Button'),
                 ),

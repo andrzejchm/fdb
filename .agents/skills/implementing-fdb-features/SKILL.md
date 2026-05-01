@@ -35,6 +35,13 @@ Docs:
 - [ ] README.md — commands table
 - [ ] .agents/skills/testing-fdb/SKILL.md — individual test list
 - [ ] lib/skill/SKILL.md — usage examples (load creating-opencode-skills skill first)
+- [ ] doc/agent-scenarios.md — add scenario for the new/changed command
+
+Agent scenarios (delegated):
+- [ ] Spawn scenarios agent with worktree path + scenario IDs to run
+- [ ] Triage every failure: scenario doc fix, pre-existing bug, or regression
+- [ ] User approves triage findings before any bug issues are filed
+- [ ] All failures resolved (fixed, scenario corrected, or filed as separate bugs)
 
 Review loop (delegated):
 - [ ] Spawn reviewing-fixing-loop agent
@@ -185,6 +192,55 @@ task analyze
 
 ---
 
+## Step 4b — Spawn agent scenarios runner (DELEGATE)
+
+Taskfile tests grep for output tokens — binary pass/fail. They cannot catch
+semantic regressions (wrong screen scope, elements leaking from other routes,
+incorrect visible text, etc.). The scenarios in `doc/agent-scenarios.md` fill
+this gap: the subagent runs fdb commands against the live test app and evaluates
+the actual output against a semantic checklist.
+
+Decide which scenarios to run:
+- Always include `S1` (home screen baseline) as a sanity check.
+- Include every scenario that covers the command you added or changed.
+- If you added a new command, add its scenario to `doc/agent-scenarios.md`
+  first, then include it in the delegation.
+
+```
+Spawn a general subagent with this prompt:
+
+Read doc/agent-scenarios.md, then run scenarios <S1, S2, ...> against the
+app running in `.worktrees/<feature-name>/example/test_app`.
+
+Rules — NO EXCEPTIONS:
+- Run every step EXACTLY as written. Do NOT modify commands or add flags.
+- Do NOT retry with different selectors or workarounds.
+- Do NOT fix code, app state, or test setup.
+- If a step errors or output doesn't match "What to verify", mark FAIL and stop that scenario.
+- Your only job is to execute and report.
+
+Return PASS or FAIL for each scenario with the exact output and the specific
+checks that failed.
+```
+
+When the subagent returns, triage every failure before proceeding:
+
+**For each failing scenario, ask:**
+1. Is the "What to verify" assertion itself wrong (bad token, wrong type name,
+   missing setup step)? → Update the scenario in `doc/agent-scenarios.md`.
+   Do NOT open a bug. Explain the correction to the user.
+2. Is the failure caused by pre-existing broken behavior unrelated to this
+   feature? → Investigate the root cause. Report findings to the user with a
+   clear description of expected vs actual behavior, then propose a new bug
+   issue. Wait for user approval before filing.
+3. Is the failure a regression introduced by this feature? → Fix it before
+   proceeding. This is a blocker.
+
+Do not proceed to Step 5 until all failures are triaged and either fixed,
+corrected in the scenario doc, or approved as separate bug issues by the user.
+
+---
+
 ## Step 5 — Spawn review-fix loop agent (DELEGATE)
 
 ```
@@ -316,6 +372,7 @@ mcp_Git-worktree action=remove name=<feature-name>
 | `CODE-STYLE.md` | Dart style, architecture rules |
 | `packages/fdb_helper/AGENTS.md` | Handler file layout, binding rules |
 | `TESTING.md` | Test commands and conventions |
+| `doc/agent-scenarios.md` | Semantic scenarios for agent-driven regression testing |
 | `Taskfile.yml` | All test tasks and smoke sequence |
 | `lib/core/commands/scroll_to/scroll_to.dart` | Canonical core verb |
 | `lib/cli/adapters/scroll_to_cli.dart` | Canonical CLI adapter |
