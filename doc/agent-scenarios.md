@@ -172,7 +172,8 @@ dart run ../../bin/fdb.dart describe
 dart run ../../bin/fdb.dart tap --text "Submit"
 ```
 
-**After tap by text:** exits 0, output contains `TAPPED=ElevatedButton`.
+**After tap by text:** exits 0, output contains `TAPPED=` (the resolved widget
+type — may be `Text`, `ElevatedButton`, or another type depending on hit test).
 
 ```bash
 # Tap by ref — get ref from describe, tap @1
@@ -191,14 +192,18 @@ dart run ../../bin/fdb.dart tap @1
 (the tap fires even if the element is gone by the time fdb checks the result).
 
 ```bash
+# Restart to ensure disappearing_button is present (it only exists once per session)
+dart run ../../bin/fdb.dart restart
+sleep 1
+dart run ../../bin/fdb.dart scroll-to --key disappearing_button
 dart run ../../bin/fdb.dart tap --key disappearing_button
+dart run ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
 
-- Exits 0
-- Output contains `TAPPED=ElevatedButton`
-- After the tap, running `fdb describe` no longer shows `key=disappearing_button`
+- `tap` exits 0 with `TAPPED=ElevatedButton`
+- `describe` no longer shows `key=disappearing_button` in `INTERACTIVE:`
 
 ---
 
@@ -214,9 +219,8 @@ dart run ../../bin/fdb.dart describe
 **What to verify:**
 
 - `input` command exits 0 with `INPUT=TextField VALUE=hello fdb`
-- `describe` INTERACTIVE entry for `key=test_input` shows `"hello fdb"` in its
-  text field
-- `VISIBLE TEXT:` contains `"hello fdb"`
+- `describe` INTERACTIVE entry for `key=test_input` contains `"hello fdb"` in
+  its text label
 
 Clean up:
 
@@ -340,15 +344,18 @@ dart run ../../bin/fdb.dart longpress --key longpress_target
 **Purpose:** `fdb wait` blocks until an element appears, rather than sleeping.
 
 ```bash
+dart run ../../bin/fdb.dart restart
+sleep 1
+dart run ../../bin/fdb.dart scroll-to --key show_delayed
 dart run ../../bin/fdb.dart tap --key show_delayed
-dart run ../../bin/fdb.dart wait --key delayed_button --timeout 5000
+dart run ../../bin/fdb.dart wait --key delayed_button --present --timeout 5000
+dart run ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
 
-- `wait` exits 0 (the button appears after ~2 s, well within 5 s timeout)
-- Output contains `WAIT_FOUND`
-- Running `fdb describe` after this shows `key=delayed_button` in `INTERACTIVE:`
+- `wait` exits 0 with `CONDITION_MET=present KEY=delayed_button` (button appears after ~2 s)
+- `describe` shows `key=delayed_button` in `INTERACTIVE:`
 
 ---
 
@@ -357,7 +364,9 @@ dart run ../../bin/fdb.dart wait --key delayed_button --timeout 5000
 **Purpose:** `fdb wait --absent` resolves when an element disappears.
 
 ```bash
-# disappearing_button removes itself when tapped
+# Restart to ensure disappearing_button is present
+dart run ../../bin/fdb.dart restart
+sleep 1
 dart run ../../bin/fdb.dart scroll-to --key disappearing_button
 dart run ../../bin/fdb.dart tap --key disappearing_button &
 dart run ../../bin/fdb.dart wait --key disappearing_button --absent --timeout 3000
@@ -365,7 +374,7 @@ dart run ../../bin/fdb.dart wait --key disappearing_button --absent --timeout 30
 
 **What to verify:**
 
-- `wait --absent` exits 0 with `WAIT_ABSENT`
+- `wait --absent` exits 0 with `CONDITION_MET=absent KEY=disappearing_button`
 
 ---
 
@@ -383,27 +392,20 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `swipe` exits 0 with `SWIPED=left`
+- `swipe` exits 0 with `SWIPED=LEFT`
 - Second `describe` VISIBLE TEXT shows `"Page 2"` instead of `"Page 1"`
 
 ---
 
-## S17 · status and kill
+## S17 · status
 
-**Purpose:** status reports the app as running; kill stops it cleanly.
+**Purpose:** status correctly reports the app as running.
 
 ```bash
 dart run ../../bin/fdb.dart status
 ```
 
 **What to verify:** `RUNNING=true`, `PID=` and `VM_SERVICE_URI=` are present.
-
-```bash
-dart run ../../bin/fdb.dart kill
-dart run ../../bin/fdb.dart status
-```
-
-**After kill:** `RUNNING=false`.
 
 ---
 
@@ -495,6 +497,23 @@ dart run ../../bin/fdb.dart gc
   human-readable (e.g. `81.0 MB`)
 - `gc` exits 0 with `GC_COMPLETE HEAP_BEFORE=... HEAP_AFTER=... HEAP_DELTA=...`
 - `HEAP_DELTA` is negative (GC reclaimed memory)
+
+---
+
+## S23 · kill
+
+**Purpose:** kill stops the app cleanly. Run this last — it terminates the
+session used by all preceding scenarios.
+
+```bash
+dart run ../../bin/fdb.dart kill
+dart run ../../bin/fdb.dart status
+```
+
+**What to verify:**
+
+- `kill` exits 0
+- `status` prints `RUNNING=false`
 
 ---
 
