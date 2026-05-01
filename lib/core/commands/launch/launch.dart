@@ -478,7 +478,7 @@ String? _resolveXcconfigBundleId(String xcconfigPath) {
   if (raw == null) return null;
   // Strip inline // comments (e.g. "com.example.app // comment" or "com.example.app//comment").
   final commentIndex = raw.indexOf('//');
-  if (commentIndex == -1) return raw;
+  if (commentIndex == -1) return raw.isEmpty ? null : raw;
   final stripped = raw.substring(0, commentIndex).trim();
   return stripped.isEmpty ? null : stripped;
 }
