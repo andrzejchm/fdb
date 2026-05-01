@@ -1,3 +1,8 @@
+## 1.5.1
+
+### Fixes
+- `ext.fdb.describe` no longer leaks elements from underlying navigator routes — prunes subtrees where the enclosing `ModalRoute.isCurrent` is `false`
+
 ## 1.5.0
 
 No functional changes.
