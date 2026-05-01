@@ -183,6 +183,15 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         // and therefore cannot appear here — use fdb scroll-to to reveal them
         // before describing.
         if (_isDescribeInteractiveWidget(typeName)) {
+          // GestureDetector / InkWell with no active callbacks are just
+          // decoration wrappers — skip them but continue the walk into their
+          // children so that nested interactive widgets are found.
+          if (_isGestureTransparent(typeName) && !_hasActiveCallbacks(widget, typeName)) {
+            element.visitChildren(visit);
+            if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+            return;
+          }
+
           // For on-screen widgets, require a successful hit test to confirm
           // the widget is actually reachable. For off-screen widgets the hit
           // test always fails (the point is outside the viewport), so we skip
@@ -207,15 +216,19 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             if (gestures != null) 'gestures': gestures,
           });
 
-          // Gesture-transparent widgets (GestureDetector, InkWell) are pure
-          // wrappers — their children may contain additional independent
-          // interactive widgets (e.g. buttons inside a toolbar
-          // GestureDetector). Continue the walk so nested targets are found.
+          // Pure gesture wrappers (GestureDetector, InkWell) — their children
+          // may contain additional independent interactive widgets (e.g. buttons
+          // inside a toolbar GestureDetector). Continue the walk.
+          //
+          // ListTile variants — their children include internal InkWell /
+          // GestureDetector nodes that are framework implementation, not user-
+          // authored targets. Stop the interactive walk (like self-contained
+          // widgets) to avoid duplicating the tile as InkWell(tap) entries.
           //
           // Self-contained widgets (ElevatedButton, TextField, etc.) own their
           // entire subtree — descending into them would expose internal
           // framework InkWell/GestureDetector children as noise. Stop here.
-          if (_isGestureTransparent(typeName)) {
+          if (_isPureGestureWrapper(typeName)) {
             element.visitChildren(visit);
           } else if (isOnScreen) {
             // Still collect text from children for the TEXT section.
@@ -460,17 +473,39 @@ String? _extractWidgetLevelText(Widget widget) {
   return null;
 }
 
-/// Returns true for interactive widgets that are pure gesture wrappers whose
-/// children may contain additional independent interactive targets.
+/// Returns true for pure gesture wrappers whose children are user-authored
+/// and may contain additional independent interactive widgets.
 ///
-/// These widgets do not own their subtree semantically — descending into their
-/// children is safe and necessary to find nested buttons/gestures.
+/// Only [GestureDetector] and [InkWell] qualify — they are transparent
+/// passthrough wrappers. [ListTile] variants are NOT pure wrappers: their
+/// children include internal framework widgets (`InkWell`, `Semantics`, etc.)
+/// that would leak as duplicate entries if the walk continued.
+bool _isPureGestureWrapper(String typeName) => const {
+      'GestureDetector',
+      'InkWell',
+    }.contains(typeName);
+
+/// Returns true for interactive widgets whose children may contain additional
+/// independent interactive targets — the walk must continue into them.
+///
+/// [GestureDetector] and [InkWell] are pure gesture wrappers — their children
+/// are user-authored and may contain buttons, other gesture detectors, etc.
+///
+/// [ListTile] variants are structural containers whose `leading`, `title`,
+/// `subtitle`, and `trailing` slots frequently hold independently tappable
+/// widgets (e.g. an [ElevatedButton] in `trailing`). Recording the tile (when
+/// it has `onTap`) AND descending into its children lets agents see — and tap —
+/// both the tile and the nested interactive widget.
 ///
 /// Self-contained widgets (ElevatedButton, TextField, etc.) are NOT transparent:
 /// their children are internal framework widgets that should not be surfaced.
 bool _isGestureTransparent(String typeName) => const {
+      'CheckboxListTile',
       'GestureDetector',
       'InkWell',
+      'ListTile',
+      'RadioListTile',
+      'SwitchListTile',
     }.contains(typeName);
 
 bool _isDescribeInteractiveWidget(String typeName) => const {
@@ -496,6 +531,56 @@ bool _isDescribeInteractiveWidget(String typeName) => const {
       'TextField',
       'TextFormField',
     }.contains(typeName);
+
+/// Returns true if the gesture-transparent widget has at least one active
+/// gesture callback.
+///
+/// Used to skip gesture-transparent widgets that have no callbacks wired up.
+/// An [InkWell] with no `onTap` inside a [ListTile] that has no `onTap`, or
+/// a [GestureDetector] used purely for hover effects — these are decoration
+/// wrappers, not actionable targets. Surfacing them would add noise.
+///
+/// For [ListTile] variants, this checks `onTap` and `onLongPress` — the only
+/// user-facing callbacks. A tile without these is a display element, not an
+/// interactive target (even if it has text and a key).
+bool _hasActiveCallbacks(Widget widget, String typeName) {
+  try {
+    final w = widget as dynamic;
+    if (typeName == 'GestureDetector') {
+      return w.onTap != null ||
+          w.onDoubleTap != null ||
+          w.onLongPress != null ||
+          w.onVerticalDragStart != null ||
+          w.onVerticalDragUpdate != null ||
+          w.onVerticalDragEnd != null ||
+          w.onHorizontalDragStart != null ||
+          w.onHorizontalDragUpdate != null ||
+          w.onHorizontalDragEnd != null ||
+          w.onPanStart != null ||
+          w.onPanUpdate != null ||
+          w.onPanEnd != null ||
+          w.onScaleStart != null ||
+          w.onScaleUpdate != null ||
+          w.onScaleEnd != null ||
+          w.onForcePressStart != null ||
+          w.onForcePressPeak != null;
+    }
+    if (typeName == 'InkWell') {
+      return w.onTap != null || w.onDoubleTap != null || w.onLongPress != null;
+    }
+    // ListTile variants — check onTap / onLongPress.
+    if (typeName == 'ListTile' ||
+        typeName == 'CheckboxListTile' ||
+        typeName == 'RadioListTile' ||
+        typeName == 'SwitchListTile') {
+      return w.onTap != null || w.onLongPress != null;
+    }
+  } catch (_) {
+    // Dynamic access failed — assume active to avoid hiding real targets.
+    return true;
+  }
+  return true;
+}
 
 String? _extractDescribeText(
   Element element, {
