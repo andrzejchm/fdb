@@ -753,6 +753,40 @@ tasks:
         echo "==> Navigating back"
         {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
 
+  test:describe-listtile-button:
+    desc: Verify fdb describe surfaces an ElevatedButton nested inside a ListTile trailing slot
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to ListTile Describe Test screen"
+        {{.FDB}} scroll-to --key "go_to_listtile_describe_test" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "go_to_listtile_describe_test" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to ListTile Describe Test screen" >&2
+          exit 1
+        fi
+        sleep 1
+
+        echo "==> Describing ListTile Describe Test screen"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe (listtile-button) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+
+        # The ElevatedButton inside the ListTile trailing must appear as its
+        # own interactive entry, identified by its ValueKey.
+        if echo "$OUTPUT" | grep -q "perm_request_camera"; then
+          echo "PASS: fdb describe surfaces perm_request_camera (ElevatedButton inside ListTile)"
+        else
+          echo "FAIL: fdb describe did not surface perm_request_camera (ElevatedButton nested in ListTile.trailing)" >&2
+          exit 1
+        fi
+
+        echo "==> Navigating back"
+        {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
+
   test:describe-router:
     desc: Verify fdb describe only shows elements from the current (topmost) route, not underlying routes
     dir: '{{.TEST_APP}}'
@@ -2803,6 +2837,7 @@ tasks:
       - task: test:describe
       - task: test:describe-grid
       - task: test:describe-nested-gestures
+      - task: test:describe-listtile-button
       - task: test:describe-router
       - task: test:screenshot
       - task: test:native-view-tap

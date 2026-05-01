@@ -466,11 +466,22 @@ String? _extractWidgetLevelText(Widget widget) {
 /// These widgets do not own their subtree semantically — descending into their
 /// children is safe and necessary to find nested buttons/gestures.
 ///
+/// List-tile variants (`ListTile`, `CheckboxListTile`, `RadioListTile`,
+/// `SwitchListTile`) are treated as transparent because they are structural
+/// containers: their `leading`, `title`, `subtitle`, and `trailing` slots
+/// frequently hold independently tappable widgets (e.g. an `ElevatedButton` in
+/// `trailing`). Recording the tile as an entry AND descending into its children
+/// lets agents see — and tap — the individual interactive element directly.
+///
 /// Self-contained widgets (ElevatedButton, TextField, etc.) are NOT transparent:
 /// their children are internal framework widgets that should not be surfaced.
 bool _isGestureTransparent(String typeName) => const {
+      'CheckboxListTile',
       'GestureDetector',
       'InkWell',
+      'ListTile',
+      'RadioListTile',
+      'SwitchListTile',
     }.contains(typeName);
 
 bool _isDescribeInteractiveWidget(String typeName) => const {
