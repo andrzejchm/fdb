@@ -26,6 +26,7 @@ import 'package:fdb/cli/adapters/scroll_to_cli.dart';
 import 'package:fdb/cli/adapters/select_cli.dart';
 import 'package:fdb/cli/adapters/selected_cli.dart';
 import 'package:fdb/cli/adapters/shared_prefs_cli.dart';
+import 'package:fdb/cli/adapters/simulator_cli.dart';
 import 'package:fdb/cli/adapters/skill_cli.dart';
 import 'package:fdb/cli/adapters/status_cli.dart';
 import 'package:fdb/cli/adapters/swipe_cli.dart';
@@ -86,6 +87,7 @@ Commands:
                --json              Output KEY=value tokens (HEAP_BEFORE, HEAP_AFTER, HEAP_DELTA)
   status      Check if the app is running
   kill        Stop the running app
+  simulator   iOS simulator command palette (appearance, push, location, etc.)
   skill       Print the AI agent skill file (SKILL.md)
 
 Global options:
@@ -139,7 +141,7 @@ Future<void> main(List<String> args) async {
   // `fdb mem diff` is pure file I/O — no VM connection required.
   final isMemDiff = command == 'mem' && commandArgs.isNotEmpty && commandArgs[0] == 'diff';
   // Commands that manage their own session dir or must run even on unhealthy sessions.
-  const sessionResolutionExempt = {'launch', 'devices', 'skill'};
+  const sessionResolutionExempt = {'launch', 'devices', 'skill', 'simulator'};
   // Commands that run against a potentially dead/missing session (soft-fail on null).
   const sessionSoftFail = {'status', 'doctor', 'crash-report'};
   if (!sessionResolutionExempt.contains(command) && !wantsHelp && !isMemDiff) {
@@ -234,6 +236,8 @@ Future<int> _runCommand(String command, List<String> args) {
       return runGcCli(args);
     case 'grant-permission':
       return runGrantPermissionCli(args);
+    case 'simulator':
+      return runSimulatorCli(args);
     case 'skill':
       return runSkillCli(args);
     default:
