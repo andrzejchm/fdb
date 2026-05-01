@@ -2089,6 +2089,23 @@ tasks:
             echo "FAIL: fdb grant-permission camera --reset — PERMISSION_RESET= not found" >&2
             exit 1
           fi
+
+          echo "==> [grant-permission] reset-all on macOS (--bundle $MACOS_BUNDLE)"
+          set +e
+          OUTPUT=$({{.FDB}} grant-permission --reset-all --bundle "$MACOS_BUNDLE" 2>&1)
+          EXIT_CODE=$?
+          set -e
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb grant-permission --reset-all on macOS exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if echo "$OUTPUT" | grep -qE "PERMISSION_RESET_ALL=true"; then
+            echo "PASS: fdb grant-permission --reset-all (macOS)"
+          else
+            echo "FAIL: fdb grant-permission --reset-all — PERMISSION_RESET_ALL=true not found" >&2
+            exit 1
+          fi
           exit 0
         fi
 
@@ -2220,6 +2237,72 @@ tasks:
         else
           echo "FAIL: fdb grant-permission no-args — expected ERROR: in output" >&2
           exit 1
+        fi
+
+        # Integration flow: pre-grant camera before launch, verify permission status in app.
+        # macOS does not support grant — skip this flow on macOS.
+        if [ "$PLATFORM" != "macos" ] && [ "$PLATFORM" != "darwin" ]; then
+          echo "==> [grant-permission] integration: pre-grant camera permission"
+          set +e
+          OUTPUT=$({{.FDB}} grant-permission camera 2>&1)
+          EXIT_CODE=$?
+          set -e
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: pre-grant camera for integration test exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -q "PERMISSION_GRANTED=camera"; then
+            echo "FAIL: pre-grant camera — PERMISSION_GRANTED=camera not found" >&2
+            exit 1
+          fi
+          echo "PASS: pre-grant camera"
+
+          echo "==> [grant-permission] integration: kill and relaunch app"
+          {{.FDB}} kill 2>&1 || true
+          sleep 1
+          LAUNCH_OUTPUT=$({{.FDB}} launch 2>&1)
+          LAUNCH_EXIT=$?
+          echo "$LAUNCH_OUTPUT"
+          if [ $LAUNCH_EXIT -ne 0 ]; then
+            echo "FAIL: relaunch after pre-grant exited with code $LAUNCH_EXIT" >&2
+            exit 1
+          fi
+          if ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+            echo "FAIL: relaunch after pre-grant — APP_STARTED not found" >&2
+            exit 1
+          fi
+
+          echo "==> [grant-permission] integration: navigate to Permission Test screen"
+          {{.FDB}} scroll-to --key "go_to_permission_test" >/dev/null 2>&1 || true
+          if ! {{.FDB}} tap --key "go_to_permission_test" >/dev/null 2>&1; then
+            echo "FAIL: could not navigate to Permission Test screen" >&2
+            exit 1
+          fi
+          sleep 2
+
+          echo "==> [grant-permission] integration: verify camera status is granted"
+          DESCRIBE_OUTPUT=""
+          STATUS_OK=0
+          for _ in $(seq 1 10); do
+            DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
+            if echo "$DESCRIBE_OUTPUT" | grep -q "perm_status_camera" && \
+               echo "$DESCRIBE_OUTPUT" | grep -q "status: granted"; then
+              STATUS_OK=1
+              break
+            fi
+            sleep 1
+          done
+          echo "$DESCRIBE_OUTPUT"
+          if [ $STATUS_OK -eq 1 ]; then
+            echo "PASS: fdb grant-permission integration — camera status is granted in app"
+          else
+            echo "FAIL: fdb grant-permission integration — camera status 'granted' not found via fdb describe" >&2
+            exit 1
+          fi
+
+          echo "==> [grant-permission] integration: navigate back"
+          {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
         fi
 
         echo "PASS: fdb grant-permission"

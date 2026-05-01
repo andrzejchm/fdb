@@ -46,7 +46,8 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
         scrollToTestAlreadyVisibleRoute: (_) =>
             const AlreadyVisibleScrollToPage(),
-        '/nested-gesture-describe-test': (_) => const NestedGestureDescribeScreen(),
+        '/nested-gesture-describe-test': (_) =>
+            const NestedGestureDescribeScreen(),
         '/permission-test': (_) => const PermissionTestScreen(),
       },
     );
@@ -217,14 +218,17 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_nested_gesture_describe_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/nested-gesture-describe-test'),
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  '/nested-gesture-describe-test',
+                ),
                 child: const Text('Nested Gesture Describe Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_permission_test'),
-                onPressed: () => Navigator.pushNamed(context, '/permission-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/permission-test'),
                 child: const Text('Permission Test'),
               ),
               const SizedBox(height: 8),
@@ -280,7 +284,10 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                     setState(() {
                       _showDisappearing = false;
                     });
-                    developer.log('disappearing_button tapped — hiding self', name: 'fdb_test');
+                    developer.log(
+                      'disappearing_button tapped — hiding self',
+                      name: 'fdb_test',
+                    );
                   },
                   child: const Text('Disappearing Button'),
                 ),

@@ -92,8 +92,20 @@ int _format(GrantPermissionResult result) {
       }
       return 0;
 
-    case GrantPermissionAndroidSuccess(:final action, :final permission):
+    case GrantPermissionAndroidSuccess(
+        :final action,
+        :final permission,
+        :final photosAndroidUnreliable,
+      ):
       _printSuccess(action, permission);
+      if (photosAndroidUnreliable) {
+        stderr.writeln(
+          'WARNING: Android photos permissions differ by API level. '
+          'On API < 33 READ_EXTERNAL_STORAGE is used; on API 33+ '
+          'READ_MEDIA_IMAGES/READ_MEDIA_VIDEO are used. '
+          'The correct permissions may not have been granted for this device.',
+        );
+      }
       return 0;
 
     case GrantPermissionMacosResetSuccess(:final permission):
@@ -121,6 +133,12 @@ int _format(GrantPermissionResult result) {
 
     case GrantPermissionPlatformUnsupported(:final platform):
       stderr.writeln('ERROR: grant-permission is not supported on platform: $platform');
+      return 1;
+
+    case GrantPermissionRequiresExternal(:final token, :final platform, :final hint):
+      stderr.writeln(
+        "ERROR: '$token' on $platform requires an external tool — not supported by fdb directly.\n$hint",
+      );
       return 1;
 
     case GrantPermissionUnknownToken(:final token, :final platform, :final supportedTokens):

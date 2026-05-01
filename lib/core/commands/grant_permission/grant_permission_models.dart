@@ -47,10 +47,19 @@ class GrantPermissionIosSimulatorSuccess extends GrantPermissionResult {
 
 /// Android: grant/revoke succeeded.
 class GrantPermissionAndroidSuccess extends GrantPermissionResult {
-  const GrantPermissionAndroidSuccess({required this.action, required this.permission});
+  const GrantPermissionAndroidSuccess({
+    required this.action,
+    required this.permission,
+    this.photosAndroidUnreliable = false,
+  });
 
   final GrantPermissionAction action;
   final String permission;
+
+  /// Photos permissions on Android differ by API level: READ_EXTERNAL_STORAGE
+  /// on API < 33 and READ_MEDIA_IMAGES/READ_MEDIA_VIDEO on API 33+.
+  /// The correct set may not have been granted for the connected device.
+  final bool photosAndroidUnreliable;
 }
 
 /// macOS: reset succeeded (grant/revoke are unsupported on macOS).
@@ -131,6 +140,21 @@ class GrantPermissionTccutilFailed extends GrantPermissionResult {
   const GrantPermissionTccutilFailed(this.details);
 
   final String details;
+}
+
+/// The permission token requires an external tool not bundled with fdb.
+class GrantPermissionRequiresExternal extends GrantPermissionResult {
+  const GrantPermissionRequiresExternal({
+    required this.token,
+    required this.platform,
+    required this.hint,
+  });
+
+  final String token;
+  final String platform;
+
+  /// Human-readable hint telling the user which external tool to use.
+  final String hint;
 }
 
 /// Generic unexpected error.

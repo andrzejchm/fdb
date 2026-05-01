@@ -9,6 +9,15 @@ export 'package:fdb/core/commands/grant_permission/grant_permission_models.dart'
 // Permission token → platform-specific name maps
 // ---------------------------------------------------------------------------
 
+/// Permission tokens on iOS simulator that require an external tool (e.g.
+/// applesimutils) and are not supported by xcrun simctl privacy.
+const _iosRequiresExternal = {
+  'notifications': (
+    hint: "Use: applesimutils --bundle <id> --simulator booted --setPermissions notifications=YES\n"
+        "Install: brew install wix/brew/applesimutils",
+  ),
+};
+
 /// Maps canonical fdb permission tokens to xcrun simctl privacy service names.
 const _iosSimctlServices = {
   'camera': 'camera',
@@ -40,7 +49,7 @@ const _androidPermissions = {
     'android.permission.READ_MEDIA_VIDEO',
     'android.permission.READ_EXTERNAL_STORAGE',
   ],
-  'photos-add': ['android.permission.READ_MEDIA_IMAGES', 'android.permission.READ_EXTERNAL_STORAGE'],
+  'photos-add': ['android.permission.READ_MEDIA_IMAGES', 'android.permission.WRITE_EXTERNAL_STORAGE'],
   'calendar': ['android.permission.READ_CALENDAR', 'android.permission.WRITE_CALENDAR'],
   'reminders': ['android.permission.READ_CALENDAR', 'android.permission.WRITE_CALENDAR'],
   'motion': ['android.permission.ACTIVITY_RECOGNITION'],
@@ -123,6 +132,16 @@ Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) as
   }
 
   final token = input.permission!;
+
+  final external = _iosRequiresExternal[token];
+  if (external != null) {
+    return GrantPermissionRequiresExternal(
+      token: token,
+      platform: 'ios-simulator',
+      hint: external.hint,
+    );
+  }
+
   final service = _iosSimctlServices[token];
   if (service == null) {
     return GrantPermissionUnknownToken(
@@ -209,7 +228,8 @@ Future<GrantPermissionResult> _handleAndroid(GrantPermissionInput input) async {
   }
 
   final verb = action == GrantPermissionAction.grant ? 'grant' : 'revoke';
-  return _runAdbPmBatch(deviceArgs, packageName, verb, androidPerms, token, action);
+  return _runAdbPmBatch(deviceArgs, packageName, verb, androidPerms, token, action,
+      photosAndroidUnreliable: token == 'photos' || token == 'photos-add');
 }
 
 Future<GrantPermissionResult> _runAdbPmBatch(
@@ -218,14 +238,19 @@ Future<GrantPermissionResult> _runAdbPmBatch(
   String verb,
   List<String> permissions,
   String token,
-  GrantPermissionAction action,
-) async {
+  GrantPermissionAction action, {
+  bool photosAndroidUnreliable = false,
+}) async {
   // Grant/revoke each mapped permission; stop on first failure.
   for (final perm in permissions) {
     final result = await _runAdbPm(deviceArgs, verb, packageName, perm);
     if (result != null) return result;
   }
-  return GrantPermissionAndroidSuccess(action: action, permission: token);
+  return GrantPermissionAndroidSuccess(
+    action: action,
+    permission: token,
+    photosAndroidUnreliable: photosAndroidUnreliable,
+  );
 }
 
 /// Returns a failure result on error, or null on success.
