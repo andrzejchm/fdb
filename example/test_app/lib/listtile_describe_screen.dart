@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
 
-/// Screen used by describe-listtile scenarios (S24–S26) and the
+/// Screen used by describe-listtile scenarios (S24–S27) and the
 /// `task test:describe-listtile-button` smoke test.
 ///
-/// Three tiles cover the distinct cases that the describe walker must handle:
+/// Cases:
 ///
-/// 1. **Tile with trailing button** (`perm_request_camera`) — the tile has no
-///    `onTap`; only the `ElevatedButton` in the trailing slot is interactive.
-///    Expected: button surfaces as its own ref; tile body does NOT appear.
+/// 1. **Tile with trailing button** (`perm_request_camera`) — tile has no
+///    `onTap`; only the `ElevatedButton` in trailing is interactive.
+///    Breadcrumb: the tile text "camera · status: granted" should appear above.
 ///
-/// 2. **Tappable tile** (`tappable_tile`) — plain `ListTile` with `onTap`; no
-///    interactive children. Expected: tile surfaces as one interactive ref.
+/// 2. **Tappable tile** (`tappable_tile`) — plain `ListTile` with `onTap`.
+///    No breadcrumb needed (the tile itself is the interactive element).
 ///
 /// 3. **Display-only tile** (`display_tile`) — no `onTap`, no interactive
-///    children. Expected: does NOT appear in INTERACTIVE at all.
+///    children. Does NOT appear in INTERACTIVE at all.
+///
+/// 4. **Card wrapping a tile with trailing buttons** — tests deeper nesting.
+///    Two buttons inside a tile inside a keyed Card. Breadcrumb should show
+///    both the Card and the ListTile as ancestors.
+///
+/// 5. **Bare button with no meaningful ancestors** — an ElevatedButton sitting
+///    directly in the ListView. No breadcrumb expected.
 class ListTileDescribeScreen extends StatelessWidget {
   const ListTileDescribeScreen({super.key});
 
@@ -45,6 +52,35 @@ class ListTileDescribeScreen extends StatelessWidget {
             key: ValueKey('display_tile'),
             title: Text('Display only'),
             subtitle: Text('not tappable'),
+          ),
+          // Case 4: Card > ListTile > two trailing buttons — deeper nesting.
+          Card(
+            key: const ValueKey('contact_card'),
+            child: ListTile(
+              title: const Text('John Doe'),
+              subtitle: const Text('+1 555-0123'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: const ValueKey('call_john'),
+                    icon: const Icon(Icons.phone),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    key: const ValueKey('delete_john'),
+                    icon: const Icon(Icons.delete),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Case 5: bare button — no meaningful parent context.
+          ElevatedButton(
+            key: const ValueKey('bare_button'),
+            onPressed: () {},
+            child: const Text('Bare Button'),
           ),
         ],
       ),

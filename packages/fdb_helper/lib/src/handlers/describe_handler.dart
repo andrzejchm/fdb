@@ -65,6 +65,11 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
     // subtree so we can skip it entirely.
     ModalRoute<dynamic>? activeRouteContext;
 
+    // Ancestor stack for breadcrumb collection. Push before recursing, pop
+    // after. Only non-private widget types are pushed (framework internals
+    // like _InkResponseStateWidget are skipped).
+    final ancestors = <Element>[];
+
     void visit(Element element) {
       // Stop collecting interactive entries once the cap is reached.
       if (interactive.length >= maxInteractive) return;
@@ -72,11 +77,20 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
       final widget = element.widget;
       final typeName = widget.runtimeType.toString();
 
+      // Push non-private types onto the ancestor stack for breadcrumb
+      // collection. Private types (_InkResponseStateWidget, etc.) are
+      // framework internals that should not appear in breadcrumbs.
+      final pushed = !typeName.startsWith('_');
+      if (pushed) ancestors.add(element);
+
       // Skip entire subtrees wrapped in Offstage(offstage: true).
       if (typeName == 'Offstage') {
         try {
           final offstage = (widget as dynamic).offstage as bool;
-          if (offstage) return;
+          if (offstage) {
+            if (pushed) ancestors.removeLast();
+            return;
+          }
         } catch (_) {}
       }
 
@@ -91,6 +105,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           // We have crossed into a new route boundary.
           if (!route.isCurrent) {
             // This route is not the topmost active route — skip its subtree.
+            if (pushed) ancestors.removeLast();
             return;
           }
           // This is the current route: record it and collect the route name.
@@ -149,6 +164,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         if (size.isEmpty) {
           element.visitChildren(visit);
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+          if (pushed) ancestors.removeLast();
           return;
         }
 
@@ -189,6 +205,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           if (_isGestureTransparent(typeName) && !_hasActiveCallbacks(widget, typeName)) {
             element.visitChildren(visit);
             if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+            if (pushed) ancestors.removeLast();
             return;
           }
 
@@ -201,12 +218,14 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             // Still recurse: an unhittable ancestor may have hittable children
             // (e.g. Opacity(opacity:0) around individual buttons).
             element.visitChildren(visit);
+            if (pushed) ancestors.removeLast();
             return;
           }
 
           final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
           final visibleText = _extractDescribeText(element, tooltipHint: currentTooltip);
           final gestures = _extractGestures(widget, typeName);
+          final breadcrumb = _collectBreadcrumb(ancestors, element);
           interactive.add({
             'type': typeName,
             'key': key,
@@ -214,6 +233,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             'x': offset.dx + size.width / 2,
             'y': offset.dy + size.height / 2,
             if (gestures != null) 'gestures': gestures,
+            if (breadcrumb != null) 'breadcrumb': breadcrumb,
           });
 
           // Pure gesture wrappers (GestureDetector, InkWell) — their children
@@ -248,6 +268,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           }
 
           if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+          if (pushed) ancestors.removeLast();
           return;
         }
       }
@@ -269,6 +290,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
       }
 
       if (typeName == 'Tooltip') currentTooltip = previousTooltip;
+      if (pushed) ancestors.removeLast();
     }
 
     root.visitChildren(visit);
@@ -471,6 +493,93 @@ String? _extractWidgetLevelText(Widget widget) {
     }
   } catch (_) {}
   return null;
+}
+
+/// Collects a breadcrumb trail from the ancestor stack for context.
+///
+/// Walks the stack in reverse (closest ancestor first) and picks up to
+/// [_maxBreadcrumbDepth] ancestors that carry a [ValueKey<String>] or
+/// extractable text. Returns null if no meaningful ancestor was found.
+///
+/// The result is ordered closest-first so the CLI can print the breadcrumb
+/// above the interactive entry:
+/// ```
+///   ListTile "camera · status: granted"
+///     @2 ElevatedButton "Request" key=perm_request_camera
+/// ```
+const _maxBreadcrumbDepth = 3;
+
+List<Map<String, String>>? _collectBreadcrumb(
+  List<Element> ancestors,
+  Element self,
+) {
+  final crumbs = <Map<String, String>>[];
+  // Walk from closest ancestor outward (skip the last entry which is self
+  // if it was pushed). ancestors does NOT include self at this point because
+  // the current element is pushed before the interactive check but the
+  // _collectBreadcrumb is called before the element is used as an ancestor
+  // for its own children.
+  for (var i = ancestors.length - 1; i >= 0 && crumbs.length < _maxBreadcrumbDepth; i--) {
+    final el = ancestors[i];
+    // Skip self if it somehow ended up in the stack.
+    if (identical(el, self)) continue;
+    final w = el.widget;
+    final t = w.runtimeType.toString();
+    // Skip private framework types.
+    if (t.startsWith('_')) continue;
+    // Skip gesture wrappers — they are transparent, not meaningful context.
+    if (t == 'GestureDetector' || t == 'InkWell') continue;
+    final key = w.key is ValueKey<String> ? (w.key as ValueKey<String>).value : null;
+    final text = _extractShallowText(w);
+    // Only include ancestors that carry some identifying information.
+    if (key == null && (text == null || text.trim().isEmpty)) continue;
+    final crumb = <String, String>{'type': t};
+    if (key != null) crumb['key'] = key;
+    if (text != null && text.trim().isNotEmpty) crumb['text'] = text.trim();
+    crumbs.add(crumb);
+  }
+  return crumbs.isEmpty ? null : crumbs;
+}
+
+/// Extracts a short text label from a widget's own properties without walking
+/// the full element subtree. Used for breadcrumb context where we want the
+/// widget's *own* label, not the accumulated text of all descendants.
+///
+/// Checks common named slots: `title`, `subtitle`, `label`, `child`. For
+/// [Text] widgets, returns the text directly.
+String? _extractShallowText(Widget widget) {
+  if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
+
+  final fragments = <String>[];
+
+  void addTextFromWidget(Widget? w) {
+    if (w == null) return;
+    if (w is Text) {
+      final t = w.data ?? w.textSpan?.toPlainText();
+      if (t != null && t.trim().isNotEmpty) fragments.add(t.trim());
+    }
+  }
+
+  // Try common widget slots via dynamic access.
+  try {
+    addTextFromWidget((widget as dynamic).title as Widget?);
+  } catch (_) {}
+  try {
+    addTextFromWidget((widget as dynamic).subtitle as Widget?);
+  } catch (_) {}
+  try {
+    addTextFromWidget((widget as dynamic).label as Widget?);
+  } catch (_) {}
+  // Only check `child` if nothing was found via named slots — avoids
+  // pulling the entire child tree label (e.g. ElevatedButton.child).
+  if (fragments.isEmpty) {
+    try {
+      addTextFromWidget((widget as dynamic).child as Widget?);
+    } catch (_) {}
+  }
+
+  if (fragments.isEmpty) return null;
+  return fragments.join(' · ');
 }
 
 /// Returns true for pure gesture wrappers whose children are user-authored
