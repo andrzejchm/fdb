@@ -13,7 +13,8 @@ import 'package:fdb/core/commands/describe/describe.dart';
 ///   ROUTE: <route>                  (if present)
 ///   <blank line>                    (if screen or route was printed)
 ///   INTERACTIVE:                    (if interactive list non-empty)
-///     @N <type>[(gestures)] ["text"] [key=<key>]
+///     [<Ancestor> ["text"] [> ...]] (breadcrumb — only if meaningful)
+///       @N <type>[(gestures)] ["text"] [key=<key>]
 ///   <blank line>
 ///   VISIBLE TEXT:                   (if non-duplicate texts exist)
 ///     "<text>"
@@ -85,8 +86,27 @@ void _printDescribeOutput(Map<String, dynamic> result) {
       }
 
       final gestures = (entry['gestures'] as List<dynamic>?)?.cast<String>();
+      final rawBreadcrumb = entry['breadcrumb'] as List<dynamic>?;
 
-      final buffer = StringBuffer('  @$ref $type');
+      // Print breadcrumb above the entry (closest ancestor first, reversed
+      // to read outermost-first top-down).
+      if (rawBreadcrumb != null && rawBreadcrumb.isNotEmpty) {
+        final crumbParts = <String>[];
+        for (final raw in rawBreadcrumb.reversed) {
+          final crumb = raw as Map<String, dynamic>;
+          final cType = crumb['type'] as String;
+          final cKey = crumb['key'] as String?;
+          final cText = crumb['text'] as String?;
+          final cb = StringBuffer(cType);
+          if (cKey != null) cb.write('(key=$cKey)');
+          if (cText != null) cb.write(' "$cText"');
+          crumbParts.add(cb.toString());
+        }
+        stdout.writeln('  ${crumbParts.join(' > ')}');
+      }
+
+      final indent = rawBreadcrumb != null && rawBreadcrumb.isNotEmpty ? '    ' : '  ';
+      final buffer = StringBuffer('$indent@$ref $type');
       if (gestures != null && gestures.isNotEmpty) {
         buffer.write('(${gestures.join(',')})');
       }

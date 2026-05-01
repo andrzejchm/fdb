@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import 'benchmark_screens.dart';
 import 'grid_describe_screen.dart';
+import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
 import 'permission_test_screen.dart';
@@ -48,6 +49,7 @@ class FdbTestApp extends StatelessWidget {
             const AlreadyVisibleScrollToPage(),
         '/nested-gesture-describe-test': (_) =>
             const NestedGestureDescribeScreen(),
+        '/listtile-describe-test': (_) => const ListTileDescribeScreen(),
         '/permission-test': (_) => const PermissionTestScreen(),
       },
     );
@@ -223,6 +225,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   '/nested-gesture-describe-test',
                 ),
                 child: const Text('Nested Gesture Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_listtile_describe_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/listtile-describe-test'),
+                child: const Text('ListTile Describe Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(

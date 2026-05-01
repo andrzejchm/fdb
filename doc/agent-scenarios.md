@@ -673,6 +673,77 @@ dart run ../../bin/fdb.dart grant-permission camera --revoke --reset
 
 ---
 
+## S30 · describe — ListTile with interactive trailing widget
+
+**Purpose:** when a `ListTile` has no `onTap` but contains an `ElevatedButton`
+in its `trailing` slot, only the button should appear in `INTERACTIVE:`. The
+tile body is not itself tappable and must not produce a spurious entry.
+
+```bash
+dart run ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
+dart run ../../bin/fdb.dart tap --key go_to_listtile_describe_test
+sleep 1
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- `SCREEN:` says `ListTile Describe Test`
+- `INTERACTIVE:` contains `key=perm_request_camera` (`ElevatedButton "Request"`)
+  with real on-screen coordinates (not `y=9999999`)
+- `INTERACTIVE:` does NOT contain a bare `ListTile` entry for the camera row
+  (the tile has no `onTap` - it is not independently tappable)
+- `INTERACTIVE:` does contain `key=tappable_tile` (the tile in case 2 that has
+  `onTap`)
+- `INTERACTIVE:` does NOT contain `key=display_tile` (case 3 - no `onTap`, no
+  interactive children)
+
+---
+
+## S31 · describe — plain tappable ListTile
+
+**Purpose:** a `ListTile` with `onTap` and no interactive children surfaces as
+a single interactive entry. Regression guard for the structural rewrite.
+
+```bash
+dart run ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
+dart run ../../bin/fdb.dart tap --key go_to_listtile_describe_test
+sleep 1
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- `INTERACTIVE:` contains `key=tappable_tile` with text containing
+  `"Tappable tile"` (or similar)
+- The entry has real on-screen coordinates (not `y=9999999`)
+- No duplicate entries for `tappable_tile`
+
+---
+
+## S32 · describe — display-only ListTile is not surfaced
+
+**Purpose:** a `ListTile` with no `onTap` and no interactive children must not
+appear in `INTERACTIVE:` at all - it is a display element.
+
+```bash
+dart run ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
+dart run ../../bin/fdb.dart tap --key go_to_listtile_describe_test
+sleep 1
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- `INTERACTIVE:` does NOT contain `key=display_tile`
+- `VISIBLE TEXT:` contains `"Display only"` (the text is visible but the tile
+  is not interactive)
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:
