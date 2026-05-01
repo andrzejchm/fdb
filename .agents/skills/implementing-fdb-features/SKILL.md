@@ -207,19 +207,14 @@ Decide which scenarios to run:
 ```
 Spawn a general subagent with this prompt:
 
-You are a scenario runner for the fdb test suite. The app is already running
-in the worktree at `.worktrees/<feature-name>/example/test_app`.
+Read doc/agent-scenarios.md, then run scenarios <S1, S2, ...> against the
+app running in `.worktrees/<feature-name>/example/test_app`.
 
-Read doc/agent-scenarios.md in full, then execute scenarios <S1, S2, ...>
-exactly as written. For each scenario:
-1. Run every setup and command step from the worktree's example/test_app dir
-   using `dart run ../../bin/fdb.dart <command>`.
-2. Read the actual output.
-3. Verify every point in the "What to verify" list.
-4. Report PASS or FAIL for each scenario with a brief reason.
+Run each step exactly as written — no workarounds, no retries with different
+selectors, no fixes. If a step fails or the output doesn't match the "What to
+verify" list, mark the scenario FAIL and record what was wrong.
 
-After all scenarios, return a summary: how many passed, how many failed, and
-the full output + verdict for any that failed.
+Return PASS or FAIL for each scenario with the exact output and failed checks.
 ```
 
 Do not proceed to Step 5 until the subagent reports all scenarios passing.
