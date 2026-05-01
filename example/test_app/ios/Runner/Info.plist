@@ -2,6 +2,26 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>fdb test app camera access for permission testing</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>fdb test app microphone access for permission testing</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>fdb test app photos access for permission testing</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>fdb test app photos add access for permission testing</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>fdb test app location access for permission testing</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>fdb test app location always access for permission testing</string>
+	<key>NSContactsUsageDescription</key>
+	<string>fdb test app contacts access for permission testing</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>fdb test app calendar access for permission testing</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>fdb test app reminders access for permission testing</string>
+	<key>NSMotionUsageDescription</key>
+	<string>fdb test app motion access for permission testing</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

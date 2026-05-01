@@ -131,6 +131,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
+| `fdb grant-permission <perm> [--revoke] [--reset] [--reset-all] [--bundle <id>]` | Grant, revoke, or reset a runtime permission. iOS sim: `xcrun simctl privacy`; Android: `adb pm grant/revoke`. macOS: reset only (`tccutil`). Physical iOS, Windows, Linux: unsupported. Tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `notifications` (Android only), `motion`, `media-library`, `siri` (iOS only), `screen-capture` (macOS only) |
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
 | `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
@@ -142,6 +143,22 @@ fdb kill
 | `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb deeplink <url>` | Open a deep link |
+
+**iOS Simulator** *(no session required — works against any booted simulator)*
+
+| Command | Description |
+|---------|-------------|
+| `fdb simulator appearance dark\|light\|get` | Toggle or query dark/light mode |
+| `fdb simulator push <payload.apns> [--bundle-id <id>]` | Send a simulated remote push notification |
+| `fdb simulator location set <lat,lon>` | Set a static GPS location |
+| `fdb simulator location route <scenario>` | Play a movement scenario (`City Run`, `City Bicycle Ride`, `Freeway Drive`) |
+| `fdb simulator location clear` | Stop location simulation |
+| `fdb simulator text-size <size>\|get` | Set or query Dynamic Type content size (`extra-small` … `accessibility-extra-extra-extra-large`) |
+| `fdb simulator status-bar override [--time <str>] [--battery-level <n>] …` | Override status bar (clean 9:41 screenshots) |
+| `fdb simulator status-bar clear` | Clear all status bar overrides |
+| `fdb simulator defaults read [--bundle-id <id>] [<key>]` | Read NSUserDefaults for an app |
+| `fdb simulator defaults write [--bundle-id <id>] <key> <value> [--type string\|int\|float\|bool]` | Write an NSUserDefaults key |
+| `fdb simulator defaults delete [--bundle-id <id>] <key>` | Delete an NSUserDefaults key |
 
 **Data & state** *(requires `fdb_helper`)*
 
@@ -244,7 +261,7 @@ Requires `fdb_helper` in your app:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper: ^1.5.0
+  fdb_helper: ^1.6.0
 ```
 
 ```dart

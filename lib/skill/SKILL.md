@@ -5,10 +5,10 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.5.0
+## Overview - skill version 1.6.0
 
 > **Version check:** Run `fdb --version`. This skill may describe unreleased branch behavior,
-> so do not assume the published `1.5.0` release includes every command example below. To use
+> so do not assume the published `1.6.0` release includes every command example below. To use
 > the latest behavior from this repository,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
@@ -28,7 +28,7 @@ The `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back`
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.5.0
+  fdb_helper: ^1.6.0
 ```
 
 **`main.dart`:**
@@ -191,25 +191,37 @@ Requires `fdb_helper` in the app (see setup section above).
 fdb describe
 ```
 
-Returns a compact, text-based snapshot of what's on screen — interactive elements with stable refs and all visible text. Use this instead of a screenshot when you need to understand the UI and interact with it.
+Returns a compact, text-based snapshot of what's on screen - interactive elements with stable refs, ancestor breadcrumbs for context, and all visible text. Use this instead of a screenshot when you need to understand the UI and interact with it.
 
 Example output:
 ```
-SCREEN: HomeScreen
-ROUTE: /home
+SCREEN: Permissions
+ROUTE: /settings/permissions
 
 INTERACTIVE:
-  @1 ElevatedButton "Start" key=start_btn
-  @2 IconButton key=nav_back
-  @3 TextField "Search" key=search_field
-  @4 FloatingActionButton key=fab_add
+  @1 ElevatedButton "Save" key=save_btn
+  ListTile "Camera · granted"
+    @2 ElevatedButton "Request" key=perm_request_camera
+  ListTile "Location · denied"
+    @3 ElevatedButton "Request" key=perm_request_location
+  Card(key=contact_card) > ListTile "John Doe"
+    @4 IconButton key=call_john
+    @5 IconButton key=delete_john
+  @6 ListTile "Notifications · enabled" key=notif_tile
 
-TEXT:
-  "Welcome"
-  "3 items"
+VISIBLE TEXT:
+  "Manage your app permissions"
+  "Permissions"
 ```
 
-Refs are NOT stable across navigation changes — re-run `fdb describe` after navigating.
+**Breadcrumbs:** When an interactive widget is nested inside a container that has a key or text (like a `ListTile`, `Card`, `Tab`), its parent context is printed above it. This tells you *which* list item or card a button belongs to. Widgets with no meaningful parent show no breadcrumb.
+
+**ListTile handling:**
+- `ListTile` with `onTap` is surfaced as its own interactive entry (e.g. `@6` above)
+- `ListTile` without `onTap` is NOT surfaced, but its interactive children are (e.g. `@2`, `@3` above get their own refs with the tile as breadcrumb context)
+- Display-only tiles (no `onTap`, no interactive children) appear only in VISIBLE TEXT
+
+Refs are NOT stable across navigation changes - re-run `fdb describe` after navigating.
 
 ### Widget selection
 
@@ -582,9 +594,13 @@ fdb screenshot
 
 # Describe-driven interaction workflow (requires fdb_helper in the app)
 fdb describe                               # see what's on screen + get refs
-fdb tap @1                                 # tap the first interactive element by ref
-fdb tap @3                                 # tap the third interactive element by ref
-fdb describe                               # re-describe after navigation to get fresh refs
+# Output shows:
+#   ListTile "Camera · granted"
+#     @2 ElevatedButton "Request" key=perm_request_camera
+# The breadcrumb tells you @2 is inside the Camera tile.
+fdb tap @2                                 # tap the Request button by ref
+fdb tap --key perm_request_camera          # or tap by key (more stable)
+fdb describe                               # re-describe after navigation for fresh refs
 
 # Widget interaction workflow (requires fdb_helper in the app)
 fdb tap --key "submit_button"              # tap a button
@@ -608,6 +624,59 @@ fdb input --key "password_field" "secret"
 fdb tap --text "Login"
 fdb screenshot
 ```
+
+## iOS simulator commands
+
+`fdb simulator` controls the booted iOS simulator directly. No running app session required — commands work from any directory.
+
+```bash
+# Toggle dark/light mode
+fdb simulator appearance dark
+fdb simulator appearance light
+fdb simulator appearance get              # → APPEARANCE=dark
+
+# Dynamic Type size (affects all apps system-wide)
+fdb simulator text-size extra-extra-extra-large
+fdb simulator text-size large             # reset to default
+fdb simulator text-size get              # → TEXT_SIZE=large
+
+# Clean status bar for screenshots
+fdb simulator status-bar override --time "9:41" --battery-state charged --battery-level 100 --wifi-bars 3 --cellular-bars 4 --operator "Carrier"
+fdb simulator status-bar clear
+
+# Location simulation
+fdb simulator location set 48.8584,2.2945          # Eiffel Tower
+fdb simulator location route "Freeway Drive"        # animate along a route
+fdb simulator location route "City Run"
+fdb simulator location clear
+
+# Simulated push notification (requires notification permission in the app)
+cat > /tmp/push.apns <<'EOF'
+{
+  "aps": { "alert": { "title": "Hello", "body": "Test notification" }, "sound": "default" },
+  "deeplink": "myapp://some/path"
+}
+EOF
+fdb simulator push /tmp/push.apns                          # auto-detects bundle ID from session
+fdb simulator push --bundle-id com.example.app /tmp/push.apns  # explicit bundle ID
+
+# NSUserDefaults — read/write/delete app settings without rebuilding
+fdb simulator defaults write --bundle-id com.example.app featureFlag "true"
+fdb simulator defaults read --bundle-id com.example.app featureFlag   # → true
+fdb simulator defaults read --bundle-id com.example.app               # → all defaults
+fdb simulator defaults delete --bundle-id com.example.app featureFlag
+```
+
+Output tokens:
+- `APPEARANCE=dark|light`
+- `TEXT_SIZE=<size>`
+- `STATUS_BAR_OVERRIDDEN` / `STATUS_BAR_CLEARED`
+- `LOCATION_SET LAT=<lat> LON=<lon>`
+- `LOCATION_ROUTE=<scenario>`
+- `LOCATION_CLEARED`
+- `PUSH_SENT BUNDLE_ID=<id>`
+- `DEFAULTS_WRITTEN KEY=<key> VALUE=<value>`
+- `DEFAULTS_DELETED KEY=<key>`
 
 ## State files
 

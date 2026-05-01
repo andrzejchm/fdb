@@ -339,38 +339,74 @@ Future<String?> _writePlatformInfo(String device, String flutter) async {
 /// Silently no-ops on any failure — crash-report falls back to --app-id flag.
 void _writeAppIdFromProject(String projectPath, String device) {
   try {
-    // Android: android/app/build.gradle or build.gradle.kts
-    final androidGradleKts = File('$projectPath/android/app/build.gradle.kts');
-    final androidGradle = File('$projectPath/android/app/build.gradle');
-    if (androidGradleKts.existsSync()) {
-      final id = _extractApplicationId(androidGradleKts.readAsStringSync());
-      if (id != null) {
-        writeAppId(id);
-        return;
-      }
-    }
-    if (androidGradle.existsSync()) {
-      final id = _extractApplicationId(androidGradle.readAsStringSync());
-      if (id != null) {
-        writeAppId(id);
-        return;
-      }
-    }
+    // Determine target platform from the session info written by _writePlatformInfo
+    // (called immediately before this function). This ensures we consult the
+    // correct native config file first, avoiding e.g. an Android package name
+    // being written for an iOS simulator launch.
+    final platformInfo = readPlatformInfo();
+    final platform = platformInfo?.platform ?? '';
+    final isIos = platform.startsWith('ios');
+    final isMacos = platform == 'macos' || platform.startsWith('darwin');
 
-    // iOS: ios/Runner/Info.plist
-    final iosPlist = File('$projectPath/ios/Runner/Info.plist');
-    if (iosPlist.existsSync()) {
-      final id = _extractPlistBundleId(iosPlist.readAsStringSync());
-      if (id != null) {
-        writeAppId(id);
-        return;
-      }
-    }
+    // Build a prioritised list of extractors for this target platform.
+    // Each entry is a closure that returns the app id or null.
+    final extractors = <String? Function()>[
+      if (isIos) ...[
+        () {
+          final f = File('$projectPath/ios/Runner/Info.plist');
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          // Info.plist uses a variable reference — resolve from project.pbxproj.
+          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
+        },
+      ],
+      if (isMacos) ...[
+        () {
+          final f = File('$projectPath/macos/Runner/Info.plist');
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          // Info.plist uses a variable reference — try xcconfig first, then pbxproj.
+          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
+              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
+        },
+      ],
+      if (!isIos && !isMacos) ...[
+        () {
+          final f = File('$projectPath/android/app/build.gradle.kts');
+          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
+        },
+        () {
+          final f = File('$projectPath/android/app/build.gradle');
+          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
+        },
+      ],
+      // Fallbacks: try remaining platforms so Android-only projects without
+      // Info.plist still work when platform is unknown, and iOS projects with a
+      // missing plist can fall back to other files.
+      if (!isIos) ...[
+        () {
+          final f = File('$projectPath/ios/Runner/Info.plist');
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
+        },
+      ],
+      if (!isMacos)
+        () {
+          final f = File('$projectPath/macos/Runner/Info.plist');
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
+              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
+        },
+    ];
 
-    // macOS: macos/Runner/Info.plist
-    final macosPlist = File('$projectPath/macos/Runner/Info.plist');
-    if (macosPlist.existsSync()) {
-      final id = _extractPlistBundleId(macosPlist.readAsStringSync());
+    for (final extractor in extractors) {
+      final id = extractor();
       if (id != null) {
         writeAppId(id);
         return;
@@ -398,8 +434,10 @@ String? _extractApplicationId(String content) {
 
 /// Extracts `CFBundleIdentifier` from an Info.plist file.
 ///
-/// Handles both literal values and `$(PRODUCT_BUNDLE_IDENTIFIER)` references.
-/// Returns null for placeholder values that cannot be resolved statically.
+/// Returns the literal bundle ID when present. Returns null when the value is
+/// an Xcode variable substitution (e.g. `$(PRODUCT_BUNDLE_IDENTIFIER)`) —
+/// callers should then resolve via `_resolvePbxprojBundleId` or
+/// `_resolveXcconfigBundleId`.
 String? _extractPlistBundleId(String content) {
   final match = RegExp(
     r'<key>CFBundleIdentifier</key>\s*<string>([^<]+)</string>',
@@ -409,6 +447,54 @@ String? _extractPlistBundleId(String content) {
   // Skip unresolved Xcode variable substitutions like $(VAR) or ${VAR}.
   if (value.contains(r'$(') || value.contains(r'${')) return null;
   return value;
+}
+
+/// Reads `PRODUCT_BUNDLE_IDENTIFIER` for the main Runner target from an Xcode
+/// `project.pbxproj` file.
+///
+/// Scans every `PRODUCT_BUNDLE_IDENTIFIER = ...` assignment and returns the
+/// shortest value found. In standard Flutter projects the main app target's
+/// bundle ID is shorter than test targets (which append suffixes such as
+/// `.RunnerTests`), so the shortest value is the main app bundle ID.
+/// Returns null when the file does not exist or contains no matching entry.
+String? _resolvePbxprojBundleId(String pbxprojPath) {
+  final f = File(pbxprojPath);
+  if (!f.existsSync()) return null;
+  final content = f.readAsStringSync();
+  final matches = RegExp(
+    r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([A-Za-z0-9._-]+)\s*;',
+  ).allMatches(content);
+
+  String? best;
+  for (final m in matches) {
+    final id = m.group(1)!;
+    // Prefer the shortest ID; in standard Flutter projects the main app target's bundle ID is shorter than test targets (which append .RunnerTests or similar).
+    if (best == null || id.length < best.length) {
+      best = id;
+    }
+  }
+  return best;
+}
+
+/// Reads `PRODUCT_BUNDLE_IDENTIFIER` from an Xcode `.xcconfig` file.
+///
+/// Used for macOS targets where the bundle ID is typically stored in
+/// `macos/Runner/Configs/AppInfo.xcconfig` rather than in `project.pbxproj`.
+/// Returns null when the file does not exist or contains no matching entry.
+String? _resolveXcconfigBundleId(String xcconfigPath) {
+  final f = File(xcconfigPath);
+  if (!f.existsSync()) return null;
+  final match = RegExp(
+    r'^\s*PRODUCT_BUNDLE_IDENTIFIER\s*=\s*(.+)$',
+    multiLine: true,
+  ).firstMatch(f.readAsStringSync());
+  final raw = match?.group(1)?.trim();
+  if (raw == null) return null;
+  // Strip inline // comments (e.g. "com.example.app // comment" or "com.example.app//comment").
+  final commentIndex = raw.indexOf('//');
+  if (commentIndex == -1) return raw.isEmpty ? null : raw;
+  final stripped = raw.substring(0, commentIndex).trim();
+  return stripped.isEmpty ? null : stripped;
 }
 
 // ---------------------------------------------------------------------------

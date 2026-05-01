@@ -32,6 +32,10 @@ Commands:
   tree        Get the widget tree
   describe    Describe the current screen (interactive elements + text)
   doctor      Check app, VM service, fdb_helper, platform tools, and device state
+  grant-permission <perm> [--revoke] [--reset] [--reset-all] [--bundle <id>]
+               Grant, revoke, or reset a runtime permission
+               iOS sim: xcrun simctl privacy; Android: adb pm grant/revoke
+               macOS: reset only (tccutil); physical iOS/Windows/Linux: unsupported
   native-tap  Tap native (non-Flutter) UI at coordinates via platform tools
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector or coordinates
@@ -52,6 +56,7 @@ Commands:
                --json              Output KEY=value tokens (HEAP_BEFORE, HEAP_AFTER, HEAP_DELTA)
   status      Check if the app is running
   kill        Stop the running app
+  simulator   iOS simulator command palette (appearance, push, location, etc.)
   skill       Print the AI agent skill file (SKILL.md)
 
 Global options:
@@ -105,7 +110,7 @@ Future<void> main(List<String> args) async {
   // `fdb mem diff` is pure file I/O — no VM connection required.
   final isMemDiff = command == 'mem' && commandArgs.isNotEmpty && commandArgs[0] == 'diff';
   // Commands that manage their own session dir or must run even on unhealthy sessions.
-  const sessionResolutionExempt = {'launch', 'devices', 'skill'};
+  const sessionResolutionExempt = {'launch', 'devices', 'skill', 'simulator'};
   // Commands that run against a potentially dead/missing session (soft-fail on null).
   const sessionSoftFail = {'status', 'doctor', 'crash-report'};
   if (!sessionResolutionExempt.contains(command) && !wantsHelp && !isMemDiff) {
