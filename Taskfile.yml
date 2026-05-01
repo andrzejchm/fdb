@@ -753,6 +753,67 @@ tasks:
         echo "==> Navigating back"
         {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
 
+  test:describe-router:
+    desc: Verify fdb describe only shows elements from the current (topmost) route, not underlying routes
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to Detail Page (child route)"
+        {{.FDB}} scroll-to --key "go_to_details" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "go_to_details" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to Detail Page (fdb tap --key go_to_details failed)" >&2
+          exit 1
+        fi
+        sleep 1
+
+        echo "==> Describing Detail Page (child route)"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe (router child) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+
+        # The Detail Page must appear as the current screen.
+        if echo "$OUTPUT" | grep -q "SCREEN: Detail Page"; then
+          echo "PASS: fdb describe shows correct SCREEN name on child route"
+        else
+          echo "FAIL: fdb describe did not show 'SCREEN: Detail Page' when on child route" >&2
+          exit 1
+        fi
+
+        # Home-screen-only elements must NOT leak through.
+        LEAK_FOUND=0
+        for KEY in "show_delayed" "double_tap_target" "longpress_target" "save_button_0" "submit_button"; do
+          if echo "$OUTPUT" | grep -q "key=$KEY"; then
+            echo "FAIL: fdb describe leaked home-screen element key=$KEY onto child route output" >&2
+            LEAK_FOUND=1
+          fi
+        done
+        if [ $LEAK_FOUND -eq 0 ]; then
+          echo "PASS: fdb describe does not leak home-screen elements onto child route"
+        else
+          exit 1
+        fi
+
+        # Home-screen-only VISIBLE TEXT must NOT appear in the output.
+        TEXT_LEAK_FOUND=0
+        for TEXT in "Go to Details" "Show Dialog" "Benchmarks" "Scroll-To Tests"; do
+          if echo "$OUTPUT" | grep -q "\"$TEXT\""; then
+            echo "FAIL: fdb describe leaked home-screen text '$TEXT' into child route VISIBLE TEXT" >&2
+            TEXT_LEAK_FOUND=1
+          fi
+        done
+        if [ $TEXT_LEAK_FOUND -eq 0 ]; then
+          echo "PASS: fdb describe does not leak home-screen text into child route VISIBLE TEXT"
+        else
+          exit 1
+        fi
+
+        echo "==> Navigating back"
+        {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
+
   test:tap:
     desc: Tap a widget by text selector
     dir: '{{.TEST_APP}}'
@@ -2742,6 +2803,7 @@ tasks:
       - task: test:describe
       - task: test:describe-grid
       - task: test:describe-nested-gestures
+      - task: test:describe-router
       - task: test:screenshot
       - task: test:native-view-tap
       - task: test:deeplink
