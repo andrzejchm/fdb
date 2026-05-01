@@ -11,10 +11,11 @@ import 'grid_describe_screen.dart';
 import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
+import 'notification_test_screen.dart';
 import 'permission_test_screen.dart';
 import 'scroll_to_test_screen.dart';
 
-void main() {
+Future<void> main() async {
   if (!kReleaseMode) {
     FdbBinding.ensureInitialized();
   }
@@ -50,6 +51,7 @@ class FdbTestApp extends StatelessWidget {
         '/nested-gesture-describe-test': (_) =>
             const NestedGestureDescribeScreen(),
         '/listtile-describe-test': (_) => const ListTileDescribeScreen(),
+        '/notification-test': (_) => NotificationTestScreen(),
         '/permission-test': (_) => const PermissionTestScreen(),
       },
     );
@@ -142,6 +144,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 child: const Text('Submit'),
               ),
               const SizedBox(height: 16),
+              ElevatedButton(
+                key: const Key('go_to_notification_test_top'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/notification-test'),
+                child: const Text('Notification Test'),
+              ),
+              const SizedBox(height: 8),
               // Navigation buttons
               ElevatedButton(
                 key: const Key('go_to_details'),
@@ -232,6 +241,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/listtile-describe-test'),
                 child: const Text('ListTile Describe Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_notification_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/notification-test'),
+                child: const Text('Notification Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
