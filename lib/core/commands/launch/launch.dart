@@ -379,14 +379,6 @@ void _writeAppIdFromProject(String projectPath, String device) {
           if (id != null) return id;
           return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
         },
-        () {
-          final f = File('$projectPath/android/app/build.gradle.kts');
-          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
-        },
-        () {
-          final f = File('$projectPath/android/app/build.gradle');
-          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
-        },
       ],
       if (!isMacos)
         () {
@@ -447,8 +439,9 @@ String? _extractPlistBundleId(String content) {
 /// `project.pbxproj` file.
 ///
 /// Scans every `PRODUCT_BUNDLE_IDENTIFIER = ...` assignment and returns the
-/// first value that does not contain a dot-separated `.RunnerTests` or other
-/// test-target suffix, i.e. the value that is shortest / least qualified.
+/// shortest value found. In standard Flutter projects the main app target's
+/// bundle ID is shorter than test targets (which append suffixes such as
+/// `.RunnerTests`), so the shortest value is the main app bundle ID.
 /// Returns null when the file does not exist or contains no matching entry.
 String? _resolvePbxprojBundleId(String pbxprojPath) {
   final f = File(pbxprojPath);
@@ -461,7 +454,7 @@ String? _resolvePbxprojBundleId(String pbxprojPath) {
   String? best;
   for (final m in matches) {
     final id = m.group(1)!;
-    // Skip test-target identifiers (they append .RunnerTests or similar).
+    // Prefer the shortest ID; in standard Flutter projects the main app target's bundle ID is shorter than test targets (which append .RunnerTests or similar).
     if (best == null || id.length < best.length) {
       best = id;
     }
@@ -481,7 +474,13 @@ String? _resolveXcconfigBundleId(String xcconfigPath) {
     r'^\s*PRODUCT_BUNDLE_IDENTIFIER\s*=\s*(.+)$',
     multiLine: true,
   ).firstMatch(f.readAsStringSync());
-  return match?.group(1)?.trim();
+  final raw = match?.group(1)?.trim();
+  if (raw == null) return null;
+  // Strip inline // comments (e.g. "com.example.app // comment" or "com.example.app//comment").
+  final commentIndex = raw.indexOf('//');
+  if (commentIndex == -1) return raw;
+  final stripped = raw.substring(0, commentIndex).trim();
+  return stripped.isEmpty ? null : stripped;
 }
 
 // ---------------------------------------------------------------------------
