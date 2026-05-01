@@ -5,10 +5,10 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.5.1
+## Overview - skill version 1.6.0
 
 > **Version check:** Run `fdb --version`. This skill may describe unreleased branch behavior,
-> so do not assume the published `1.5.1` release includes every command example below. To use
+> so do not assume the published `1.6.0` release includes every command example below. To use
 > the latest behavior from this repository,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
@@ -28,7 +28,7 @@ The `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back`
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.5.1
+  fdb_helper: ^1.6.0
 ```
 
 **`main.dart`:**

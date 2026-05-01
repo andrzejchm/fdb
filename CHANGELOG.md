@@ -1,3 +1,13 @@
+## 1.6.0
+
+### New commands
+- `fdb simulator` — full simulator control palette: appearance (light/dark), status bar overrides, location spoofing, push notification delivery, text size, and arbitrary `defaults write` key-value adjustments
+- `fdb grant-permission` — grant, revoke, or reset runtime permissions on Android and iOS without leaving the fdb workflow
+
+### Fixes
+- `fdb launch` now correctly resolves the iOS/macOS bundle ID when `Info.plist` uses the `$(PRODUCT_BUNDLE_IDENTIFIER)` variable reference — previously fell through to the Android Gradle extractor and wrote the wrong bundle ID to `.fdb/app_id.txt`
+- `fdb describe` now surfaces buttons inside `ListTile` as separate interactive elements instead of merging them into the tile's tap target
+
 ## 1.5.1
 
 ### Fixes

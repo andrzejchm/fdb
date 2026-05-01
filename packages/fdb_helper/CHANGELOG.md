@@ -1,3 +1,7 @@
+## 1.6.0
+
+No functional changes.
+
 ## 1.5.1
 
 ### Fixes
