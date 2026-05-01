@@ -2046,6 +2046,9 @@ tasks:
   test:grant-permission:
     desc: Grant, revoke, and reset runtime permissions via xcrun simctl (iOS sim) or adb (Android)
     dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
     cmds:
       - |
         PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
@@ -2261,7 +2264,7 @@ tasks:
           echo "==> [grant-permission] integration: kill and relaunch app"
           {{.FDB}} kill 2>&1 || true
           sleep 1
-          LAUNCH_OUTPUT=$({{.FDB}} launch 2>&1)
+          LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
           LAUNCH_EXIT=$?
           echo "$LAUNCH_OUTPUT"
           if [ $LAUNCH_EXIT -ne 0 ]; then
