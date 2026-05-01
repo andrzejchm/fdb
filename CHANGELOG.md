@@ -1,3 +1,8 @@
+## 1.5.1
+
+### Fixes
+- `fdb describe` no longer leaks elements from underlying navigator routes — when navigating to a child screen, the handler previously walked route subtrees kept alive by the Navigator stack; the fix tracks the active `ModalRoute` boundary and prunes any subtree where `isCurrent` is `false`
+
 ## 1.5.0
 
 ### New commands

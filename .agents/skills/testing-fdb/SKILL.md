@@ -52,6 +52,8 @@ task test:crash-report
 task test:tree
 task test:describe
 task test:describe-grid
+task test:describe-nested-gestures
+task test:describe-router
 task test:screenshot
 task test:native-view-tap
 task test:deeplink
@@ -98,6 +100,31 @@ Unit tests cover `launch_failure_analyzer.dart` — classification of `flutter r
 ```bash
 task cleanup    # kill app, remove .fdb/ session directory
 ```
+
+## Agent scenarios (semantic regression testing)
+
+`task smoke` and individual `task test:*` tasks grep output tokens — binary
+pass/fail. They cannot catch semantic regressions such as elements leaking
+from underlying routes, wrong screen names, or incorrect visible text.
+
+Run the scenarios in `doc/agent-scenarios.md` when making changes to any fdb
+command. Each scenario describes exact commands to run and a **What to verify**
+list you evaluate by reading the actual output. This is the difference between
+"the right token appeared" and "the right content appeared for the right screen."
+
+```bash
+# Read the scenarios document
+cat doc/agent-scenarios.md
+
+# Run a scenario — example for S1 (home screen baseline)
+cd example/test_app
+dart run ../../bin/fdb.dart describe
+# then evaluate output against the S1 What to verify list
+```
+
+When adding a new command, also add a corresponding scenario to
+`doc/agent-scenarios.md` — see the "Adding new scenarios" section at the bottom
+of that file.
 
 ## Test output conventions
 
