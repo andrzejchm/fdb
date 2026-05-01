@@ -172,8 +172,8 @@ dart run ../../bin/fdb.dart describe
 dart run ../../bin/fdb.dart tap --text "Submit"
 ```
 
-**After tap by text:** exits 0, output contains `TAPPED=` (the resolved widget
-type — may be `Text`, `ElevatedButton`, or another type depending on hit test).
+**After tap by text:** exits 0, output contains `TAPPED=ElevatedButton` (the
+interactive ancestor, not the raw `Text` leaf).
 
 ```bash
 # Tap by ref — get ref from describe, tap @1
@@ -202,7 +202,7 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `tap` exits 0 with `TAPPED=ElevatedButton`
+- `tap` exits 0 with `TAPPED=ElevatedButton` (not `IgnorePointer` or any other wrapper)
 - `describe` no longer shows `key=disappearing_button` in `INTERACTIVE:`
 
 ---
@@ -219,8 +219,8 @@ dart run ../../bin/fdb.dart describe
 **What to verify:**
 
 - `input` command exits 0 with `INPUT=TextField VALUE=hello fdb`
-- `describe` INTERACTIVE entry for `key=test_input` contains `"hello fdb"` in
-  its text label
+- `describe` INTERACTIVE entry for `key=test_input` contains `"hello fdb"` in its text label
+- `VISIBLE TEXT:` contains `"hello fdb"` (TextField content is visible on screen)
 
 Clean up:
 
@@ -392,7 +392,7 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `swipe` exits 0 with `SWIPED=LEFT`
+- `swipe` exits 0 with `SWIPED=left` (lowercase, consistent with `SCROLLED=down`)
 - Second `describe` VISIBLE TEXT shows `"Page 2"` instead of `"Page 1"`
 
 ---
