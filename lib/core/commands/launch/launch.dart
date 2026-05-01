@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/launch/launch_models.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:pubspec_manager/pubspec_manager.dart';
 
 export 'package:fdb/core/commands/launch/launch_models.dart';
 
@@ -19,8 +18,7 @@ void _noop(String _) {}
 /// Launches a Flutter app as a detached background process and waits for the
 /// VM service URI to appear in the log.
 ///
-/// Progress messages (heartbeats and warnings) are emitted via [onProgress].
-/// Heartbeats are plain tokens (e.g. "WAITING..."); warnings are prefixed with
+/// Progress messages are emitted via [onProgress]. Warnings are prefixed with
 /// "WARNING: " so adapters can route them to the appropriate output channel.
 ///
 /// Never throws. All error conditions are represented as sealed result cases.
@@ -35,8 +33,10 @@ Future<LaunchResult> launchApp(
     final target = input.target;
     final flutterSdk = input.flutterSdk;
     final verbose = input.verbose;
+    String? deviceLabel;
 
     if (device == null) return const LaunchMissingDevice();
+    onProgress('launch: preparing session');
 
     // Point all session files at <project>/.fdb/
     initSessionDir(project);
@@ -53,6 +53,9 @@ Future<LaunchResult> launchApp(
     for (final path in [
       pidFile,
       appPidFile,
+      controllerPidFile,
+      controllerPortFile,
+      controllerTokenFile,
       logFile,
       logCollectorPidFile,
       logCollectorScript,
@@ -76,54 +79,48 @@ Future<LaunchResult> launchApp(
     // Resolve and persist the target platform + emulator flag for this device.
     // Used by `fdb screenshot` to dispatch to the correct capture backend.
     // Non-fatal: screenshot falls back to the old heuristic if this fails.
-    await _writePlatformInfo(device, flutter);
+    deviceLabel = await _writePlatformInfo(device, flutter);
 
     // Persist the app bundle id / package name for later use by crash-report.
     // Non-fatal: crash-report will ask the user for --app-id if this fails.
     _writeAppIdFromProject(project, device);
 
-    // Build the flutter run command string.
-    final flutterArgs = [
-      flutter,
-      'run',
-      '-d',
+    final controllerLaunch = _resolveControllerLaunch();
+
+    final controllerArgs = [
+      ...controllerLaunch.arguments,
+      '--session-dir',
+      ensureSessionDir(),
+      '--project',
+      project,
+      '--device',
       device,
-      '--debug',
-      '--pid-file',
-      pidFile,
+      '--flutter',
+      flutter,
       if (flavor != null) ...['--flavor', flavor],
       if (target != null) ...['--target', target],
       if (verbose) '--verbose',
     ];
-    final flutterCmd = flutterArgs.map(_shellEscape).join(' ');
 
-    // Write a launcher script that runs flutter in the foreground (nohup keeps
-    // it alive after the parent exits, and & backgrounds it from our perspective).
-    final script = '''
-#!/bin/bash
-cd ${_shellEscape(project)}
-exec $flutterCmd > $logFile 2>&1
-''';
-    File(launcherScript).writeAsStringSync(script);
-    Process.runSync('chmod', ['+x', launcherScript]);
-
-    // Launch via nohup + & so the process is fully detached from this parent.
-    final result = await Process.run('bash', [
-      '-c',
-      'nohup bash $launcherScript &\necho \$!',
-    ]);
-
-    if (result.exitCode != 0) {
-      return LaunchLauncherFailed(result.stderr as String);
+    late final Process controllerProcess;
+    try {
+      onProgress('launch: starting controller');
+      controllerProcess = await Process.start(
+        controllerLaunch.executable,
+        controllerArgs,
+        mode: ProcessStartMode.detached,
+      );
+    } on ProcessException catch (e) {
+      return LaunchLauncherFailed(e.toString());
     }
-
-    final launcherPid = int.tryParse((result.stdout as String).trim());
-    if (launcherPid == null) return const LaunchInvalidLauncherPid();
+    File(controllerPidFile).writeAsStringSync(controllerProcess.pid.toString());
 
     // Poll log file for VM service URI.
     final stopwatch = Stopwatch()..start();
     var lastHeartbeat = 0;
+    var reportedLogLines = 0;
     String? vmUri;
+    onProgress('launch: starting Flutter on ${deviceLabel ?? 'device $device'}');
 
     while (stopwatch.elapsed.inSeconds < launchTimeoutSeconds) {
       await Future<void>.delayed(const Duration(milliseconds: pollIntervalMs));
@@ -132,11 +129,13 @@ exec $flutterCmd > $logFile 2>&1
       final elapsedSeconds = stopwatch.elapsed.inSeconds;
       if (elapsedSeconds ~/ heartbeatIntervalSeconds > lastHeartbeat) {
         lastHeartbeat = elapsedSeconds ~/ heartbeatIntervalSeconds;
-        onProgress('WAITING...');
+        onProgress(
+          'launch: still waiting for VM service (${elapsedSeconds}s elapsed)',
+        );
       }
 
-      // Check if the launcher process died unexpectedly.
-      if (!_isAlive(launcherPid)) {
+      // Check if the controller process died unexpectedly.
+      if (!_isAlive(controllerProcess.pid)) {
         final logExists = File(logFile).existsSync();
         if (logExists) {
           final logContent = File(logFile).readAsStringSync();
@@ -148,9 +147,19 @@ exec $flutterCmd > $logFile 2>&1
 
       if (!File(logFile).existsSync()) continue;
 
-      final logContent = File(logFile).readAsStringSync();
-      vmUri = _extractVmUri(logContent);
-      if (vmUri != null) break;
+      final lines = File(logFile).readAsLinesSync();
+      if (lines.length > reportedLogLines) {
+        for (final line in lines.skip(reportedLogLines)) {
+          final progress = _progressFromLogLine(line);
+          if (progress != null) {
+            onProgress(progress);
+          }
+        }
+        reportedLogLines = lines.length;
+      }
+
+      vmUri = readVmUri();
+      if (vmUri != null && vmUri.isNotEmpty) break;
     }
 
     if (vmUri == null) {
@@ -164,24 +173,7 @@ exec $flutterCmd > $logFile 2>&1
       return LaunchTimeout(tailLogLines: tailLogLines);
     }
 
-    // Save VM service URI.
-    File(vmUriFile).writeAsStringSync(vmUri);
-
-    // Read PID — flutter writes it via --pid-file, fall back to launcher PID.
-    final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : launcherPid.toString();
-
-    // Start the log collector — a background process that subscribes to the
-    // VM service Logging/Stdout/Stderr streams and appends to the log file.
-    // flutter run only forwards print() to stdout; developer.log() events are
-    // only available via the VM service, so this fills that gap.
-    await _startLogCollector(vmUri, onProgress);
-
-    // Retrieve the app VM PID via getVM and persist it to fdb.app_pid.
-    // This is the Dart VM process PID (different from the flutter-tools PID in
-    // fdb.pid). Used by vmServiceCall for liveness detection on macOS desktop.
-    // Non-fatal: if getVM fails for any reason, fdb.app_pid is simply not written
-    // and vmServiceCall falls back to the flutter-tools PID heuristic.
-    await _writeAppPid();
+    final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : controllerProcess.pid.toString();
 
     return LaunchSuccess(
       vmServiceUri: vmUri,
@@ -193,54 +185,74 @@ exec $flutterCmd > $logFile 2>&1
   }
 }
 
-// ---------------------------------------------------------------------------
-// Log collector
-// ---------------------------------------------------------------------------
+class _ControllerLaunchCommand {
+  const _ControllerLaunchCommand(this.executable, this.arguments);
 
-Future<void> _startLogCollector(
-  String vmUri,
-  void Function(String) onProgress,
-) async {
-  final collectorEntrypoint = await _resolveLogCollectorEntrypoint();
-  if (collectorEntrypoint == null) {
-    onProgress(
-      'WARNING: Log collector entrypoint not found; developer.log() events may be missing',
-    );
-    return;
-  }
-
-  // Launch via nohup so the collector survives after fdb exits.
-  // Same pattern used for the flutter run launcher script.
-  await Process.run('bash', [
-    '-c',
-    'nohup dart ${_shellEscape(collectorEntrypoint)}'
-        ' ${_shellEscape(vmUri)}'
-        ' ${_shellEscape(logFile)}'
-        ' ${_shellEscape(logCollectorPidFile)}'
-        ' > /dev/null 2>&1 &',
-  ]);
+  final String executable;
+  final List<String> arguments;
 }
 
-Future<String?> _resolveLogCollectorEntrypoint() async {
-  const relativePath = 'bin/log_collector.dart';
-  final packageUri = Uri.parse('package:fdb/commands/launch.dart');
-  final resolved = await Isolate.resolvePackageUri(packageUri);
-  if (resolved != null) {
-    final packageRoot = File.fromUri(resolved).parent.parent.parent;
-    final candidate = File('${packageRoot.path}/$relativePath');
-    if (candidate.existsSync()) {
-      return candidate.path;
+_ControllerLaunchCommand _resolveControllerLaunch() {
+  final localController = _findLocalControllerEntrypoint();
+  if (localController != null) {
+    return _ControllerLaunchCommand(
+      Platform.resolvedExecutable,
+      [localController],
+    );
+  }
+
+  return const _ControllerLaunchCommand('fdb-controller', []);
+}
+
+String? _progressFromLogLine(String line) {
+  final trimmed = line.trim();
+  if (trimmed.isEmpty) return null;
+
+  const prefixes = [
+    'Resolving dependencies',
+    'Downloading packages',
+    'Got dependencies',
+    'Launching ',
+    'Running Gradle task',
+    'Building Linux application',
+    'Building macOS application',
+    'Building Windows application',
+    'Installing ',
+    'Syncing files',
+  ];
+
+  for (final prefix in prefixes) {
+    if (trimmed.startsWith(prefix)) {
+      return 'flutter: $trimmed';
     }
   }
 
-  final scriptDir = Directory.fromUri(Platform.script).parent;
-  final packageRoot = scriptDir.parent;
-  final fallback = File('${packageRoot.path}/$relativePath');
-  if (fallback.existsSync()) {
-    return fallback.path;
+  if (trimmed.startsWith('✓ Built ')) {
+    return 'flutter: $trimmed';
   }
 
   return null;
+}
+
+String? _findLocalControllerEntrypoint() {
+  final scriptDir = Directory.fromUri(Platform.script).parent;
+  final packageRoot = scriptDir.parent;
+  final controller = File('${packageRoot.path}/bin/controller.dart');
+  final pubspec = File('${packageRoot.path}/pubspec.yaml');
+
+  if (!controller.existsSync() || !pubspec.existsSync()) {
+    return null;
+  }
+
+  try {
+    final packageSpec = PubSpec.loadFromPath(pubspec.path);
+    if (packageSpec.name.value != 'fdb') {
+      return null;
+    }
+    return controller.path;
+  } catch (_) {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -279,24 +291,24 @@ String _resolveFlutter(
 // Platform info
 // ---------------------------------------------------------------------------
 
-/// Queries flutter devices --machine to find the targetPlatform and emulator
-/// flag for [device], then writes them to [platformFile] via [writePlatformInfo].
+/// Queries flutter devices --machine to find the targetPlatform, emulator flag,
+/// and friendly name for [device].
 ///
 /// Silently no-ops on any failure — screenshot falls back gracefully if the
 /// platform file is absent.
-Future<void> _writePlatformInfo(String device, String flutter) async {
+Future<String?> _writePlatformInfo(String device, String flutter) async {
   try {
     final result = await Process.run(flutter, ['devices', '--machine']);
-    if (result.exitCode != 0) return;
+    if (result.exitCode != 0) return null;
 
     final json = extractDevicesJson(result.stdout as String);
-    if (json == null) return;
+    if (json == null) return null;
 
     final List<dynamic> devices;
     try {
       devices = jsonDecode(json) as List<dynamic>;
     } catch (_) {
-      return;
+      return null;
     }
 
     for (final d in devices) {
@@ -305,13 +317,15 @@ Future<void> _writePlatformInfo(String device, String flutter) async {
         final platform = map['targetPlatform'] as String?;
         final emulator = map['emulator'] as bool? ?? false;
         if (platform != null) writePlatformInfo(platform, emulator);
-        return;
+        return map['name'] as String? ?? device;
       }
     }
+    return null;
   } on TimeoutException {
     rethrow;
   } catch (_) {
     // Non-fatal: screenshot will work without platform info.
+    return null;
   }
 }
 
@@ -417,26 +431,6 @@ void _ensureGitignored(String projectPath) {
 }
 
 // ---------------------------------------------------------------------------
-// App PID
-// ---------------------------------------------------------------------------
-
-/// Calls getVM on the VM service to retrieve the app process PID and writes
-/// it to [appPidFile]. Silently no-ops on any failure — callers fall back
-/// to the flutter-tools PID heuristic when this file is absent.
-Future<void> _writeAppPid() async {
-  try {
-    final response = await vmServiceCall('getVM');
-    final result = response['result'] as Map<String, dynamic>?;
-    if (result == null) return;
-    final appPid = result['pid'];
-    if (appPid == null) return;
-    File(appPidFile).writeAsStringSync(appPid.toString());
-  } catch (_) {
-    // Non-fatal: fdb.app_pid simply won't be written.
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -447,40 +441,4 @@ bool _isAlive(int pid) {
   } catch (_) {
     return false;
   }
-}
-
-/// Extract VM service websocket URI from flutter run log output.
-String? _extractVmUri(String logContent) {
-  // Match http(s) URIs with auth token path (e.g. http://127.0.0.1:9100/AbCdEf=/)
-  // or ws:// URIs directly.
-  final match = RegExp(
-    r'(https?://[^\s]+/[a-zA-Z0-9_\-]+=/)|(ws://[^\s]+)',
-  ).firstMatch(logContent);
-
-  if (match == null) {
-    // Fall back: check for DevTools/Observatory text, then try again.
-    if (!logContent.contains('Flutter DevTools') && !logContent.contains('An Observatory debugger')) {
-      return null;
-    }
-    final fallback = RegExp(
-      r'(https?://127\.0\.0\.1:\d+/[a-zA-Z0-9_\-]+=/)|(ws://[^\s]+)',
-    ).firstMatch(logContent);
-    if (fallback == null) return null;
-    return _httpToWs(fallback.group(0)!);
-  }
-
-  return _httpToWs(match.group(0)!);
-}
-
-String _httpToWs(String uri) {
-  if (!uri.startsWith('http')) return uri;
-  var wsUri = uri.replaceFirst('http', 'ws');
-  if (!wsUri.endsWith('ws')) wsUri = '${wsUri}ws';
-  return wsUri;
-}
-
-/// Shell-escape a string for safe embedding in a bash command.
-String _shellEscape(String value) {
-  if (RegExp(r'^[a-zA-Z0-9._/=-]+$').hasMatch(value)) return value;
-  return "'${value.replaceAll("'", r"'\''")}'";
 }

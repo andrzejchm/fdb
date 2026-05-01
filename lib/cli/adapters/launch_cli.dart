@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
+import 'package:fdb/cli/interactive_repl.dart';
 import 'package:fdb/core/commands/launch/launch.dart';
 import 'package:fdb/core/launch_failure_analyzer.dart';
 
@@ -14,6 +15,7 @@ import 'package:fdb/core/launch_failure_analyzer.dart';
 ///   --target       Entry-point file (default: lib/main.dart)
 ///   --flutter-sdk  Path to Flutter SDK root
 ///   --verbose      Pass --verbose to flutter run
+///   --interactive  Start an fdb REPL after launching
 Future<int> runLaunchCli(List<String> args) => runCliAdapter(
       ArgParser()
         ..addOption('device', help: '(required) target device/simulator ID')
@@ -24,7 +26,17 @@ Future<int> runLaunchCli(List<String> args) => runCliAdapter(
           help: 'Entry-point file (default: lib/main.dart)',
         )
         ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
-        ..addFlag('verbose', negatable: false, help: 'Pass --verbose to flutter run'),
+        ..addFlag(
+          'verbose',
+          negatable: false,
+          help: 'Pass --verbose to flutter run',
+        )
+        ..addFlag(
+          'interactive',
+          abbr: 'i',
+          negatable: false,
+          help: 'Start an fdb REPL after launching',
+        ),
       args,
       _execute,
     );
@@ -44,13 +56,12 @@ Future<int> _execute(ArgResults results) async {
     target: results['target'] as String?,
     flutterSdk: results['flutter-sdk'] as String?,
     verbose: results['verbose'] as bool,
+    interactive: results['interactive'] as bool,
   );
 
   final result = await launchApp(
     input,
     onProgress: (s) {
-      // Warnings go to stderr; all other progress tokens (e.g. WAITING...) go
-      // to stdout so callers can distinguish them.
       if (s.startsWith('WARNING:')) {
         stderr.writeln(s);
       } else {
@@ -59,16 +70,18 @@ Future<int> _execute(ArgResults results) async {
     },
   );
 
-  return _format(result);
+  final exitCode = _format(result);
+  if (exitCode == 0 && input.interactive) {
+    return runInteractiveRepl();
+  }
+  return exitCode;
 }
 
 int _format(LaunchResult result) {
   switch (result) {
-    case LaunchSuccess(:final vmServiceUri, :final pid, :final logFilePath):
-      stdout.writeln('APP_STARTED');
-      stdout.writeln('VM_SERVICE_URI=$vmServiceUri');
-      stdout.writeln('PID=$pid');
-      stdout.writeln('LOG_FILE=$logFilePath');
+    case LaunchSuccess(:final logFilePath):
+      stdout.writeln('launch: app is running');
+      stdout.writeln('log: $logFilePath');
       return 0;
 
     case LaunchMissingDevice():

@@ -12,6 +12,7 @@ typedef LaunchInput = ({
   String? target,
   String? flutterSdk,
   bool verbose,
+  bool interactive,
 });
 
 /// Result of a [launchApp] invocation.

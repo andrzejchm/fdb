@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/kill/kill_models.dart';
+import 'package:fdb/core/controller_client.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/kill/kill_models.dart';
@@ -11,41 +12,26 @@ export 'package:fdb/core/commands/kill/kill_models.dart';
 /// Returns [KillSuccess] on success, [KillNoSession] if no PID file is
 /// present, or [KillFailed] if the process refused to die after `SIGKILL`.
 Future<KillResult> killApp(KillInput _) async {
-  final pid = readPid();
-  if (pid == null) return const KillNoSession();
+  final controllerPid = readControllerPid();
+  if (controllerPid == null) return const KillNoSession();
 
   // Kill the log collector first so it stops writing to the log file.
   _killLogCollector();
 
-  if (!isProcessAlive(pid)) {
-    cleanupTempFiles();
-    return const KillSuccess();
-  }
-
-  // Send SIGTERM
-  Process.killPid(pid, ProcessSignal.sigterm);
-
-  // Wait for process to exit
-  final stopwatch = Stopwatch()..start();
-  while (stopwatch.elapsed.inSeconds < killTimeoutSeconds) {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    if (!isProcessAlive(pid)) {
+  try {
+    final response = await sendControllerCommand(
+      'kill',
+      timeout: const Duration(seconds: killTimeoutSeconds),
+    );
+    if (response['ok'] == true) {
       cleanupTempFiles();
       return const KillSuccess();
     }
+  } on ControllerUnavailable {
+    return const KillFailed();
   }
 
-  // Force kill if still alive
-  try {
-    Process.killPid(pid, ProcessSignal.sigkill);
-  } catch (_) {
-    // Process may have already exited
-  }
-
-  cleanupTempFiles();
-
-  if (isProcessAlive(pid)) return const KillFailed();
-  return const KillSuccess();
+  return const KillFailed();
 }
 
 void _killLogCollector() {

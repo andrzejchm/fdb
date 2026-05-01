@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
+
+String adbExecutable = 'adb';
 
 int? readPid() {
   final file = File(pidFile);
@@ -22,8 +23,33 @@ int? readAppPid() {
   return int.tryParse(content);
 }
 
+String projectPathFromSessionDir() {
+  return Directory(sessionDirPath).parent.path;
+}
+
 String? readVmUri() {
   final file = File(vmUriFile);
+  if (!file.existsSync()) return null;
+  final content = file.readAsStringSync().trim();
+  return content.isEmpty ? null : content;
+}
+
+int? readControllerPid() {
+  final file = File(controllerPidFile);
+  if (!file.existsSync()) return null;
+  final content = file.readAsStringSync().trim();
+  return int.tryParse(content);
+}
+
+int? readControllerPort() {
+  final file = File(controllerPortFile);
+  if (!file.existsSync()) return null;
+  final content = file.readAsStringSync().trim();
+  return int.tryParse(content);
+}
+
+String? readControllerToken() {
+  final file = File(controllerTokenFile);
   if (!file.existsSync()) return null;
   final content = file.readAsStringSync().trim();
   return content.isEmpty ? null : content;
@@ -82,24 +108,61 @@ bool isProcessAlive(int pid) {
   }
 }
 
-/// Returns true if the VM service at [uri] is reachable by opening a WebSocket
-/// and waiting for the first byte (or a clean open). Times out quickly so
-/// `fdb status` does not block for long when the app is truly dead.
-///
-/// This is used as a fallback by `fdb status` when the PID file is missing or
-/// points to a dead process — a common scenario when `fdb launch` was killed by
-/// an agent timeout after the app started but before `APP_STARTED` was printed.
-Future<bool> isVmServiceReachable(String uri) async {
+bool isAndroidTarget() {
+  final info = readPlatformInfo();
+  if (info == null) return false;
+  return info.platform.toLowerCase().startsWith('android');
+}
+
+bool isAndroidAppPidAlive(int pid) {
+  if (!isAndroidTarget()) return false;
+  final device = readDevice();
+  if (device == null || device.isEmpty) return false;
+  final appId = readAppId();
   try {
-    final ws = await WebSocket.connect(uri).timeout(const Duration(seconds: 3));
-    unawaited(ws.close());
-    return true;
+    if (appId != null && appId.isNotEmpty) {
+      final result = Process.runSync(adbExecutable, [
+        '-s',
+        device,
+        'shell',
+        'pidof',
+        appId,
+      ]);
+      if (result.exitCode == 0) {
+        final pids = (result.stdout as String)
+            .trim()
+            .split(RegExp(r'\s+'))
+            .where((value) => value.isNotEmpty)
+            .map(int.tryParse)
+            .whereType<int>();
+        if (pids.contains(pid)) return true;
+      }
+    }
   } catch (_) {
-    // Intentional: timeout and all network errors mean "not reachable = false".
-    // This probe function is an explicit exception to the general
-    // "rethrow TimeoutException" rule — a timeout here is the probe's false case.
+    // Fall back to ps parsing below.
+  }
+
+  try {
+    final result = Process.runSync(adbExecutable, [
+      '-s',
+      device,
+      'shell',
+      'ps',
+      '-A',
+    ]);
+    if (result.exitCode != 0) return false;
+    final pidText = pid.toString();
+    final lines = (result.stdout as String).split('\n').where((line) => line.trim().isNotEmpty);
+    for (final line in lines) {
+      final fields = line.trim().split(RegExp(r'\s+'));
+      if (fields.length < 2) continue;
+      if (fields[1] == pidText) return true;
+    }
+  } catch (_) {
     return false;
   }
+
+  return false;
 }
 
 /// Reads the persisted app bundle id / package name from `.fdb/app_id.txt`.
@@ -122,6 +185,9 @@ void cleanupTempFiles() {
   for (final path in [
     pidFile,
     appPidFile,
+    controllerPidFile,
+    controllerPortFile,
+    controllerTokenFile,
     logFile,
     logCollectorPidFile,
     logCollectorScript,

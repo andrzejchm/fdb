@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
+import 'package:fdb/core/controller_client.dart';
 import 'package:fdb/core/process_utils.dart';
 
 /// Sends a JSON-RPC request to the Flutter VM service over websocket.
@@ -14,142 +15,146 @@ Future<Map<String, dynamic>> vmServiceCall(
   Map<String, dynamic> params = const {},
   Duration timeout = const Duration(seconds: 30),
 }) async {
-  final uri = readVmUri();
-  if (uri == null || uri.isEmpty) {
-    throw StateError('VM service URI not found. Is the app running?');
-  }
+  var recoveredOnce = false;
 
-  // Pre-check: if the process is dead, short-circuit immediately without
-  // even attempting a WebSocket connection.
-  //
-  // On the macOS desktop *target* (not host), the app VM PID (fdb.app_pid)
-  // and the flutter-tools PID (fdb.pid) both live in the host process table,
-  // so we can check either. Prefer the app PID because it is the actual Dart
-  // VM process; fall back to the flutter-tools PID when fdb.app_pid has not
-  // been written yet.
-  //
-  // On Android and iOS targets the app VM PID from getVM lives inside the
-  // device / simulator process namespace and is NOT visible to the host macOS
-  // process table — kill -0 would always return false, producing false
-  // positives. On those targets skip the PID pre-check and rely on the
-  // connection-refused heuristic below.
-  if (_isMacOsTarget()) {
-    final pid = readAppPid() ?? readPid();
-    if (pid != null && !isProcessAlive(pid)) {
-      throw await buildAppDiedException(pid: pid);
+  while (true) {
+    var uri = readVmUri();
+    if (uri == null || uri.isEmpty) {
+      uri = await _refreshVmUriFromController();
     }
-  }
+    if (uri == null || uri.isEmpty) {
+      throw StateError('VM service URI not found. Is the app running?');
+    }
 
-  final wsUri = uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
-
-  WebSocket ws;
-  try {
-    ws = await WebSocket.connect(
-      wsUri,
-      customClient: HttpClient()..maxConnectionsPerHost = 1,
-    ).timeout(const Duration(seconds: 5));
-  } on TimeoutException {
-    // Connection timed out — check if the process died in the meantime.
-    // Use app PID on the macOS target (most accurate); fall back to
-    // flutter-tools PID. Skip on Android/iOS where the PID is not on the host.
+    // Pre-check: if the process is dead, short-circuit immediately without
+    // even attempting a WebSocket connection.
     if (_isMacOsTarget()) {
-      final currentPid = readAppPid() ?? readPid();
-      if (currentPid != null && !isProcessAlive(currentPid)) {
-        throw await buildAppDiedException(pid: currentPid);
+      final pid = readAppPid() ?? readPid();
+      if (pid != null && !isProcessAlive(pid)) {
+        throw await buildAppDiedException(pid: pid);
       }
     }
-    // Rethrow original so the caller sees a TimeoutException when the app
-    // is still nominally alive but the VM service is unreachable.
-    rethrow;
-  } catch (e) {
-    // Connection refused / OS error: the VM service is no longer accepting
-    // connections.  This is the primary signal that the app has died — the
-    // PID liveness check alone is insufficient because fdb.pid stores the
-    // flutter-tools process PID, not the actual app process PID (fdb-bbu).
-    //
-    // We treat ANY connection-refused-like error as APP_DIED, since the VM
-    // service URI was written by `fdb launch` only when the app was healthy.
-    // If the app came back on a different port the URI would also be stale,
-    // but that scenario is handled by re-running `fdb launch`.
-    if (_isConnectionRefused(e)) {
-      // Prefer the app PID on macOS target (host-visible). On Android/iOS the
-      // app PID is device-namespace and not useful — use flutter-tools PID.
-      final pid = _isMacOsTarget() ? (readAppPid() ?? readPid()) : readPid();
-      throw await buildAppDiedException(pid: pid);
-    }
-    // For non-connection errors (e.g. bad URI, TLS issues) fall back to PID
-    // check before rethrowing (macOS target only — see pre-check rationale).
-    if (_isMacOsTarget()) {
-      final currentPid = readAppPid() ?? readPid();
-      if (currentPid != null && !isProcessAlive(currentPid)) {
-        throw await buildAppDiedException(pid: currentPid);
-      }
-    }
-    rethrow;
-  }
 
-  // Widget trees can be 500KB+, no built-in buffer size limit on dart:io WebSocket
-  // but we need to handle large responses properly.
+    final wsUri = uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
 
-  final completer = Completer<Map<String, dynamic>>();
-  final requestId = DateTime.now().microsecondsSinceEpoch.toString();
-
-  final request = jsonEncode({
-    'jsonrpc': '2.0',
-    'id': requestId,
-    'method': method,
-    'params': params,
-  });
-
-  ws.listen(
-    (data) {
-      final response = jsonDecode(data as String) as Map<String, dynamic>;
-      if (response['id'] == requestId && !completer.isCompleted) {
-        completer.complete(response);
-      }
-    },
-    onError: (Object error) {
-      if (!completer.isCompleted) {
-        completer.completeError(error);
-      }
-    },
-    onDone: () {
-      if (!completer.isCompleted) {
-        // WebSocket closed before we got a response — check if the app died.
-        // We fire off the enrichment asynchronously and complete the error.
-        _buildDeadAppError().then((ex) {
-          if (!completer.isCompleted) completer.completeError(ex);
-        }).catchError((Object _) {
-          if (!completer.isCompleted) {
-            completer.completeError(StateError('WebSocket closed before response'));
-          }
-        });
-      }
-    },
-  );
-
-  ws.add(request);
-
-  try {
-    final response = await completer.future.timeout(timeout);
-    await ws.close();
-    return response;
-  } on TimeoutException {
-    await ws.close();
-    // Check if the process died during the wait (macOS target only).
-    if (_isMacOsTarget()) {
-      final currentPid = readAppPid() ?? readPid();
-      if (currentPid != null && !isProcessAlive(currentPid)) {
-        throw await buildAppDiedException(pid: currentPid);
-      }
-    }
-    rethrow;
-  } on AppDiedException {
-    // Already enriched — rethrow as-is.
+    WebSocket ws;
     try {
+      ws = await WebSocket.connect(
+        wsUri,
+        customClient: HttpClient()..maxConnectionsPerHost = 1,
+      ).timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      if (_isMacOsTarget()) {
+        final currentPid = readAppPid() ?? readPid();
+        if (currentPid != null && !isProcessAlive(currentPid)) {
+          throw await buildAppDiedException(pid: currentPid);
+        }
+      }
+      if (!recoveredOnce) {
+        final recovered = await _refreshVmUriFromController();
+        if (recovered != null && recovered.isNotEmpty && recovered != uri) {
+          recoveredOnce = true;
+          continue;
+        }
+      }
+      rethrow;
+    } catch (e) {
+      if (_isConnectionRefused(e)) {
+        if (!recoveredOnce) {
+          final recovered = await _refreshVmUriFromController();
+          if (recovered != null && recovered.isNotEmpty && recovered != uri) {
+            recoveredOnce = true;
+            continue;
+          }
+        }
+        if (isAndroidTarget()) {
+          final appPid = readAppPid();
+          if (appPid != null && isAndroidAppPidAlive(appPid)) {
+            rethrow;
+          }
+        }
+        final pid = _isMacOsTarget() ? (readAppPid() ?? readPid()) : readPid();
+        throw await buildAppDiedException(pid: pid);
+      }
+      if (_isMacOsTarget()) {
+        final currentPid = readAppPid() ?? readPid();
+        if (currentPid != null && !isProcessAlive(currentPid)) {
+          throw await buildAppDiedException(pid: currentPid);
+        }
+      }
+      rethrow;
+    }
+
+    final completer = Completer<Map<String, dynamic>>();
+    final requestId = DateTime.now().microsecondsSinceEpoch.toString();
+
+    final request = jsonEncode({
+      'jsonrpc': '2.0',
+      'id': requestId,
+      'method': method,
+      'params': params,
+    });
+
+    ws.listen(
+      (data) {
+        final response = jsonDecode(data as String) as Map<String, dynamic>;
+        if (response['id'] == requestId && !completer.isCompleted) {
+          completer.complete(response);
+        }
+      },
+      onError: (Object error) {
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          _buildDeadAppError().then((ex) {
+            if (!completer.isCompleted) completer.completeError(ex);
+          }).catchError((Object _) {
+            if (!completer.isCompleted) {
+              completer.completeError(
+                StateError('WebSocket closed before response'),
+              );
+            }
+          });
+        }
+      },
+    );
+
+    ws.add(request);
+
+    try {
+      final response = await completer.future.timeout(timeout);
       await ws.close();
-    } catch (_) {}
-    rethrow;
+      return response;
+    } on TimeoutException {
+      await ws.close();
+      if (_isMacOsTarget()) {
+        final currentPid = readAppPid() ?? readPid();
+        if (currentPid != null && !isProcessAlive(currentPid)) {
+          throw await buildAppDiedException(pid: currentPid);
+        }
+      }
+      rethrow;
+    } on AppDiedException {
+      try {
+        await ws.close();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+}
+
+Future<String?> _refreshVmUriFromController() async {
+  try {
+    final response = await sendControllerCommand(
+      'refresh_vm_uri',
+      timeout: const Duration(seconds: 5),
+    );
+    return response['vmServiceUri'] as String?;
+  } on ControllerUnavailable {
+    return null;
   }
 }
 
@@ -158,6 +163,14 @@ Future<Map<String, dynamic>> vmServiceCall(
 /// app PID lives in the device namespace and is not host-visible, so the
 /// flutter-tools PID is the only useful value.
 Future<AppDiedException> _buildDeadAppError() async {
+  if (isAndroidTarget()) {
+    final appPid = readAppPid();
+    if (appPid != null && isAndroidAppPidAlive(appPid)) {
+      throw StateError(
+        'VM service connection closed while Android app PID is still alive',
+      );
+    }
+  }
   final pid = _isMacOsTarget() ? (readAppPid() ?? readPid()) : readPid();
   return buildAppDiedException(pid: pid);
 }

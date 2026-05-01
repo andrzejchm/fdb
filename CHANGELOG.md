@@ -1,3 +1,21 @@
+## Unreleased
+
+### New commands
+- `fdb launch -i` / `fdb launch --interactive` starts an interactive REPL
+  for reload, restart, describe, tap, logs, detach, and kill workflows.
+
+### Improvements
+- `fdb launch` now starts a long-lived local controller that owns
+  `flutter run --machine`; follow-up commands talk to that controller instead
+  of relying on stale process IDs or `flutter attach` recovery.
+- Launch output is now human-focused progress text, keeping internal VM service
+  URI and controller metadata in `.fdb/`.
+
+### Fixes
+- `fdb status`, `reload`, `restart`, and `kill` now stay reliable when the
+  launched Flutter app remains alive after the original launch process state
+  changes, including Android and Linux desktop sessions.
+
 ## 1.5.0
 
 ### New commands

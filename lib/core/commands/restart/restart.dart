@@ -1,38 +1,27 @@
-import 'dart:io';
-
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/restart/restart_models.dart';
+import 'package:fdb/core/controller_client.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb/core/vm_lifecycle_events.dart';
 
 export 'package:fdb/core/commands/restart/restart_models.dart';
 
-/// Hot-restarts the running Flutter app referenced by the session's PID file.
+/// Hot-restarts the running Flutter app via the fdb controller.
 ///
 /// Returns [RestartSuccess] on success, [RestartNoSession] if no PID file is
 /// present, [RestartProcessDead] if the process is no longer alive, or
 /// [RestartFailed] if the restart did not complete within the timeout.
-///
-/// Completion is detected by [isRestartCompletionEvent] which matches either a
-/// `Flutter.FirstFrame` extension event (reliable on Android) or an
-/// `IsolateRunnable` isolate event (reliable on iOS simulators where
-/// `Flutter.FirstFrame` is not emitted after restart). Both the `Extension`
-/// and `Isolate` streams are subscribed so either signal can arrive first.
 Future<RestartResult> restartApp(RestartInput _) async {
-  final pid = readPid();
-  if (pid == null) return const RestartNoSession();
-
-  if (!isProcessAlive(pid)) return RestartProcessDead(pid: pid);
-
   final stopwatch = Stopwatch()..start();
-
-  final completed = await waitForVmEventAfterSignal(
-    streamIds: const ['Extension', 'Isolate'],
-    matches: isRestartCompletionEvent,
-    signal: () => Process.killPid(pid, ProcessSignal.sigusr2),
-    timeout: const Duration(seconds: restartTimeoutSeconds),
-  );
-
-  if (completed) return RestartSuccess(elapsedMs: stopwatch.elapsedMilliseconds);
-  return const RestartFailed();
+  try {
+    await sendControllerCommand(
+      'restart',
+      timeout: const Duration(seconds: restartTimeoutSeconds),
+    );
+    return RestartSuccess(elapsedMs: stopwatch.elapsedMilliseconds);
+  } on ControllerUnavailable {
+    final pid = readControllerPid() ?? readPid();
+    if (pid == null) return const RestartNoSession();
+    if (!isProcessAlive(pid)) return RestartProcessDead(pid: pid);
+    return const RestartFailed();
+  }
 }
