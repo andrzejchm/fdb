@@ -517,6 +517,162 @@ dart run ../../bin/fdb.dart status
 
 ---
 
+## S24 · grant-permission — pre-grant camera on iOS simulator
+
+**Purpose:** verify that granting camera before launch results in the app
+seeing `granted` status without any system dialog appearing.
+
+**Platform:** iOS simulator only. Skip on Android, macOS, physical iOS.
+
+```bash
+# Reset all permissions and kill the app
+xcrun simctl privacy <UDID> reset all <bundle-id>
+dart run ../../bin/fdb.dart kill 2>/dev/null || true
+
+# Pre-grant camera
+dart run ../../bin/fdb.dart grant-permission camera --bundle <bundle-id>
+
+# Launch and navigate to permission screen
+dart run ../../bin/fdb.dart launch --device <device-id>
+dart run ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart run ../../bin/fdb.dart tap --key go_to_permission_test
+sleep 1
+dart run ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+
+- `PERMISSION_GRANTED=camera` was printed by the grant command
+- No system permission dialog appeared (no dialog visible in describe output)
+- `ROUTE:` says `/permission-test`
+- Camera row shows `status: granted`
+- Other permissions (microphone, location, photos, contacts) show `status: denied`
+
+---
+
+## S25 · grant-permission — revoke camera on iOS simulator
+
+**Purpose:** verify that revoking a previously granted permission results in
+the app seeing `permanentlyDenied` status.
+
+**Platform:** iOS simulator only. Requires S24 to have run first (camera is granted).
+
+```bash
+# Revoke camera (app will be terminated by simctl)
+dart run ../../bin/fdb.dart grant-permission camera --revoke --bundle <bundle-id>
+
+# Relaunch and navigate to permission screen
+dart run ../../bin/fdb.dart launch --device <device-id>
+dart run ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart run ../../bin/fdb.dart tap --key go_to_permission_test
+sleep 1
+dart run ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+
+- `PERMISSION_REVOKED=camera` was printed by the revoke command
+- Camera row shows `status: permanentlyDenied`
+
+---
+
+## S26 · grant-permission — grant all on Android
+
+**Purpose:** verify that granting camera, microphone, location, photos, and
+contacts on Android results in all showing `granted` live without app restart.
+
+**Platform:** Android only. Skip on iOS, macOS.
+
+```bash
+# Navigate to permission screen first
+dart run ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart run ../../bin/fdb.dart tap --key go_to_permission_test
+sleep 1
+
+# Confirm all start as denied
+dart run ../../bin/fdb.dart describe
+
+# Grant all 5
+dart run ../../bin/fdb.dart grant-permission camera
+dart run ../../bin/fdb.dart grant-permission microphone
+dart run ../../bin/fdb.dart grant-permission location
+dart run ../../bin/fdb.dart grant-permission photos
+dart run ../../bin/fdb.dart grant-permission contacts
+
+# Refresh and check
+dart run ../../bin/fdb.dart tap --key refresh_permissions
+sleep 1
+dart run ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+
+- All 5 grant commands print `PERMISSION_GRANTED=<token>`
+- No termination warnings on Android (app stays alive)
+- After refresh, all 5 rows show `status: granted`
+- No system permission dialogs appeared
+
+---
+
+## S27 · grant-permission — photos warning on iOS simulator
+
+**Purpose:** verify that granting photos on iOS simulator emits the unreliable
+photos warning, and that the permission may not take effect.
+
+**Platform:** iOS simulator only.
+
+```bash
+dart run ../../bin/fdb.dart grant-permission photos --bundle <bundle-id>
+```
+
+**What to verify:**
+
+- `PERMISSION_GRANTED=photos` is printed
+- `WARNING: Photos permission via simctl is unreliable on iOS simulator` is printed
+- The warning mentions this is a known Apple limitation
+
+---
+
+## S28 · grant-permission — unsupported platform errors
+
+**Purpose:** verify clear error messages on unsupported platforms.
+
+**Platform:** run on macOS and physical iOS.
+
+```bash
+# On macOS:
+dart run ../../bin/fdb.dart grant-permission camera
+
+# On physical iOS:
+dart run ../../bin/fdb.dart grant-permission camera
+```
+
+**What to verify:**
+
+- macOS grant: prints `WARNING:` about Apple requiring user approval, suggests `--reset`
+- macOS reset: `dart run ../../bin/fdb.dart grant-permission camera --reset --bundle <bundle-id>` prints `PERMISSION_RESET=camera`
+- Physical iOS: prints `ERROR:` about not being supported, suggests using iOS simulator
+
+---
+
+## S29 · grant-permission — unknown token and missing args
+
+**Purpose:** verify input validation produces clear errors.
+
+```bash
+dart run ../../bin/fdb.dart grant-permission totally_fake_permission
+dart run ../../bin/fdb.dart grant-permission
+dart run ../../bin/fdb.dart grant-permission camera --revoke --reset
+```
+
+**What to verify:**
+
+- Unknown token: `ERROR: Unsupported permission` with list of supported tokens
+- No args: `ERROR: Provide a permission token`
+- Conflicting flags: `ERROR:` about mutual exclusivity
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

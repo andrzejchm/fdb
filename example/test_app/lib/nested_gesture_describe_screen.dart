@@ -9,18 +9,18 @@ class NestedGestureDescribeScreen extends StatefulWidget {
   const NestedGestureDescribeScreen({super.key});
 
   @override
-  State<NestedGestureDescribeScreen> createState() => _NestedGestureDescribeScreenState();
+  State<NestedGestureDescribeScreen> createState() =>
+      _NestedGestureDescribeScreenState();
 }
 
-class _NestedGestureDescribeScreenState extends State<NestedGestureDescribeScreen> {
+class _NestedGestureDescribeScreenState
+    extends State<NestedGestureDescribeScreen> {
   String _last = 'none';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nested Gesture Describe Test'),
-      ),
+      appBar: AppBar(title: const Text('Nested Gesture Describe Test')),
       body: Stack(
         children: [
           // Main content

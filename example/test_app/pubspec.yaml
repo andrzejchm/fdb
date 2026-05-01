@@ -13,6 +13,7 @@ dependencies:
   fdb_helper:
     path: ../../packages/fdb_helper
   webview_flutter: ^4.13.1
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:
