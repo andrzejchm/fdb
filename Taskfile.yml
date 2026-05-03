@@ -14,6 +14,8 @@ tasks:
     desc: Install dependencies and prepare the test app
     cmds:
       - dart pub get
+      - cmd: dart pub get
+        dir: 'packages/fdb_controller'
       - cmd: flutter pub get
         dir: 'packages/fdb_helper'
       - cmd: flutter pub get
@@ -74,12 +76,13 @@ tasks:
           echo "FAIL: fdb launch exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "APP_STARTED"; then
-          echo "PASS: fdb launch"
-        else
-          echo "FAIL: fdb launch - APP_STARTED not found in output" >&2
-          exit 1
-        fi
+        for TOKEN in '^APP_STARTED$' '^VM_SERVICE_URI=' '^PID=' '^LOG_FILE='; do
+          if ! echo "$OUTPUT" | grep -q "$TOKEN"; then
+            echo "FAIL: fdb launch - token $TOKEN not found in output" >&2
+            exit 1
+          fi
+        done
+        echo "PASS: fdb launch"
 
   test:launch-verbose:
     desc: "Launch the test app with --verbose and verify APP_STARTED is emitted"
@@ -100,12 +103,13 @@ tasks:
           echo "FAIL: fdb launch --verbose exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "APP_STARTED"; then
-          echo "PASS: fdb launch --verbose"
-        else
-          echo "FAIL: fdb launch --verbose - APP_STARTED not found in output" >&2
-          exit 1
-        fi
+        for TOKEN in '^APP_STARTED$' '^VM_SERVICE_URI=' '^PID=' '^LOG_FILE='; do
+          if ! echo "$OUTPUT" | grep -q "$TOKEN"; then
+            echo "FAIL: fdb launch --verbose - token $TOKEN not found in output" >&2
+            exit 1
+          fi
+        done
+        echo "PASS: fdb launch --verbose"
 
         echo "==> Kill app after verbose launch test"
         {{.FDB}} kill 2>&1 || true
@@ -118,12 +122,13 @@ tasks:
           echo "FAIL: re-launch after verbose test exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "APP_STARTED"; then
-          echo "PASS: re-launch after verbose test"
-        else
-          echo "FAIL: re-launch after verbose test - APP_STARTED not found in output" >&2
-          exit 1
-        fi
+        for TOKEN in '^APP_STARTED$' '^VM_SERVICE_URI=' '^PID=' '^LOG_FILE='; do
+          if ! echo "$OUTPUT" | grep -q "$TOKEN"; then
+            echo "FAIL: re-launch after verbose test - token $TOKEN not found in output" >&2
+            exit 1
+          fi
+        done
+        echo "PASS: re-launch after verbose test"
 
   test:status:
     desc: Check app status (expects a running app)
@@ -3540,29 +3545,34 @@ tasks:
   # Code quality — individual steps
   # ---------------------------------------------------------------------------
   format:
-    desc: "Format code in fdb (lib/ bin/ test/) and fdb_helper (lib/)"
+    desc: "Format code in fdb, fdb_controller, and fdb_helper"
     cmds:
       - dart format --page-width 120 --trailing-commas preserve lib/ bin/ test/
+      - cd packages/fdb_controller && dart format --page-width 120 --trailing-commas preserve lib/ test/
       - cd packages/fdb_helper && dart format --page-width 120 --trailing-commas preserve lib/
 
   fix:
-    desc: "Apply dart fix to fdb (lib/ bin/ test/) and fdb_helper (lib/)"
+    desc: "Apply dart fix to fdb, fdb_controller, and fdb_helper"
     cmds:
       - dart fix --apply lib/
       - dart fix --apply bin/
       - dart fix --apply test/
+      - cd packages/fdb_controller && dart fix --apply lib/
+      - cd packages/fdb_controller && dart fix --apply test/
       - cd packages/fdb_helper && dart fix --apply lib/
 
   analyze:
-    desc: "Run static analysis on fdb (lib/ bin/ test/) and fdb_helper"
+    desc: "Run static analysis on fdb, fdb_controller, and fdb_helper"
     cmds:
       - dart analyze lib/ bin/ test/
+      - cd packages/fdb_controller && dart analyze lib/ test/
       - cd packages/fdb_helper && flutter analyze --suppress-analytics
 
   test:unit:
-    desc: "Run dart unit tests for fdb"
+    desc: "Run dart unit tests for fdb and fdb_controller"
     cmds:
       - dart test
+      - cd packages/fdb_controller && dart test
 
   # ---------------------------------------------------------------------------
   # Comprehensive local verification (format → fix → analyze → test)

@@ -8,13 +8,33 @@
 - `fdb launch` now starts a long-lived local controller that owns
   `flutter run --machine`; follow-up commands talk to that controller instead
   of relying on stale process IDs or `flutter attach` recovery.
-- Launch output is now human-focused progress text, keeping internal VM service
-  URI and controller metadata in `.fdb/`.
+- Launch now streams concise progress while preserving the existing
+  machine-readable success tokens.
+- Controller command handling now uses typed request/response objects and
+  shared JSON parsing helpers, with VM service calls routed through
+  `package:vm_service`.
+- Controller implementation now lives in the `fdb_controller` package, while
+  `fdb` still exposes `fdb-controller` for global activation.
 
 ### Fixes
 - `fdb status`, `reload`, `restart`, and `kill` now stay reliable when the
   launched Flutter app remains alive after the original launch process state
   changes, including Android and Linux desktop sessions.
+
+## 1.6.0
+
+### New commands
+- `fdb simulator` — full simulator control palette: appearance (light/dark), status bar overrides, location spoofing, push notification delivery, text size, and arbitrary `defaults write` key-value adjustments
+- `fdb grant-permission` — grant, revoke, or reset runtime permissions on Android and iOS without leaving the fdb workflow
+
+### Fixes
+- `fdb launch` now correctly resolves the iOS/macOS bundle ID when `Info.plist` uses the `$(PRODUCT_BUNDLE_IDENTIFIER)` variable reference — previously fell through to the Android Gradle extractor and wrote the wrong bundle ID to `.fdb/app_id.txt`
+- `fdb describe` now surfaces buttons inside `ListTile` as separate interactive elements instead of merging them into the tile's tap target
+
+## 1.5.1
+
+### Fixes
+- `fdb describe` no longer leaks elements from underlying navigator routes — when navigating to a child screen, the handler previously walked route subtrees kept alive by the Navigator stack; the fix tracks the active `ModalRoute` boundary and prunes any subtree where `isCurrent` is `false`
 
 ## 1.5.0
 

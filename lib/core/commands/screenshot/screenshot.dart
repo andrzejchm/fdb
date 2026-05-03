@@ -2,10 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/screenshot/screenshot_models.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb/controller/controller_client.dart';
+import 'package:fdb_controller/fdb_controller.dart';
 import 'package:image/image.dart' as img;
 
 export 'package:fdb/core/commands/screenshot/screenshot_models.dart';

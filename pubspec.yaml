@@ -14,6 +14,10 @@ dev_dependencies:
   test: ^1.31.0
 dependencies:
   args: ^2.7.0
+  fdb_controller: ^1.6.0
   image: ^4.8.0
   pubspec_manager: ^3.2.1
-  vm_service: 15.0.0
+
+dependency_overrides:
+  fdb_controller:
+    path: packages/fdb_controller

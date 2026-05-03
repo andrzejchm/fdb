@@ -1,0 +1,92 @@
+import 'dart:io';
+
+/// Name of the session directory created inside the Flutter project.
+const sessionDirName = '.fdb';
+
+/// The active session directory. Defaults to `<CWD>/.fdb/`.
+String _sessionDir = '${Directory.current.path}/$sessionDirName';
+
+/// Override the session directory from a Flutter project path.
+void initSessionDir(String projectPath) {
+  final absolute = Directory(projectPath).absolute.path;
+  _sessionDir = '$absolute/$sessionDirName';
+}
+
+/// Override the session directory from an explicit `--session-dir` flag.
+void initSessionDirFromPath(String sessionDirPath) {
+  _sessionDir = Directory(sessionDirPath).absolute.path;
+}
+
+/// Auto-locate the session directory by walking up from [start].
+String? resolveSessionDir({Directory? start}) {
+  final cwd = (start ?? Directory.current).absolute.path;
+  final home = Platform.environment['HOME'] ?? '/';
+
+  var current = Directory(cwd);
+
+  while (true) {
+    final candidate = Directory('${current.path}/$sessionDirName');
+    if (candidate.existsSync()) {
+      final pidPath = '${candidate.path}/fdb.pid';
+      final pidFile = File(pidPath);
+      bool alive;
+      if (pidFile.existsSync()) {
+        final raw = pidFile.readAsStringSync().trim();
+        final pid = int.tryParse(raw);
+        if (pid != null) {
+          try {
+            alive = Process.runSync('kill', ['-0', pid.toString()]).exitCode == 0;
+          } catch (_) {
+            alive = false;
+          }
+        } else {
+          alive = false;
+        }
+      } else {
+        alive = File('${candidate.path}/vm_uri.txt').existsSync();
+      }
+
+      if (alive) {
+        final resolved = candidate.absolute.path;
+        if (resolved != Directory('$cwd/$sessionDirName').absolute.path) {
+          stderr.writeln('INFO: Using session dir from ${current.path}');
+        }
+        _sessionDir = resolved;
+        return resolved;
+      }
+    }
+
+    final parent = current.parent;
+    final atHome = current.absolute.path == Directory(home).absolute.path;
+    final atRoot = parent.path == current.path;
+    if (atHome || atRoot) break;
+    current = parent;
+  }
+
+  _sessionDir = '$cwd/$sessionDirName';
+  return null;
+}
+
+/// Ensure the session directory exists and return its path.
+String ensureSessionDir() {
+  final dir = Directory(_sessionDir);
+  if (!dir.existsSync()) dir.createSync(recursive: true);
+  return _sessionDir;
+}
+
+String get sessionDirPath => _sessionDir;
+
+String get pidFile => '$_sessionDir/fdb.pid';
+String get appPidFile => '$_sessionDir/fdb.app_pid';
+String get controllerPidFile => '$_sessionDir/controller.pid';
+String get controllerPortFile => '$_sessionDir/controller.port';
+String get controllerTokenFile => '$_sessionDir/controller.token';
+String get logFile => '$_sessionDir/logs.txt';
+String get logCollectorPidFile => '$_sessionDir/log_collector.pid';
+String get logCollectorScript => '$_sessionDir/log_collector.dart';
+String get vmUriFile => '$_sessionDir/vm_uri.txt';
+String get launcherScript => '$_sessionDir/launcher.sh';
+String get deviceFile => '$_sessionDir/device.txt';
+String get platformFile => '$_sessionDir/platform.txt';
+String get appIdFile => '$_sessionDir/app_id.txt';
+String get defaultScreenshotPath => '$_sessionDir/screenshot.png';

@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/selected/selected_models.dart';
-import 'package:fdb/controller/controller_client.dart';
+import 'package:fdb_controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/selected/selected_models.dart';
 

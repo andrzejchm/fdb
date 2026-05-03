@@ -1,6 +1,5 @@
-import 'package:fdb/controller/controller_command.dart';
+import 'package:fdb_controller/fdb_controller.dart';
 import 'package:fdb/core/commands/status/status_models.dart';
-import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/status/status_models.dart';
 
