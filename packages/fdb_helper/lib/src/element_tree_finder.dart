@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'hit_test_utils.dart';
@@ -202,26 +203,81 @@ bool _isFrameworkWidget(Element element) {
 /// reporting them as the tapped widget when a real interactive ancestor exists.
 bool _isPassThroughWidget(Type type) => type == IgnorePointer || type == AbsorbPointer;
 
+/// Closed-list of widget types that are user-meaningful tap targets.
+///
+/// Why a closed list instead of probing semantics: Flutter buttons build
+/// internal `Semantics(button: true, ...)` and `RawGestureDetector` wrappers
+/// that themselves declare interactive semantics. A tree walk that picks the
+/// nearest semantically-interactive ancestor lands on those internal wrappers
+/// (e.g. `Semantics`, `RawGestureDetector`) instead of the user-named widget
+/// (`ElevatedButton`, `CupertinoButton`). The closed list anchors the result
+/// on the named widget the user would recognise. Adding a new Flutter widget
+/// here is a one-line change; the cost is acceptable in exchange for stable,
+/// human-readable `TAPPED=...` tokens.
 bool _isInteractiveWidget(Type type) =>
-    type == Checkbox ||
-    type == CheckboxListTile ||
-    type == DropdownButton ||
+    // Material — buttons & chips
     type == ElevatedButton ||
     type == FilledButton ||
-    type == FloatingActionButton ||
-    type == GestureDetector ||
-    type == IconButton ||
-    type == InkWell ||
     type == OutlinedButton ||
+    type == TextButton ||
+    type == IconButton ||
+    type == FloatingActionButton ||
+    type == BackButton ||
+    type == CloseButton ||
+    type == DropdownButton ||
     type == PopupMenuButton ||
+    type == MenuItemButton ||
+    type == SubmenuButton ||
+    type == SegmentedButton ||
+    type == ActionChip ||
+    type == InputChip ||
+    type == FilterChip ||
+    type == ChoiceChip ||
+    type == RawChip ||
+    type == Chip ||
+    // Material — selection
+    type == Checkbox ||
+    type == CheckboxListTile ||
     type == Radio ||
     type == RadioListTile ||
-    type == Slider ||
     type == Switch ||
     type == SwitchListTile ||
-    type == TextButton ||
+    type == Slider ||
+    type == RangeSlider ||
+    // Material — input
     type == TextField ||
-    type == TextFormField;
+    type == TextFormField ||
+    // Material — list/tile
+    type == ListTile ||
+    type == ExpansionTile ||
+    type == Tab ||
+    // Material — feedback / generic gesture
+    type == GestureDetector ||
+    type == InkWell ||
+    type == InkResponse ||
+    // Cupertino — buttons
+    type == CupertinoButton ||
+    type == CupertinoDialogAction ||
+    type == CupertinoActionSheetAction ||
+    type == CupertinoContextMenuAction ||
+    type == CupertinoNavigationBarBackButton ||
+    // Cupertino — selection
+    type == CupertinoCheckbox ||
+    type == CupertinoRadio ||
+    type == CupertinoSwitch ||
+    type == CupertinoSlider ||
+    type == CupertinoSegmentedControl ||
+    type == CupertinoSlidingSegmentedControl ||
+    // Cupertino — input
+    type == CupertinoTextField ||
+    type == CupertinoTextFormFieldRow ||
+    type == CupertinoSearchTextField ||
+    // Cupertino — list/tile/picker
+    type == CupertinoListTile ||
+    type == CupertinoExpansionTile ||
+    type == CupertinoPicker ||
+    type == CupertinoDatePicker ||
+    type == CupertinoTimerPicker;
 
 /// Finds the first (or Nth, if [matcher] has an index) element that directly
 /// matches [matcher], without walking up to a hittable ancestor.

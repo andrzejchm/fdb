@@ -1316,6 +1316,52 @@ tasks:
           exit 1
         fi
 
+  test:tap-cupertino-button:
+    desc: Tap a CupertinoButton by --key and --text — must resolve to TAPPED=CupertinoButton
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Resetting app state before CupertinoButton tap test"
+        {{.FDB}} restart >/dev/null 2>&1 || true
+        sleep 1
+
+        echo "==> Scrolling CupertinoButton into view"
+        {{.FDB}} scroll-to --key cupertino_button_test >/dev/null 2>&1 || true
+
+        echo "==> Tapping CupertinoButton by key"
+        KEY_OUTPUT=$({{.FDB}} tap --key "cupertino_button_test" 2>&1)
+        KEY_EXIT_CODE=$?
+        echo "$KEY_OUTPUT"
+        if [ $KEY_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap --key on CupertinoButton exited with code $KEY_EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$KEY_OUTPUT" | grep -q "TAPPED=CupertinoButton"; then
+          echo "PASS: fdb tap --key resolved to CupertinoButton"
+        else
+          echo "FAIL: fdb tap --key on CupertinoButton - expected TAPPED=CupertinoButton" >&2
+          exit 1
+        fi
+
+        echo "==> Tapping CupertinoButton by text (must resolve to interactive ancestor, not Text leaf)"
+        TEXT_OUTPUT=$({{.FDB}} tap --text "Cupertino Button" 2>&1)
+        TEXT_EXIT_CODE=$?
+        echo "$TEXT_OUTPUT"
+        if [ $TEXT_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap --text on CupertinoButton exited with code $TEXT_EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$TEXT_OUTPUT" | grep -Eq "TAPPED=Text\b"; then
+          echo "FAIL: fdb tap --text on CupertinoButton returned Text leaf" >&2
+          exit 1
+        fi
+        if echo "$TEXT_OUTPUT" | grep -q "TAPPED=CupertinoButton"; then
+          echo "PASS: fdb tap --text resolved to CupertinoButton"
+        else
+          echo "FAIL: fdb tap --text on CupertinoButton - expected TAPPED=CupertinoButton" >&2
+          exit 1
+        fi
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -3568,6 +3614,7 @@ tasks:
       - task: test:tap-at
       - task: test:tap-disappearing-widget
       - task: test:tap-ignore-pointer-wrapper
+      - task: test:tap-cupertino-button
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to

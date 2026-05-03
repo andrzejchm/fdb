@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:fdb_helper/fdb_helper.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -331,6 +332,17 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   },
                   child: const Text('IgnorePointer Wrapped'),
                 ),
+              ),
+              const SizedBox(height: 16),
+              // Cupertino coverage: tapping by --text or --key on a
+              // CupertinoButton must resolve to TAPPED=CupertinoButton
+              // (not Text, not GestureDetector, not Semantics).
+              CupertinoButton(
+                key: const Key('cupertino_button_test'),
+                onPressed: () {
+                  developer.log('cupertino_button_test pressed', name: 'fdb_test');
+                },
+                child: const Text('Cupertino Button'),
               ),
               const SizedBox(height: 16),
               Text(
