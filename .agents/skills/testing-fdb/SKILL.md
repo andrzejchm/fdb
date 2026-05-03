@@ -65,6 +65,8 @@ task test:tap
 task test:double-tap
 task test:longpress
 task test:tap-at
+task test:tap-disappearing-widget
+task test:tap-ignore-pointer-wrapper
 task test:input
 task test:scroll
 task test:scroll-to

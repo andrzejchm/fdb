@@ -65,11 +65,12 @@ typedef HittableElementResult = ({Element? element, int matchCount});
 /// Finds the first (or Nth, if [matcher] has an index) hittable element
 /// matching [matcher].
 ///
-/// For [TextMatcher], if the matched element itself is not hittable (e.g. a
-/// [Text] widget inside a button), walks up the ancestor chain to find the
-/// nearest hittable ancestor and uses that for the tap target. This handles
-/// the common case where `InkWell`/`GestureDetector` absorbs the hit instead
-/// of the leaf `Text` render object.
+/// For [TextMatcher], [KeyMatcher], and [TypeMatcher], always prefers the
+/// nearest interactive ancestor over a non-interactive matched element. This
+/// means tapping `--text "Submit"` returns the enclosing button widget, not
+/// the [Text] leaf. Pass-through wrappers ([IgnorePointer], [AbsorbPointer])
+/// are skipped as fallback targets so route-level wrappers never leak as tap
+/// results.
 ///
 /// Returns a record with the matched element and total match count.
 /// When [matcher.index] is null and more than one element matches,
@@ -96,14 +97,17 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   void visit(Element element) {
     if (matcher.matches(element, extractText: extractWidgetText)) {
       Element? hittable;
-      if (isElementHittable(element)) {
+      final matchedHittable = isElementHittable(element);
+      final matchedInteractive = _isInteractiveWidget(element.widget.runtimeType);
+
+      if (matchedHittable && matchedInteractive) {
+        // Matched element is itself an interactive widget — use it directly.
         hittable = element;
       } else if (needsAncestorWalk) {
-        // Walk up the ancestor chain (nearest first) to find a hittable one.
-        // Two-pass: prefer interactive widgets; fall back to any non-private
-        // widget. This filters out framework-internal full-screen overlays like
-        // _Theater, _FocusTrap, and _ModalBarrier that would otherwise absorb
-        // the hit due to their large RenderBox size.
+        // Prefer the nearest interactive ancestor over a non-interactive
+        // matched element (handles Text inside ElevatedButton). Fall back to a
+        // non-private, non-pass-through hittable ancestor, then to the matched
+        // element itself if hittable.
         Element? fallbackHittable;
         for (var i = ancestors.length - 1; i >= 0; i--) {
           if (!isElementHittable(ancestors[i])) continue;
@@ -111,13 +115,21 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
             hittable = ancestors[i];
             break; // best match — stop immediately
           }
-          // Accept non-private widgets as fallback (skip _Theater, _FocusTrap, etc.)
-          if (fallbackHittable == null && !ancestors[i].widget.runtimeType.toString().startsWith('_')) {
+          final ancestorType = ancestors[i].widget.runtimeType;
+          if (fallbackHittable == null &&
+              !ancestorType.toString().startsWith('_') &&
+              !_isPassThroughWidget(ancestorType)) {
             fallbackHittable = ancestors[i];
           }
         }
+        // No interactive ancestor — fall back to matched element if hittable,
+        // otherwise to the best non-pass-through ancestor.
+        hittable ??= matchedHittable ? element : null;
         hittable ??= fallbackHittable;
+      } else if (matchedHittable) {
+        hittable = element;
       }
+
       if (hittable != null) {
         final renderObject = hittable.renderObject;
         if (renderObject != null && seen.add(renderObject)) {
@@ -178,9 +190,17 @@ bool _isFrameworkWidget(Element element) {
     'DefaultTextEditingShortcuts',
     'PrimaryScrollController',
     'ScrollConfiguration',
+    'IgnorePointer',
+    'AbsorbPointer',
   };
   return frameworkTypes.contains(typeName);
 }
+
+/// Returns true for pointer-routing wrappers that should never be a tap target.
+/// These widgets exist to control pointer event propagation, not for user
+/// interaction. Skipping them as fallback hittable prevents `fdb tap` from
+/// reporting them as the tapped widget when a real interactive ancestor exists.
+bool _isPassThroughWidget(Type type) => type == IgnorePointer || type == AbsorbPointer;
 
 bool _isInteractiveWidget(Type type) =>
     type == Checkbox ||

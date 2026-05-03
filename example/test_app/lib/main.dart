@@ -317,6 +317,22 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   child: const Text('Disappearing Button'),
                 ),
               const SizedBox(height: 16),
+              // Regression test for fdb-gfk: button wrapped in IgnorePointer(ignoring: false)
+              // must report as ElevatedButton, not IgnorePointer.
+              IgnorePointer(
+                ignoring: false,
+                child: ElevatedButton(
+                  key: const Key('ignore_pointer_wrapped_button'),
+                  onPressed: () {
+                    developer.log(
+                      'ignore_pointer_wrapped_button pressed',
+                      name: 'fdb_test',
+                    );
+                  },
+                  child: const Text('IgnorePointer Wrapped'),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 'Double tap summary: primary=$_doubleTapCount secondary=$_secondaryDoubleTapCount',
                 key: const Key('double_tap_summary'),

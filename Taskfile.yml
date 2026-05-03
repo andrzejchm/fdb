@@ -868,6 +868,21 @@ tasks:
           exit 1
         fi
 
+        echo "==> Tapping submit button by text (must resolve to interactive ancestor)"
+        TEXT_OUTPUT=$({{.FDB}} tap --text "Submit" 2>&1)
+        TEXT_EXIT_CODE=$?
+        echo "$TEXT_OUTPUT"
+        if [ $TEXT_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap --text exited with code $TEXT_EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$TEXT_OUTPUT" | grep -q "TAPPED=ElevatedButton"; then
+          echo "PASS: fdb tap --text resolves to ElevatedButton (not Text leaf)"
+        else
+          echo "FAIL: fdb tap --text — expected TAPPED=ElevatedButton, got something else" >&2
+          exit 1
+        fi
+
   test:double-tap:
     desc: Double-tap a widget by selector and coordinates
     dir: '{{.TEST_APP}}'
@@ -1256,10 +1271,37 @@ tasks:
           echo "FAIL: fdb tap on disappearing widget exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "TAPPED="; then
-          echo "PASS: fdb tap on disappearing widget returned success"
+        if echo "$OUTPUT" | grep -q "TAPPED=ElevatedButton"; then
+          echo "PASS: fdb tap on disappearing widget returned ElevatedButton"
         else
-          echo "FAIL: fdb tap on disappearing widget - TAPPED= not found in output" >&2
+          echo "FAIL: fdb tap on disappearing widget - expected TAPPED=ElevatedButton (not IgnorePointer or other wrapper)" >&2
+          exit 1
+        fi
+
+  test:tap-ignore-pointer-wrapper:
+    desc: Tap a button wrapped in IgnorePointer(ignoring: false) — must resolve to ElevatedButton, not IgnorePointer
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Resetting app state before IgnorePointer wrapper tap test"
+        {{.FDB}} restart >/dev/null 2>&1 || true
+        sleep 1
+
+        echo "==> Scrolling IgnorePointer-wrapped button into view"
+        {{.FDB}} scroll-to --key ignore_pointer_wrapped_button >/dev/null 2>&1 || true
+
+        echo "==> Tapping IgnorePointer-wrapped button by key"
+        OUTPUT=$({{.FDB}} tap --key "ignore_pointer_wrapped_button" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap on IgnorePointer-wrapped button exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "TAPPED=ElevatedButton"; then
+          echo "PASS: fdb tap --key on IgnorePointer-wrapped button returned ElevatedButton"
+        else
+          echo "FAIL: fdb tap --key on IgnorePointer-wrapped button - expected TAPPED=ElevatedButton (not IgnorePointer)" >&2
           exit 1
         fi
 
@@ -3514,6 +3556,7 @@ tasks:
       - task: test:longpress
       - task: test:tap-at
       - task: test:tap-disappearing-widget
+      - task: test:tap-ignore-pointer-wrapper
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to
