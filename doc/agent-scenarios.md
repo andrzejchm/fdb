@@ -172,8 +172,13 @@ dart run ../../bin/fdb.dart describe
 dart run ../../bin/fdb.dart tap --text "Submit"
 ```
 
-**After tap by text:** exits 0, output contains `TAPPED=ElevatedButton` (the
-interactive ancestor, not the raw `Text` leaf).
+**After tap by text:** exits 0. The `TAPPED=` token MUST NOT be `Text` (the
+ancestor walk in `findHittableElement` is required to resolve to an
+interactive ancestor of the matched `Text` leaf). The exact ancestor type
+is implementation-dependent across Flutter SDK versions: it may be
+`GestureDetector`, `InkWell`, `ElevatedButton`, or another interactive
+widget. The contract is the negative one: `TAPPED=Text` is a regression
+of fdb-xdh.
 
 ```bash
 # Tap by ref — get ref from describe, tap @1
@@ -190,6 +195,8 @@ dart run ../../bin/fdb.dart tap @1
 
 **Purpose:** tapping a widget that removes itself from the tree on tap succeeds
 (the tap fires even if the element is gone by the time fdb checks the result).
+This is also the regression guard for fdb-gfk: route-level `IgnorePointer`
+wrappers must not leak into the `TAPPED=` token.
 
 ```bash
 # Restart to ensure disappearing_button is present (it only exists once per session)
@@ -816,6 +823,80 @@ dart run ../../bin/fdb.dart back
 - `defaults delete` returns `DEFAULTS_DELETED KEY=fdb_scenario_key`
 - Push: `PUSH_SENT BUNDLE_ID=dev.andrzejchm.fdb.testApp`
 - After push + describe on Notification Test screen: `VISIBLE TEXT:` contains `"Last foreground push"`, `"Title: S33 push"`, `"Body: fdb simulator push scenario"`, `"Deeplink: fdbtest://scenarios/s33"`
+
+---
+
+## S34 · tap — IgnorePointer wrapper does not leak (fdb-gfk regression)
+
+**Purpose:** an `ElevatedButton` wrapped in `IgnorePointer(ignoring: false)`
+must resolve to `TAPPED=ElevatedButton`. The pre-fix behavior was
+`TAPPED=IgnorePointer` because the ancestor walk accepted `IgnorePointer` as
+a fallback hittable. After the fix, `IgnorePointer` and `AbsorbPointer` are
+filtered out as pass-through wrappers.
+
+This scenario covers two paths through `findHittableElement`:
+
+- **Path A (fast-path):** `tap --key` on the button. The matched element is
+  itself interactive and hittable, so the walk is short-circuited.
+- **Path B (ancestor walk):** `tap --text` on the button label. The matched
+  `Text` leaf is non-interactive, so the walk runs and MUST skip the
+  surrounding `IgnorePointer` to land on an interactive ancestor.
+
+The test app exposes `key=ignore_pointer_wrapped_button` on a button wrapped
+in an explicit `IgnorePointer(ignoring: false, ...)`.
+
+```bash
+dart run ../../bin/fdb.dart restart
+sleep 1
+dart run ../../bin/fdb.dart scroll-to --key ignore_pointer_wrapped_button
+# Path A
+dart run ../../bin/fdb.dart tap --key ignore_pointer_wrapped_button
+# Path B
+dart run ../../bin/fdb.dart restart
+sleep 1
+dart run ../../bin/fdb.dart scroll-to --key ignore_pointer_wrapped_button
+dart run ../../bin/fdb.dart tap --text "IgnorePointer Wrapped"
+```
+
+**What to verify:**
+
+- Path A: exits 0, `TAPPED=ElevatedButton`. Anything else (including
+  `TAPPED=IgnorePointer`) is a regression.
+- Path B: exits 0, `TAPPED=` is some interactive widget. The two specific
+  failure modes that the fix MUST prevent are `TAPPED=IgnorePointer` (the
+  fdb-gfk leak) and `TAPPED=Text` (the fdb-xdh leak). Any other widget type
+  (`GestureDetector`, `InkWell`, `ElevatedButton`, etc.) is acceptable.
+
+---
+
+## S35 · tap — CupertinoButton coverage
+
+**Purpose:** the closed list of interactive widgets must include
+`CupertinoButton` so iOS-style apps get accurate `TAPPED=` tokens. Tapping a
+`CupertinoButton` by `--key` or by `--text` on its label must resolve to
+`TAPPED=CupertinoButton`.
+
+The test app exposes `key=cupertino_button_test` on a `CupertinoButton` with
+text label `"Cupertino Button"`.
+
+```bash
+dart run ../../bin/fdb.dart restart
+sleep 1
+dart run ../../bin/fdb.dart scroll-to --key cupertino_button_test
+dart run ../../bin/fdb.dart tap --key cupertino_button_test
+dart run ../../bin/fdb.dart restart
+sleep 1
+dart run ../../bin/fdb.dart scroll-to --key cupertino_button_test
+dart run ../../bin/fdb.dart tap --text "Cupertino Button"
+```
+
+**What to verify:**
+
+- Tap by `--key`: exits 0, `TAPPED=CupertinoButton`.
+- Tap by `--text`: exits 0, `TAPPED=CupertinoButton` (the ancestor walk
+  finds the named widget directly because `CupertinoButton` is in the
+  closed list and there are no other interactive widgets between the
+  `Text` leaf and `CupertinoButton`). `TAPPED=Text` is a regression.
 
 ---
 
