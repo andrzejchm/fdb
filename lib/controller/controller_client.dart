@@ -27,6 +27,10 @@ class ControllerCommandFailed implements Exception {
   String toString() => message;
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ArgumentError)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<ControllerResponse> sendControllerCommand(
   ControllerCommand command, {
   Duration timeout = const Duration(seconds: 30),
@@ -53,6 +57,9 @@ final _noPayloadRequestFactories = <ControllerCommand, _ClientRequestFactory>{
   ControllerCommand.findFlutterIsolateId: (token) => FindFlutterIsolateIdCommandRequest(token: token),
 };
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<ControllerResponse> _sendControllerRequest(
   ControllerRequest Function(String token) createRequest, {
   Duration timeout = const Duration(seconds: 30),
@@ -95,21 +102,36 @@ Future<ControllerResponse> _sendControllerRequest(
   }
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ArgumentError)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<String?> checkFdbHelper() async {
   final response = await sendControllerCommand(ControllerCommand.checkFdbHelper);
   return response.field('isolateId') as String?;
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ArgumentError)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<List<String>> findAllIsolateIds() async {
   final response = await sendControllerCommand(ControllerCommand.findAllIsolateIds);
   return (response.field('isolates') as List<dynamic>?)?.cast<String>() ?? const [];
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ArgumentError)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<String?> findFlutterIsolateId() async {
   final response = await sendControllerCommand(ControllerCommand.findFlutterIsolateId);
   return response.field('isolateId') as String?;
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FdbBackCommandResponse> fdbBack(String isolateId) async {
   final response = await _sendControllerRequest(
     (token) => FdbBackCommandRequest(token: token, isolateId: isolateId),
@@ -117,6 +139,9 @@ Future<FdbBackCommandResponse> fdbBack(String isolateId) async {
   return FdbBackCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FdbCleanCommandResponse> fdbClean(String isolateId) async {
   final response = await _sendControllerRequest(
     (token) => FdbCleanCommandRequest(token: token, isolateId: isolateId),
@@ -124,6 +149,9 @@ Future<FdbCleanCommandResponse> fdbClean(String isolateId) async {
   return FdbCleanCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FdbDescribeCommandResponse> fdbDescribe(String isolateId) async {
   final response = await _sendControllerRequest(
     (token) => FdbDescribeCommandRequest(token: token, isolateId: isolateId),
@@ -131,6 +159,10 @@ Future<FdbDescribeCommandResponse> fdbDescribe(String isolateId) async {
   return FdbDescribeCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbDoubleTapCommandResponse> fdbDoubleTap(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbDoubleTapCommandRequest(
@@ -147,6 +179,10 @@ Future<FdbDoubleTapCommandResponse> fdbDoubleTap(Map<String, dynamic> params) as
   return FdbDoubleTapCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbEnterTextCommandResponse> fdbEnterText(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbEnterTextCommandRequest(
@@ -163,6 +199,10 @@ Future<FdbEnterTextCommandResponse> fdbEnterText(Map<String, dynamic> params) as
   return FdbEnterTextCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbLongPressCommandResponse> fdbLongPress(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbLongPressCommandRequest(
@@ -180,6 +220,10 @@ Future<FdbLongPressCommandResponse> fdbLongPress(Map<String, dynamic> params) as
   return FdbLongPressCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbScrollCommandResponse> fdbScroll(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbScrollCommandRequest(
@@ -197,6 +241,10 @@ Future<FdbScrollCommandResponse> fdbScroll(Map<String, dynamic> params) async {
   return FdbScrollCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbScrollToCommandResponse> fdbScrollTo(Map<String, String> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbScrollToCommandRequest(
@@ -211,6 +259,10 @@ Future<FdbScrollToCommandResponse> fdbScrollTo(Map<String, String> params) async
   return FdbScrollToCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbSwipeCommandResponse> fdbSwipe(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbSwipeCommandRequest(
@@ -227,6 +279,10 @@ Future<FdbSwipeCommandResponse> fdbSwipe(Map<String, dynamic> params) async {
   return FdbSwipeCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbTapCommandResponse> fdbTap(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbTapCommandRequest(
@@ -243,6 +299,10 @@ Future<FdbTapCommandResponse> fdbTap(Map<String, dynamic> params) async {
   return FdbTapCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbWaitForCommandResponse> fdbWaitFor(
   Map<String, String> params, {
   required Duration timeout,
@@ -263,6 +323,9 @@ Future<FdbWaitForCommandResponse> fdbWaitFor(
   return FdbWaitForCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FdbElementsCommandResponse> fdbElements(
   String isolateId, {
   Duration timeout = const Duration(seconds: 3),
@@ -274,6 +337,10 @@ Future<FdbElementsCommandResponse> fdbElements(
   return FdbElementsCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
+/// @Throwing(FormatException)
 Future<FdbScreenshotCommandResponse> fdbScreenshot(Map<String, dynamic> params) async {
   final response = await _sendControllerRequest(
     (token) => FdbScreenshotCommandRequest(token: token, isolateId: _string(params, 'isolateId')),
@@ -281,6 +348,9 @@ Future<FdbScreenshotCommandResponse> fdbScreenshot(Map<String, dynamic> params) 
   return FdbScreenshotCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FdbSharedPrefsCommandResponse> fdbSharedPrefs(
   String method,
   Map<String, dynamic> params,
@@ -295,6 +365,9 @@ Future<FdbSharedPrefsCommandResponse> fdbSharedPrefs(
   return FdbSharedPrefsCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FlutterInspectorTreeCommandResponse> flutterInspectorRootWidgetSummaryTree(
   String isolateId, {
   required String objectGroup,
@@ -311,6 +384,9 @@ Future<FlutterInspectorTreeCommandResponse> flutterInspectorRootWidgetSummaryTre
   return FlutterInspectorTreeCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FlutterInspectorSelectedWidgetCommandResponse> flutterInspectorSelectedSummaryWidget(
   String isolateId, {
   required String objectGroup,
@@ -325,6 +401,9 @@ Future<FlutterInspectorSelectedWidgetCommandResponse> flutterInspectorSelectedSu
   return FlutterInspectorSelectedWidgetCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FlutterInspectorShowCommandResponse> flutterInspectorShow(
   String isolateId, {
   required bool enabled,
@@ -339,6 +418,9 @@ Future<FlutterInspectorShowCommandResponse> flutterInspectorShow(
   return FlutterInspectorShowCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<FlutterInspectorTreeReadyCommandResponse> flutterInspectorWidgetTreeReady(
   String isolateId, {
   Duration timeout = const Duration(seconds: 5),
@@ -350,6 +432,9 @@ Future<FlutterInspectorTreeReadyCommandResponse> flutterInspectorWidgetTreeReady
   return FlutterInspectorTreeReadyCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<VmIsolateCommandResponse> getIsolate(String isolateId) async {
   final response = await _sendControllerRequest(
     (token) => GetIsolateCommandRequest(token: token, isolateId: isolateId),
@@ -357,6 +442,9 @@ Future<VmIsolateCommandResponse> getIsolate(String isolateId) async {
   return VmIsolateCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<VmMemoryUsageCommandResponse> getMemoryUsage(String isolateId) async {
   final response = await _sendControllerRequest(
     (token) => GetMemoryUsageCommandRequest(token: token, isolateId: isolateId),
@@ -364,6 +452,9 @@ Future<VmMemoryUsageCommandResponse> getMemoryUsage(String isolateId) async {
   return VmMemoryUsageCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<VmAllocationProfileCommandResponse> getAllocationProfile(
   String isolateId, {
   bool? gc,
@@ -380,6 +471,9 @@ Future<VmAllocationProfileCommandResponse> getAllocationProfile(
   return VmAllocationProfileCommandResponse.fromResponse(_responseFields(response));
 }
 
+/// @Throwing(AppDiedException)
+/// @Throwing(ControllerCommandFailed)
+/// @Throwing(ControllerUnavailable)
 Future<VmServiceExtensionCallCommandResponse> extCall(
   String method, {
   Map<String, dynamic> params = const {},
@@ -411,6 +505,7 @@ Future<bool> isControllerAvailable() async {
   }
 }
 
+/// @Throwing(FormatException)
 String _string(Map<String, Object?> json, String name) {
   final value = json[name];
   if (value is String && value.isNotEmpty) return value;
@@ -423,6 +518,7 @@ String? _optionalString(Map<String, Object?> json, String name) {
   return value.toString();
 }
 
+/// @Throwing(FormatException)
 int _int(Map<String, Object?> json, String name) {
   final value = json[name];
   if (value is int) return value;

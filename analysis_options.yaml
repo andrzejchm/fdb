@@ -1,5 +1,9 @@
 include: package:lints/recommended.yaml
 
+plugins:
+  document_throws:
+    documentation_style: doc_comment
+
 formatter:
   page_width: 120
   trailing_commas: preserve

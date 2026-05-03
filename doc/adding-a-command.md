@@ -35,7 +35,7 @@ Models file holds only data types: input typedef + sealed result hierarchy. No b
 
 ```dart
 import 'package:fdb/core/commands/wakeup/wakeup_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/wakeup/wakeup_models.dart';
 

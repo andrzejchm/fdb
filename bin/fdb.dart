@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fdb/cli/adapters/launch_cli.dart';
+import 'package:fdb/cli/cli_command.dart';
 import 'package:fdb/cli/command_dispatch.dart';
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/app_died_exception.dart';
@@ -97,7 +98,7 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
-  final command = remaining[0];
+  final commandName = remaining[0];
 
   final commandArgs = remaining.sublist(1);
 
@@ -108,11 +109,17 @@ Future<void> main(List<String> args) async {
   // All other commands benefit from walking up to find an active .fdb/.
   final wantsHelp = commandArgs.contains('--help') || commandArgs.contains('-h');
   // `fdb mem diff` is pure file I/O — no VM connection required.
-  final isMemDiff = command == 'mem' && commandArgs.isNotEmpty && commandArgs[0] == 'diff';
+  final command = CliCommand.fromWireName(commandName);
+  if (command == null) {
+    stderr.writeln('ERROR: Unknown command: $commandName');
+    exit(1);
+  }
+
+  final isMemDiff = command == CliCommand.mem && commandArgs.isNotEmpty && commandArgs[0] == 'diff';
   // Commands that manage their own session dir or must run even on unhealthy sessions.
-  const sessionResolutionExempt = {'launch', 'devices', 'skill', 'simulator'};
+  const sessionResolutionExempt = {CliCommand.launch, CliCommand.devices, CliCommand.skill, CliCommand.simulator};
   // Commands that run against a potentially dead/missing session (soft-fail on null).
-  const sessionSoftFail = {'status', 'doctor', 'crash-report'};
+  const sessionSoftFail = {CliCommand.status, CliCommand.doctor, CliCommand.crashReport};
   if (!sessionResolutionExempt.contains(command) && !wantsHelp && !isMemDiff) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);
@@ -128,7 +135,8 @@ Future<void> main(List<String> args) async {
   }
 
   try {
-    final exitCode = command == 'launch' ? await runLaunchCli(commandArgs) : await runFdbCommand(command, commandArgs);
+    final exitCode =
+        command == CliCommand.launch ? await runLaunchCli(commandArgs) : await runFdbCommand(command, commandArgs);
     exit(exitCode);
   } on AppDiedException catch (e) {
     formatAppDied(e);

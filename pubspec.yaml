@@ -8,6 +8,8 @@ executables:
   fdb: fdb
   fdb-controller: controller
 dev_dependencies:
+  dart_code_linter: ^4.0.3
+  document_throws: ^0.3.0
   lints: ^6.1.0
   test: ^1.31.0
 dependencies:

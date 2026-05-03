@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fdb/cli/cli_command.dart';
 import 'package:fdb/cli/command_dispatch.dart';
 import 'package:fdb/core/app_died_exception.dart';
 
@@ -71,49 +72,56 @@ Common commands:
     }
     if (parts.isEmpty) continue;
 
-    final command = _expandAlias(parts.first);
+    final commandName = _expandAlias(parts.first);
     final args = parts.sublist(1);
 
-    switch (command) {
-      case 'help':
-        stdout.write(_help);
-        continue;
-      case 'detach':
-        stdout.writeln('DETACHED');
-        return 0;
-      case 'kill':
-      case 'quit':
-        final exitCode = await _runCommand('kill', const []);
-        return exitCode;
-      case 'launch':
-        stderr.writeln('ERROR: launch is not available inside an active session.');
-        continue;
+    final metaCommand = _replMetaCommands[commandName];
+    if (metaCommand != null) {
+      final exitCode = await metaCommand(args);
+      if (exitCode != null) return exitCode;
+      continue;
     }
 
+    final command = CliCommand.fromWireName(commandName);
+    if (command == null) {
+      stderr.writeln('ERROR: Unknown command: $commandName');
+      continue;
+    }
     await _runCommand(command, args);
   }
 }
 
-String _expandAlias(String command) {
-  switch (command) {
-    case 'h':
-      return 'help';
-    case 'r':
-      return 'reload';
-    case 'R':
-      return 'restart';
-    case 'd':
-      return 'describe';
-    case 's':
-      return 'status';
-    case 'q':
-      return 'quit';
-    default:
-      return command;
-  }
-}
+typedef _ReplMetaCommand = Future<int?> Function(List<String> args);
 
-Future<int> _runCommand(String command, List<String> args) async {
+final _replAliases = <String, String>{
+  'h': 'help',
+  'r': 'reload',
+  'R': 'restart',
+  'd': 'describe',
+  's': 'status',
+  'q': 'quit',
+};
+
+final _replMetaCommands = <String, _ReplMetaCommand>{
+  'help': (_) async {
+    stdout.write(_help);
+    return null;
+  },
+  'detach': (_) async {
+    stdout.writeln('DETACHED');
+    return 0;
+  },
+  'kill': (_) => _runCommand(CliCommand.kill, const []),
+  'quit': (_) => _runCommand(CliCommand.kill, const []),
+  'launch': (_) async {
+    stderr.writeln('ERROR: launch is not available inside an active session.');
+    return null;
+  },
+};
+
+String _expandAlias(String command) => _replAliases[command] ?? command;
+
+Future<int> _runCommand(CliCommand command, List<String> args) async {
   try {
     return await runFdbCommand(command, args);
   } on AppDiedException catch (e) {
