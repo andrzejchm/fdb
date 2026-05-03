@@ -876,10 +876,11 @@ tasks:
           echo "FAIL: fdb tap --text exited with code $TEXT_EXIT_CODE" >&2
           exit 1
         fi
-        # The Text leaf must NOT be reported as the tap target — any interactive
-        # ancestor (GestureDetector, InkWell, ElevatedButton, etc. depending on
-        # the Flutter widget tree) is acceptable. We assert the negative because
-        # the set of Flutter interactive widgets is open-ended.
+        # We assert the negative because the exact interactive ancestor type for a
+        # Material button depends on how Flutter wraps its content internally
+        # (GestureDetector vs InkWell vs the button widget itself) and may vary
+        # across Flutter SDK versions. The contract is: the Text leaf must NOT be
+        # the resolved tap target.
         if echo "$TEXT_OUTPUT" | grep -Eq "TAPPED=Text\b"; then
           echo "FAIL: fdb tap --text returned the Text leaf — expected an interactive ancestor" >&2
           exit 1

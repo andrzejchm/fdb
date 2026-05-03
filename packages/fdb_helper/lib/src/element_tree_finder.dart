@@ -260,6 +260,12 @@ bool _isInteractiveWidget(Type type) =>
     type == GestureDetector ||
     type == InkWell ||
     type == InkResponse ||
+    // Material — navigation
+    type == NavigationBar ||
+    type == NavigationDestination ||
+    type == BottomNavigationBar ||
+    type == NavigationRail ||
+    type == NavigationRailDestination ||
     // Cupertino — buttons
     type == CupertinoButton ||
     type == CupertinoDialogAction ||
