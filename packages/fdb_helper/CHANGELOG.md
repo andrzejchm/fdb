@@ -1,3 +1,10 @@
+## 1.6.1
+
+### Fixes
+- `findHittableElement` now always walks ancestors when the matched element is non-interactive, so `fdb tap --text` resolves to the enclosing button rather than the `Text` leaf (fdb-xdh)
+- Pass-through wrappers (`IgnorePointer`, `AbsorbPointer`) are excluded as fallback tap targets so route-level `IgnorePointer(ignoring: false)` no longer leaks as the resolved widget (fdb-gfk)
+- The closed list of interactive widget types now covers Cupertino (`CupertinoButton`, `CupertinoSwitch`, `CupertinoTextField`, `CupertinoSlider`, `CupertinoListTile`, etc.) and the Material widgets that were missing (`Chip` family, `MenuItemButton`, `ListTile`, `BackButton`, `RangeSlider`, `InkResponse`, navigation widgets, `DropdownMenu`, `ToggleButtons`)
+
 ## 1.6.0
 
 No functional changes.

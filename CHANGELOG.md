@@ -1,3 +1,12 @@
+## 1.6.1
+
+### Fixes
+- `fdb tap --text` now resolves to the enclosing interactive widget instead of the matched `Text` leaf — agents that branched on `TAPPED=<type>` no longer get `Text` for buttons whose label they tapped (closes #119)
+- `fdb tap --key` no longer reports `IgnorePointer` for buttons wrapped in route-level `IgnorePointer(ignoring: false)` transitions; pass-through wrappers are now skipped during the ancestor walk (closes #118)
+
+### Improvements
+- The closed-list of interactive widgets recognised by `fdb tap` and `fdb describe` now covers the full Cupertino family (`CupertinoButton`, `CupertinoSwitch`, `CupertinoTextField`, `CupertinoSlider`, `CupertinoListTile`, `CupertinoExpansionTile`, etc.) plus Material widgets that were previously missing (`Chip` family, `MenuItemButton`, `SubmenuButton`, `SegmentedButton`, `ListTile`, `ExpansionTile`, `Tab`, `BackButton`, `CloseButton`, `RangeSlider`, `InkResponse`, `NavigationBar`, `BottomNavigationBar`, `NavigationRail`, `NavigationDestination`, `DropdownMenu`, `ToggleButtons`)
+
 ## 1.6.0
 
 ### New commands

@@ -2947,11 +2947,16 @@ tasks:
           sleep 2
 
           echo "==> [grant-permission] integration: verify camera status is granted"
+          # Since #120 fdb describe surfaces ListTile entries with their summarised
+          # text content rather than recursing into title/subtitle Text children
+          # individually. The PermissionTile renders as
+          # `ListTile "camera · status: granted"` (title · subtitle joined). Match
+          # on that whole-line pattern instead of the now-pruned subtitle key.
           DESCRIBE_OUTPUT=""
           STATUS_OK=0
           for _ in $(seq 1 10); do
             DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
-            if echo "$DESCRIBE_OUTPUT" | grep "perm_status_camera" | grep -q "status: granted"; then
+            if echo "$DESCRIBE_OUTPUT" | grep -E 'ListTile "camera.*status: granted"' >/dev/null; then
               STATUS_OK=1
               break
             fi
