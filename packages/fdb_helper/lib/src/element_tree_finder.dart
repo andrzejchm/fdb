@@ -41,11 +41,14 @@ List<Map<String, dynamic>> findInteractiveElements() {
         });
       }
 
-      // Don't recurse into interactive widgets (except GestureDetector/InkWell)
-      // to avoid exposing internal sub-widgets.
+      // Don't recurse into interactive widgets (except GestureDetector/InkWell/
+      // InkResponse) to avoid exposing internal sub-widgets.
       // Widgets that merely have text or a key are NOT pruned — only truly
       // interactive leaf widgets stop the traversal.
-      if (isInteractive && widget.runtimeType != GestureDetector && widget.runtimeType != InkWell) {
+      if (isInteractive &&
+          widget.runtimeType != GestureDetector &&
+          widget.runtimeType != InkWell &&
+          widget.runtimeType != InkResponse) {
         return; // skip children of interactive widgets only
       }
     }
@@ -225,6 +228,7 @@ bool _isInteractiveWidget(Type type) =>
     type == BackButton ||
     type == CloseButton ||
     type == DropdownButton ||
+    type == DropdownMenu ||
     type == PopupMenuButton ||
     type == MenuItemButton ||
     type == SubmenuButton ||
@@ -244,6 +248,7 @@ bool _isInteractiveWidget(Type type) =>
     type == SwitchListTile ||
     type == Slider ||
     type == RangeSlider ||
+    type == ToggleButtons ||
     // Material — input
     type == TextField ||
     type == TextFormField ||
