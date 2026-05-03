@@ -79,9 +79,10 @@ Future<int> _execute(ArgResults results) async {
 
 int _format(LaunchResult result) {
   switch (result) {
-    case LaunchSuccess(:final logFilePath):
-      stdout.writeln('launch: app is running');
-      stdout.writeln('log: $logFilePath');
+    case LaunchSuccess():
+      for (final token in launchSuccessTokens(result)) {
+        stdout.writeln(token);
+      }
       return 0;
 
     case LaunchMissingDevice():
@@ -131,3 +132,10 @@ int _format(LaunchResult result) {
       return 1;
   }
 }
+
+List<String> launchSuccessTokens(LaunchSuccess result) => [
+      'APP_STARTED',
+      'VM_SERVICE_URI=${result.vmServiceUri}',
+      'PID=${result.pid}',
+      'LOG_FILE=${result.logFilePath}',
+    ];
