@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/doctor/doctor_models.dart';
 import 'package:fdb/core/commands/status/status.dart';
+import 'package:fdb/controller/controller_client.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb/core/vm_service.dart';
 
 export 'package:fdb/core/commands/doctor/doctor_models.dart';
 
@@ -107,9 +107,7 @@ Future<DoctorResult> runDoctor(List<String> args) async {
 
 Future<String?> _checkVmService(String? statusVmServiceUri) async {
   try {
-    final response = await vmServiceCall('getVM', timeout: const Duration(seconds: 3));
-    final result = response['result'] as Map<String, dynamic>?;
-    if (response['error'] != null || result == null) return null;
+    await findAllIsolateIds();
     final uri = statusVmServiceUri ?? readVmUri();
     if (uri == null || uri.isEmpty) return null;
     return uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');

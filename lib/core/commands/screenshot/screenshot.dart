@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/screenshot/screenshot_models.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 import 'package:image/image.dart' as img;
 
 export 'package:fdb/core/commands/screenshot/screenshot_models.dart';
@@ -419,18 +419,13 @@ Future<String?> _captureViaFdbHelper(String output) async {
           'FdbBinding.ensureInitialized() in main().';
     }
 
-    final response = await vmServiceCall(
-      'ext.fdb.screenshot',
-      params: {'isolateId': isolateId},
-    );
+    final result = await fdbScreenshot({'isolateId': isolateId});
 
-    final result = unwrapRawExtensionResult(response);
-    if (result is Map && result.containsKey('error')) {
-      return 'fdb_helper screenshot: ${result['error']}';
+    if (result.error != null) {
+      return 'fdb_helper screenshot: ${result.error}';
     }
 
-    final resultMap = result as Map<String, dynamic>?;
-    final base64Data = resultMap?['screenshot'] as String?;
+    final base64Data = result.screenshot;
     if (base64Data == null) {
       return 'No screenshot data in fdb_helper response.';
     }

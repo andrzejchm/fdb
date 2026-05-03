@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/mem/mem_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/mem/mem_models.dart';
 
@@ -20,15 +20,19 @@ Future<MemResult> getHeapUsage(MemInput _) async {
     final infos = <IsolateHeapInfo>[];
     for (final id in isolateIds) {
       try {
-        final mem =
-            (await vmServiceCall('getMemoryUsage', params: {'isolateId': id}))['result'] as Map<String, dynamic>?;
-        if (mem == null) continue;
+        final mem = await getMemoryUsage(id);
+        final heapUsage = mem.heapUsage;
+        final externalUsage = mem.externalUsage;
+        final heapCapacity = mem.heapCapacity;
+        if (heapUsage == null || externalUsage == null || heapCapacity == null) {
+          continue;
+        }
         infos.add(IsolateHeapInfo(
           id: id,
           name: await _isolateName(id),
-          heapUsage: (mem['heapUsage'] as num).toInt(),
-          externalUsage: (mem['externalUsage'] as num).toInt(),
-          heapCapacity: (mem['heapCapacity'] as num).toInt(),
+          heapUsage: heapUsage,
+          externalUsage: externalUsage,
+          heapCapacity: heapCapacity,
         ));
       } on AppDiedException {
         rethrow;
@@ -104,12 +108,14 @@ Future<MemProfileResult> _captureIsolateProfile(
   String outputPath, {
   String? resolvedName,
 }) async {
-  final profileResult = (await vmServiceCall('getAllocationProfile', params: {'isolateId': isolateId}))['result']
-      as Map<String, dynamic>?;
-  if (profileResult == null) return const MemProfileError('getAllocationProfile returned no result');
+  final profileResult = await getAllocationProfile(isolateId);
+  final members = profileResult.members;
+  if (members == null) {
+    return const MemProfileError('getAllocationProfile returned no result');
+  }
 
   final isolateName = resolvedName ?? await _isolateName(isolateId);
-  final classes = _parseAllocationMembers(profileResult['members'] as List<dynamic>? ?? []);
+  final classes = _parseAllocationMembers(members);
 
   final profile = MemProfile(
     isolateId: isolateId,
@@ -212,9 +218,8 @@ Future<MemDiffResult> diffMemProfiles(MemDiffInput input) async {
 
 /// Resolves the human-readable name for an isolate ID from the VM service.
 Future<String> _isolateName(String isolateId) async {
-  final result =
-      (await vmServiceCall('getIsolate', params: {'isolateId': isolateId}))['result'] as Map<String, dynamic>?;
-  return (result?['name'] as String?) ?? isolateId;
+  final result = await getIsolate(isolateId);
+  return result.name ?? isolateId;
 }
 
 /// Returns `(errorMessage, profile)`. Exactly one of the two is non-null.

@@ -41,14 +41,14 @@ class LaunchMissingDevice extends LaunchResult {
   const LaunchMissingDevice();
 }
 
-/// The nohup launcher process failed to start (non-zero exit).
+/// The controller process failed to start.
 class LaunchLauncherFailed extends LaunchResult {
   final String details;
 
   const LaunchLauncherFailed(this.details);
 }
 
-/// The launcher PID could not be parsed from bash output.
+/// The controller process PID could not be determined.
 class LaunchInvalidLauncherPid extends LaunchResult {
   const LaunchInvalidLauncherPid();
 }

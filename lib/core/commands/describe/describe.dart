@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/describe/describe_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/describe/describe_models.dart';
 
@@ -12,18 +12,13 @@ Future<DescribeResult> describeScreen(DescribeInput _) async {
     final isolateId = await checkFdbHelper();
     if (isolateId == null) return const DescribeNoFdbHelper();
 
-    final response = await vmServiceCall(
-      'ext.fdb.describe',
-      params: {'isolateId': isolateId},
-    );
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbDescribe(isolateId);
 
-    if (result is! Map<String, dynamic>) return const DescribeUnexpectedResponse();
+    if (result.snapshot == null) return const DescribeUnexpectedResponse();
 
-    final error = result['error'] as String?;
-    if (error != null) return DescribeRelayedError(error);
+    if (result.error != null) return DescribeRelayedError(result.error!);
 
-    return DescribeSuccess(result);
+    return DescribeSuccess(result.snapshot!);
   } on AppDiedException catch (e) {
     return DescribeAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

@@ -14,3 +14,4 @@ dependencies:
   args: ^2.7.0
   image: ^4.8.0
   pubspec_manager: ^3.2.1
+  vm_service: 15.0.0

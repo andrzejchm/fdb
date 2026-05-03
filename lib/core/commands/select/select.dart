@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/select/select_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/select/select_models.dart';
 
@@ -12,10 +12,8 @@ Future<SelectResult> toggleSelection(SelectInput input) async {
     final isolateId = await findFlutterIsolateId();
     if (isolateId == null) return const SelectNoIsolate();
 
-    await vmServiceCall(
-      'ext.flutter.inspector.show',
-      params: {'isolateId': isolateId, 'enabled': input.enabled.toString()},
-    );
+    final result = await flutterInspectorShow(isolateId, enabled: input.enabled);
+    if (result.error != null) return SelectError(result.error!);
 
     return SelectSuccess(input.enabled);
   } on AppDiedException catch (e) {

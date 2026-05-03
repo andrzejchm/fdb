@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/scroll_to/scroll_to_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/scroll_to/scroll_to_models.dart';
 
@@ -18,25 +18,19 @@ Future<ScrollToResult> scrollTo(ScrollToInput input) async {
     if (input.type != null) params['type'] = input.type!;
     if (input.index != null) params['index'] = input.index.toString();
 
-    final response = await vmServiceCall('ext.fdb.scrollTo', params: params);
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbScrollTo(params);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        final x = result['x'] as double?;
-        final y = result['y'] as double?;
-        if (x == null || y == null) return const ScrollToMissingCoordinates();
-        final widgetType = result['widgetType'] as String? ?? input.key ?? input.text ?? input.type ?? 'widget';
-        return ScrollToSuccess(widgetType: widgetType, x: x, y: y);
-      }
-
-      if (error != null) return ScrollToRelayedError(error);
+    if (result.isSuccess) {
+      final x = result.x;
+      final y = result.y;
+      if (x == null || y == null) return const ScrollToMissingCoordinates();
+      final widgetType = result.widgetType ?? input.key ?? input.text ?? input.type ?? 'widget';
+      return ScrollToSuccess(widgetType: widgetType, x: x, y: y);
     }
 
-    return ScrollToUnexpectedResponse(result);
+    if (result.error != null) return ScrollToRelayedError(result.error!);
+
+    return ScrollToUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {
     return ScrollToAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

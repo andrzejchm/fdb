@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/back/back_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/back/back_models.dart';
 
@@ -12,25 +12,15 @@ Future<BackResult> navigateBack(BackInput _) async {
     final isolateId = await checkFdbHelper();
     if (isolateId == null) return const BackNoHelper();
 
-    final response = await vmServiceCall(
-      'ext.fdb.back',
-      params: {'isolateId': isolateId},
-    );
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbBack(isolateId);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        final popped = result['popped'] as bool? ?? false;
-        return popped ? const BackPopped() : const BackAtRoot();
-      }
-
-      if (error != null) return BackVmError(error);
+    if (result.isSuccess) {
+      return (result.popped ?? false) ? const BackPopped() : const BackAtRoot();
     }
 
-    return BackUnexpectedResponse(result);
+    if (result.error != null) return BackVmError(result.error!);
+
+    return BackUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {
     return BackAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/scroll/scroll_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/scroll/scroll_models.dart';
 
@@ -33,34 +33,28 @@ Future<ScrollResult> runScroll(ScrollInput input) async {
         };
     }
 
-    final response = await vmServiceCall('ext.fdb.scroll', params: params);
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbScroll(params);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        switch (input) {
-          case ScrollDirectionMode(:final direction, :final distance):
-            return ScrollDirectionSuccess(
-              direction: direction.toUpperCase(),
-              distance: distance,
-            );
-          case ScrollRawMode(:final fromX, :final fromY, :final toX, :final toY):
-            return ScrollRawSuccess(
-              fromX: fromX.toInt(),
-              fromY: fromY.toInt(),
-              toX: toX.toInt(),
-              toY: toY.toInt(),
-            );
-        }
+    if (result.isSuccess) {
+      switch (input) {
+        case ScrollDirectionMode(:final direction, :final distance):
+          return ScrollDirectionSuccess(
+            direction: direction.toUpperCase(),
+            distance: distance,
+          );
+        case ScrollRawMode(:final fromX, :final fromY, :final toX, :final toY):
+          return ScrollRawSuccess(
+            fromX: fromX.toInt(),
+            fromY: fromY.toInt(),
+            toX: toX.toInt(),
+            toY: toY.toInt(),
+          );
       }
-
-      if (error != null) return ScrollRelayedError(error);
     }
 
-    return ScrollUnexpectedResponse(result.toString());
+    if (result.error != null) return ScrollRelayedError(result.error!);
+
+    return ScrollUnexpectedResponse(result.unexpected.toString());
   } on AppDiedException catch (e) {
     return ScrollAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

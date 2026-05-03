@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/swipe/swipe_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/swipe/swipe_models.dart';
 
@@ -22,25 +22,19 @@ Future<SwipeResult> runSwipe(SwipeInput input) async {
     if (input.at != null) params['at'] = input.at;
     if (input.distance != null) params['distance'] = input.distance.toString();
 
-    final response = await vmServiceCall('ext.fdb.swipe', params: params);
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbSwipe(params);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        final actualDistance = result['distance'] ?? input.distance ?? '';
-        return SwipeSuccess(
-          direction: input.direction.toUpperCase(),
-          actualDistance: actualDistance,
-        );
-      }
-
-      if (error != null) return SwipeRelayedError(error);
+    if (result.isSuccess) {
+      final actualDistance = result.distance ?? input.distance ?? '';
+      return SwipeSuccess(
+        direction: input.direction.toUpperCase(),
+        actualDistance: actualDistance,
+      );
     }
 
-    return SwipeUnexpectedResponse(result);
+    if (result.error != null) return SwipeRelayedError(result.error!);
+
+    return SwipeUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {
     return SwipeAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

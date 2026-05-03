@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/shared_prefs/shared_prefs_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/shared_prefs/shared_prefs_models.dart';
 
@@ -36,35 +36,28 @@ Future<SharedPrefsResult> sharedPrefs(SharedPrefsInput input) async {
 // ---------------------------------------------------------------------------
 
 Future<SharedPrefsResult> _get(String isolateId, String key) async {
-  final result = unwrapRawExtensionResult(
-    await vmServiceCall(
-      'ext.fdb.sharedPrefs',
-      params: {'isolateId': isolateId, 'action': 'get', 'key': key},
-    ),
-  ) as Map<String, dynamic>?;
+  final result = await fdbSharedPrefs(
+    'ext.fdb.sharedPrefs',
+    {'isolateId': isolateId, 'action': 'get', 'key': key},
+  );
 
-  if (result == null) return const PrefsRelayedError('no response');
-  if (result.containsKey('error')) return PrefsRelayedError(result['error'] as String);
+  if (result.error != null) return PrefsRelayedError(result.error!);
 
-  if (result['exists'] == true) {
-    return PrefsGetFound(result['value']);
+  if (result.exists == true) {
+    return PrefsGetFound(result.value);
   }
   return const PrefsGetMissing();
 }
 
 Future<SharedPrefsResult> _getAll(String isolateId) async {
-  final result = unwrapRawExtensionResult(
-    await vmServiceCall(
-      'ext.fdb.sharedPrefs',
-      params: {'isolateId': isolateId, 'action': 'getAll'},
-    ),
-  ) as Map<String, dynamic>?;
+  final result = await fdbSharedPrefs(
+    'ext.fdb.sharedPrefs',
+    {'isolateId': isolateId, 'action': 'getAll'},
+  );
 
-  if (result == null) return const PrefsRelayedError('no response');
-  if (result.containsKey('error')) return PrefsRelayedError(result['error'] as String);
+  if (result.error != null) return PrefsRelayedError(result.error!);
 
-  final values = result['values'] as Map<String, dynamic>? ?? {};
-  return PrefsAllReturned(values);
+  return PrefsAllReturned(result.values ?? const {});
 }
 
 Future<SharedPrefsResult> _set(
@@ -73,49 +66,37 @@ Future<SharedPrefsResult> _set(
   String value,
   String type,
 ) async {
-  final result = unwrapRawExtensionResult(
-    await vmServiceCall(
-      'ext.fdb.sharedPrefs',
-      params: {
-        'isolateId': isolateId,
-        'action': 'set',
-        'key': key,
-        'value': value,
-        'type': type,
-      },
-    ),
-  ) as Map<String, dynamic>?;
+  final result = await fdbSharedPrefs('ext.fdb.sharedPrefs', {
+    'isolateId': isolateId,
+    'action': 'set',
+    'key': key,
+    'value': value,
+    'type': type,
+  });
 
-  if (result == null) return const PrefsRelayedError('no response');
-  if (result.containsKey('error')) return PrefsRelayedError(result['error'] as String);
+  if (result.error != null) return PrefsRelayedError(result.error!);
 
   return PrefsSetOk(key);
 }
 
 Future<SharedPrefsResult> _remove(String isolateId, String key) async {
-  final result = unwrapRawExtensionResult(
-    await vmServiceCall(
-      'ext.fdb.sharedPrefs',
-      params: {'isolateId': isolateId, 'action': 'remove', 'key': key},
-    ),
-  ) as Map<String, dynamic>?;
+  final result = await fdbSharedPrefs(
+    'ext.fdb.sharedPrefs',
+    {'isolateId': isolateId, 'action': 'remove', 'key': key},
+  );
 
-  if (result == null) return const PrefsRelayedError('no response');
-  if (result.containsKey('error')) return PrefsRelayedError(result['error'] as String);
+  if (result.error != null) return PrefsRelayedError(result.error!);
 
   return PrefsRemoveOk(key);
 }
 
 Future<SharedPrefsResult> _clear(String isolateId) async {
-  final result = unwrapRawExtensionResult(
-    await vmServiceCall(
-      'ext.fdb.sharedPrefs',
-      params: {'isolateId': isolateId, 'action': 'clear'},
-    ),
-  ) as Map<String, dynamic>?;
+  final result = await fdbSharedPrefs(
+    'ext.fdb.sharedPrefs',
+    {'isolateId': isolateId, 'action': 'clear'},
+  );
 
-  if (result == null) return const PrefsRelayedError('no response');
-  if (result.containsKey('error')) return PrefsRelayedError(result['error'] as String);
+  if (result.error != null) return PrefsRelayedError(result.error!);
 
   return const PrefsClearOk();
 }

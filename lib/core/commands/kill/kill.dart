@@ -1,8 +1,9 @@
 import 'dart:io';
 
 import 'package:fdb/constants.dart';
+import 'package:fdb/controller/controller_command.dart';
 import 'package:fdb/core/commands/kill/kill_models.dart';
-import 'package:fdb/core/controller_client.dart';
+import 'package:fdb/controller/controller_client.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/kill/kill_models.dart';
@@ -20,13 +21,15 @@ Future<KillResult> killApp(KillInput _) async {
 
   try {
     final response = await sendControllerCommand(
-      'kill',
+      ControllerCommand.kill,
       timeout: const Duration(seconds: killTimeoutSeconds),
     );
-    if (response['ok'] == true) {
+    if (response.field('stopped') == true) {
       cleanupTempFiles();
       return const KillSuccess();
     }
+  } on ControllerCommandFailed {
+    return const KillFailed();
   } on ControllerUnavailable {
     return const KillFailed();
   }

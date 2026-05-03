@@ -1,6 +1,7 @@
 import 'package:fdb/constants.dart';
+import 'package:fdb/controller/controller_command.dart';
 import 'package:fdb/core/commands/restart/restart_models.dart';
-import 'package:fdb/core/controller_client.dart';
+import 'package:fdb/controller/controller_client.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/restart/restart_models.dart';
@@ -14,10 +15,12 @@ Future<RestartResult> restartApp(RestartInput _) async {
   final stopwatch = Stopwatch()..start();
   try {
     await sendControllerCommand(
-      'restart',
+      ControllerCommand.restart,
       timeout: const Duration(seconds: restartTimeoutSeconds),
     );
     return RestartSuccess(elapsedMs: stopwatch.elapsedMilliseconds);
+  } on ControllerCommandFailed {
+    return const RestartFailed();
   } on ControllerUnavailable {
     final pid = readControllerPid() ?? readPid();
     if (pid == null) return const RestartNoSession();

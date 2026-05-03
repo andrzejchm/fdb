@@ -1,6 +1,6 @@
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/ext/ext_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/ext/ext_models.dart';
 
@@ -51,14 +51,8 @@ Future<ExtResult> _list() async {
 /// or an empty list when the isolate does not expose any.
 Future<List<String>> _extensionRpcsForIsolate(String isolateId) async {
   try {
-    final response = await vmServiceCall('getIsolate', params: {'isolateId': isolateId});
-    final result = response['result'] as Map<String, dynamic>?;
-    if (result == null) return [];
-
-    final rpcs = result['extensionRPCs'] as List<dynamic>?;
-    if (rpcs == null) return [];
-
-    return rpcs.whereType<String>().toList();
+    final result = await getIsolate(isolateId);
+    return result.extensionRPCs;
   } on AppDiedException {
     rethrow;
   } catch (_) {
@@ -75,49 +69,38 @@ Future<ExtResult> _call(String method, Map<String, String> args) async {
   Object? lastError;
   String? lastRelayedError;
   for (final isolateId in isolateIds) {
-    Map<String, dynamic> response;
-    try {
-      // isolateId is always set last so user-supplied args cannot override it.
-      final params = <String, dynamic>{...args, 'isolateId': isolateId};
-      response = await vmServiceCall(method, params: params);
-    } on AppDiedException {
-      rethrow;
-    } catch (e) {
-      lastError = e;
-      // Try the next isolate.
+    final response = await (() async {
+      try {
+        final params = <String, dynamic>{...args, 'isolateId': isolateId};
+        return await extCall(method, params: params);
+      } on AppDiedException {
+        rethrow;
+      } catch (e) {
+        lastError = e;
+        return null;
+      }
+    })();
+    if (response == null) {
       continue;
     }
 
-    // Check for a JSON-RPC level error.
-    final error = response['error'] as Map<String, dynamic>?;
-    if (error != null) {
-      final code = error['code'] as int?;
-      final message = error['message'] as String? ?? 'Unknown error';
+    if (response.errorCode != null) {
+      final message = response.errorMessage ?? 'Unknown error';
       // −32601 = MethodNotFound: the extension is not registered on this isolate.
       // Continue to try the next isolate.
-      if (code == -32601) {
+      if (response.errorCode == -32601) {
         lastRelayedError = message;
         continue;
       }
       // Any other error code means the extension was found but its handler
       // failed — return immediately without trying more isolates.
-      final data = error['data'];
-      if (data is Map<String, dynamic>) {
-        final details = data['details'];
-        if (details is String && details.isNotEmpty) {
-          return ExtRelayedError(details);
-        }
+      if (response.errorDetails != null && response.errorDetails!.isNotEmpty) {
+        return ExtRelayedError(response.errorDetails!);
       }
       return ExtRelayedError(message);
     }
 
-    final result = response['result'] as Map<String, dynamic>?;
-    if (result == null) return ExtCallOk(const {});
-
-    // Remove VM protocol housekeeping fields from the result.
-    final copy = Map<String, dynamic>.from(result);
-    copy.remove('type');
-    return ExtCallOk(copy);
+    return ExtCallOk(response.extensionResult ?? const {});
   }
 
   if (lastRelayedError != null) return ExtRelayedError(lastRelayedError);

@@ -1,5 +1,6 @@
+import 'package:fdb/controller/controller_command.dart';
 import 'package:fdb/core/commands/status/status_models.dart';
-import 'package:fdb/core/controller_client.dart';
+import 'package:fdb/controller/controller_client.dart';
 
 export 'package:fdb/core/commands/status/status_models.dart';
 
@@ -10,15 +11,17 @@ export 'package:fdb/core/commands/status/status_models.dart';
 Future<StatusResult> getStatus(StatusInput _) async {
   try {
     final response = await sendControllerCommand(
-      'status',
+      ControllerCommand.status,
       timeout: const Duration(seconds: 3),
     );
-    final running = response['running'] == true;
+    final running = response.field('running') == true;
     return StatusResult(
       running: running,
-      pid: response['pid'] as int?,
-      vmServiceUri: running ? response['vmServiceUri'] as String? : null,
+      pid: response.field('pid') as int?,
+      vmServiceUri: running ? response.field('vmServiceUri') as String? : null,
     );
+  } on ControllerCommandFailed {
+    return const StatusResult(running: false);
   } on ControllerUnavailable {
     return const StatusResult(running: false);
   }
