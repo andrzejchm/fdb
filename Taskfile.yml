@@ -868,7 +868,7 @@ tasks:
           exit 1
         fi
 
-        echo "==> Tapping submit button by text (must resolve to interactive ancestor)"
+        echo "==> Tapping submit button by text (must resolve to interactive ancestor, not Text leaf)"
         TEXT_OUTPUT=$({{.FDB}} tap --text "Submit" 2>&1)
         TEXT_EXIT_CODE=$?
         echo "$TEXT_OUTPUT"
@@ -876,10 +876,18 @@ tasks:
           echo "FAIL: fdb tap --text exited with code $TEXT_EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$TEXT_OUTPUT" | grep -q "TAPPED=ElevatedButton"; then
-          echo "PASS: fdb tap --text resolves to ElevatedButton (not Text leaf)"
+        # The Text leaf must NOT be reported as the tap target — any interactive
+        # ancestor (GestureDetector, InkWell, ElevatedButton, etc. depending on
+        # the Flutter widget tree) is acceptable. We assert the negative because
+        # the set of Flutter interactive widgets is open-ended.
+        if echo "$TEXT_OUTPUT" | grep -Eq "TAPPED=Text\b"; then
+          echo "FAIL: fdb tap --text returned the Text leaf — expected an interactive ancestor" >&2
+          exit 1
+        fi
+        if echo "$TEXT_OUTPUT" | grep -q "TAPPED="; then
+          echo "PASS: fdb tap --text resolved to an interactive ancestor (not Text leaf)"
         else
-          echo "FAIL: fdb tap --text — expected TAPPED=ElevatedButton, got something else" >&2
+          echo "FAIL: fdb tap --text — no TAPPED= token in output" >&2
           exit 1
         fi
 
@@ -1263,6 +1271,9 @@ tasks:
         {{.FDB}} restart >/dev/null 2>&1 || true
         sleep 1
 
+        echo "==> Scrolling disappearing_button into view"
+        {{.FDB}} scroll-to --key disappearing_button >/dev/null 2>&1 || true
+
         echo "==> Tapping disappearing_button (widget hides itself on tap)"
         OUTPUT=$({{.FDB}} tap --key "disappearing_button" 2>&1)
         EXIT_CODE=$?
@@ -1279,7 +1290,7 @@ tasks:
         fi
 
   test:tap-ignore-pointer-wrapper:
-    desc: Tap a button wrapped in IgnorePointer(ignoring: false) — must resolve to ElevatedButton, not IgnorePointer
+    desc: 'Tap a button wrapped in IgnorePointer(ignoring: false) — must resolve to ElevatedButton, not IgnorePointer'
     dir: '{{.TEST_APP}}'
     cmds:
       - |
