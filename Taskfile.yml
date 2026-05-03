@@ -851,8 +851,23 @@ tasks:
   test:tap:
     desc: Tap a widget by text selector
     dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}echo "macos"{{end}}'
     cmds:
       - |
+        # Relaunch to guarantee a clean home-screen state. Earlier tasks in
+        # the smoke sequence may have navigated the app or opened dialogs;
+        # `fdb restart` is hot-restart and does not pop routes.
+        echo "==> Relaunching test app on device: {{.DEVICE}}"
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        if [ $? -ne 0 ] || ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+          echo "$LAUNCH_OUTPUT"
+          echo "FAIL: fdb launch for tap test failed" >&2
+          exit 1
+        fi
+
         echo "==> Tapping increment button by key"
         OUTPUT=$({{.FDB}} tap --key "increment_button" 2>&1)
         EXIT_CODE=$?
@@ -865,6 +880,18 @@ tasks:
           echo "PASS: fdb tap"
         else
           echo "FAIL: fdb tap - TAPPED= not found in output" >&2
+          exit 1
+        fi
+
+        # Make sure Submit is on-screen so the matched Text element is hittable
+        # and the ancestor walk runs against the real button tree (not a fallback
+        # path through an off-screen widget).
+        echo "==> Scrolling submit_button into view"
+        SCROLL_OUTPUT=$({{.FDB}} scroll-to --key submit_button 2>&1)
+        SCROLL_EXIT=$?
+        echo "$SCROLL_OUTPUT"
+        if [ $SCROLL_EXIT -ne 0 ]; then
+          echo "FAIL: scroll-to submit_button failed (exit $SCROLL_EXIT)" >&2
           exit 1
         fi
 
@@ -1266,14 +1293,33 @@ tasks:
   test:tap-disappearing-widget:
     desc: Tap a widget that disappears during/after the tap — must return Success, not throw
     dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}echo "macos"{{end}}'
     cmds:
       - |
-        echo "==> Resetting app state before disappearing-widget tap test"
-        {{.FDB}} restart >/dev/null 2>&1 || true
-        sleep 1
+        # `fdb restart` is a hot-restart and does NOT pop pushed routes or
+        # dismiss dialogs. Earlier smoke tasks may leave the app on a
+        # sub-route, so do a full kill + launch to guarantee a clean
+        # home-screen state before the assertion.
+        echo "==> Relaunching test app on device: {{.DEVICE}}"
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        LAUNCH_EXIT=$?
+        echo "$LAUNCH_OUTPUT"
+        if [ $LAUNCH_EXIT -ne 0 ] || ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+          echo "FAIL: fdb launch for disappearing-widget test failed" >&2
+          exit 1
+        fi
 
         echo "==> Scrolling disappearing_button into view"
-        {{.FDB}} scroll-to --key disappearing_button >/dev/null 2>&1 || true
+        SCROLL_OUTPUT=$({{.FDB}} scroll-to --key disappearing_button 2>&1)
+        SCROLL_EXIT=$?
+        echo "$SCROLL_OUTPUT"
+        if [ $SCROLL_EXIT -ne 0 ]; then
+          echo "FAIL: scroll-to disappearing_button failed (exit $SCROLL_EXIT) — app not on home screen" >&2
+          exit 1
+        fi
 
         echo "==> Tapping disappearing_button (widget hides itself on tap)"
         OUTPUT=$({{.FDB}} tap --key "disappearing_button" 2>&1)
@@ -1289,45 +1335,134 @@ tasks:
           echo "FAIL: fdb tap on disappearing widget - expected TAPPED=ElevatedButton (not IgnorePointer or other wrapper)" >&2
           exit 1
         fi
+        if echo "$OUTPUT" | grep -q "TAPPED=ElevatedButton"; then
+          echo "PASS: fdb tap on disappearing widget returned ElevatedButton"
+        else
+          echo "FAIL: fdb tap on disappearing widget - expected TAPPED=ElevatedButton (not IgnorePointer or other wrapper)" >&2
+          exit 1
+        fi
 
   test:tap-ignore-pointer-wrapper:
     desc: 'Tap a button wrapped in IgnorePointer(ignoring: false) — must resolve to ElevatedButton, not IgnorePointer'
     dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}echo "macos"{{end}}'
     cmds:
       - |
-        echo "==> Resetting app state before IgnorePointer wrapper tap test"
-        {{.FDB}} restart >/dev/null 2>&1 || true
-        sleep 1
+        # Path A (fast-path): tap by --key. The matched element is interactive
+        # and hittable, so findHittableElement short-circuits without entering
+        # the ancestor walk. This proves the new logic doesn't regress on
+        # direct key matches against an IgnorePointer-wrapped button.
+        echo "==> [Path A] Relaunching test app on device: {{.DEVICE}}"
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        if [ $? -ne 0 ] || ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+          echo "$LAUNCH_OUTPUT"
+          echo "FAIL: fdb launch for IgnorePointer wrapper test (Path A) failed" >&2
+          exit 1
+        fi
 
-        echo "==> Scrolling IgnorePointer-wrapped button into view"
-        {{.FDB}} scroll-to --key ignore_pointer_wrapped_button >/dev/null 2>&1 || true
+        echo "==> [Path A] Scrolling IgnorePointer-wrapped button into view"
+        SCROLL_OUTPUT=$({{.FDB}} scroll-to --key ignore_pointer_wrapped_button 2>&1)
+        SCROLL_EXIT=$?
+        echo "$SCROLL_OUTPUT"
+        if [ $SCROLL_EXIT -ne 0 ]; then
+          echo "FAIL: scroll-to ignore_pointer_wrapped_button failed (Path A, exit $SCROLL_EXIT)" >&2
+          exit 1
+        fi
 
-        echo "==> Tapping IgnorePointer-wrapped button by key"
+        echo "==> [Path A] Tapping IgnorePointer-wrapped button by key"
         OUTPUT=$({{.FDB}} tap --key "ignore_pointer_wrapped_button" 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
-          echo "FAIL: fdb tap on IgnorePointer-wrapped button exited with code $EXIT_CODE" >&2
+          echo "FAIL: fdb tap --key on IgnorePointer-wrapped button exited with code $EXIT_CODE" >&2
           exit 1
         fi
         if echo "$OUTPUT" | grep -q "TAPPED=ElevatedButton"; then
-          echo "PASS: fdb tap --key on IgnorePointer-wrapped button returned ElevatedButton"
+          echo "PASS: [Path A] fdb tap --key resolved to ElevatedButton"
         else
-          echo "FAIL: fdb tap --key on IgnorePointer-wrapped button - expected TAPPED=ElevatedButton (not IgnorePointer)" >&2
+          echo "FAIL: [Path A] fdb tap --key on IgnorePointer-wrapped button - expected TAPPED=ElevatedButton (not IgnorePointer)" >&2
+          exit 1
+        fi
+
+        # Path B (ancestor walk): tap by --text. The matched Text leaf is
+        # NOT interactive, so the walk runs and MUST skip IgnorePointer
+        # (pass-through filter) and resolve to an interactive ancestor. This
+        # is the regression path for fdb-gfk: without _isPassThroughWidget
+        # the result would be TAPPED=IgnorePointer.
+        echo "==> [Path B] Relaunching test app on device: {{.DEVICE}}"
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        if [ $? -ne 0 ] || ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+          echo "$LAUNCH_OUTPUT"
+          echo "FAIL: fdb launch for IgnorePointer wrapper test (Path B) failed" >&2
+          exit 1
+        fi
+
+        echo "==> [Path B] Scrolling IgnorePointer-wrapped button into view"
+        SCROLL_OUTPUT=$({{.FDB}} scroll-to --key ignore_pointer_wrapped_button 2>&1)
+        SCROLL_EXIT=$?
+        echo "$SCROLL_OUTPUT"
+        if [ $SCROLL_EXIT -ne 0 ]; then
+          echo "FAIL: scroll-to ignore_pointer_wrapped_button failed (Path B, exit $SCROLL_EXIT)" >&2
+          exit 1
+        fi
+
+        echo "==> [Path B] Tapping IgnorePointer-wrapped button by text"
+        TEXT_OUTPUT=$({{.FDB}} tap --text "IgnorePointer Wrapped" 2>&1)
+        TEXT_EXIT_CODE=$?
+        echo "$TEXT_OUTPUT"
+        if [ $TEXT_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb tap --text on IgnorePointer-wrapped button exited with code $TEXT_EXIT_CODE" >&2
+          exit 1
+        fi
+        # Two failure modes the fix must prevent:
+        #  - TAPPED=IgnorePointer would mean the pass-through filter didn't engage.
+        #  - TAPPED=Text would mean the ancestor walk didn't run at all.
+        # Any other interactive widget is acceptable.
+        if echo "$TEXT_OUTPUT" | grep -Eq "TAPPED=IgnorePointer\b"; then
+          echo "FAIL: [Path B] fdb tap --text returned IgnorePointer — pass-through filter not engaged" >&2
+          exit 1
+        fi
+        if echo "$TEXT_OUTPUT" | grep -Eq "TAPPED=Text\b"; then
+          echo "FAIL: [Path B] fdb tap --text returned the Text leaf — ancestor walk did not resolve" >&2
+          exit 1
+        fi
+        if echo "$TEXT_OUTPUT" | grep -q "TAPPED="; then
+          TAPPED_TYPE=$(echo "$TEXT_OUTPUT" | sed -n 's/.*TAPPED=\([A-Za-z]*\).*/\1/p' | head -1)
+          echo "PASS: [Path B] fdb tap --text resolved to $TAPPED_TYPE (not IgnorePointer, not Text)"
+        else
+          echo "FAIL: [Path B] no TAPPED= token in output" >&2
           exit 1
         fi
 
   test:tap-cupertino-button:
     desc: Tap a CupertinoButton by --key and --text — must resolve to TAPPED=CupertinoButton
     dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}echo "macos"{{end}}'
     cmds:
       - |
-        echo "==> Resetting app state before CupertinoButton tap test"
-        {{.FDB}} restart >/dev/null 2>&1 || true
-        sleep 1
+        echo "==> Relaunching test app on device: {{.DEVICE}}"
+        {{.FDB}} kill >/dev/null 2>&1 || true
+        LAUNCH_OUTPUT=$({{.FDB}} launch --device "{{.DEVICE}}" 2>&1)
+        if [ $? -ne 0 ] || ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+          echo "$LAUNCH_OUTPUT"
+          echo "FAIL: fdb launch for CupertinoButton test failed" >&2
+          exit 1
+        fi
 
         echo "==> Scrolling CupertinoButton into view"
-        {{.FDB}} scroll-to --key cupertino_button_test >/dev/null 2>&1 || true
+        SCROLL_OUTPUT=$({{.FDB}} scroll-to --key cupertino_button_test 2>&1)
+        SCROLL_EXIT=$?
+        echo "$SCROLL_OUTPUT"
+        if [ $SCROLL_EXIT -ne 0 ]; then
+          echo "FAIL: scroll-to cupertino_button_test failed (exit $SCROLL_EXIT)" >&2
+          exit 1
+        fi
 
         echo "==> Tapping CupertinoButton by key"
         KEY_OUTPUT=$({{.FDB}} tap --key "cupertino_button_test" 2>&1)
@@ -3614,8 +3749,14 @@ tasks:
       - task: test:longpress
       - task: test:tap-at
       - task: test:tap-disappearing-widget
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: test:tap-ignore-pointer-wrapper
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: test:tap-cupertino-button
+        vars:
+          DEVICE: '{{.DEVICE}}'
       - task: test:input
       - task: test:scroll
       - task: test:scroll-to
