@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'hit_test_utils.dart';
@@ -40,11 +41,14 @@ List<Map<String, dynamic>> findInteractiveElements() {
         });
       }
 
-      // Don't recurse into interactive widgets (except GestureDetector/InkWell)
-      // to avoid exposing internal sub-widgets.
+      // Don't recurse into interactive widgets (except GestureDetector/InkWell/
+      // InkResponse) to avoid exposing internal sub-widgets.
       // Widgets that merely have text or a key are NOT pruned — only truly
       // interactive leaf widgets stop the traversal.
-      if (isInteractive && widget.runtimeType != GestureDetector && widget.runtimeType != InkWell) {
+      if (isInteractive &&
+          widget.runtimeType != GestureDetector &&
+          widget.runtimeType != InkWell &&
+          widget.runtimeType != InkResponse) {
         return; // skip children of interactive widgets only
       }
     }
@@ -65,11 +69,12 @@ typedef HittableElementResult = ({Element? element, int matchCount});
 /// Finds the first (or Nth, if [matcher] has an index) hittable element
 /// matching [matcher].
 ///
-/// For [TextMatcher], if the matched element itself is not hittable (e.g. a
-/// [Text] widget inside a button), walks up the ancestor chain to find the
-/// nearest hittable ancestor and uses that for the tap target. This handles
-/// the common case where `InkWell`/`GestureDetector` absorbs the hit instead
-/// of the leaf `Text` render object.
+/// For [TextMatcher], [KeyMatcher], and [TypeMatcher], always prefers the
+/// nearest interactive ancestor over a non-interactive matched element. This
+/// means tapping `--text "Submit"` returns the enclosing button widget, not
+/// the [Text] leaf. Pass-through wrappers ([IgnorePointer], [AbsorbPointer])
+/// are skipped as fallback targets so route-level wrappers never leak as tap
+/// results.
 ///
 /// Returns a record with the matched element and total match count.
 /// When [matcher.index] is null and more than one element matches,
@@ -96,14 +101,17 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   void visit(Element element) {
     if (matcher.matches(element, extractText: extractWidgetText)) {
       Element? hittable;
-      if (isElementHittable(element)) {
+      final matchedHittable = isElementHittable(element);
+      final matchedInteractive = _isInteractiveWidget(element.widget.runtimeType);
+
+      if (matchedHittable && matchedInteractive) {
+        // Matched element is itself an interactive widget — use it directly.
         hittable = element;
       } else if (needsAncestorWalk) {
-        // Walk up the ancestor chain (nearest first) to find a hittable one.
-        // Two-pass: prefer interactive widgets; fall back to any non-private
-        // widget. This filters out framework-internal full-screen overlays like
-        // _Theater, _FocusTrap, and _ModalBarrier that would otherwise absorb
-        // the hit due to their large RenderBox size.
+        // Prefer the nearest interactive ancestor over a non-interactive
+        // matched element (handles Text inside ElevatedButton). Fall back to a
+        // non-private, non-pass-through hittable ancestor, then to the matched
+        // element itself if hittable.
         Element? fallbackHittable;
         for (var i = ancestors.length - 1; i >= 0; i--) {
           if (!isElementHittable(ancestors[i])) continue;
@@ -111,13 +119,21 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
             hittable = ancestors[i];
             break; // best match — stop immediately
           }
-          // Accept non-private widgets as fallback (skip _Theater, _FocusTrap, etc.)
-          if (fallbackHittable == null && !ancestors[i].widget.runtimeType.toString().startsWith('_')) {
+          final ancestorType = ancestors[i].widget.runtimeType;
+          if (fallbackHittable == null &&
+              !ancestorType.toString().startsWith('_') &&
+              !_isPassThroughWidget(ancestorType)) {
             fallbackHittable = ancestors[i];
           }
         }
+        // No interactive ancestor — fall back to matched element if hittable,
+        // otherwise to the best non-pass-through ancestor.
+        hittable ??= matchedHittable ? element : null;
         hittable ??= fallbackHittable;
+      } else if (matchedHittable) {
+        hittable = element;
       }
+
       if (hittable != null) {
         final renderObject = hittable.renderObject;
         if (renderObject != null && seen.add(renderObject)) {
@@ -178,30 +194,101 @@ bool _isFrameworkWidget(Element element) {
     'DefaultTextEditingShortcuts',
     'PrimaryScrollController',
     'ScrollConfiguration',
+    'IgnorePointer',
+    'AbsorbPointer',
   };
   return frameworkTypes.contains(typeName);
 }
 
+/// Returns true for pointer-routing wrappers that should never be a tap target.
+/// These widgets exist to control pointer event propagation, not for user
+/// interaction. Skipping them as fallback hittable prevents `fdb tap` from
+/// reporting them as the tapped widget when a real interactive ancestor exists.
+bool _isPassThroughWidget(Type type) => type == IgnorePointer || type == AbsorbPointer;
+
+/// Closed-list of widget types that are user-meaningful tap targets.
+///
+/// Why a closed list instead of probing semantics: Flutter buttons build
+/// internal `Semantics(button: true, ...)` and `RawGestureDetector` wrappers
+/// that themselves declare interactive semantics. A tree walk that picks the
+/// nearest semantically-interactive ancestor lands on those internal wrappers
+/// (e.g. `Semantics`, `RawGestureDetector`) instead of the user-named widget
+/// (`ElevatedButton`, `CupertinoButton`). The closed list anchors the result
+/// on the named widget the user would recognise. Adding a new Flutter widget
+/// here is a one-line change; the cost is acceptable in exchange for stable,
+/// human-readable `TAPPED=...` tokens.
 bool _isInteractiveWidget(Type type) =>
-    type == Checkbox ||
-    type == CheckboxListTile ||
-    type == DropdownButton ||
+    // Material — buttons & chips
     type == ElevatedButton ||
     type == FilledButton ||
-    type == FloatingActionButton ||
-    type == GestureDetector ||
-    type == IconButton ||
-    type == InkWell ||
     type == OutlinedButton ||
+    type == TextButton ||
+    type == IconButton ||
+    type == FloatingActionButton ||
+    type == BackButton ||
+    type == CloseButton ||
+    type == DropdownButton ||
+    type == DropdownMenu ||
     type == PopupMenuButton ||
+    type == MenuItemButton ||
+    type == SubmenuButton ||
+    type == SegmentedButton ||
+    type == ActionChip ||
+    type == InputChip ||
+    type == FilterChip ||
+    type == ChoiceChip ||
+    type == RawChip ||
+    type == Chip ||
+    // Material — selection
+    type == Checkbox ||
+    type == CheckboxListTile ||
     type == Radio ||
     type == RadioListTile ||
-    type == Slider ||
     type == Switch ||
     type == SwitchListTile ||
-    type == TextButton ||
+    type == Slider ||
+    type == RangeSlider ||
+    type == ToggleButtons ||
+    // Material — input
     type == TextField ||
-    type == TextFormField;
+    type == TextFormField ||
+    // Material — list/tile
+    type == ListTile ||
+    type == ExpansionTile ||
+    type == Tab ||
+    // Material — feedback / generic gesture
+    type == GestureDetector ||
+    type == InkWell ||
+    type == InkResponse ||
+    // Material — navigation
+    type == NavigationBar ||
+    type == NavigationDestination ||
+    type == BottomNavigationBar ||
+    type == NavigationRail ||
+    type == NavigationRailDestination ||
+    // Cupertino — buttons
+    type == CupertinoButton ||
+    type == CupertinoDialogAction ||
+    type == CupertinoActionSheetAction ||
+    type == CupertinoContextMenuAction ||
+    type == CupertinoNavigationBarBackButton ||
+    // Cupertino — selection
+    type == CupertinoCheckbox ||
+    type == CupertinoRadio ||
+    type == CupertinoSwitch ||
+    type == CupertinoSlider ||
+    type == CupertinoSegmentedControl ||
+    type == CupertinoSlidingSegmentedControl ||
+    // Cupertino — input
+    type == CupertinoTextField ||
+    type == CupertinoTextFormFieldRow ||
+    type == CupertinoSearchTextField ||
+    // Cupertino — list/tile/picker
+    type == CupertinoListTile ||
+    type == CupertinoExpansionTile ||
+    type == CupertinoPicker ||
+    type == CupertinoDatePicker ||
+    type == CupertinoTimerPicker;
 
 /// Finds the first (or Nth, if [matcher] has an index) element that directly
 /// matches [matcher], without walking up to a hittable ancestor.

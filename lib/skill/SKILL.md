@@ -5,10 +5,10 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.6.0
+## Overview - skill version 1.6.1
 
 > **Version check:** Run `fdb --version`. This skill may describe unreleased branch behavior,
-> so do not assume the published `1.6.0` release includes every command example below. To use
+> so do not assume the published `1.6.1` release includes every command example below. To use
 > the latest behavior from this repository,
 > update with `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 > and refresh this skill with `fdb skill`.
@@ -28,7 +28,7 @@ The `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back`
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.6.0
+  fdb_helper: ^1.6.1
 ```
 
 **`main.dart`:**
@@ -500,6 +500,33 @@ fdb gc
 fdb mem profile --output /tmp/after.json
 fdb mem diff /tmp/before.json /tmp/after.json
 ```
+
+### Grant, revoke, or reset runtime permissions
+
+```bash
+# Grant a permission (iOS simulator or Android)
+fdb grant-permission camera
+# stdout: PERMISSION_GRANTED=camera
+
+# Revoke a permission
+fdb grant-permission camera --revoke
+# stdout: PERMISSION_REVOKED=camera
+
+# Reset a single permission (re-prompts on next access)
+fdb grant-permission camera --reset
+# stdout: PERMISSION_RESET=camera
+
+# Reset ALL permissions for the app
+fdb grant-permission --reset-all
+# stdout: PERMISSION_RESET_ALL=true
+
+# Override bundle ID / package name
+fdb grant-permission --bundle com.example.app camera
+```
+
+Supported tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `motion`, `media-library`, `siri` (iOS), `notifications` (Android), `screen-capture` (macOS).
+
+Supported on iOS simulator and Android. Physical iOS devices are not supported. macOS supports `--reset` only; grant/revoke emit `WARNING:` and exit 1. On iOS simulator, a successful grant emits `WARNING: Permission change may have terminated the app. Run \`fdb reload\` or \`fdb launch\` to restart.` on stderr.
 
 ### Status / Kill
 

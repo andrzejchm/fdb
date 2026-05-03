@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:fdb_controller/fdb_controller.dart' as controller;
 
 /// fdb version — update this AND pubspec.yaml on every release.
-const version = '1.6.0';
+const version = '1.6.1';
 
 const sessionDirName = controller.sessionDirName;
 
