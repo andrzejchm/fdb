@@ -1835,6 +1835,33 @@ tasks:
           exit 1
         fi
 
+        echo "==> Verifying swipe inside PageView page with scale recognizer"
+        {{.FDB}} restart >/dev/null 2>&1
+        sleep 1
+        TAP_OUT=$({{.FDB}} tap --key go_to_scale_page_view_test 2>&1)
+        echo "$TAP_OUT"
+        BEFORE=$({{.FDB}} describe 2>&1)
+        echo "$BEFORE"
+        if ! echo "$BEFORE" | grep -q "Scale PageView page=0"; then
+          echo "FAIL: fdb swipe scale PageView repro did not start on page 0" >&2
+          exit 1
+        fi
+        SCALE_OUTPUT=$({{.FDB}} swipe left --at 200,500 --distance 250 2>&1)
+        SCALE_EXIT_CODE=$?
+        echo "$SCALE_OUTPUT"
+        if [ $SCALE_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb swipe scale PageView exited with code $SCALE_EXIT_CODE" >&2
+          exit 1
+        fi
+        AFTER=$({{.FDB}} describe 2>&1)
+        echo "$AFTER"
+        if echo "$AFTER" | grep -q "Scale PageView page=1"; then
+          echo "PASS: fdb swipe scale PageView"
+        else
+          echo "FAIL: fdb swipe scale PageView did not move to page 1" >&2
+          exit 1
+        fi
+
   test:back:
     desc: Navigate back in the running app
     dir: '{{.TEST_APP}}'
