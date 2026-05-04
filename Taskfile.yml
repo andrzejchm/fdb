@@ -1840,6 +1840,7 @@ tasks:
         sleep 1
         TAP_OUT=$({{.FDB}} tap --key go_to_scale_page_view_test 2>&1)
         echo "$TAP_OUT"
+        {{.FDB}} wait --key scale_page_view --present --timeout 5000 >/dev/null
         BEFORE=$({{.FDB}} describe 2>&1)
         echo "$BEFORE"
         if ! echo "$BEFORE" | grep -q "Scale PageView page=0"; then
@@ -1853,6 +1854,7 @@ tasks:
           echo "FAIL: fdb swipe scale PageView exited with code $SCALE_EXIT_CODE" >&2
           exit 1
         fi
+        {{.FDB}} wait --text "Scale PageView page=1" --present --timeout 5000 >/dev/null
         AFTER=$({{.FDB}} describe 2>&1)
         echo "$AFTER"
         if echo "$AFTER" | grep -q "Scale PageView page=1"; then
