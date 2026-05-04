@@ -252,7 +252,7 @@ Future<void> _dispatchMouseDoubleTap(Offset globalPosition) async {
 Future<void> dispatchScroll({
   required Offset start,
   required Offset end,
-  double maxStepSize = 8.0,
+  double maxStepSize = 40.0,
 }) async {
   final pointerId = _nextPointerId++;
   final delta = end - start;

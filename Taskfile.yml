@@ -1846,7 +1846,7 @@ tasks:
           echo "FAIL: fdb swipe scale PageView repro did not start on page 0" >&2
           exit 1
         fi
-        SCALE_OUTPUT=$({{.FDB}} swipe left --at 200,500 --distance 250 2>&1)
+        SCALE_OUTPUT=$({{.FDB}} swipe left --key scale_page_view --distance 250 2>&1)
         SCALE_EXIT_CODE=$?
         echo "$SCALE_OUTPUT"
         if [ $SCALE_EXIT_CODE -ne 0 ]; then
