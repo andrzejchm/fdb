@@ -47,13 +47,12 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestLazyRoute: (_) => const LazyListScrollToPage(),
         scrollToTestHorizontalRoute: (_) => const HorizontalListScrollToPage(),
         scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
-        scrollToTestAlreadyVisibleRoute: (_) =>
-            const AlreadyVisibleScrollToPage(),
-        '/nested-gesture-describe-test': (_) =>
-            const NestedGestureDescribeScreen(),
+        scrollToTestAlreadyVisibleRoute: (_) => const AlreadyVisibleScrollToPage(),
+        '/nested-gesture-describe-test': (_) => const NestedGestureDescribeScreen(),
         '/listtile-describe-test': (_) => const ListTileDescribeScreen(),
         '/notification-test': (_) => NotificationTestScreen(),
         '/permission-test': (_) => const PermissionTestScreen(),
+        '/scale-page-view-test': (_) => const ScalePageViewTestScreen(),
       },
     );
   }
@@ -147,9 +146,14 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 16),
               ElevatedButton(
                 key: const Key('go_to_notification_test_top'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/notification-test'),
+                onPressed: () => Navigator.pushNamed(context, '/notification-test'),
                 child: const Text('Notification Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_scale_page_view_test'),
+                onPressed: () => Navigator.pushNamed(context, '/scale-page-view-test'),
+                child: const Text('Scale PageView Test'),
               ),
               const SizedBox(height: 8),
               // Navigation buttons
@@ -208,23 +212,20 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_scroll_to_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, scrollToTestRoute),
+                onPressed: () => Navigator.pushNamed(context, scrollToTestRoute),
                 child: const Text('Scroll-To Tests'),
               ),
               const SizedBox(height: 8),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_native_view_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/native-view-test'),
+                onPressed: () => Navigator.pushNamed(context, '/native-view-test'),
                 child: const Text('Native View Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_grid_describe_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/grid-describe-test'),
+                onPressed: () => Navigator.pushNamed(context, '/grid-describe-test'),
                 child: const Text('Grid Describe Test'),
               ),
               const SizedBox(height: 8),
@@ -239,22 +240,19 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_listtile_describe_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/listtile-describe-test'),
+                onPressed: () => Navigator.pushNamed(context, '/listtile-describe-test'),
                 child: const Text('ListTile Describe Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_notification_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/notification-test'),
+                onPressed: () => Navigator.pushNamed(context, '/notification-test'),
                 child: const Text('Notification Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_permission_test'),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/permission-test'),
+                onPressed: () => Navigator.pushNamed(context, '/permission-test'),
                 child: const Text('Permission Test'),
               ),
               const SizedBox(height: 8),
@@ -262,8 +260,7 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 key: const Key('show_native_alert'),
                 onPressed: () async {
                   try {
-                    final result = await _nativeDialogChannel
-                        .invokeMethod<String>('showNativeAlert');
+                    final result = await _nativeDialogChannel.invokeMethod<String>('showNativeAlert');
                     if (mounted) {
                       setState(() => _nativeAlertResult = result ?? 'null');
                     }
@@ -502,6 +499,68 @@ class DetailPage extends StatelessWidget {
         title: const Text('Detail Page'),
       ),
       body: const Center(child: Text('Detail Page Content')),
+    );
+  }
+}
+
+class ScalePageViewTestScreen extends StatefulWidget {
+  const ScalePageViewTestScreen({super.key});
+
+  @override
+  State<ScalePageViewTestScreen> createState() => _ScalePageViewTestScreenState();
+}
+
+class _ScalePageViewTestScreenState extends State<ScalePageViewTestScreen> {
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scale PageView Test')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Scale PageView page=$_page',
+              key: const Key('scale_page_view_page_text'),
+            ),
+          ),
+          Expanded(
+            child: PageView.builder(
+              key: const Key('scale_page_view'),
+              itemCount: 5,
+              onPageChanged: (page) {
+                setState(() {
+                  _page = page;
+                });
+                developer.log('scale_page_view page=$page', name: 'fdb_test');
+              },
+              itemBuilder: (context, index) {
+                return GestureDetector(
+                  key: Key('scale_page_view_child_$index'),
+                  onDoubleTap: () {
+                    developer.log(
+                      'scale_page_view doubleTap page=$index',
+                      name: 'fdb_test',
+                    );
+                  },
+                  onScaleUpdate: (_) {},
+                  child: ColoredBox(
+                    color: Colors.primaries[index],
+                    child: Center(
+                      child: Text(
+                        'Scale Page $index',
+                        style: Theme.of(context).textTheme.headlineLarge,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

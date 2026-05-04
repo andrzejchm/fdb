@@ -114,6 +114,7 @@ Future<developer.ServiceExtensionResponse> handleSwipe(
     await dispatchScroll(
       start: Offset(startX, startY),
       end: Offset(endX, endY),
+      maxStepSize: 8.0,
     );
 
     return developer.ServiceExtensionResponse.result(
