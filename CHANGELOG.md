@@ -1,3 +1,8 @@
+## 1.6.2
+
+### Fixes
+- `fdb swipe` now dispatches finer-grained synthetic pointer moves, so swiping a `PageView` whose pages contain scale-capable gesture handlers moves pages reliably instead of losing Flutter's gesture arena to the child scale recognizer.
+
 ## 1.6.1
 
 ### Fixes

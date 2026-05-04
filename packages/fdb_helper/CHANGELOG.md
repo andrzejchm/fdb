@@ -1,3 +1,8 @@
+## 1.6.2
+
+### Fixes
+- `ext.fdb.swipe` now uses finer-grained synthetic pointer movement to better match native touch behavior when parent drag recognizers compete with child scale recognizers.
+
 ## 1.6.1
 
 ### Fixes
