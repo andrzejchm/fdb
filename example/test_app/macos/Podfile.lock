@@ -32,7 +32,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
 
 SPEC CHECKSUMS:
-  fdb_helper: 5c32d36d02f83eaef98cbb1ae9acaf80225c25ab
+  fdb_helper: 25f918842df7db5798d37b3a43b7b145c1ea94a3
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   push: 91373ae39c5341c6de6adefa3fda7f7287d646bf
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb

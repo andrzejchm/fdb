@@ -12,6 +12,7 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'SWIFT_ACTIVE_COMPILATION_CONDITIONS[config=Debug]' => '$(inherited) FDB_HELPER_NATIVE_TAP_REAL',
+    'SWIFT_ACTIVE_COMPILATION_CONDITIONS[config=Profile]' => '$(inherited) FDB_HELPER_NATIVE_TAP_REAL',
   }
   s.swift_version    = '5.0'
 end
