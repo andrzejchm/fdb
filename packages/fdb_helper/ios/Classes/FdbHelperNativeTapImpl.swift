@@ -1,6 +1,8 @@
 import Flutter
 import UIKit
 
+#if FDB_HELPER_NATIVE_TAP_REAL
+
 /// Injects a synthetic in-process tap at the given Flutter logical
 /// coordinates by delegating to the ObjC implementation in
 /// `FdbHelperNativeTap.m`. The ObjC layer mirrors KIF v3.12.2's tap
@@ -41,3 +43,18 @@ class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
     }
   }
 }
+
+#else
+
+/// Safe fallback compiled into profile/release Apple builds by default.
+class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
+  func nativeTap(x: Double, y: Double) throws {
+    throw PigeonError(
+      code: "UNAVAILABLE_IN_RELEASE",
+      message: "Native tap is disabled in release/profile builds of fdb_helper",
+      details: nil,
+    )
+  }
+}
+
+#endif
