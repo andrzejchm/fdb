@@ -3836,6 +3836,28 @@ tasks:
       - dart analyze lib/ bin/ test/
       - cd packages/fdb_helper && flutter analyze --suppress-analytics
 
+  test:fdb-helper-release-stubs:
+    desc: "Verify fdb_helper debug/release native tap source selection"
+    cmds:
+      - |
+        echo "==> Checking Android source sets"
+        test -f packages/fdb_helper/android/src/debug/kotlin/io/fdb/fdb_helper/FdbHelperNativeTapImpl.kt
+        test -f packages/fdb_helper/android/src/release/kotlin/io/fdb/fdb_helper/FdbHelperNativeTapImpl.kt
+        test ! -f packages/fdb_helper/android/src/main/kotlin/io/fdb/fdb_helper/FdbHelperNativeTapImpl.kt
+        if grep -q 'flutter_embedding_debug' packages/fdb_helper/android/build.gradle; then
+          echo "FAIL: android/build.gradle still references flutter_embedding_debug" >&2
+          exit 1
+        fi
+
+        echo "==> Checking Apple build gating"
+        grep -q 'SWIFT_ACTIVE_COMPILATION_CONDITIONS\[config=Debug\].*FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Release\].*FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Profile\].*FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q '#if FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/Classes/FdbHelperNativeTapImpl.swift
+        grep -q '#if FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/macos/Classes/FdbHelperNativeTapImpl.swift
+
+        echo "PASS: fdb_helper release stubs layout"
+
   test:unit:
     desc: "Run dart unit tests for fdb"
     cmds:

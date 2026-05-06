@@ -244,6 +244,8 @@ void main() {
 }
 ```
 
+`fdb_helper` now ships safe native tap stubs in release builds. Android release builds and Apple release builds do not include the real native tap implementation. On iOS/macOS, Flutter's default CocoaPods setup also makes `Profile` use the stub unless the app explicitly overrides the `fdb_helper` pod target build settings. See [`packages/fdb_helper/README.md`](packages/fdb_helper/README.md) for the Profile opt-in snippet.
+
 ## Troubleshooting
 
 **`fdb: command not found`** - Add `~/.pub-cache/bin` to your `PATH`.
