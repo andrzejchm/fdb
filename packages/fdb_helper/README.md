@@ -36,49 +36,11 @@ Then run `flutter pub get` and relaunch the app.
 
 ## Build-mode behavior
 
-- **Android debug/profile**: compiles the real native tap implementation. Flutter's Android `profile` build type falls back to the debug plugin variant when the plugin does not publish a profile variant.
-- **Android release**: compiles a stub `FdbHelperNativeTapImpl`; `fdb native-tap` falls back to Flutter gestures and cannot reach native overlays.
-- **iOS/macOS debug**: compiles the real native tap implementation.
-- **iOS/macOS release**: compiles a safe stub and excludes the private iOS native tap Objective-C implementation from the pod target.
-- **iOS/macOS profile**: uses the same safe stub by default. Flutter's default CocoaPods setup maps `Profile` to `:release`, so profile does **not** get the real native tap path unless the consuming app opts in.
+- **Debug** (all platforms): compiles the real native tap implementation.
+- **Profile** (all platforms): compiles the real native tap implementation. Profile is intended for on-device profiling/internal distribution (Firebase App Distribution, TestFlight internal), so `fdb native-tap` works there.
+- **Release** (all platforms): compiles a safe stub. iOS/macOS exclude the private Objective-C native tap implementation from the pod target. Android compiles a stub via Gradle `src/release` source sets. App Store / Play Store binaries no longer ship the private-API native tap.
 
-If you need the real native tap path in an Apple `Profile` build for local/dev-only testing, override the `fdb_helper` pod target in your app's `Podfile`.
-
-For **iOS** `Profile` builds, add the Swift/ObjC flags and clear the excluded-source override for the `fdb_helper` pod target:
-
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    next unless target.name == 'fdb_helper'
-
-    target.build_configurations.each do |config|
-      next unless config.name == 'Profile'
-
-      config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = '$(inherited) FDB_HELPER_NATIVE_TAP_REAL'
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) FDB_HELPER_NATIVE_TAP_REAL=1'
-      config.build_settings['EXCLUDED_SOURCE_FILE_NAMES'] = ''
-    end
-  end
-end
-```
-
-For **macOS** `Profile` builds, only the Swift compilation condition is needed:
-
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    next unless target.name == 'fdb_helper'
-
-    target.build_configurations.each do |config|
-      next unless config.name == 'Profile'
-
-      config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = '$(inherited) FDB_HELPER_NATIVE_TAP_REAL'
-    end
-  end
-end
-```
-
-Only use that override in internal/dev builds. Do not ship the real Apple native tap implementation in production binaries.
+The Apple Profile selection works because `fdb_helper` keys its compile flags on the Xcode configuration name (`Profile`) rather than on the CocoaPods configuration type, so Flutter's default `'Profile' => :release` Podfile mapping does not turn Profile into the release stub.
 
 ## Usage
 

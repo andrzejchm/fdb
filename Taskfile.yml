@@ -3851,8 +3851,16 @@ tasks:
 
         echo "==> Checking Apple build gating"
         grep -q 'SWIFT_ACTIVE_COMPILATION_CONDITIONS\[config=Debug\].*FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'SWIFT_ACTIVE_COMPILATION_CONDITIONS\[config=Profile\].*FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'GCC_PREPROCESSOR_DEFINITIONS\[config=Debug\].*FDB_HELPER_NATIVE_TAP_REAL=1' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'GCC_PREPROCESSOR_DEFINITIONS\[config=Profile\].*FDB_HELPER_NATIVE_TAP_REAL=1' packages/fdb_helper/ios/fdb_helper.podspec
         grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Release\].*FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
-        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Profile\].*FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
+        if grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Profile\]' packages/fdb_helper/ios/fdb_helper.podspec; then
+          echo "FAIL: Profile must keep the real Apple native tap; remove EXCLUDED_SOURCE_FILE_NAMES[config=Profile]" >&2
+          exit 1
+        fi
+        grep -q 'SWIFT_ACTIVE_COMPILATION_CONDITIONS\[config=Debug\].*FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/macos/fdb_helper.podspec
+        grep -q 'SWIFT_ACTIVE_COMPILATION_CONDITIONS\[config=Profile\].*FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/macos/fdb_helper.podspec
         grep -q '#if FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/Classes/FdbHelperNativeTapImpl.swift
         grep -q '#if FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/macos/Classes/FdbHelperNativeTapImpl.swift
 

@@ -46,12 +46,12 @@ class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
 
 #else
 
-/// Safe fallback compiled into profile/release Apple builds by default.
+/// Safe fallback compiled into release Apple builds.
 class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
   func nativeTap(x: Double, y: Double) throws {
     throw PigeonError(
       code: "UNAVAILABLE_IN_RELEASE",
-      message: "Native tap is disabled in release/profile builds of fdb_helper",
+      message: "Native tap is disabled in release builds of fdb_helper",
       details: nil,
     )
   }
