@@ -1,3 +1,8 @@
+## 1.6.3
+
+### Fixes
+- `fdb_helper` release and profile builds now compile a safe stub instead of the private-API native tap implementation, so iOS App Store binaries no longer ship the private UIKit/IOHID symbols. Debug builds keep the real implementation. Apple `Profile` builds use the stub by default; consumers can opt in via a `Podfile` snippet documented in `packages/fdb_helper/README.md`. Android release builds compile a stub variant via Gradle source sets and no longer depend on the debug-only Flutter embedding artifact.
+
 ## 1.6.2
 
 ### Fixes

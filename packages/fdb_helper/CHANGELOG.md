@@ -1,3 +1,9 @@
+## 1.6.3
+
+### Fixes
+- iOS/macOS release and profile builds now compile a safe Swift stub instead of the private-API native tap implementation. Debug builds keep the real implementation. Apple `Profile` builds use the stub by default; consumers can opt in via the `Podfile` snippet in `README.md`.
+- Android release builds compile a stub `FdbHelperNativeTapImpl` via Gradle `src/release` source sets. Debug and profile keep the real implementation. The Android plugin no longer depends on the debug-only `flutter_embedding_debug` artifact.
+
 ## 1.6.2
 
 ### Fixes
