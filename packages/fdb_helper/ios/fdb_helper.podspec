@@ -15,8 +15,8 @@ Pod::Spec.new do |s|
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'SWIFT_ACTIVE_COMPILATION_CONDITIONS[config=Debug]' => '$(inherited) FDB_HELPER_NATIVE_TAP_REAL',
     'GCC_PREPROCESSOR_DEFINITIONS[config=Debug]' => '$(inherited) FDB_HELPER_NATIVE_TAP_REAL=1',
-    'EXCLUDED_SOURCE_FILE_NAMES[config=Profile]' => 'FdbHelperNativeTap.h FdbHelperNativeTap.m',
-    'EXCLUDED_SOURCE_FILE_NAMES[config=Release]' => 'FdbHelperNativeTap.h FdbHelperNativeTap.m',
+    'EXCLUDED_SOURCE_FILE_NAMES[config=Profile]' => 'FdbHelperNativeTap.m',
+    'EXCLUDED_SOURCE_FILE_NAMES[config=Release]' => 'FdbHelperNativeTap.m',
   }
   s.swift_version    = '5.0'
 end

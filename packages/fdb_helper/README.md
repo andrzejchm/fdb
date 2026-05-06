@@ -39,7 +39,7 @@ Then run `flutter pub get` and relaunch the app.
 - **Android debug/profile**: compiles the real native tap implementation. Flutter's Android `profile` build type falls back to the debug plugin variant when the plugin does not publish a profile variant.
 - **Android release**: compiles a stub `FdbHelperNativeTapImpl`; `fdb native-tap` falls back to Flutter gestures and cannot reach native overlays.
 - **iOS/macOS debug**: compiles the real native tap implementation.
-- **iOS/macOS release**: compiles a safe stub and excludes the private iOS native tap Objective-C files from the pod target.
+- **iOS/macOS release**: compiles a safe stub and excludes the private iOS native tap Objective-C implementation from the pod target.
 - **iOS/macOS profile**: uses the same safe stub by default. Flutter's default CocoaPods setup maps `Profile` to `:release`, so profile does **not** get the real native tap path unless the consuming app opts in.
 
 If you need the real native tap path in an Apple `Profile` build for local/dev-only testing, override the `fdb_helper` pod target in your app's `Podfile`.

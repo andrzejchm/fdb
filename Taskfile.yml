@@ -3851,8 +3851,8 @@ tasks:
 
         echo "==> Checking Apple build gating"
         grep -q 'SWIFT_ACTIVE_COMPILATION_CONDITIONS\[config=Debug\].*FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/fdb_helper.podspec
-        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Release\].*FdbHelperNativeTap.h FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
-        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Profile\].*FdbHelperNativeTap.h FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Release\].*FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
+        grep -q 'EXCLUDED_SOURCE_FILE_NAMES\[config=Profile\].*FdbHelperNativeTap.m' packages/fdb_helper/ios/fdb_helper.podspec
         grep -q '#if FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/ios/Classes/FdbHelperNativeTapImpl.swift
         grep -q '#if FDB_HELPER_NATIVE_TAP_REAL' packages/fdb_helper/macos/Classes/FdbHelperNativeTapImpl.swift
 

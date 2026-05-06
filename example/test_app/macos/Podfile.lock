@@ -2,6 +2,9 @@ PODS:
   - fdb_helper (1.2.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
+  - push (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -12,6 +15,7 @@ PODS:
 DEPENDENCIES:
   - fdb_helper (from `Flutter/ephemeral/.symlinks/plugins/fdb_helper/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - push (from `Flutter/ephemeral/.symlinks/plugins/push/darwin`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
   - webview_flutter_wkwebview (from `Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
@@ -20,14 +24,17 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/fdb_helper/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  push:
+    :path: Flutter/ephemeral/.symlinks/plugins/push/darwin
   shared_preferences_foundation:
     :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
   webview_flutter_wkwebview:
     :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
 
 SPEC CHECKSUMS:
-  fdb_helper: dd6a5822a789a0ea0975a986dfd9ca2f467b6836
+  fdb_helper: 5c32d36d02f83eaef98cbb1ae9acaf80225c25ab
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  push: 91373ae39c5341c6de6adefa3fda7f7287d646bf
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
