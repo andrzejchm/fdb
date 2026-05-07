@@ -1,5 +1,5 @@
 import 'package:fdb/constants.dart';
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:fdb/core/commands/restart/restart_models.dart';
 import 'package:fdb/core/process_utils.dart';
 

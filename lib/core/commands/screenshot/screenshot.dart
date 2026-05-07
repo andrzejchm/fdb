@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/screenshot/screenshot_models.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:image/image.dart' as img;
 
 export 'package:fdb/core/commands/screenshot/screenshot_models.dart';

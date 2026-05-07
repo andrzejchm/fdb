@@ -14,8 +14,6 @@ tasks:
     desc: Install dependencies and prepare the test app
     cmds:
       - dart pub get
-      - cmd: dart pub get
-        dir: 'packages/fdb_controller'
       - cmd: flutter pub get
         dir: 'packages/fdb_helper'
       - cmd: flutter pub get
@@ -207,15 +205,15 @@ tasks:
           exit 1
         fi
 
-        echo "==> Scenario: dead PID (app_running=fail)"
-        ORIGINAL_PID=$(cat .fdb/fdb.pid)
-        restore_pid() { printf '%s' "$ORIGINAL_PID" > .fdb/fdb.pid; }
-        trap restore_pid EXIT
-        printf '999999' > .fdb/fdb.pid
-        FAILURE_RAW=$({{.FDB}} doctor 2>&1)
+        echo "==> Scenario: stale app + tool PIDs and stale VM URI (app_running=fail)"
+        SESSION_ROOT=$(mktemp -d)
+        cp -R .fdb "$SESSION_ROOT/.fdb"
+        printf '999999' > "$SESSION_ROOT/.fdb/fdb.app_pid"
+        printf '999999' > "$SESSION_ROOT/.fdb/fdb.pid"
+        printf 'ws://127.0.0.1:1/stale=/ws' > "$SESSION_ROOT/.fdb/vm_uri.txt"
+        FAILURE_RAW=$({{.FDB}} --session-dir "$SESSION_ROOT/.fdb" doctor 2>&1)
         FAILURE_EXIT_CODE=$?
-        restore_pid
-        trap - EXIT
+        rm -rf "$SESSION_ROOT"
         FAILURE_OUTPUT=$(echo "$FAILURE_RAW" | normalize)
         echo "$FAILURE_OUTPUT"
         if [ $FAILURE_EXIT_CODE -ne 0 ]; then
@@ -239,7 +237,7 @@ tasks:
           exit 1
         fi
 
-        echo "==> Scenario: stale VM URI while PID is alive (vm_service=fail)"
+        echo "==> Scenario: stale VM URI while app PID is alive (vm_service=fail)"
         ORIGINAL_URI=$(cat .fdb/vm_uri.txt)
         restore_uri() { printf '%s' "$ORIGINAL_URI" > .fdb/vm_uri.txt; }
         trap restore_uri EXIT
@@ -1756,6 +1754,7 @@ tasks:
         fi
 
         echo "==> [wait] Tapping 'show_delayed' to trigger delayed widget"
+        {{.FDB}} scroll-to --key "show_delayed" >/dev/null 2>&1
         {{.FDB}} tap --key "show_delayed" >/dev/null 2>&1
 
         echo "==> [wait] Waiting for delayed_button to appear"
@@ -3462,32 +3461,32 @@ tasks:
     dir: '{{.TEST_APP}}'
     cmds:
       - |
-        echo "==> Scenario: PID file missing but VM URI reachable (interrupted launch)"
+        echo "==> Scenario: app PID file missing but VM URI reachable (interrupted launch)"
         if [ ! -f .fdb/vm_uri.txt ]; then
           echo "FAIL: .fdb/vm_uri.txt not found — run test:launch first" >&2
           exit 1
         fi
 
-        # Remove the PID file to simulate an interrupted fdb launch where
-        # flutter run's --pid-file was not written before fdb was killed.
-        ORIGINAL_PID=""
-        if [ -f .fdb/fdb.pid ]; then
-          ORIGINAL_PID=$(cat .fdb/fdb.pid)
-          rm .fdb/fdb.pid
+        # Remove the preferred app PID file to simulate an interrupted fdb launch
+        # before the controller persisted the target app PID.
+        ORIGINAL_APP_PID=""
+        if [ -f .fdb/fdb.app_pid ]; then
+          ORIGINAL_APP_PID=$(cat .fdb/fdb.app_pid)
+          rm .fdb/fdb.app_pid
         fi
 
-        restore_pid() {
-          if [ -n "$ORIGINAL_PID" ]; then
-            printf '%s' "$ORIGINAL_PID" > .fdb/fdb.pid
+        restore_app_pid() {
+          if [ -n "$ORIGINAL_APP_PID" ]; then
+            printf '%s' "$ORIGINAL_APP_PID" > .fdb/fdb.app_pid
           fi
         }
-        trap restore_pid EXIT
+        trap restore_app_pid EXIT
 
         OUTPUT=$({{.FDB}} status 2>&1)
         EXIT_CODE=$?
         echo "$OUTPUT"
 
-        restore_pid
+        restore_app_pid
         trap - EXIT
 
         if [ $EXIT_CODE -ne 0 ]; then
@@ -3497,28 +3496,28 @@ tasks:
         if echo "$OUTPUT" | grep -q "RUNNING=true"; then
           echo "PASS: fdb status correctly reports RUNNING=true via VM URI fallback"
         else
-          echo "FAIL: fdb status - expected RUNNING=true when app is alive but PID file missing" >&2
+          echo "FAIL: fdb status - expected RUNNING=true when app is alive but app PID file missing" >&2
           exit 1
         fi
 
-        echo "==> Scenario: PID file points to dead process but VM URI reachable"
-        ORIGINAL_PID=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
-        printf '999999' > .fdb/fdb.pid
+        echo "==> Scenario: app PID file points to dead process but VM URI reachable"
+        ORIGINAL_APP_PID2=$(cat .fdb/fdb.app_pid 2>/dev/null || echo "")
+        printf '999999' > .fdb/fdb.app_pid
 
-        restore_stale_pid() {
-          if [ -n "$ORIGINAL_PID" ]; then
-            printf '%s' "$ORIGINAL_PID" > .fdb/fdb.pid
+        restore_stale_app_pid() {
+          if [ -n "$ORIGINAL_APP_PID2" ]; then
+            printf '%s' "$ORIGINAL_APP_PID2" > .fdb/fdb.app_pid
           else
-            rm -f .fdb/fdb.pid
+            rm -f .fdb/fdb.app_pid
           fi
         }
-        trap restore_stale_pid EXIT
+        trap restore_stale_app_pid EXIT
 
         OUTPUT2=$({{.FDB}} status 2>&1)
         EXIT_CODE2=$?
         echo "$OUTPUT2"
 
-        restore_stale_pid
+        restore_stale_app_pid
         trap - EXIT
 
         if [ $EXIT_CODE2 -ne 0 ]; then
@@ -3526,40 +3525,35 @@ tasks:
           exit 1
         fi
         if echo "$OUTPUT2" | grep -q "RUNNING=true"; then
-          echo "PASS: fdb status correctly reports RUNNING=true via VM URI fallback (stale PID)"
+          echo "PASS: fdb status correctly reports RUNNING=true via VM URI fallback (stale app PID)"
         else
-          echo "FAIL: fdb status - expected RUNNING=true when VM URI reachable but PID is stale" >&2
+          echo "FAIL: fdb status - expected RUNNING=true when VM URI reachable but app PID is stale" >&2
           exit 1
         fi
 
-        echo "==> Scenario: VM URI present but service unreachable → RUNNING=false"
-        ORIGINAL_PID3=$(cat .fdb/fdb.pid 2>/dev/null || echo "")
-        ORIGINAL_URI3=$(cat .fdb/vm_uri.txt 2>/dev/null || echo "")
-        if [ -z "$ORIGINAL_URI3" ]; then
+        echo "==> Scenario: VM URI present but service unreachable and no live PID → RUNNING=false"
+        TEMP_SESSION=$(mktemp -d)
+        cp -R .fdb/. "$TEMP_SESSION/"
+        trap 'rm -rf "$TEMP_SESSION"' EXIT
+        if [ ! -f "$TEMP_SESSION/vm_uri.txt" ]; then
           echo "FAIL: .fdb/vm_uri.txt not found — run test:launch first" >&2
           exit 1
         fi
 
-        restore_scenario3() {
-          if [ -n "$ORIGINAL_PID3" ]; then
-            printf '%s' "$ORIGINAL_PID3" > .fdb/fdb.pid
-          else
-            rm -f .fdb/fdb.pid
-          fi
-          printf '%s' "$ORIGINAL_URI3" > .fdb/vm_uri.txt
-        }
-        trap restore_scenario3 EXIT
-
-        # Remove PID file so only the VM URI path is exercised.
-        rm -f .fdb/fdb.pid
+        # Remove both app/tool PID files so only the stale VM URI path is exercised.
+        rm -f "$TEMP_SESSION/fdb.app_pid"
+        rm -f "$TEMP_SESSION/fdb.pid"
+        rm -f "$TEMP_SESSION/controller.pid"
+        rm -f "$TEMP_SESSION/controller.port"
+        rm -f "$TEMP_SESSION/controller.token"
         # Replace VM URI with a URI that refuses connections immediately.
-        printf 'ws://127.0.0.1:1/' > .fdb/vm_uri.txt
+        printf 'ws://127.0.0.1:1/' > "$TEMP_SESSION/vm_uri.txt"
 
-        OUTPUT3=$({{.FDB}} status 2>&1)
+        OUTPUT3=$({{.FDB}} --session-dir "$TEMP_SESSION" status 2>&1)
         EXIT_CODE3=$?
         echo "$OUTPUT3"
 
-        restore_scenario3
+        rm -rf "$TEMP_SESSION"
         trap - EXIT
 
         if [ $EXIT_CODE3 -ne 0 ]; then
@@ -3822,34 +3816,29 @@ tasks:
   # Code quality — individual steps
   # ---------------------------------------------------------------------------
   format:
-    desc: "Format code in fdb, fdb_controller, and fdb_helper"
+    desc: "Format code in fdb and fdb_helper"
     cmds:
       - dart format --page-width 120 --trailing-commas preserve lib/ bin/ test/
-      - cd packages/fdb_controller && dart format --page-width 120 --trailing-commas preserve lib/ test/
       - cd packages/fdb_helper && dart format --page-width 120 --trailing-commas preserve lib/
 
   fix:
-    desc: "Apply dart fix to fdb, fdb_controller, and fdb_helper"
+    desc: "Apply dart fix to fdb and fdb_helper"
     cmds:
       - dart fix --apply lib/
       - dart fix --apply bin/
       - dart fix --apply test/
-      - cd packages/fdb_controller && dart fix --apply lib/
-      - cd packages/fdb_controller && dart fix --apply test/
       - cd packages/fdb_helper && dart fix --apply lib/
 
   analyze:
-    desc: "Run static analysis on fdb, fdb_controller, and fdb_helper"
+    desc: "Run static analysis on fdb and fdb_helper"
     cmds:
       - dart analyze lib/ bin/ test/
-      - cd packages/fdb_controller && dart analyze lib/ test/
       - cd packages/fdb_helper && flutter analyze --suppress-analytics
 
   test:unit:
-    desc: "Run dart unit tests for fdb and fdb_controller"
+    desc: "Run dart unit tests for fdb"
     cmds:
       - dart test
-      - cd packages/fdb_controller && dart test
 
   # ---------------------------------------------------------------------------
   # Comprehensive local verification (format → fix → analyze → test)

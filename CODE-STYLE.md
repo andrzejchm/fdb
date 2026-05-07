@@ -48,6 +48,20 @@ lib/core/commands/<name>/
 
 The verb file re-exports the models so adapters import only `<name>.dart` and get both. Adapters never import `<name>_models.dart` directly.
 
+### Controller command files
+
+Prefer one file per controller command under `lib/src/controller/commands/`.
+
+Keep the request model, response model, and runner in the same file when the file stays readable. Do not create `request.dart`, `response.dart`, and `runner.dart` for every command by default.
+
+Keep controller command files under 400 lines. If a command grows beyond that, split by responsibility:
+
+- `<command>.dart` for orchestration and runner logic
+- `<command>_request.dart` for request parsing and serialization
+- `<command>_response.dart` for response parsing and serialization
+
+Split files only when the consolidated command file becomes hard to read.
+
 ## CLI rules
 
 - Use `runCliAdapter(parser, args, execute)` from `lib/cli/args_helpers.dart`. It handles `--help`/`-h` and `FormatException`. Adapters do NOT declare a `--help` flag themselves.

@@ -125,6 +125,8 @@ Read these files before writing any code:
 - `lib/cli/adapters/scroll_to_cli.dart` — canonical CLI adapter
 - `packages/fdb_helper/lib/src/handlers/scroll_to_handler.dart` — canonical handler
 
+Do not implement or refactor fdb code before reading `CODE-STYLE.md`. It defines the architecture boundaries, output contracts, import rules, controller command layout, and file-size rules agents must preserve.
+
 **Core models** (`lib/core/commands/<name>/<name>_models.dart`):
 - `<Name>Input` typedef (named record)
 - Sealed `<Name>Result` hierarchy — one variant per outcome

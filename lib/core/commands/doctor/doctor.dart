@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/doctor/doctor_models.dart';
 import 'package:fdb/core/commands/status/status.dart';
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/doctor/doctor_models.dart';

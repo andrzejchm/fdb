@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/commands/mem/mem_models.dart';
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/mem/mem_models.dart';
 

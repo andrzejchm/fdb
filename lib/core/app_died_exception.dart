@@ -1,1 +1,2 @@
-export 'package:fdb_controller/fdb_controller.dart' show AppDiedException, buildAppDiedException, readLastLogLines;
+export 'package:fdb/src/controller/app_died_exception.dart'
+    show AppDiedException, buildAppDiedException, readLastLogLines;

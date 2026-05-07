@@ -173,7 +173,7 @@ Future<LaunchResult> launchApp(
       return LaunchTimeout(tailLogLines: tailLogLines);
     }
 
-    final pid = File(pidFile).existsSync() ? File(pidFile).readAsStringSync().trim() : controllerProcess.pid.toString();
+    final pid = _readLaunchPid(controllerProcess.pid);
 
     return LaunchSuccess(
       vmServiceUri: vmUri,
@@ -183,6 +183,22 @@ Future<LaunchResult> launchApp(
   } catch (e) {
     return LaunchError(e.toString());
   }
+}
+
+String _readLaunchPid(int controllerPid) {
+  for (final path in [appPidFile, pidFile]) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      continue;
+    }
+
+    final pid = file.readAsStringSync().trim();
+    if (pid.isNotEmpty) {
+      return pid;
+    }
+  }
+
+  return controllerPid.toString();
 }
 
 class _ControllerLaunchCommand {

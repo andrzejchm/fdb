@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:fdb_controller/fdb_controller.dart' as controller;
+import 'package:fdb/src/controller/session.dart' as controller;
 
 /// fdb version — update this AND pubspec.yaml on every release.
 const version = '1.6.2';

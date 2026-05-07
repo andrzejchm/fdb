@@ -17,7 +17,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/controller_client.dart';
 
 typedef _Scenario = ({String name, String route, String listTileKey});
 typedef _TimingResult = ({

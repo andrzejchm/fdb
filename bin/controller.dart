@@ -1,3 +1,3 @@
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/controller.dart';
 
 Future<void> main(List<String> args) => runController(args);

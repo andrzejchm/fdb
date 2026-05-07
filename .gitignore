@@ -27,3 +27,6 @@ example/test_app/.metadata
 .codex
 .mcp_logs/mcp_command_server.log
 logs/*
+
+# FVM Version Cache
+.fvm/

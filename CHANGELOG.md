@@ -14,8 +14,8 @@
 - Controller command handling now uses typed request/response objects and
   shared JSON parsing helpers, with VM service calls routed through
   `package:vm_service`.
-- Controller implementation now lives in the `fdb_controller` package, while
-  `fdb` still exposes `fdb-controller` for global activation.
+- Controller implementation now lives under `lib/src/controller` while `fdb`
+  still exposes `fdb-controller` for global activation.
 
 ### Fixes
 - `fdb status`, `reload`, `restart`, and `kill` now stay reliable when the

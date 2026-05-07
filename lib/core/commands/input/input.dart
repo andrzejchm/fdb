@@ -1,5 +1,5 @@
 import 'package:fdb/core/commands/input/input_models.dart';
-import 'package:fdb_controller/fdb_controller.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/input/input_models.dart';
 
