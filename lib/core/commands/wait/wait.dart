@@ -23,7 +23,7 @@ Future<WaitResult> waitForWidget(WaitInput input) async {
 
     final result = await fdbWaitFor(
       params,
-      timeout: Duration(milliseconds: input.timeoutMs + 5000),
+      timeout: Duration(milliseconds: input.timeoutMs),
     );
 
     if (result.isSuccess) {

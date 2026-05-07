@@ -61,7 +61,7 @@ void main() {
       expect(readLaunchPid(), '1111');
     });
 
-    test('writeAppIdFromProjectForLaunch prefers Apple ids when platform hint is unavailable', () async {
+    test('writeAppIdFromProjectForLaunch skips ambiguous app ids when platform hint is unavailable', () async {
       final root = await Directory.systemTemp.createTemp('fdb_launch_project_');
       addTearDown(() async {
         await root.delete(recursive: true);
@@ -90,7 +90,26 @@ void main() {
 
       writeAppIdFromProjectForLaunch(project.path);
 
-      expect(File(appIdFile).readAsStringSync(), 'dev.example.ios');
+      expect(File(appIdFile).existsSync(), isFalse);
+    });
+
+    test('writeAppIdFromProjectForLaunch keeps Android app id when it is the only candidate', () async {
+      final root = await Directory.systemTemp.createTemp('fdb_launch_project_');
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      final session = Directory('${root.path}/session')..createSync(recursive: true);
+      initSessionDirFromPath(session.path);
+
+      final project = Directory('${root.path}/project')..createSync(recursive: true);
+      Directory('${project.path}/android/app').createSync(recursive: true);
+
+      File('${project.path}/android/app/build.gradle').writeAsStringSync('applicationId "com.example.android"');
+
+      writeAppIdFromProjectForLaunch(project.path);
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.android');
     });
   });
 }

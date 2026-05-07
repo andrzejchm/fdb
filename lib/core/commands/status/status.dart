@@ -26,7 +26,7 @@ Future<StatusResult> getStatus(StatusInput _) async {
 
   return StatusResult(
     running: true,
-    pid: appPid ?? controllerStatus?.pid ?? flutterToolPid,
+    pid: appPid ?? _readLiveControllerReportedPid(controllerStatus?.pid) ?? flutterToolPid,
     vmServiceUri: vmServiceUri,
   );
 }
@@ -80,6 +80,18 @@ int? _readLiveFlutterToolPid() {
   }
 
   return flutterToolPid;
+}
+
+int? _readLiveControllerReportedPid(int? pid) {
+  if (pid == null) {
+    return null;
+  }
+
+  if (isAppPidAlive(pid) || isProcessAlive(pid)) {
+    return pid;
+  }
+
+  return null;
 }
 
 Future<String?> _readReachableVmServiceUri(String? vmServiceUri) async {

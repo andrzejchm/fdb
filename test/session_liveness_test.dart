@@ -95,6 +95,49 @@ void main() {
       expect(result.pid, isNull);
       expect(result.vmServiceUri, isNull);
     });
+
+    test('ignores stale dead PID reported by controller when VM service is reachable', () async {
+      final root = await _createTempSessionRoot();
+      final staleAppProcess = await _startSleepProcess();
+      final vmServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final controllerServer = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final token = 'status-token';
+      final vmUri = 'ws://127.0.0.1:${vmServer.port}/ws';
+
+      vmServer.transform(WebSocketTransformer()).listen((socket) => socket.close());
+
+      addTearDown(() async {
+        await controllerServer.close();
+        await vmServer.close(force: true);
+        await _killIfAlive(staleAppProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(controllerPortFile).writeAsStringSync(controllerServer.port.toString());
+      File(controllerTokenFile).writeAsStringSync(token);
+
+      await _killIfAlive(staleAppProcess.pid);
+
+      controllerServer.listen((socket) async {
+        await readControllerRequest(socket);
+        await writeControllerResponse(
+          socket,
+          ControllerResponse.success({
+            'running': true,
+            'pid': staleAppProcess.pid,
+            'vmServiceUri': vmUri,
+          }),
+        );
+        await socket.close();
+      });
+
+      final result = await getStatus(());
+
+      expect(result.running, isTrue);
+      expect(result.pid, isNull);
+      expect(result.vmServiceUri, vmUri);
+    });
   });
 
   group('controller client', () {
@@ -116,6 +159,29 @@ void main() {
       expect(
         () => sendControllerCommand(ControllerCommand.status),
         throwsA(isA<AppDiedException>()),
+      );
+    });
+
+    test('maps controller disconnect-before-response to controller unavailable', () async {
+      final root = await _createTempSessionRoot();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final token = 'disconnect-token';
+      addTearDown(() async {
+        await server.close();
+        await root.delete(recursive: true);
+      });
+
+      File(controllerPortFile).writeAsStringSync(server.port.toString());
+      File(controllerTokenFile).writeAsStringSync(token);
+
+      server.listen((socket) async {
+        await readControllerRequest(socket);
+        await socket.close();
+      });
+
+      expect(
+        () => sendControllerCommand(ControllerCommand.status),
+        throwsA(isA<ControllerUnavailable>()),
       );
     });
   });
@@ -206,7 +272,9 @@ void main() {
           case ControllerCommand.findAllIsolateIds:
             await writeControllerResponse(
               socket,
-              ControllerResponse.success({'isolates': ['isolates/1']}),
+              ControllerResponse.success({
+                'isolates': ['isolates/1']
+              }),
             );
             break;
           case ControllerCommand.checkFdbHelper:

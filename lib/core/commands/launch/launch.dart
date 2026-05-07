@@ -375,88 +375,33 @@ Future<String?> writePlatformInfoForLaunch(
 /// Silently no-ops on any failure — crash-report falls back to --app-id flag.
 void writeAppIdFromProjectForLaunch(String projectPath) {
   try {
-    // Determine target platform from the session info written by _writePlatformInfo
-    // (called immediately before this function). This ensures we consult the
-    // correct native config file first, avoiding e.g. an Android package name
-    // being written for an iOS simulator launch.
     final platformInfo = readPlatformInfo();
     final platform = platformInfo?.platform ?? '';
     final isIos = platform.startsWith('ios');
     final isMacos = platform == 'macos' || platform.startsWith('darwin');
     final hasPlatformHint = isIos || isMacos || platform.startsWith('android');
 
-    // Build a prioritised list of extractors for this target platform.
-    // Each entry is a closure that returns the app id or null.
+    if (!hasPlatformHint) {
+      final candidates = {
+        ...[
+          _readIosAppId(projectPath),
+          _readMacosAppId(projectPath),
+          _readAndroidAppId(projectPath),
+        ].whereType<String>(),
+      };
+
+      if (candidates.length == 1) {
+        writeAppId(candidates.single);
+      }
+      return;
+    }
+
     final extractors = <String? Function()>[
-      if (isIos) ...[
-        () {
-          final f = File('$projectPath/ios/Runner/Info.plist');
-          if (!f.existsSync()) return null;
-          final id = _extractPlistBundleId(f.readAsStringSync());
-          if (id != null) return id;
-          // Info.plist uses a variable reference — resolve from project.pbxproj.
-          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
-        },
-      ],
-      if (isMacos) ...[
-        () {
-          final f = File('$projectPath/macos/Runner/Info.plist');
-          if (!f.existsSync()) return null;
-          final id = _extractPlistBundleId(f.readAsStringSync());
-          if (id != null) return id;
-          // Info.plist uses a variable reference — try xcconfig first, then pbxproj.
-          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
-              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
-        },
-      ],
-      if (!hasPlatformHint) ...[
-        () {
-          final f = File('$projectPath/ios/Runner/Info.plist');
-          if (!f.existsSync()) return null;
-          final id = _extractPlistBundleId(f.readAsStringSync());
-          if (id != null) return id;
-          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
-        },
-        () {
-          final f = File('$projectPath/macos/Runner/Info.plist');
-          if (!f.existsSync()) return null;
-          final id = _extractPlistBundleId(f.readAsStringSync());
-          if (id != null) return id;
-          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
-              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
-        },
-      ],
-      if (!isIos && !isMacos) ...[
-        () {
-          final f = File('$projectPath/android/app/build.gradle.kts');
-          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
-        },
-        () {
-          final f = File('$projectPath/android/app/build.gradle');
-          return f.existsSync() ? _extractApplicationId(f.readAsStringSync()) : null;
-        },
-      ],
-      // Fallbacks: try remaining platforms so Android-only projects without
-      // Info.plist still work when platform is unknown, and iOS projects with a
-      // missing plist can fall back to other files.
-      if (!isIos && hasPlatformHint) ...[
-        () {
-          final f = File('$projectPath/ios/Runner/Info.plist');
-          if (!f.existsSync()) return null;
-          final id = _extractPlistBundleId(f.readAsStringSync());
-          if (id != null) return id;
-          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
-        },
-      ],
-      if (!isMacos && hasPlatformHint)
-        () {
-          final f = File('$projectPath/macos/Runner/Info.plist');
-          if (!f.existsSync()) return null;
-          final id = _extractPlistBundleId(f.readAsStringSync());
-          if (id != null) return id;
-          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
-              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
-        },
+      if (isIos) () => _readIosAppId(projectPath),
+      if (isMacos) () => _readMacosAppId(projectPath),
+      if (!isIos && !isMacos) () => _readAndroidAppId(projectPath),
+      if (!isIos) () => _readIosAppId(projectPath),
+      if (!isMacos) () => _readMacosAppId(projectPath),
     ];
 
     for (final extractor in extractors) {
@@ -469,6 +414,43 @@ void writeAppIdFromProjectForLaunch(String projectPath) {
   } catch (_) {
     // Non-fatal: crash-report will prompt for --app-id.
   }
+}
+
+String? _readIosAppId(String projectPath) {
+  final file = File('$projectPath/ios/Runner/Info.plist');
+  if (!file.existsSync()) return null;
+
+  final id = _extractPlistBundleId(file.readAsStringSync());
+  if (id != null) return id;
+
+  return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
+}
+
+String? _readMacosAppId(String projectPath) {
+  final file = File('$projectPath/macos/Runner/Info.plist');
+  if (!file.existsSync()) return null;
+
+  final id = _extractPlistBundleId(file.readAsStringSync());
+  if (id != null) return id;
+
+  return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
+      _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
+}
+
+String? _readAndroidAppId(String projectPath) {
+  for (final path in ['$projectPath/android/app/build.gradle.kts', '$projectPath/android/app/build.gradle']) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      continue;
+    }
+
+    final appId = _extractApplicationId(file.readAsStringSync());
+    if (appId != null) {
+      return appId;
+    }
+  }
+
+  return null;
 }
 
 /// Extracts `applicationId` or `namespace` from a Gradle build file.

@@ -25,10 +25,31 @@ class StatusCommandRunner implements CommandRunner {
 
   @override
   Future<CommandResponse> execute(ControllerRequest request) async {
+    final appPid = _readLiveAppPid();
+    final flutterToolPid = _readLiveFlutterToolPid();
+
     return ControllerResponse.success({
       'running': controller.running,
-      'pid': readAppPid() ?? readPid(),
+      'pid': appPid ?? flutterToolPid,
       'vmServiceUri': controller.vmServiceUri,
     });
   }
+}
+
+int? _readLiveAppPid() {
+  final appPid = readAppPid();
+  if (appPid == null || !isAppPidAlive(appPid)) {
+    return null;
+  }
+
+  return appPid;
+}
+
+int? _readLiveFlutterToolPid() {
+  final flutterToolPid = readPid();
+  if (flutterToolPid == null || !isProcessAlive(flutterToolPid)) {
+    return null;
+  }
+
+  return flutterToolPid;
 }
