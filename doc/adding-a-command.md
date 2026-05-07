@@ -35,18 +35,28 @@ Models file holds only data types: input typedef + sealed result hierarchy. No b
 
 ```dart
 import 'package:fdb/core/commands/wakeup/wakeup_models.dart';
-import 'package:fdb/controller/controller_client.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/wakeup/wakeup_models.dart';
 
 Future<WakeupResult> wakeupDevice(WakeupInput input) async {
   try {
-    final response = await vmServiceCall(
+    final isolateId = await checkFdbHelper();
+    if (isolateId == null) {
+      return WakeupError('fdb_helper not available');
+    }
+
+    final response = await extCall(
       'ext.fdb.wakeup',
-      params: {'device': input.device, 'brightness': '${input.brightness}'},
+      params: {
+        'isolateId': isolateId,
+        'device': input.device,
+        'brightness': '${input.brightness}',
+      },
     );
-    final result = unwrapRawExtensionResult(response);
-    if (result is Map<String, dynamic>) {
+
+    final result = response.extensionResult;
+    if (result != null) {
       if (result['status'] == 'Success') {
         return WakeupSuccess(input.brightness);
       }
@@ -55,7 +65,12 @@ Future<WakeupResult> wakeupDevice(WakeupInput input) async {
       }
       return WakeupError(result['error'] as String? ?? 'unknown');
     }
-    return WakeupError('Unexpected response: $result');
+
+    if (response.errorMessage != null) {
+      return WakeupError(response.errorDetails ?? response.errorMessage!);
+    }
+
+    return WakeupError('Unexpected response from ext.fdb.wakeup');
   } catch (e) {
     return WakeupError(e.toString());
   }
@@ -64,6 +79,7 @@ Future<WakeupResult> wakeupDevice(WakeupInput input) async {
 
 Notes:
 - Verb file imports models, then `export`s them so adapters import only this file.
+- For commands that talk to the running app, resolve `fdb_helper` first (`checkFdbHelper()`), then use the controller client (`extCall(...)` or a typed helper you add under `lib/src/controller/commands/`).
 - Never throws across the public API. `try`/`catch` translates exceptions to `WakeupError`.
 - No `dart:io` writes to stdout/stderr. No `package:args`.
 

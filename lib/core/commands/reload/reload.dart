@@ -18,6 +18,10 @@ Future<ReloadResult> reloadApp(ReloadInput _) async {
       timeout: const Duration(seconds: reloadTimeoutSeconds),
     );
     return ReloadSuccess(stopwatch.elapsedMilliseconds);
+  } on AppDiedException {
+    final pid = readAppPid() ?? readControllerPid() ?? readPid();
+    if (pid == null) return const ReloadNoSession();
+    return ReloadProcessDead(pid);
   } on ControllerCommandFailed {
     return const ReloadFailed();
   } on ControllerUnavailable {

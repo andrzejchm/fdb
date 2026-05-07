@@ -54,13 +54,19 @@ class LogCollectorManager {
 
   Future<String?> _resolveEntrypoint() async {
     const relativePath = 'bin/log_collector.dart';
-    final packageUri = Uri.parse('package:fdb/commands/launch.dart');
+    final packageUri = Uri.parse('package:fdb/constants.dart');
     final resolved = await Isolate.resolvePackageUri(packageUri);
     if (resolved != null) {
-      final packageRoot = File.fromUri(resolved).parent.parent.parent;
-      final candidate = File('${packageRoot.path}/$relativePath');
-      if (candidate.existsSync()) {
-        return candidate.path;
+      var current = File.fromUri(resolved).parent;
+      while (true) {
+        final candidate = File('${current.path}/$relativePath');
+        if (candidate.existsSync()) {
+          return candidate.path;
+        }
+        if (current.parent.path == current.path) {
+          break;
+        }
+        current = current.parent;
       }
     }
 

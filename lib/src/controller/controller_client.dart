@@ -79,6 +79,7 @@ Future<ControllerResponse> _sendControllerRequest(
       timeout: const Duration(seconds: 3),
     );
   } catch (e) {
+    await _throwAppDiedIfPersistedAppStopped();
     throw ControllerUnavailable('Controller socket unavailable: $e');
   }
 

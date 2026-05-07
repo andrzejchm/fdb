@@ -117,8 +117,14 @@ Future<String?> _checkVmService(String? statusVmServiceUri) async {
 }
 
 Future<bool> _checkFdbHelper() async {
-  final isolateId = await checkFdbHelper();
-  return isolateId != null;
+  try {
+    final isolateId = await checkFdbHelper();
+    return isolateId != null;
+  } on ControllerUnavailable {
+    return false;
+  } on AppDiedException {
+    return false;
+  }
 }
 
 Future<({List<String> present, List<String> missing})> _checkPlatformTools() async {

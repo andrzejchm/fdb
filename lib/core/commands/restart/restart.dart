@@ -18,6 +18,10 @@ Future<RestartResult> restartApp(RestartInput _) async {
       timeout: const Duration(seconds: restartTimeoutSeconds),
     );
     return RestartSuccess(elapsedMs: stopwatch.elapsedMilliseconds);
+  } on AppDiedException {
+    final pid = readAppPid() ?? readControllerPid() ?? readPid();
+    if (pid == null) return const RestartNoSession();
+    return RestartProcessDead(pid: pid);
   } on ControllerCommandFailed {
     return const RestartFailed();
   } on ControllerUnavailable {

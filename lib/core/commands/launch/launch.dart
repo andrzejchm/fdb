@@ -9,6 +9,11 @@ import 'package:pubspec_manager/pubspec_manager.dart';
 
 export 'package:fdb/core/commands/launch/launch_models.dart';
 
+typedef ProcessRunner = Future<ProcessResult> Function(
+  String executable,
+  List<String> arguments,
+);
+
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -50,23 +55,7 @@ Future<LaunchResult> launchApp(
     }
 
     // Clean up previous state.
-    for (final path in [
-      pidFile,
-      appPidFile,
-      controllerPidFile,
-      controllerPortFile,
-      controllerTokenFile,
-      logFile,
-      logCollectorPidFile,
-      logCollectorScript,
-      vmUriFile,
-      launcherScript,
-      deviceFile,
-      platformFile,
-    ]) {
-      final f = File(path);
-      if (f.existsSync()) f.deleteSync();
-    }
+    cleanupLaunchSessionFiles();
 
     // Create .fdb/ session directory and persist device ID.
     ensureSessionDir();
@@ -79,11 +68,11 @@ Future<LaunchResult> launchApp(
     // Resolve and persist the target platform + emulator flag for this device.
     // Used by `fdb screenshot` to dispatch to the correct capture backend.
     // Non-fatal: screenshot falls back to the old heuristic if this fails.
-    deviceLabel = await _writePlatformInfo(device, flutter);
+    deviceLabel = await writePlatformInfoForLaunch(device, flutter);
 
     // Persist the app bundle id / package name for later use by crash-report.
     // Non-fatal: crash-report will ask the user for --app-id if this fails.
-    _writeAppIdFromProject(project, device);
+    writeAppIdFromProjectForLaunch(project);
 
     final controllerLaunch = _resolveControllerLaunch();
 
@@ -173,7 +162,7 @@ Future<LaunchResult> launchApp(
       return LaunchTimeout(tailLogLines: tailLogLines);
     }
 
-    final pid = _readLaunchPid(controllerProcess.pid);
+    final pid = readLaunchPid();
 
     return LaunchSuccess(
       vmServiceUri: vmUri,
@@ -185,7 +174,10 @@ Future<LaunchResult> launchApp(
   }
 }
 
-String _readLaunchPid(int controllerPid) {
+/// Reads the app or flutter-tools PID written during launch.
+///
+/// Returns an empty string until one of the expected PID files exists.
+String readLaunchPid() {
   for (final path in [appPidFile, pidFile]) {
     final file = File(path);
     if (!file.existsSync()) {
@@ -198,7 +190,31 @@ String _readLaunchPid(int controllerPid) {
     }
   }
 
-  return controllerPid.toString();
+  return '';
+}
+
+/// Removes launch-owned session files before starting a new launch.
+void cleanupLaunchSessionFiles() {
+  for (final path in [
+    pidFile,
+    appPidFile,
+    controllerPidFile,
+    controllerPortFile,
+    controllerTokenFile,
+    logFile,
+    logCollectorPidFile,
+    logCollectorScript,
+    vmUriFile,
+    launcherScript,
+    deviceFile,
+    platformFile,
+    appIdFile,
+  ]) {
+    final file = File(path);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+  }
 }
 
 class _ControllerLaunchCommand {
@@ -312,9 +328,13 @@ String _resolveFlutter(
 ///
 /// Silently no-ops on any failure — screenshot falls back gracefully if the
 /// platform file is absent.
-Future<String?> _writePlatformInfo(String device, String flutter) async {
+Future<String?> writePlatformInfoForLaunch(
+  String device,
+  String flutter, {
+  ProcessRunner processRunner = Process.run,
+}) async {
   try {
-    final result = await Process.run(flutter, ['devices', '--machine']);
+    final result = await processRunner(flutter, ['devices', '--machine']);
     if (result.exitCode != 0) return null;
 
     final json = extractDevicesJson(result.stdout as String);
@@ -338,7 +358,7 @@ Future<String?> _writePlatformInfo(String device, String flutter) async {
     }
     return null;
   } on TimeoutException {
-    rethrow;
+    return null;
   } catch (_) {
     // Non-fatal: screenshot will work without platform info.
     return null;
@@ -353,7 +373,7 @@ Future<String?> _writePlatformInfo(String device, String flutter) async {
 /// project's native config files and persists it to [appIdFile].
 ///
 /// Silently no-ops on any failure — crash-report falls back to --app-id flag.
-void _writeAppIdFromProject(String projectPath, String device) {
+void writeAppIdFromProjectForLaunch(String projectPath) {
   try {
     // Determine target platform from the session info written by _writePlatformInfo
     // (called immediately before this function). This ensures we consult the
@@ -363,6 +383,7 @@ void _writeAppIdFromProject(String projectPath, String device) {
     final platform = platformInfo?.platform ?? '';
     final isIos = platform.startsWith('ios');
     final isMacos = platform == 'macos' || platform.startsWith('darwin');
+    final hasPlatformHint = isIos || isMacos || platform.startsWith('android');
 
     // Build a prioritised list of extractors for this target platform.
     // Each entry is a closure that returns the app id or null.
@@ -388,6 +409,23 @@ void _writeAppIdFromProject(String projectPath, String device) {
               _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
         },
       ],
+      if (!hasPlatformHint) ...[
+        () {
+          final f = File('$projectPath/ios/Runner/Info.plist');
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
+        },
+        () {
+          final f = File('$projectPath/macos/Runner/Info.plist');
+          if (!f.existsSync()) return null;
+          final id = _extractPlistBundleId(f.readAsStringSync());
+          if (id != null) return id;
+          return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
+              _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
+        },
+      ],
       if (!isIos && !isMacos) ...[
         () {
           final f = File('$projectPath/android/app/build.gradle.kts');
@@ -401,7 +439,7 @@ void _writeAppIdFromProject(String projectPath, String device) {
       // Fallbacks: try remaining platforms so Android-only projects without
       // Info.plist still work when platform is unknown, and iOS projects with a
       // missing plist can fall back to other files.
-      if (!isIos) ...[
+      if (!isIos && hasPlatformHint) ...[
         () {
           final f = File('$projectPath/ios/Runner/Info.plist');
           if (!f.existsSync()) return null;
@@ -410,7 +448,7 @@ void _writeAppIdFromProject(String projectPath, String device) {
           return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
         },
       ],
-      if (!isMacos)
+      if (!isMacos && hasPlatformHint)
         () {
           final f = File('$projectPath/macos/Runner/Info.plist');
           if (!f.existsSync()) return null;

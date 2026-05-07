@@ -59,6 +59,8 @@ Future<_ControllerStatusSnapshot?> _readControllerStatus() async {
     return null;
   } on ControllerUnavailable {
     return null;
+  } on AppDiedException {
+    return null;
   }
 }
 

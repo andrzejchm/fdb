@@ -1,8 +1,16 @@
 import 'dart:io';
 
+import 'package:fdb/core/app_died_exception.dart';
+import 'package:fdb/core/commands/doctor/doctor.dart';
 import 'package:fdb/core/commands/kill/kill.dart';
+import 'package:fdb/core/commands/reload/reload.dart';
+import 'package:fdb/core/commands/restart/restart.dart';
 import 'package:fdb/core/commands/status/status.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/src/controller/controller_command.dart';
+import 'package:fdb/src/controller/controller_client.dart';
+import 'package:fdb/src/controller/controller_response.dart';
+import 'package:fdb/src/controller/controller_transport.dart';
 import 'package:fdb/src/controller/session.dart';
 import 'package:test/test.dart';
 
@@ -66,6 +74,165 @@ void main() {
       expect(result.running, isTrue);
       expect(result.pid, appProcess.pid);
       expect(result.vmServiceUri, isNull);
+    });
+
+    test('soft-fails to not running when stale dead app PID remains on disk', () async {
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      addTearDown(() async {
+        await _killIfAlive(appProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+
+      await _killIfAlive(appProcess.pid);
+
+      final result = await getStatus(());
+
+      expect(result.running, isFalse);
+      expect(result.pid, isNull);
+      expect(result.vmServiceUri, isNull);
+    });
+  });
+
+  group('controller client', () {
+    test('re-checks dead app state after controller socket connect failure', () async {
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      addTearDown(() async {
+        await _killIfAlive(appProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+      File(controllerPortFile).writeAsStringSync('1');
+      File(controllerTokenFile).writeAsStringSync('test-token');
+
+      await _killIfAlive(appProcess.pid);
+
+      expect(
+        () => sendControllerCommand(ControllerCommand.status),
+        throwsA(isA<AppDiedException>()),
+      );
+    });
+  });
+
+  group('reload', () {
+    test('returns process-dead result when app died during controller request', () async {
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      addTearDown(() async {
+        await _killIfAlive(appProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+      File(controllerPortFile).writeAsStringSync('1');
+      File(controllerTokenFile).writeAsStringSync('test-token');
+
+      await _killIfAlive(appProcess.pid);
+
+      final result = await reloadApp(());
+
+      expect(result, isA<ReloadProcessDead>());
+      expect((result as ReloadProcessDead).pid, appProcess.pid);
+    });
+  });
+
+  group('restart', () {
+    test('returns process-dead result when app died during controller request', () async {
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      addTearDown(() async {
+        await _killIfAlive(appProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+      File(controllerPortFile).writeAsStringSync('1');
+      File(controllerTokenFile).writeAsStringSync('test-token');
+
+      await _killIfAlive(appProcess.pid);
+
+      final result = await restartApp(());
+
+      expect(result, isA<RestartProcessDead>());
+      expect((result as RestartProcessDead).pid, appProcess.pid);
+    });
+  });
+
+  group('doctor', () {
+    test('completes all five checks when fdb_helper check sees app died', () async {
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      final vmServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      vmServer.transform(WebSocketTransformer()).listen((socket) => socket.close());
+      final controllerServer = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final token = 'doctor-token';
+      final vmUri = 'ws://127.0.0.1:${vmServer.port}/ws';
+
+      addTearDown(() async {
+        await controllerServer.close();
+        await vmServer.close(force: true);
+        await _killIfAlive(appProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(deviceFile).writeAsStringSync('macos');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+      File(vmUriFile).writeAsStringSync(vmUri);
+      File(controllerPortFile).writeAsStringSync(controllerServer.port.toString());
+      File(controllerTokenFile).writeAsStringSync(token);
+
+      controllerServer.listen((socket) async {
+        final request = await readControllerRequest(socket);
+        switch (request.command) {
+          case ControllerCommand.status:
+            await writeControllerResponse(
+              socket,
+              ControllerResponse.success({
+                'running': true,
+                'pid': appProcess.pid,
+                'vmServiceUri': vmUri,
+              }),
+            );
+            break;
+          case ControllerCommand.findAllIsolateIds:
+            await writeControllerResponse(
+              socket,
+              ControllerResponse.success({'isolates': ['isolates/1']}),
+            );
+            break;
+          case ControllerCommand.checkFdbHelper:
+            await writeControllerResponse(
+              socket,
+              ControllerResponse.appDied(logLines: const ['last log line']),
+            );
+            break;
+          default:
+            await writeControllerResponse(socket, ControllerResponse.failure('Unexpected command'));
+            break;
+        }
+        await socket.close();
+      });
+
+      final result = await runDoctor([]);
+
+      expect(result.checks, hasLength(5));
+      expect(result.failedCount, greaterThan(0));
+      expect(result.checks[0].name, 'app_running');
+      expect(result.checks[1].name, 'vm_service');
+      expect(result.checks[1].status.name, 'pass');
+      expect(result.checks[2].name, 'fdb_helper');
+      expect(result.checks[2].status.name, 'fail');
+      expect(result.checks[3].name, 'platform_tools');
+      expect(result.checks[4].name, 'device');
     });
   });
 
@@ -134,6 +301,47 @@ exit 0
         ['-s', 'emulator-5554', 'shell', 'am', 'force-stop', 'com.example.app'],
       );
       expect(File(appPidFile).existsSync(), isFalse);
+    });
+
+    test('waits for visible session processes after controller kill succeeds', () async {
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      final toolProcess = await _startSleepProcess();
+      final controllerProcess = await _startSleepProcess();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        await server.close();
+        await _killIfAlive(appProcess.pid);
+        await _killIfAlive(toolProcess.pid);
+        await _killIfAlive(controllerProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+      File(pidFile).writeAsStringSync(toolProcess.pid.toString());
+      File(controllerPidFile).writeAsStringSync(controllerProcess.pid.toString());
+      File(controllerPortFile).writeAsStringSync(server.port.toString());
+      File(controllerTokenFile).writeAsStringSync('test-token');
+
+      server.listen((socket) async {
+        await readControllerRequest(socket);
+        await writeControllerResponse(
+          socket,
+          ControllerResponse.success({'stopped': true}),
+        );
+        await socket.close();
+      });
+
+      final result = await killApp(());
+
+      expect(result, isA<KillSuccess>());
+      await _expectProcessDead(appProcess.pid);
+      await _expectProcessDead(toolProcess.pid);
+      await _expectProcessDead(controllerProcess.pid);
+      expect(File(appPidFile).existsSync(), isFalse);
+      expect(File(pidFile).existsSync(), isFalse);
+      expect(File(controllerPidFile).existsSync(), isFalse);
     });
   });
 }
