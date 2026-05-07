@@ -1,6 +1,8 @@
 import Cocoa
 import FlutterMacOS
 
+#if FDB_HELPER_NATIVE_TAP_REAL
+
 /// Injects a synthetic in-process mouse click at the given Flutter logical coordinates.
 ///
 /// Flutter logical coordinates have their origin at the top-left of the content view.
@@ -75,3 +77,18 @@ class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
     NSApplication.shared.sendEvent(up)
   }
 }
+
+#else
+
+/// Safe fallback compiled into release macOS builds.
+class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
+  func nativeTap(x: Double, y: Double) throws {
+    throw PigeonError(
+      code: "UNAVAILABLE_IN_RELEASE",
+      message: "Native tap is disabled in release builds of fdb_helper",
+      details: nil,
+    )
+  }
+}
+
+#endif

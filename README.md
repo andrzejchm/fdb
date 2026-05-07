@@ -261,7 +261,7 @@ Requires `fdb_helper` in your app:
 ```yaml
 # pubspec.yaml
 dev_dependencies:
-  fdb_helper: ^1.6.2
+  fdb_helper: ^1.6.4
 ```
 
 ```dart
@@ -276,6 +276,8 @@ void main() {
   runApp(MyApp());
 }
 ```
+
+Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so App Store / Play Store binaries no longer ship the private-API native tap. Debug and profile builds keep the real native tap implementation, so `fdb native-tap` works in profile builds distributed via Firebase App Distribution or TestFlight internal. See [`packages/fdb_helper/README.md`](packages/fdb_helper/README.md) for build-mode details.
 
 ## Troubleshooting
 

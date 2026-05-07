@@ -1,4 +1,3 @@
-
 ## Unreleased
 
 ### New commands
@@ -21,6 +20,16 @@
 - `fdb status`, `reload`, `restart`, and `kill` now stay reliable when the
   launched Flutter app remains alive after the original launch process state
   changes, including Android and Linux desktop sessions.
+
+## 1.6.4
+
+### Fixes
+- `fdb_helper` profile builds now compile the real native tap implementation again on iOS and macOS, so internal/dev distributions (Firebase App Distribution, TestFlight internal) remain profilable by `fdb native-tap`. Only release builds compile the safe stub. Android profile already kept the real implementation via Flutter's `matchingFallbacks` (debug → release).
+
+## 1.6.3
+
+### Fixes
+- `fdb_helper` release builds now compile a safe stub instead of the private-API native tap implementation, so iOS App Store binaries no longer ship the private UIKit/IOHID symbols. Debug builds keep the real implementation. Android release builds compile a stub variant via Gradle source sets and no longer depend on the debug-only Flutter embedding artifact. (Profile build behavior was incorrect in this release; see 1.6.4.)
 
 ## 1.6.2
 

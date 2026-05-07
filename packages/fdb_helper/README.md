@@ -34,6 +34,14 @@ void main() {
 
 Then run `flutter pub get` and relaunch the app.
 
+## Build-mode behavior
+
+- **Debug** (all platforms): compiles the real native tap implementation.
+- **Profile** (all platforms): compiles the real native tap implementation. Profile is intended for on-device profiling/internal distribution (Firebase App Distribution, TestFlight internal), so `fdb native-tap` works there.
+- **Release** (all platforms): compiles a safe stub. iOS/macOS exclude the private Objective-C native tap implementation from the pod target. Android compiles a stub via Gradle `src/release` source sets. App Store / Play Store binaries no longer ship the private-API native tap.
+
+The Apple Profile selection works because `fdb_helper` keys its compile flags on the Xcode configuration name (`Profile`) rather than on the CocoaPods configuration type, so Flutter's default `'Profile' => :release` Podfile mapping does not turn Profile into the release stub.
+
 ## Usage
 
 Once `fdb_helper` is set up, all fdb commands that require it will work:
