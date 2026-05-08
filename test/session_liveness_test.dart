@@ -184,6 +184,32 @@ void main() {
         throwsA(isA<ControllerUnavailable>()),
       );
     });
+
+    test('maps controller response timeout to controller unavailable', () async {
+      final root = await _createTempSessionRoot();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final sockets = <Socket>[];
+      addTearDown(() async {
+        for (final socket in sockets) {
+          socket.destroy();
+        }
+        await server.close();
+        await root.delete(recursive: true);
+      });
+
+      File(controllerPortFile).writeAsStringSync(server.port.toString());
+      File(controllerTokenFile).writeAsStringSync('timeout-token');
+
+      server.listen(sockets.add);
+
+      expect(
+        () => sendControllerCommand(
+          ControllerCommand.status,
+          timeout: const Duration(milliseconds: 10),
+        ),
+        throwsA(isA<ControllerUnavailable>()),
+      );
+    });
   });
 
   group('reload', () {

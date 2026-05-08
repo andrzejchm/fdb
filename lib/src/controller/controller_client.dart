@@ -102,6 +102,9 @@ Future<ControllerResponse> _sendControllerRequest(
   } on StateError catch (e) {
     await _throwAppDiedIfPersistedAppStopped();
     throw ControllerUnavailable('Controller disconnected before responding: $e');
+  } on TimeoutException catch (e) {
+    await _throwAppDiedIfPersistedAppStopped();
+    throw ControllerUnavailable('Controller response timed out: $e');
   } finally {
     await socket.close();
   }
