@@ -19,8 +19,8 @@ Future<KillResult> killApp(KillInput _) async {
   final controllerStopped = await _stopThroughController();
   if (controllerStopped) {
     final visibleProcessesStopped = await _stopVisibleSessionProcesses();
+    cleanupTempFiles();
     if (logCollectorStopped && visibleProcessesStopped) {
-      cleanupTempFiles();
       return const KillSuccess();
     }
 

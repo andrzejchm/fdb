@@ -52,6 +52,7 @@ String? resolveSessionDir({Directory? start}) {
 
 bool _hasLiveSessionState(String candidatePath) {
   for (final path in [
+    '$candidatePath/controller.pid',
     '$candidatePath/fdb.app_pid',
     '$candidatePath/fdb.pid',
   ]) {
