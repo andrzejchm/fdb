@@ -1,25 +1,20 @@
-## Unreleased
+## 1.7.0
 
 ### New commands
-- `fdb launch -i` / `fdb launch --interactive` starts an interactive REPL
-  for reload, restart, describe, tap, logs, detach, and kill workflows.
+- `fdb launch -i` / `fdb launch --interactive` — starts an interactive REPL after launch for reload, restart, describe, tap, logs, and kill workflows without leaving the shell (contributed by Brett Sutton)
 
 ### Improvements
-- `fdb launch` now starts a long-lived local controller that owns
-  `flutter run --machine`; follow-up commands talk to that controller instead
-  of relying on stale process IDs or `flutter attach` recovery.
-- Launch now streams progress while preserving the existing
-  machine-readable success tokens.
-- Controller command handling now uses typed request/response objects and
-  shared JSON parsing helpers, with VM service calls routed through
-  `package:vm_service`.
-- Controller implementation now lives under `lib/src/controller` while `fdb`
-  still exposes `fdb-controller` for global activation.
+- `fdb launch` now starts a long-lived local controller process that owns the `flutter run --machine` session. Follow-up commands talk to the controller over a local socket instead of independently reconnecting to the VM service on every invocation. (contributed by Brett Sutton)
+- `fdb grant-permission` now accepts `--device` to pass a specific simulator UDID to `xcrun simctl privacy`, enabling pre-grant before the app is launched
+- `fdb describe` now includes visible TextField values in `VISIBLE TEXT`
 
 ### Fixes
-- `fdb status`, `reload`, `restart`, and `kill` now stay reliable when the
-  launched Flutter app remains alive after the original launch process state
-  changes, including Android and Linux desktop sessions.
+- `fdb launch` run twice in the same project no longer orphans the previous controller process
+- Ctrl-C during `fdb launch` now terminates the controller instead of leaving it detached
+- `fdb kill` always cleans up session files even when some processes fail to stop
+- Walk-up session resolution now correctly detects a live session when only `controller.pid` is alive
+- `fdb input ""` (clear a text field) no longer fails through the controller transport
+- Physical iOS no longer falsely reports `APP_DIED` when the controller is unavailable — device-side PIDs cannot be checked from the host
 
 ## 1.6.4
 
