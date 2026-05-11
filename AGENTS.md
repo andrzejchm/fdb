@@ -13,7 +13,7 @@ over WebSocket, and stores all session state under a per-project `.fdb/` directo
 
 - **Language:** Dart 3.x (SDK `>=3.0.0 <4.0.0`)
 - **Runtime:** Dart VM (standalone — not a Flutter app)
-- **External dependencies:** `package:args` (CLI argument parsing) plus the Dart SDK (`dart:io`, `dart:async`, `dart:convert`).
+- **External dependencies:** `package:args` (CLI argument parsing), `package:vm_service` (VM Service Protocol), `package:image` (image decoding/encoding), `package:pubspec_manager` (pubspec parsing), plus the Dart SDK (`dart:io`, `dart:async`, `dart:convert`).
 - **Architecture:** layered. `lib/core/` is interface-agnostic business logic; `lib/cli/` is the CLI adapter that wraps it. The split is enforced by directory convention so a future MCP server, REST API, or library consumer can call the same core functions without going through ArgParser or stdout tokens.
 - **Entry point:** `bin/fdb.dart` dispatches to CLI adapter functions (`runXxxCli`) via `switch`. Adapters call into `lib/core/commands/`.
 
@@ -26,14 +26,17 @@ lib/
   core/                                   # Interface-agnostic business logic
     app_died_exception.dart               # Domain exception
     process_utils.dart                    # PID/process helpers
-    vm_service.dart                       # WebSocket VM service client
-    vm_lifecycle_events.dart
     launch_failure_analyzer.dart
     models/
       command_result.dart                 # Marker base for sealed result hierarchies
     commands/<name>/
       <name>.dart × 28                    # verb function + `export '<name>_models.dart';`
       <name>_models.dart × 28             # <Name>Input typedef + sealed <Name>Result
+  src/controller/                         # Internal controller process implementation
+    controller.dart                       # Controller entrypoint logic
+    controller_client.dart                # CLI/core client for controller commands
+    commands/<name>.dart                  # Request + response + runner per controller command
+    vm_service/                           # VM Service Protocol wrappers
   cli/                                    # CLI adapter layer
     args_helpers.dart                     # runCliAdapter, runSimpleCliAdapter, parseXY
     adapters/
@@ -53,6 +56,8 @@ dart format .                         # Format
 ```
 
 ## References
+
+Before developing or refactoring fdb code, read [`CODE-STYLE.md`](CODE-STYLE.md).
 
 | Topic | What it covers | Reference |
 |-------|---------------|-----------|

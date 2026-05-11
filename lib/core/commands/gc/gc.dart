@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/gc/gc_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/gc/gc_models.dart';
 
@@ -29,19 +28,17 @@ Future<GcResult> runGc(GcInput _) async {
     for (final id in isolateIds) {
       try {
         // Capture heap usage before GC.
-        final beforeMem =
-            (await vmServiceCall('getMemoryUsage', params: {'isolateId': id}))['result'] as Map<String, dynamic>?;
-        final heapBefore = (beforeMem?['heapUsage'] as num?)?.toInt() ?? 0;
+        final beforeMem = await getMemoryUsage(id);
+        final heapBefore = beforeMem.heapUsage ?? 0;
 
         // Trigger GC via getAllocationProfile with gc: true.
         // The response also includes post-GC memoryUsage, but we re-query
         // getMemoryUsage for consistency with the before measurement.
-        await vmServiceCall('getAllocationProfile', params: {'isolateId': id, 'gc': true, 'reset': false});
+        await getAllocationProfile(id, gc: true, reset: false);
 
         // Capture heap usage after GC.
-        final afterMem =
-            (await vmServiceCall('getMemoryUsage', params: {'isolateId': id}))['result'] as Map<String, dynamic>?;
-        final heapAfter = (afterMem?['heapUsage'] as num?)?.toInt() ?? 0;
+        final afterMem = await getMemoryUsage(id);
+        final heapAfter = afterMem.heapUsage ?? 0;
 
         totalBefore += heapBefore;
         totalAfter += heapAfter;

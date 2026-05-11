@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/tap/tap_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/tap/tap_models.dart';
 
@@ -38,52 +37,47 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input) async {
     if (input.x != null) params['x'] = input.x.toString();
     if (input.y != null) params['y'] = input.y.toString();
 
-    final response = await vmServiceCall('ext.fdb.tap', params: params);
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbTap(params);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        final widgetType = input.usedAt ? 'coordinates' : result['widgetType'] as String? ?? input.type ?? 'widget';
-        final tappedX = result['x'] ?? input.x ?? '';
-        final tappedY = result['y'] ?? input.y ?? '';
-        final warning = result['warning'] as String?;
-        return TapSuccess(widgetType: widgetType, x: tappedX, y: tappedY, warning: warning);
-      }
-
-      if (error != null) {
-        final isRetryable = error.contains('not found') || error.contains('No hittable element');
-        if (isRetryable && DateTime.now().isBefore(deadline)) {
-          await Future<void>.delayed(const Duration(milliseconds: 500));
-          continue;
-        }
-        return TapRelayedError(error);
-      }
+    if (result.isSuccess) {
+      final widgetType = input.usedAt ? 'coordinates' : result.widgetType ?? input.type ?? 'widget';
+      final tappedX = result.x ?? input.x ?? '';
+      final tappedY = result.y ?? input.y ?? '';
+      return TapSuccess(
+        widgetType: widgetType,
+        x: tappedX,
+        y: tappedY,
+        warning: result.warning,
+      );
     }
 
-    return TapUnexpectedResponse(result.toString());
+    final error = result.error;
+    if (error != null) {
+      final isRetryable = error.contains('not found') || error.contains('No hittable element');
+      if (isRetryable && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        continue;
+      }
+      return TapRelayedError(error);
+    }
+
+    return TapUnexpectedResponse(result.unexpected.toString());
   }
 }
 
 Future<TapResult> _tapByRef(String isolateId, int ref, int timeoutSeconds) async {
-  final describeResponse = await vmServiceCall(
-    'ext.fdb.describe',
-    params: {'isolateId': isolateId},
-  );
-  final describeResult = unwrapRawExtensionResult(describeResponse);
+  final describeResult = await fdbDescribe(isolateId);
 
-  if (describeResult is! Map<String, dynamic>) {
+  final snapshot = describeResult.snapshot;
+  if (snapshot == null) {
     return const TapUnexpectedDescribeResponse();
   }
 
-  final describeError = describeResult['error'] as String?;
-  if (describeError != null) {
-    return TapRelayedDescribeError(describeError);
+  if (describeResult.error != null) {
+    return TapRelayedDescribeError(describeResult.error!);
   }
 
-  final interactive = describeResult['interactive'] as List<dynamic>? ?? [];
+  final interactive = snapshot['interactive'] as List<dynamic>? ?? [];
   final matches = interactive.cast<Map<String, dynamic>>().where((e) => e['ref'] == ref);
 
   if (matches.isEmpty) {
@@ -100,22 +94,16 @@ Future<TapResult> _tapByRef(String isolateId, int ref, int timeoutSeconds) async
     'y': cy.toString(),
   };
 
-  final tapResponse = await vmServiceCall('ext.fdb.tap', params: tapParams);
-  final tapResult = unwrapRawExtensionResult(tapResponse);
+  final tapResult = await fdbTap(tapParams);
 
-  if (tapResult is Map<String, dynamic>) {
-    final status = tapResult['status'] as String?;
-    final tapError = tapResult['error'] as String?;
-
-    if (status == 'Success') {
-      final type = element['type'] as String? ?? 'widget';
-      return TapSuccess(widgetType: type, x: cx, y: cy);
-    }
-
-    if (tapError != null) {
-      return TapRelayedError(tapError);
-    }
+  if (tapResult.isSuccess) {
+    final type = element['type'] as String? ?? 'widget';
+    return TapSuccess(widgetType: type, x: cx, y: cy);
   }
 
-  return TapUnexpectedResponse(tapResult.toString());
+  if (tapResult.error != null) {
+    return TapRelayedError(tapResult.error!);
+  }
+
+  return TapUnexpectedResponse(tapResult.unexpected.toString());
 }

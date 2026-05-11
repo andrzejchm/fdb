@@ -1,8 +1,9 @@
 import 'dart:io';
 
 import 'package:fdb/core/commands/doctor/doctor_models.dart';
+import 'package:fdb/core/commands/status/status.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:fdb/core/vm_service.dart';
 
 export 'package:fdb/core/commands/doctor/doctor_models.dart';
 
@@ -15,7 +16,8 @@ Future<DoctorResult> runDoctor(List<String> args) async {
   var failed = 0;
 
   // 1. app_running
-  final appRunning = _checkAppRunning();
+  final status = await getStatus(());
+  final appRunning = status.running;
   if (appRunning) {
     checks.add(const CheckResult(name: 'app_running', status: CheckStatus.pass));
   } else {
@@ -28,7 +30,7 @@ Future<DoctorResult> runDoctor(List<String> args) async {
   }
 
   // 2. vm_service
-  final vmServiceUri = appRunning ? await _checkVmService() : null;
+  final vmServiceUri = appRunning ? await _checkVmService(status.vmServiceUri) : null;
   if (vmServiceUri != null) {
     checks.add(CheckResult(
       name: 'vm_service',
@@ -103,17 +105,10 @@ Future<DoctorResult> runDoctor(List<String> args) async {
   return DoctorResult(checks: checks, failedCount: failed);
 }
 
-bool _checkAppRunning() {
-  final pid = readPid();
-  return pid != null && isProcessAlive(pid);
-}
-
-Future<String?> _checkVmService() async {
+Future<String?> _checkVmService(String? statusVmServiceUri) async {
   try {
-    final response = await vmServiceCall('getVM', timeout: const Duration(seconds: 3));
-    final result = response['result'] as Map<String, dynamic>?;
-    if (response['error'] != null || result == null) return null;
-    final uri = readVmUri();
+    await findAllIsolateIds();
+    final uri = statusVmServiceUri ?? readVmUri();
     if (uri == null || uri.isEmpty) return null;
     return uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
   } catch (_) {
@@ -122,8 +117,14 @@ Future<String?> _checkVmService() async {
 }
 
 Future<bool> _checkFdbHelper() async {
-  final isolateId = await checkFdbHelper();
-  return isolateId != null;
+  try {
+    final isolateId = await checkFdbHelper();
+    return isolateId != null;
+  } on ControllerUnavailable {
+    return false;
+  } on AppDiedException {
+    return false;
+  }
 }
 
 Future<({List<String> present, List<String> missing})> _checkPlatformTools() async {

@@ -5,6 +5,8 @@ import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/grant_permission/grant_permission_models.dart';
 
+String xcrunExecutable = 'xcrun';
+
 // ---------------------------------------------------------------------------
 // Permission token → platform-specific name maps
 // ---------------------------------------------------------------------------
@@ -89,7 +91,12 @@ const _macosServices = {
 Future<GrantPermissionResult> grantPermission(GrantPermissionInput input) async {
   try {
     final platformInfo = readPlatformInfo();
-    if (platformInfo == null) return const GrantPermissionNoSession();
+    if (platformInfo == null) {
+      if (input.bundleOverride != null && input.deviceOverride != null) {
+        return await _handleIosSimulator(input);
+      }
+      return const GrantPermissionNoSession();
+    }
 
     final platform = platformInfo.platform;
     final isEmulator = platformInfo.emulator;
@@ -123,12 +130,13 @@ Future<GrantPermissionResult> grantPermission(GrantPermissionInput input) async 
 Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) async {
   final bundleId = input.bundleOverride ?? readAppId();
   if (bundleId == null) return const GrantPermissionNoAppId();
+  final device = input.deviceOverride ?? readDevice() ?? 'booted';
 
   final action = input.action;
 
   // --reset-all: reset all services for this bundle (no service arg needed)
   if (input.resetAll) {
-    return _runSimctl(['privacy', 'booted', 'reset', 'all', bundleId], permission: 'all', action: action);
+    return _runSimctl(['privacy', device, 'reset', 'all', bundleId], permission: 'all', action: action);
   }
 
   final token = input.permission!;
@@ -157,7 +165,7 @@ Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) as
   final actionStr = _simctlAction(action);
   final isPhotos = token == 'photos' || token == 'photos-add';
   return _runSimctl(
-    ['privacy', 'booted', actionStr, service, bundleId],
+    ['privacy', device, actionStr, service, bundleId],
     permission: token,
     action: action,
     photosUnreliable: isPhotos && action == GrantPermissionAction.grant,
@@ -171,7 +179,7 @@ Future<GrantPermissionResult> _runSimctl(
   bool photosUnreliable = false,
 }) async {
   try {
-    final result = await Process.run('xcrun', ['simctl', ...args]);
+    final result = await Process.run(xcrunExecutable, ['simctl', ...args]);
     if (result.exitCode != 0) {
       final details = (result.stderr as String).trim();
       return GrantPermissionSimctlFailed(details, exitCode: result.exitCode);
@@ -206,7 +214,7 @@ Future<GrantPermissionResult> _handleAndroid(GrantPermissionInput input) async {
   final packageName = input.bundleOverride ?? readAppId();
   if (packageName == null) return const GrantPermissionNoAppId();
 
-  final deviceId = readDevice();
+  final deviceId = input.deviceOverride ?? readDevice();
   final deviceArgs = deviceId != null ? ['-s', deviceId] : <String>[];
 
   // --reset-all maps to pm reset-permissions (system-wide on Android)

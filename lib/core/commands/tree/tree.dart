@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/tree/tree_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/tree/tree_models.dart';
 
@@ -14,16 +13,13 @@ Future<TreeResult> getWidgetTree(TreeInput _) async {
     final isolateId = await findFlutterIsolateId();
     if (isolateId == null) return const TreeNoIsolate();
 
-    final response = await vmServiceCall(
-      'ext.flutter.inspector.getRootWidgetSummaryTree',
-      params: {'isolateId': isolateId, 'objectGroup': 'fdb_tree'},
-      timeout: const Duration(seconds: 60),
+    final result = await flutterInspectorRootWidgetSummaryTree(
+      isolateId,
+      objectGroup: 'fdb_tree',
     );
 
-    final tree = unwrapExtensionResult(response);
-    if (tree == null || tree is! Map<String, dynamic>) {
-      return const TreeNoWidgetTree();
-    }
+    final tree = result.tree;
+    if (tree == null) return const TreeNoWidgetTree();
 
     return TreeReceived(tree);
   } on AppDiedException catch (e) {

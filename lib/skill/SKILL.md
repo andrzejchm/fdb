@@ -1,6 +1,6 @@
 ---
 name: using-fdb
-description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, taps/inputs/scrolls/swipes/navigates, and forces garbage collection (`fdb gc`). Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, interacting with widgets via fdb, or forcing a GC to disambiguate live-retained vs unreachable-but-uncollected memory.
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, taps/inputs/scrolls/swipes/navigates, forces garbage collection (`fdb gc`), and grants/revokes/resets runtime permissions (`fdb grant-permission`). Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, interacting with widgets via fdb, forcing a GC to disambiguate live-retained vs unreachable-but-uncollected memory, or pre-granting runtime permissions before automated tests.
 license: MIT
 compatibility: opencode
 ---
@@ -21,9 +21,9 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 
 Verify: `fdb status`
 
-## fdb_helper setup (required for tap, double-tap, longpress, input, scroll, scroll-to, back)
+## fdb_helper setup (required for in-app UI/data commands)
 
-The `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, and `back` commands require `fdb_helper` to be added to the Flutter app under test.
+The `describe`, `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, `wait`, `swipe`, `back`, `clean`, and `shared-prefs` commands require `fdb_helper` to be added to the Flutter app under test. Some platform screenshot fallbacks also use `fdb_helper`.
 
 **`pubspec.yaml`:**
 ```yaml
@@ -191,7 +191,7 @@ Requires `fdb_helper` in the app (see setup section above).
 fdb describe
 ```
 
-Returns a compact, text-based snapshot of what's on screen - interactive elements with stable refs, ancestor breadcrumbs for context, and all visible text. Use this instead of a screenshot when you need to understand the UI and interact with it.
+Returns a compact, text-based snapshot of what's on screen - interactive elements with stable refs, ancestor breadcrumbs for context, and all visible text, including visible TextField values. Use this instead of a screenshot when you need to understand the UI and interact with it.
 
 Example output:
 ```
@@ -522,11 +522,14 @@ fdb grant-permission --reset-all
 
 # Override bundle ID / package name
 fdb grant-permission --bundle com.example.app camera
+
+# Pre-grant before launch on a specific iOS simulator
+fdb grant-permission camera --bundle com.example.app --device <simulator_udid>
 ```
 
 Supported tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `motion`, `media-library`, `siri` (iOS), `notifications` (Android), `screen-capture` (macOS).
 
-Supported on iOS simulator and Android. Physical iOS devices are not supported. macOS supports `--reset` only; grant/revoke emit `WARNING:` and exit 1. On iOS simulator, a successful grant emits `WARNING: Permission change may have terminated the app. Run \`fdb reload\` or \`fdb launch\` to restart.` on stderr.
+Supported on iOS simulator and Android. Physical iOS devices are not supported. macOS supports `--reset` only; grant/revoke emit `WARNING:` and exit 1. On iOS simulator, pass `--bundle` and `--device` to grant permissions before the app is running. A successful iOS simulator grant emits `WARNING: Permission change may have terminated the app. Run \`fdb reload\` or \`fdb launch\` to restart.` on stderr.
 
 ### Status / Kill
 
@@ -708,11 +711,15 @@ Output tokens:
 ## State files
 
 All state lives in `<project>/.fdb/`. fdb resolves this directory automatically by walking up from the current working directory to the nearest ancestor that contains a live `.fdb/` — so you never need to `cd` to the project root before running a command. Pass `--session-dir <path>` to bypass auto-resolution entirely.
-- `<project>/.fdb/fdb.pid` - flutter-tools process ID (the `flutter run` Dart VM, used for SIGUSR1/SIGUSR2 hot reload/restart and to tear down the session)
-- `<project>/.fdb/fdb.app_pid` - app VM process ID from `getVM` (the actual Dart VM hosting your app, used for liveness detection on a macOS desktop target)
+- `<project>/.fdb/fdb.pid` - flutter-tools process ID (the `flutter run` Dart VM, used as a fallback for teardown)
+- `<project>/.fdb/fdb.app_pid` - app VM process ID from `getVM` (the actual Dart VM hosting your app, used for liveness detection where available)
+- `<project>/.fdb/controller.pid` - long-lived fdb controller process ID
+- `<project>/.fdb/controller.port` - loopback port for controller requests
+- `<project>/.fdb/controller.token` - per-session controller auth token
+- `<project>/.fdb/log_collector.pid` - detached log collector process ID
 - `<project>/.fdb/logs.txt` - full app output
 - `<project>/.fdb/vm_uri.txt` - VM service websocket URI
 - `<project>/.fdb/device.txt` - device ID used at launch
-- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot, syslog, and crash-report)
-- `<project>/.fdb/app_id.txt` - app bundle id / package name (written at launch, read by crash-report)
+- `<project>/.fdb/platform.txt` - target platform + emulator flag (written at launch, read by screenshot, syslog, crash-report, and grant-permission)
+- `<project>/.fdb/app_id.txt` - app bundle id / package name (written at launch, read by crash-report, simulator, and grant-permission)
 - `<project>/.fdb/screenshot.png` - last screenshot

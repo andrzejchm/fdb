@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/selected/selected_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/selected/selected_models.dart';
 
@@ -12,15 +11,13 @@ Future<SelectedResult> getSelected(SelectedInput _) async {
     final isolateId = await findFlutterIsolateId();
     if (isolateId == null) return const SelectedNoIsolate();
 
-    final response = await vmServiceCall(
-      'ext.flutter.inspector.getSelectedSummaryWidget',
-      params: {'isolateId': isolateId, 'objectGroup': 'fdb_selected'},
+    final result = await flutterInspectorSelectedSummaryWidget(
+      isolateId,
+      objectGroup: 'fdb_selected',
     );
 
-    final widget = unwrapExtensionResult(response);
-    if (widget == null || widget is! Map<String, dynamic>) {
-      return const SelectedNone();
-    }
+    final widget = result.widget;
+    if (widget == null) return const SelectedNone();
 
     final description = widget['description'] as String? ?? 'Unknown';
     final creationLocation = widget['creationLocation'] as Map<String, dynamic>?;

@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
-import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/src/controller/process_utils.dart';
+import 'package:vm_service/vm_service.dart' as vm_service;
+import 'package:vm_service/vm_service_io.dart' as vm_service_io;
 
 typedef VmEventMatcher = bool Function(Map<String, dynamic> event);
 
@@ -105,70 +105,35 @@ Future<bool> waitForVmEventAfterSignal({
   }
 
   final wsUri = uri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
-  final client = HttpClient()..maxConnectionsPerHost = 1;
-  final ws = await WebSocket.connect(
-    wsUri,
-    customClient: client,
-  );
+  final vm_service.VmService service;
+  try {
+    service = await vm_service_io
+        .vmServiceConnectUri(
+          wsUri,
+        )
+        .timeout(const Duration(seconds: 3));
+  } catch (error) {
+    throw StateError('Failed to connect to VM service: $error');
+  }
   final events = StreamController<Map<String, dynamic>>();
-  final listenCompleters = <String, Completer<void>>{};
-  final requestStreamIds = <String, String>{};
-  var nextId = 0;
-
-  final wsSubscription = ws.listen(
-    (data) {
-      final message = jsonDecode(data as String) as Map<String, dynamic>;
-      final id = message['id'] as String?;
-      final listenCompleter = id != null ? listenCompleters[id] : null;
-      if (listenCompleter != null) {
-        listenCompleters.remove(id);
-        final streamId = requestStreamIds.remove(id);
-        if (!listenCompleter.isCompleted) {
-          final error = message['error'] as Map<String, dynamic>?;
-          if (error != null) {
-            final messageText = error['message'] as String? ?? 'Unknown VM service streamListen error';
-            final targetStream = streamId ?? 'unknown';
-            listenCompleter.completeError(
-              StateError('Failed to subscribe to VM stream $targetStream: $messageText'),
-            );
-          } else {
-            listenCompleter.complete();
-          }
-        }
-        return;
-      }
-
-      if (message['method'] == 'streamNotify') {
-        events.add(message);
-      }
-    },
-    onError: events.addError,
-    onDone: () {
-      if (!events.isClosed) {
-        events.close();
-      }
-    },
-  );
+  final subscriptions = <StreamSubscription<vm_service.Event>>[];
 
   try {
     for (final streamId in streamIds) {
-      final requestId = 'listen_${++nextId}_$streamId';
-      final completer = Completer<void>();
-      listenCompleters[requestId] = completer;
-      requestStreamIds[requestId] = streamId;
-      ws.add(
-        jsonEncode({
-          'jsonrpc': '2.0',
-          'id': requestId,
-          'method': 'streamListen',
-          'params': {'streamId': streamId},
-        }),
+      subscriptions.add(
+        service.onEvent(streamId).listen(
+              (event) => events.add(_streamNotifyEvent(streamId, event)),
+              onError: events.addError,
+            ),
       );
+      try {
+        await service.streamListen(streamId).timeout(const Duration(seconds: 3));
+      } on vm_service.RPCError catch (error) {
+        throw StateError(
+          'Failed to subscribe to VM stream $streamId: ${error.message}',
+        );
+      }
     }
-
-    await Future.wait(listenCompleters.values.map((completer) => completer.future)).timeout(
-      const Duration(seconds: 3),
-    );
 
     signal();
     return await waitForVmServiceEvent(
@@ -177,13 +142,33 @@ Future<bool> waitForVmEventAfterSignal({
       timeout: timeout,
     );
   } finally {
-    await wsSubscription.cancel();
+    for (final subscription in subscriptions) {
+      await subscription.cancel().timeout(
+            const Duration(seconds: 1),
+            onTimeout: () {},
+          );
+    }
     if (!events.isClosed) {
       await events.close();
     }
-    await ws.close();
-    client.close(force: true);
+    await service.dispose().timeout(
+          const Duration(seconds: 1),
+          onTimeout: () {},
+        );
   }
+}
+
+Map<String, dynamic> _streamNotifyEvent(
+  String streamId,
+  vm_service.Event event,
+) {
+  return {
+    'method': 'streamNotify',
+    'params': {
+      'streamId': streamId,
+      'event': event.toJson(),
+    },
+  };
 }
 
 bool _isFlutterExtensionEvent(Map<String, dynamic> message, String extensionKind) {

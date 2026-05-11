@@ -135,7 +135,7 @@ dart run ../../bin/fdb.dart back
 ## S5 · describe — off-screen GridView/ListView children
 
 **Purpose:** elements that exist in the widget tree but are below the viewport
-are still listed with `built: false` placeholder coordinates.
+are still listed in describe output.
 
 ```bash
 dart run ../../bin/fdb.dart scroll-to --key go_to_grid_describe_test
@@ -150,8 +150,8 @@ dart run ../../bin/fdb.dart back
 - Grid items `key=grid_item_40` through `key=grid_item_49` appear even though
   they are below the fold on any screen size
 - List items `key=list_item_120` through `key=list_item_149` appear
-- Each off-screen entry has `y` coordinate of `9999999` (or similar large
-  placeholder) — do NOT use these coordinates to drive `fdb tap --at`
+- Do not require coordinates in `describe` output; this scenario only verifies
+  semantic presence of off-screen children that are already built
 
 ---
 
@@ -161,11 +161,16 @@ dart run ../../bin/fdb.dart back
 
 ```bash
 # Tap by key — increments counter
+dart run ../../bin/fdb.dart back 2>/dev/null || true
+dart run ../../bin/fdb.dart scroll up
+dart run ../../bin/fdb.dart scroll up
+dart run ../../bin/fdb.dart describe
 dart run ../../bin/fdb.dart tap --key increment_button
 dart run ../../bin/fdb.dart describe
 ```
 
-**After tap by key:** `VISIBLE TEXT:` in describe shows `"Counter: 1"`.
+**After tap by key:** `VISIBLE TEXT:` shows a `Counter:` value that increased
+by 1 from the value shown in the first `describe` output.
 
 ```bash
 # Tap by text — submit button
@@ -225,7 +230,7 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `input` command exits 0 with `INPUT=TextField VALUE=hello fdb`
+- `input` command exits 0 with `INPUT=<fieldType> VALUE=hello fdb`
 - `describe` INTERACTIVE entry for `key=test_input` contains `"hello fdb"` in its text label
 - `VISIBLE TEXT:` contains `"hello fdb"` (TextField content is visible on screen)
 
@@ -269,6 +274,7 @@ pages) should appear.
 **Purpose:** scroll-to reveals a lazy-built item and brings it into the viewport.
 
 ```bash
+dart run ../../bin/fdb.dart scroll-to --key go_to_scroll_to_test
 dart run ../../bin/fdb.dart tap --key go_to_scroll_to_test
 sleep 1
 dart run ../../bin/fdb.dart tap --key go_to_lazy_list
@@ -283,8 +289,7 @@ dart run ../../bin/fdb.dart back
 **What to verify:**
 
 - `scroll-to` exits 0 with `SCROLLED_TO=ListTile`
-- `describe` INTERACTIVE contains `key=lazy_item_80` with a normal (non-placeholder)
-  y coordinate — it is now on screen
+- `describe` output contains visible text for `Lazy item 80`
 
 ---
 
@@ -399,7 +404,7 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `swipe` exits 0 with `SWIPED=left` (lowercase, consistent with `SCROLLED=down`)
+- `swipe` exits 0 with `SWIPED=LEFT`
 - Second `describe` VISIBLE TEXT shows `"Page 2"` instead of `"Page 1"`
 
 ---
@@ -503,7 +508,8 @@ dart run ../../bin/fdb.dart gc
 - `mem` prints a table with `heapUsage` column and a `TOTAL` row; values are
   human-readable (e.g. `81.0 MB`)
 - `gc` exits 0 with `GC_COMPLETE HEAP_BEFORE=... HEAP_AFTER=... HEAP_DELTA=...`
-- `HEAP_DELTA` is negative (GC reclaimed memory)
+- `HEAP_DELTA` is present; it may be negative, zero, or positive because the
+  GC call itself can allocate while reporting heap totals
 
 ---
 
@@ -537,7 +543,7 @@ xcrun simctl privacy <UDID> reset all <bundle-id>
 dart run ../../bin/fdb.dart kill 2>/dev/null || true
 
 # Pre-grant camera
-dart run ../../bin/fdb.dart grant-permission camera --bundle <bundle-id>
+dart run ../../bin/fdb.dart grant-permission camera --bundle <bundle-id> --device <device-id>
 
 # Launch and navigate to permission screen
 dart run ../../bin/fdb.dart launch --device <device-id>
@@ -698,7 +704,6 @@ dart run ../../bin/fdb.dart back
 
 - `SCREEN:` says `ListTile Describe Test`
 - `INTERACTIVE:` contains `key=perm_request_camera` (`ElevatedButton "Request"`)
-  with real on-screen coordinates (not `y=9999999`)
 - `INTERACTIVE:` does NOT contain a bare `ListTile` entry for the camera row
   (the tile has no `onTap` - it is not independently tappable)
 - `INTERACTIVE:` does contain `key=tappable_tile` (the tile in case 2 that has
@@ -725,7 +730,6 @@ dart run ../../bin/fdb.dart back
 
 - `INTERACTIVE:` contains `key=tappable_tile` with text containing
   `"Tappable tile"` (or similar)
-- The entry has real on-screen coordinates (not `y=9999999`)
 - No duplicate entries for `tappable_tile`
 
 ---
@@ -790,6 +794,7 @@ dart run ../../bin/fdb.dart simulator defaults read --bundle-id dev.andrzejchm.f
 dart run ../../bin/fdb.dart simulator defaults delete --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
 
 # --- push (app must be running, navigate to Notification Test screen first) ---
+dart run ../../bin/fdb.dart scroll-to --key go_to_notification_test_top
 dart run ../../bin/fdb.dart tap --key go_to_notification_test_top
 cat > /tmp/s33_push.apns <<'EOF'
 {

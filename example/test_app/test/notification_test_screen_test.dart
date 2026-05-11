@@ -6,7 +6,9 @@ void main() {
   testWidgets('shows current notification permission status', (tester) async {
     final client = FakeNotificationClient(permissionStatus: 'authorized');
 
-    await tester.pumpWidget(MaterialApp(home: NotificationTestScreen(client: client)));
+    await tester.pumpWidget(
+      MaterialApp(home: NotificationTestScreen(client: client)),
+    );
     await tester.pump();
 
     expect(find.text('Status: authorized'), findsOneWidget);
@@ -24,13 +26,18 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(MaterialApp(home: NotificationTestScreen(client: client)));
+    await tester.pumpWidget(
+      MaterialApp(home: NotificationTestScreen(client: client)),
+    );
     await tester.pump();
 
     expect(find.text('Last foreground push'), findsOneWidget);
     expect(find.textContaining('Title: Hello'), findsOneWidget);
     expect(find.textContaining('Body: World'), findsOneWidget);
-    expect(find.textContaining('Deeplink: fdbtest://notifications/foreground'), findsOneWidget);
+    expect(
+      find.textContaining('Deeplink: fdbtest://notifications/foreground'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders launch tap payload', (tester) async {
@@ -42,11 +49,16 @@ void main() {
       },
     );
 
-    await tester.pumpWidget(MaterialApp(home: NotificationTestScreen(client: client)));
+    await tester.pumpWidget(
+      MaterialApp(home: NotificationTestScreen(client: client)),
+    );
     await tester.pump();
 
     expect(find.text('Launch-from-notification payload'), findsOneWidget);
-    expect(find.textContaining('Deeplink: fdbtest://notifications/launch'), findsOneWidget);
+    expect(
+      find.textContaining('Deeplink: fdbtest://notifications/launch'),
+      findsOneWidget,
+    );
     expect(find.textContaining('"title": "Launch title"'), findsOneWidget);
   });
 
@@ -63,14 +75,19 @@ void main() {
       launchPayload: const {'deeplink': 'fdbtest://notifications/launch'},
     );
 
-    await tester.pumpWidget(MaterialApp(home: NotificationTestScreen(client: client)));
+    await tester.pumpWidget(
+      MaterialApp(home: NotificationTestScreen(client: client)),
+    );
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('clear_notification_events')));
     await tester.pump();
 
     expect(find.text('No Last foreground push yet.'), findsOneWidget);
-    expect(find.text('No Launch-from-notification payload yet.'), findsOneWidget);
+    expect(
+      find.text('No Launch-from-notification payload yet.'),
+      findsOneWidget,
+    );
   });
 }
 
@@ -91,7 +108,9 @@ class FakeNotificationClient implements NotificationClient {
   String? token;
 
   @override
-  VoidCallback addOnBackgroundMessage(void Function(RemotePushEvent event) onEvent) {
+  VoidCallback addOnBackgroundMessage(
+    void Function(RemotePushEvent event) onEvent,
+  ) {
     if (backgroundEvent != null) {
       onEvent(backgroundEvent!);
     }
@@ -99,7 +118,9 @@ class FakeNotificationClient implements NotificationClient {
   }
 
   @override
-  VoidCallback addOnForegroundMessage(void Function(RemotePushEvent event) onEvent) {
+  VoidCallback addOnForegroundMessage(
+    void Function(RemotePushEvent event) onEvent,
+  ) {
     if (foregroundEvent != null) {
       onEvent(foregroundEvent!);
     }
@@ -107,7 +128,9 @@ class FakeNotificationClient implements NotificationClient {
   }
 
   @override
-  VoidCallback addOnNotificationTap(void Function(Map<String, Object?> payload) onTap) {
+  VoidCallback addOnNotificationTap(
+    void Function(Map<String, Object?> payload) onTap,
+  ) {
     if (tapPayload != null) {
       onTap(tapPayload!);
     }

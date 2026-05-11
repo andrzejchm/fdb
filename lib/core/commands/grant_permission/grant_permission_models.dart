@@ -17,6 +17,9 @@ typedef GrantPermissionInput = ({
 
   /// Override bundle ID / package name (default: read from .fdb/fdb.app_id).
   String? bundleOverride,
+
+  /// Override device ID for platform tools (default: read from .fdb/device.txt).
+  String? deviceOverride,
 });
 
 /// Result of a [grantPermission] invocation.

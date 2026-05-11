@@ -187,6 +187,42 @@ void main() {
       expect(await _waitForLogLines(logPath, 1), ['last line']);
       allowClose.complete();
     });
+
+    test('resolves the detached collector entrypoint from a package URI', () async {
+      final tempDir = await Directory.systemTemp.createTemp('fdb_log_collector_test');
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final sessionDir = Directory('${tempDir.path}/.fdb')..createSync(recursive: true);
+      final launcherPath = '${tempDir.path}/start_manager.dart';
+      await File(launcherPath).writeAsString(_startManagerScript);
+
+      final keepAlive = Completer<void>();
+      final server = await _startServer((socket) async {
+        await keepAlive.future;
+        await socket.close();
+      });
+      addTearDown(() async => server.close(force: true));
+
+      final process = await Process.start('dart', [
+        '--packages=${_packageConfigPath()}',
+        launcherPath,
+        sessionDir.path,
+        _wsUri(server),
+      ]);
+      addTearDown(() async {
+        process.kill();
+        await process.exitCode;
+      });
+
+      final stdoutLines = await _waitForProcessLines(process.stdout, 1);
+      keepAlive.complete();
+
+      expect(stdoutLines.single, 'STARTED=true');
+    });
   });
 }
 
@@ -199,6 +235,22 @@ import 'package:fdb/constants.dart';
 Future<void> main(List<String> args) async {
   initSessionDir(args[0]);
   exit(await runLogsCli(['--follow']));
+}
+''';
+
+const _startManagerScript = '''
+import 'dart:io';
+
+import 'package:fdb/src/controller/log_collector_manager.dart';
+import 'package:fdb/src/controller/session.dart';
+
+Future<void> main(List<String> args) async {
+  initSessionDirFromPath(args[0]);
+  final manager = LogCollectorManager(logWarning: (_) {});
+  await manager.start(args[1]);
+  await Future<void>.delayed(const Duration(milliseconds: 200));
+  stdout.writeln('STARTED=' + File(logCollectorPidFile).existsSync().toString());
+  manager.stop();
 }
 ''';
 

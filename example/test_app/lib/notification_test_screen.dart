@@ -14,11 +14,17 @@ abstract class NotificationClient {
 
   Future<Map<String, Object?>?> getLaunchPayload();
 
-  VoidCallback addOnForegroundMessage(void Function(RemotePushEvent event) onEvent);
+  VoidCallback addOnForegroundMessage(
+    void Function(RemotePushEvent event) onEvent,
+  );
 
-  VoidCallback addOnBackgroundMessage(void Function(RemotePushEvent event) onEvent);
+  VoidCallback addOnBackgroundMessage(
+    void Function(RemotePushEvent event) onEvent,
+  );
 
-  VoidCallback addOnNotificationTap(void Function(Map<String, Object?> payload) onTap);
+  VoidCallback addOnNotificationTap(
+    void Function(Map<String, Object?> payload) onTap,
+  );
 }
 
 class PushNotificationClient implements NotificationClient {
@@ -55,26 +61,43 @@ class PushNotificationClient implements NotificationClient {
 
   @override
   Future<Map<String, Object?>?> getLaunchPayload() async {
-    final payload = await Push.instance.notificationTapWhichLaunchedAppFromTerminated;
+    final payload =
+        await Push.instance.notificationTapWhichLaunchedAppFromTerminated;
     return _normalizePayload(payload);
   }
 
   @override
-  VoidCallback addOnForegroundMessage(void Function(RemotePushEvent event) onEvent) {
+  VoidCallback addOnForegroundMessage(
+    void Function(RemotePushEvent event) onEvent,
+  ) {
     return Push.instance.addOnMessage((message) {
-      onEvent(RemotePushEvent.fromRemoteMessage(source: 'foreground', message: message));
+      onEvent(
+        RemotePushEvent.fromRemoteMessage(
+          source: 'foreground',
+          message: message,
+        ),
+      );
     });
   }
 
   @override
-  VoidCallback addOnBackgroundMessage(void Function(RemotePushEvent event) onEvent) {
+  VoidCallback addOnBackgroundMessage(
+    void Function(RemotePushEvent event) onEvent,
+  ) {
     return Push.instance.addOnBackgroundMessage((message) {
-      onEvent(RemotePushEvent.fromRemoteMessage(source: 'background', message: message));
+      onEvent(
+        RemotePushEvent.fromRemoteMessage(
+          source: 'background',
+          message: message,
+        ),
+      );
     });
   }
 
   @override
-  VoidCallback addOnNotificationTap(void Function(Map<String, Object?> payload) onTap) {
+  VoidCallback addOnNotificationTap(
+    void Function(Map<String, Object?> payload) onTap,
+  ) {
     return Push.instance.addOnNotificationTap((payload) {
       onTap(_normalizePayload(payload) ?? const {});
     });
@@ -85,12 +108,17 @@ class PushNotificationClient implements NotificationClient {
       return null;
     }
 
-    return payload.map((key, value) => MapEntry(key ?? 'null', _normalizeValue(value)));
+    return payload.map(
+      (key, value) => MapEntry(key ?? 'null', _normalizeValue(value)),
+    );
   }
 
   Object? _normalizeValue(Object? value) {
     if (value is Map) {
-      return value.map((key, entryValue) => MapEntry(key.toString(), _normalizeValue(entryValue)));
+      return value.map(
+        (key, entryValue) =>
+            MapEntry(key.toString(), _normalizeValue(entryValue)),
+      );
     }
     if (value is List) {
       return value.map(_normalizeValue).toList(growable: false);
@@ -140,7 +168,11 @@ class RemotePushEvent {
 }
 
 class NotificationTapEvent {
-  const NotificationTapEvent({required this.source, required this.payload, required this.deeplink});
+  const NotificationTapEvent({
+    required this.source,
+    required this.payload,
+    required this.deeplink,
+  });
 
   final String source;
   final Map<String, Object?> payload;
@@ -157,7 +189,10 @@ class NotificationTapEvent {
 
 Object? _normalizeValue(Object? value) {
   if (value is Map) {
-    return value.map((key, entryValue) => MapEntry(key.toString(), _normalizeValue(entryValue)));
+    return value.map(
+      (key, entryValue) =>
+          MapEntry(key.toString(), _normalizeValue(entryValue)),
+    );
   }
   if (value is List) {
     return value.map(_normalizeValue).toList(growable: false);
@@ -186,7 +221,9 @@ String? extractDeeplink(Map<String, Object?> payload) {
       }
     }
     if (value is Map) {
-      final nested = extractDeeplink(value.map((key, entryValue) => MapEntry(key.toString(), entryValue)));
+      final nested = extractDeeplink(
+        value.map((key, entryValue) => MapEntry(key.toString(), entryValue)),
+      );
       if (nested != null) {
         return nested;
       }
@@ -210,7 +247,8 @@ class NotificationTestScreen extends StatefulWidget {
   State<NotificationTestScreen> createState() => _NotificationTestScreenState();
 }
 
-class _NotificationTestScreenState extends State<NotificationTestScreen> with WidgetsBindingObserver {
+class _NotificationTestScreenState extends State<NotificationTestScreen>
+    with WidgetsBindingObserver {
   VoidCallback? _unsubscribeForeground;
   VoidCallback? _unsubscribeBackground;
   VoidCallback? _unsubscribeTap;
@@ -225,8 +263,12 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> with Wi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _unsubscribeForeground = widget.client.addOnForegroundMessage(_handleForegroundMessage);
-    _unsubscribeBackground = widget.client.addOnBackgroundMessage(_handleBackgroundMessage);
+    _unsubscribeForeground = widget.client.addOnForegroundMessage(
+      _handleForegroundMessage,
+    );
+    _unsubscribeBackground = widget.client.addOnBackgroundMessage(
+      _handleBackgroundMessage,
+    );
     _unsubscribeTap = widget.client.addOnNotificationTap(_handleTapPayload);
     unawaited(_loadInitialState());
   }
@@ -311,7 +353,11 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> with Wi
       return;
     }
     setState(() {
-      _lastTap = NotificationTapEvent(source: 'tap', payload: payload, deeplink: extractDeeplink(payload));
+      _lastTap = NotificationTapEvent(
+        source: 'tap',
+        payload: payload,
+        deeplink: extractDeeplink(payload),
+      );
     });
   }
 
@@ -337,11 +383,20 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> with Wi
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Remote Push Receipt', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Remote Push Receipt',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 8),
-                  Text('Status: $_permissionStatus', key: const Key('notification_permission_status')),
+                  Text(
+                    'Status: $_permissionStatus',
+                    key: const Key('notification_permission_status'),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Token: ${_token ?? '—'}', key: const Key('notification_token')),
+                  Text(
+                    'Token: ${_token ?? '—'}',
+                    key: const Key('notification_token'),
+                  ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -369,13 +424,29 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> with Wi
             ),
           ),
           const SizedBox(height: 16),
-          _RemotePushEventCard(title: 'Last foreground push', keyName: 'foreground', event: _lastForeground),
+          _RemotePushEventCard(
+            title: 'Last foreground push',
+            keyName: 'foreground',
+            event: _lastForeground,
+          ),
           const SizedBox(height: 16),
-          _RemotePushEventCard(title: 'Last background push', keyName: 'background', event: _lastBackground),
+          _RemotePushEventCard(
+            title: 'Last background push',
+            keyName: 'background',
+            event: _lastBackground,
+          ),
           const SizedBox(height: 16),
-          _NotificationTapEventCard(title: 'Launch-from-notification payload', keyName: 'launch', event: _launchTap),
+          _NotificationTapEventCard(
+            title: 'Launch-from-notification payload',
+            keyName: 'launch',
+            event: _launchTap,
+          ),
           const SizedBox(height: 16),
-          _NotificationTapEventCard(title: 'Last tapped notification payload', keyName: 'tap', event: _lastTap),
+          _NotificationTapEventCard(
+            title: 'Last tapped notification payload',
+            keyName: 'tap',
+            event: _lastTap,
+          ),
         ],
       ),
     );
@@ -383,7 +454,11 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> with Wi
 }
 
 class _RemotePushEventCard extends StatelessWidget {
-  const _RemotePushEventCard({required this.title, required this.keyName, required this.event});
+  const _RemotePushEventCard({
+    required this.title,
+    required this.keyName,
+    required this.event,
+  });
 
   final String title;
   final String keyName;
@@ -402,18 +477,32 @@ class _RemotePushEventCard extends StatelessWidget {
                 children: [
                   Text(title, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Text('Source: ${event.source}', key: Key('${keyName}_notification_source')),
+                  Text(
+                    'Source: ${event.source}',
+                    key: Key('${keyName}_notification_source'),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Title: ${event.title.isEmpty ? '—' : event.title}', key: Key('${keyName}_notification_title')),
+                  Text(
+                    'Title: ${event.title.isEmpty ? '—' : event.title}',
+                    key: Key('${keyName}_notification_title'),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Body: ${event.body.isEmpty ? '—' : event.body}', key: Key('${keyName}_notification_body')),
+                  Text(
+                    'Body: ${event.body.isEmpty ? '—' : event.body}',
+                    key: Key('${keyName}_notification_body'),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Deeplink: ${event.deeplink ?? '—'}', key: Key('${keyName}_notification_deeplink')),
+                  Text(
+                    'Deeplink: ${event.deeplink ?? '—'}',
+                    key: Key('${keyName}_notification_deeplink'),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     event.formattedPayload,
                     key: Key('${keyName}_notification_payload'),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
                   ),
                 ],
               ),
@@ -423,7 +512,11 @@ class _RemotePushEventCard extends StatelessWidget {
 }
 
 class _NotificationTapEventCard extends StatelessWidget {
-  const _NotificationTapEventCard({required this.title, required this.keyName, required this.event});
+  const _NotificationTapEventCard({
+    required this.title,
+    required this.keyName,
+    required this.event,
+  });
 
   final String title;
   final String keyName;
@@ -442,14 +535,22 @@ class _NotificationTapEventCard extends StatelessWidget {
                 children: [
                   Text(title, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Text('Source: ${event.source}', key: Key('${keyName}_notification_source')),
+                  Text(
+                    'Source: ${event.source}',
+                    key: Key('${keyName}_notification_source'),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Deeplink: ${event.deeplink ?? '—'}', key: Key('${keyName}_notification_deeplink')),
+                  Text(
+                    'Deeplink: ${event.deeplink ?? '—'}',
+                    key: Key('${keyName}_notification_deeplink'),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     event.formattedPayload,
                     key: Key('${keyName}_notification_payload'),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
                   ),
                 ],
               ),

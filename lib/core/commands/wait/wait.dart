@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/wait/wait_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/wait/wait_models.dart';
 
@@ -22,26 +21,19 @@ Future<WaitResult> waitForWidget(WaitInput input) async {
     if (input.type != null) params['type'] = input.type!;
     if (input.route != null) params['route'] = input.route!;
 
-    final response = await vmServiceCall(
-      'ext.fdb.waitFor',
-      params: params,
-      timeout: Duration(milliseconds: input.timeoutMs + 5000),
+    final result = await fdbWaitFor(
+      params,
+      timeout: Duration(milliseconds: input.timeoutMs),
     );
-    final result = unwrapRawExtensionResult(response);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        final token = _selectorToken(input.key, input.text, input.type, input.route);
-        return WaitConditionMet(condition: input.condition, selectorToken: token);
-      }
-
-      if (error != null) return WaitRelayedError(error);
+    if (result.isSuccess) {
+      final token = _selectorToken(input.key, input.text, input.type, input.route);
+      return WaitConditionMet(condition: input.condition, selectorToken: token);
     }
 
-    return WaitUnexpectedResponse(result);
+    if (result.error != null) return WaitRelayedError(result.error!);
+
+    return WaitUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {
     return WaitAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

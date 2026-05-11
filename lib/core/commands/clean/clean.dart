@@ -1,8 +1,7 @@
 import 'dart:convert';
 
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/clean/clean_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/clean/clean_models.dart';
 
@@ -15,24 +14,18 @@ Future<CleanResult> cleanApp(CleanInput _) async {
     final isolateId = await checkFdbHelper();
     if (isolateId == null) return const CleanNoFdbHelper();
 
-    final response = await vmServiceCall(
-      'ext.fdb.clean',
-      params: {'isolateId': isolateId},
-    );
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbClean(isolateId);
 
-    if (result is Map<String, dynamic>) {
-      final error = result['error'] as String?;
-      if (error != null) return CleanError(error);
+    if (result.error != null) return CleanError(result.error!);
 
-      if (result['status'] == 'Success') {
-        final dirs = (result['dirs'] as List<dynamic>?)?.cast<String>() ?? [];
-        final deleted = result['deletedEntries'] as int? ?? 0;
-        return CleanSuccess(dirs: dirs, deletedEntries: deleted);
-      }
+    if (result.isSuccess) {
+      return CleanSuccess(
+        dirs: result.dirs,
+        deletedEntries: result.deletedEntries ?? 0,
+      );
     }
 
-    return CleanUnexpectedResponse(jsonEncode(result));
+    return CleanUnexpectedResponse(jsonEncode(result.unexpected));
   } on AppDiedException catch (e) {
     return CleanAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

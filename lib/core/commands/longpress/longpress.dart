@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/longpress/longpress_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/longpress/longpress_models.dart';
 
@@ -28,31 +27,26 @@ Future<LongpressResult> longpressWidget(LongpressInput input) async {
       if (input.x != null) params['x'] = input.x.toString();
       if (input.y != null) params['y'] = input.y.toString();
 
-      final response = await vmServiceCall('ext.fdb.longPress', params: params);
-      final result = unwrapRawExtensionResult(response);
+      final result = await fdbLongPress(params);
 
-      if (result is Map<String, dynamic>) {
-        final status = result['status'] as String?;
-        final error = result['error'] as String?;
-
-        if (status == 'Success') {
-          final widgetType = input.usedAt ? 'coordinates' : result['widgetType'] as String? ?? input.type ?? 'widget';
-          final pressedX = result['x'] ?? input.x ?? '';
-          final pressedY = result['y'] ?? input.y ?? '';
-          return LongpressSuccess(widgetType: widgetType, x: pressedX, y: pressedY);
-        }
-
-        if (error != null) {
-          final isRetryable = error.contains('not found') || error.contains('No hittable element');
-          if (isRetryable && DateTime.now().isBefore(deadline)) {
-            await Future<void>.delayed(const Duration(milliseconds: 500));
-            continue;
-          }
-          return LongpressRelayedError(error);
-        }
+      if (result.isSuccess) {
+        final widgetType = input.usedAt ? 'coordinates' : result.widgetType ?? input.type ?? 'widget';
+        final pressedX = result.x ?? input.x ?? '';
+        final pressedY = result.y ?? input.y ?? '';
+        return LongpressSuccess(widgetType: widgetType, x: pressedX, y: pressedY);
       }
 
-      return LongpressUnexpectedResponse(result.toString());
+      final error = result.error;
+      if (error != null) {
+        final isRetryable = error.contains('not found') || error.contains('No hittable element');
+        if (isRetryable && DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
+        return LongpressRelayedError(error);
+      }
+
+      return LongpressUnexpectedResponse(result.unexpected.toString());
     }
   } on AppDiedException catch (e) {
     return LongpressAppDied(logLines: e.logLines, reason: e.reason);

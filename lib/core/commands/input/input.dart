@@ -1,6 +1,5 @@
-import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/input/input_models.dart';
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/input/input_models.dart';
 
@@ -27,22 +26,16 @@ Future<InputResult> enterText(InputInput input) async {
     if (input.type != null) params['type'] = input.type;
     if (input.index != null) params['index'] = input.index.toString();
 
-    final response = await vmServiceCall('ext.fdb.enterText', params: params);
-    final result = unwrapRawExtensionResult(response);
+    final result = await fdbEnterText(params);
 
-    if (result is Map<String, dynamic>) {
-      final status = result['status'] as String?;
-      final error = result['error'] as String?;
-
-      if (status == 'Success') {
-        final fieldType = result['widgetType'] as String? ?? input.type ?? 'field';
-        return InputSuccess(fieldType: fieldType, value: input.textToEnter);
-      }
-
-      if (error != null) return InputRelayedError(error);
+    if (result.isSuccess) {
+      final fieldType = result.widgetType ?? input.type ?? 'field';
+      return InputSuccess(fieldType: fieldType, value: input.textToEnter);
     }
 
-    return InputUnexpectedResponse(result);
+    if (result.error != null) return InputRelayedError(result.error!);
+
+    return InputUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {
     return InputAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {

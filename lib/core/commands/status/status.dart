@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:fdb/core/commands/status/status_models.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/status/status_models.dart';
 
@@ -8,25 +12,104 @@ export 'package:fdb/core/commands/status/status_models.dart';
 /// Never throws. Returns a [StatusResult] with [StatusResult.running] set to
 /// `false` when there is no active session.
 Future<StatusResult> getStatus(StatusInput _) async {
-  final pid = readPid();
-  final vmUri = readVmUri();
+  final controllerStatus = await _readControllerStatus();
+  final vmServiceUri = await _readReachableVmServiceUri(
+    readVmUri() ?? controllerStatus?.vmServiceUri,
+  );
+  final appPid = _readLiveAppPid();
+  final flutterToolPid = _readLiveFlutterToolPid();
+  final running = vmServiceUri != null || appPid != null || flutterToolPid != null;
 
-  // Primary check: PID file exists and process is alive.
-  final pidAlive = pid != null && isProcessAlive(pid);
-  var running = pidAlive;
-
-  // Fallback: the PID file may be absent or stale (e.g. fdb launch was killed
-  // by an agent timeout after the Flutter app started but before APP_STARTED
-  // was printed, or before --pid-file was written by flutter run). In that
-  // case, probe the VM service URI directly. If the WebSocket connects, the
-  // app is alive even though the PID check failed.
-  if (!running && vmUri != null) {
-    running = await isVmServiceReachable(vmUri);
+  if (!running) {
+    return const StatusResult(running: false);
   }
 
   return StatusResult(
-    running: running,
-    pid: pidAlive ? pid : null,
-    vmServiceUri: (running && vmUri != null) ? vmUri : null,
+    running: true,
+    pid: appPid ?? _readLiveControllerReportedPid(controllerStatus?.pid) ?? flutterToolPid,
+    vmServiceUri: vmServiceUri,
   );
+}
+
+class _ControllerStatusSnapshot {
+  const _ControllerStatusSnapshot({
+    required this.running,
+    required this.pid,
+    required this.vmServiceUri,
+  });
+
+  final bool running;
+  final int? pid;
+  final String? vmServiceUri;
+}
+
+Future<_ControllerStatusSnapshot?> _readControllerStatus() async {
+  try {
+    final response = await sendControllerCommand(
+      ControllerCommand.status,
+      timeout: const Duration(seconds: 3),
+    );
+
+    return _ControllerStatusSnapshot(
+      running: response.field('running') == true,
+      pid: response.field('pid') as int?,
+      vmServiceUri: response.field('vmServiceUri') as String?,
+    );
+  } on ControllerCommandFailed {
+    return null;
+  } on ControllerUnavailable {
+    return null;
+  } on AppDiedException {
+    return null;
+  }
+}
+
+int? _readLiveAppPid() {
+  final appPid = readAppPid();
+  if (appPid == null || !isAppPidAlive(appPid)) {
+    return null;
+  }
+
+  return appPid;
+}
+
+int? _readLiveFlutterToolPid() {
+  final flutterToolPid = readPid();
+  if (flutterToolPid == null || !isProcessAlive(flutterToolPid)) {
+    return null;
+  }
+
+  return flutterToolPid;
+}
+
+int? _readLiveControllerReportedPid(int? pid) {
+  if (pid == null) {
+    return null;
+  }
+
+  if (isAppPidAlive(pid) || isProcessAlive(pid)) {
+    return pid;
+  }
+
+  return null;
+}
+
+Future<String?> _readReachableVmServiceUri(String? vmServiceUri) async {
+  if (vmServiceUri == null || vmServiceUri.isEmpty) {
+    return null;
+  }
+
+  try {
+    final socket = await WebSocket.connect(
+      _normaliseVmServiceUri(vmServiceUri),
+    ).timeout(const Duration(seconds: 3));
+    await socket.close();
+    return vmServiceUri;
+  } catch (_) {
+    return null;
+  }
+}
+
+String _normaliseVmServiceUri(String vmServiceUri) {
+  return vmServiceUri.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
 }

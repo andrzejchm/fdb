@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/constants.dart';
-import 'package:fdb/core/vm_lifecycle_events.dart';
+import 'package:fdb/src/controller/session.dart';
+import 'package:fdb/src/controller/vm_service/vm_lifecycle_events.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -225,7 +224,7 @@ void main() {
       expect(result, isFalse);
     });
 
-    test('fails fast when VM stream subscription is rejected', () async {
+    test('fails fast when the VM service stream is unavailable', () async {
       final tempDir = await Directory.systemTemp.createTemp('fdb_vm_lifecycle_test');
       initSessionDir(tempDir.path);
       addTearDown(() async {
@@ -236,27 +235,11 @@ void main() {
       });
 
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      addTearDown(() async => server.close(force: true));
-
-      server.transform(WebSocketTransformer()).listen((socket) {
-        socket.listen((data) async {
-          final request = jsonDecode(data as String) as Map<String, dynamic>;
-          socket.add(
-            jsonEncode({
-              'jsonrpc': '2.0',
-              'id': request['id'],
-              'error': {
-                'code': 123,
-                'message': 'subscription denied',
-              },
-            }),
-          );
-          await socket.close();
-        });
-      });
+      final port = server.port;
+      await server.close(force: true);
 
       final sessionDir = ensureSessionDir();
-      final wsUri = 'ws://${server.address.host}:${server.port}/ws';
+      final wsUri = 'ws://${InternetAddress.loopbackIPv4.address}:$port/ws';
       await File('$sessionDir/vm_uri.txt').writeAsString(wsUri);
 
       await expectLater(

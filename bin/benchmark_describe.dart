@@ -17,7 +17,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fdb/core/vm_service.dart';
+import 'package:fdb/src/controller/controller_client.dart';
 
 typedef _Scenario = ({String name, String route, String listTileKey});
 typedef _TimingResult = ({
@@ -67,21 +67,18 @@ Future<void> main(List<String> args) async {
 
     for (var run = 0; run < _runsPerScenario; run++) {
       final wallSw = Stopwatch()..start();
-      final response = await vmServiceCall(
-        'ext.fdb.describe',
-        params: {'isolateId': isolateId},
-      );
+      final result = await fdbDescribe(isolateId);
       wallSw.stop();
       final wallMs = wallSw.elapsedMicroseconds / 1000.0;
 
-      final result = unwrapRawExtensionResult(response);
-      if (result is! Map<String, dynamic>) {
+      final snapshot = result.snapshot;
+      if (snapshot == null) {
         stderr.writeln('  run $run: unexpected response type');
         continue;
       }
 
-      final timing = result['_timing'] as Map<String, dynamic>?;
-      final interactive = (result['interactive'] as List<dynamic>?)?.length ?? 0;
+      final timing = snapshot['_timing'] as Map<String, dynamic>?;
+      final interactive = (snapshot['interactive'] as List<dynamic>?)?.length ?? 0;
       final payloadChars = timing?['payload_chars'] as num? ?? 0;
 
       final tr = (
@@ -169,17 +166,11 @@ Future<void> main(List<String> args) async {
 
 /// Navigate to a list tile by key on the current screen.
 Future<void> _navigateTo(String key, String isolateId) async {
-  await vmServiceCall(
-    'ext.fdb.tap',
-    params: {'isolateId': isolateId, 'key': key},
-  );
+  await fdbTap({'isolateId': isolateId, 'key': key});
 }
 
 Future<void> _back(String isolateId) async {
-  await vmServiceCall(
-    'ext.fdb.back',
-    params: {'isolateId': isolateId},
-  );
+  await fdbBack(isolateId);
 }
 
 void _printStats(String label, List<double> values) {

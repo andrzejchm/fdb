@@ -1,3 +1,26 @@
+## Unreleased
+
+### New commands
+- `fdb launch -i` / `fdb launch --interactive` starts an interactive REPL
+  for reload, restart, describe, tap, logs, detach, and kill workflows.
+
+### Improvements
+- `fdb launch` now starts a long-lived local controller that owns
+  `flutter run --machine`; follow-up commands talk to that controller instead
+  of relying on stale process IDs or `flutter attach` recovery.
+- Launch now streams progress while preserving the existing
+  machine-readable success tokens.
+- Controller command handling now uses typed request/response objects and
+  shared JSON parsing helpers, with VM service calls routed through
+  `package:vm_service`.
+- Controller implementation now lives under `lib/src/controller` while `fdb`
+  still exposes `fdb-controller` for global activation.
+
+### Fixes
+- `fdb status`, `reload`, `restart`, and `kill` now stay reliable when the
+  launched Flutter app remains alive after the original launch process state
+  changes, including Android and Linux desktop sessions.
+
 ## 1.6.4
 
 ### Fixes
@@ -12,6 +35,7 @@
 
 ### Fixes
 - `fdb swipe` now dispatches finer-grained synthetic pointer moves, so swiping a `PageView` whose pages contain scale-capable gesture handlers moves pages reliably instead of losing Flutter's gesture arena to the child scale recognizer.
+
 
 ## 1.6.1
 
