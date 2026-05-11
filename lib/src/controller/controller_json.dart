@@ -3,9 +3,13 @@ abstract final class ControllerJson {
   static String token(Map<String, Object?> json) => requiredString(json, 'token');
 
   /// @Throwing(FormatException)
-  static String requiredString(Map<String, Object?> json, String name) {
+  static String requiredString(
+    Map<String, Object?> json,
+    String name, {
+    bool allowEmpty = false,
+  }) {
     final value = json[name];
-    if (value is String && value.isNotEmpty) return value;
+    if (value is String && (allowEmpty || value.isNotEmpty)) return value;
     throw FormatException('Missing required controller field: $name');
   }
 

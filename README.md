@@ -126,12 +126,13 @@ fdb kill
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
 
-**Interaction** *(requires `fdb_helper`)*
+**Interaction**
+
+Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do not.
 
 | Command | Description |
 |---------|-------------|
 | `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
-| `fdb grant-permission <perm> [--revoke] [--reset] [--reset-all] [--bundle <id>]` | Grant, revoke, or reset a runtime permission. iOS sim: `xcrun simctl privacy`; Android: `adb pm grant/revoke`. macOS: reset only (`tccutil`). Physical iOS, Windows, Linux: unsupported. Tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `notifications` (Android only), `motion`, `media-library`, `siri` (iOS only), `screen-capture` (macOS only) |
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
 | `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
@@ -160,10 +161,13 @@ fdb kill
 | `fdb simulator defaults write [--bundle-id <id>] <key> <value> [--type string\|int\|float\|bool]` | Write an NSUserDefaults key |
 | `fdb simulator defaults delete [--bundle-id <id>] <key>` | Delete an NSUserDefaults key |
 
-**Data & state** *(requires `fdb_helper`)*
+**Data & state**
+
+`shared-prefs` and `clean` require `fdb_helper`; `grant-permission` does not.
 
 | Command | Description |
 |---------|-------------|
+| `fdb grant-permission <perm> [--revoke] [--reset] [--reset-all] [--bundle <id>] [--device <id>]` | Grant, revoke, or reset a runtime permission. iOS sim: `xcrun simctl privacy`; Android: `adb pm grant/revoke`. macOS: reset only (`tccutil`). Physical iOS, Windows, Linux: unsupported. Pass `--bundle` and `--device` to pre-grant an iOS simulator app before launch. |
 | `fdb shared-prefs get\|get-all\|set\|remove\|clear` | Read/write SharedPreferences |
 | `fdb clean` | Clear app cache and data directories |
 

@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/doctor/doctor.dart';
+import 'package:fdb/core/commands/grant_permission/grant_permission.dart';
 import 'package:fdb/core/commands/kill/kill.dart';
 import 'package:fdb/core/commands/reload/reload.dart';
 import 'package:fdb/core/commands/restart/restart.dart';
 import 'package:fdb/core/commands/status/status.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/src/controller/commands/fdb_enter_text.dart';
 import 'package:fdb/src/controller/controller_command.dart';
 import 'package:fdb/src/controller/controller_client.dart';
 import 'package:fdb/src/controller/controller_response.dart';
@@ -141,6 +143,41 @@ void main() {
   });
 
   group('controller client', () {
+    test('preserves empty input text for controller enter-text requests', () async {
+      final root = await _createTempSessionRoot();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        await server.close();
+        await root.delete(recursive: true);
+      });
+
+      File(controllerPortFile).writeAsStringSync(server.port.toString());
+      File(controllerTokenFile).writeAsStringSync('input-token');
+
+      server.listen((socket) async {
+        final request = await readControllerRequest(socket);
+        expect(request, isA<FdbEnterTextCommandRequest>());
+        expect((request as FdbEnterTextCommandRequest).input, '');
+        await writeControllerResponse(
+          socket,
+          ControllerResponse.success({
+            'status': 'ok',
+            'widgetType': 'TextField',
+          }),
+        );
+        await socket.close();
+      });
+
+      final response = await fdbEnterText({
+        'isolateId': 'isolates/1',
+        'input': '',
+        'key': 'test_input',
+      });
+
+      expect(response.status, 'ok');
+      expect(response.widgetType, 'TextField');
+    });
+
     test('re-checks dead app state after controller socket connect failure', () async {
       final root = await _createTempSessionRoot();
       final appProcess = await _startSleepProcess();
@@ -438,6 +475,47 @@ exit 0
       expect(File(controllerPidFile).existsSync(), isFalse);
     });
   });
+
+  group('grant-permission', () {
+    test('uses explicit bundle and device on iOS simulator when no session exists', () async {
+      final root = await _createTempSessionRoot();
+      final argsFile = File('${root.path}/xcrun_args.txt');
+      final fakeXcrun = await _createFakeExecutable(
+        name: 'xcrun',
+        contents: '''#!/bin/sh
+printf '%s\n' "\$@" > "${argsFile.path}"
+exit 0
+''',
+      );
+      final previousXcrunExecutable = xcrunExecutable;
+      xcrunExecutable = fakeXcrun.path;
+      addTearDown(() async {
+        xcrunExecutable = previousXcrunExecutable;
+        await root.delete(recursive: true);
+      });
+
+      final result = await grantPermission((
+        permission: 'camera',
+        action: GrantPermissionAction.grant,
+        resetAll: false,
+        bundleOverride: 'dev.andrzejchm.fdb.testApp',
+        deviceOverride: 'C1DE4562-CFBF-45D8-B79E-740A11E86171',
+      ));
+
+      expect(result, isA<GrantPermissionIosSimulatorSuccess>());
+      expect(
+        argsFile.readAsLinesSync(),
+        [
+          'simctl',
+          'privacy',
+          'C1DE4562-CFBF-45D8-B79E-740A11E86171',
+          'grant',
+          'camera',
+          'dev.andrzejchm.fdb.testApp',
+        ],
+      );
+    });
+  });
 }
 
 Future<Directory> _createTempSessionRoot() async {
@@ -450,6 +528,13 @@ Future<Directory> _createTempSessionRoot() async {
 
 Future<Process> _startSleepProcess() {
   return Process.start('/bin/sleep', ['60']);
+}
+
+Future<File> _createFakeExecutable({required String name, required String contents}) async {
+  final dir = await Directory.systemTemp.createTemp('fdb_fake_executable_');
+  final executable = File('${dir.path}/$name')..writeAsStringSync(contents);
+  await Process.run('chmod', ['+x', executable.path]);
+  return executable;
 }
 
 Future<void> _expectProcessDead(int pid) async {

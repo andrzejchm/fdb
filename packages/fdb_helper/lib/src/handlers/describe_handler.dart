@@ -260,6 +260,9 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
               } else if (w is RichText) {
                 final t = w.text.toPlainText().trim();
                 if (t.isNotEmpty) texts.add(t);
+              } else if (w is EditableText) {
+                final t = w.controller.text.trim();
+                if (t.isNotEmpty) texts.add(t);
               }
               el.visitChildren(collectText);
             }

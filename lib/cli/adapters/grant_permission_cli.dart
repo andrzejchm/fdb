@@ -19,7 +19,8 @@ Future<int> runGrantPermissionCli(List<String> args) {
     ..addFlag('revoke', help: 'Revoke the permission instead of granting it', negatable: false)
     ..addFlag('reset', help: 'Reset the permission to undecided (re-prompts on next access)', negatable: false)
     ..addFlag('reset-all', help: 'Reset all permissions for the app', negatable: false)
-    ..addOption('bundle', help: 'Override bundle ID / package name (default: read from .fdb/fdb.app_id)');
+    ..addOption('bundle', help: 'Override bundle ID / package name (default: read from .fdb/fdb.app_id)')
+    ..addOption('device', help: 'Override target device ID (default: read from .fdb/device.txt)');
   return runCliAdapter(parser, args, _execute);
 }
 
@@ -28,6 +29,7 @@ Future<int> _execute(ArgResults results) async {
   final reset = results['reset'] as bool;
   final resetAll = results['reset-all'] as bool;
   final bundleOverride = results['bundle'] as String?;
+  final deviceOverride = results['device'] as String?;
   final rest = results.rest;
 
   // Validate flag combinations.
@@ -61,6 +63,7 @@ Future<int> _execute(ArgResults results) async {
     action: action,
     resetAll: resetAll,
     bundleOverride: bundleOverride,
+    deviceOverride: deviceOverride,
   ));
 
   return _format(result);

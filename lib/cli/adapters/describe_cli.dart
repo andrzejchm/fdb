@@ -123,7 +123,13 @@ void _printDescribeOutput(Map<String, dynamic> result) {
   // "3999 photos" from appearing in the VISIBLE TEXT section.
   final interactiveFragments = <String>{};
   for (final item in interactive) {
-    final text = (item as Map<String, dynamic>)['text'] as String?;
+    final entry = item as Map<String, dynamic>;
+    final type = entry['type'] as String?;
+    if (type == 'TextField' || type == 'CupertinoTextField' || type == 'CupertinoSearchTextField') {
+      continue;
+    }
+
+    final text = entry['text'] as String?;
     if (text != null) {
       for (final fragment in text.split(' · ')) {
         final trimmed = fragment.trim();

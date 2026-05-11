@@ -119,7 +119,13 @@ Future<void> main(List<String> args) async {
   // Commands that manage their own session dir or must run even on unhealthy sessions.
   const sessionResolutionExempt = {CliCommand.launch, CliCommand.devices, CliCommand.skill, CliCommand.simulator};
   // Commands that run against a potentially dead/missing session (soft-fail on null).
-  const sessionSoftFail = {CliCommand.status, CliCommand.doctor, CliCommand.crashReport, CliCommand.kill};
+  const sessionSoftFail = {
+    CliCommand.status,
+    CliCommand.doctor,
+    CliCommand.crashReport,
+    CliCommand.grantPermission,
+    CliCommand.kill,
+  };
   if (!sessionResolutionExempt.contains(command) && !wantsHelp && !isMemDiff) {
     if (explicitSessionDir != null) {
       initSessionDirFromPath(explicitSessionDir);

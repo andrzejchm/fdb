@@ -230,7 +230,7 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `input` command exits 0 with `INPUT=TextField VALUE=hello fdb`
+- `input` command exits 0 with `INPUT=<fieldType> VALUE=hello fdb`
 - `describe` INTERACTIVE entry for `key=test_input` contains `"hello fdb"` in its text label
 - `VISIBLE TEXT:` contains `"hello fdb"` (TextField content is visible on screen)
 
@@ -404,7 +404,7 @@ dart run ../../bin/fdb.dart describe
 
 **What to verify:**
 
-- `swipe` exits 0 with `SWIPED=left` (lowercase, consistent with `SCROLLED=down`)
+- `swipe` exits 0 with `SWIPED=LEFT`
 - Second `describe` VISIBLE TEXT shows `"Page 2"` instead of `"Page 1"`
 
 ---
@@ -543,7 +543,7 @@ xcrun simctl privacy <UDID> reset all <bundle-id>
 dart run ../../bin/fdb.dart kill 2>/dev/null || true
 
 # Pre-grant camera
-dart run ../../bin/fdb.dart grant-permission camera --bundle <bundle-id>
+dart run ../../bin/fdb.dart grant-permission camera --bundle <bundle-id> --device <device-id>
 
 # Launch and navigate to permission screen
 dart run ../../bin/fdb.dart launch --device <device-id>
@@ -794,6 +794,7 @@ dart run ../../bin/fdb.dart simulator defaults read --bundle-id dev.andrzejchm.f
 dart run ../../bin/fdb.dart simulator defaults delete --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
 
 # --- push (app must be running, navigate to Notification Test screen first) ---
+dart run ../../bin/fdb.dart scroll-to --key go_to_notification_test_top
 dart run ../../bin/fdb.dart tap --key go_to_notification_test_top
 cat > /tmp/s33_push.apns <<'EOF'
 {

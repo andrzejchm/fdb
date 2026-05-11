@@ -203,7 +203,7 @@ Future<FdbEnterTextCommandResponse> fdbEnterText(Map<String, dynamic> params) as
     (token) => FdbEnterTextCommandRequest(
       token: token,
       isolateId: _string(params, 'isolateId'),
-      input: _string(params, 'input'),
+      input: _string(params, 'input', allowEmpty: true),
       focused: _optionalString(params, 'focused'),
       text: _optionalString(params, 'text'),
       key: _optionalString(params, 'key'),
@@ -521,9 +521,13 @@ Future<bool> isControllerAvailable() async {
 }
 
 /// @Throwing(FormatException)
-String _string(Map<String, Object?> json, String name) {
+String _string(
+  Map<String, Object?> json,
+  String name, {
+  bool allowEmpty = false,
+}) {
   final value = json[name];
-  if (value is String && value.isNotEmpty) return value;
+  if (value is String && (allowEmpty || value.isNotEmpty)) return value;
   throw FormatException('Missing required controller field: $name');
 }
 

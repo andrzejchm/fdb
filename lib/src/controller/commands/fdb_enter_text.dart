@@ -23,7 +23,7 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
   factory FdbEnterTextCommandRequest.fromJson(Map<String, Object?> json) => FdbEnterTextCommandRequest(
         token: ControllerJson.token(json),
         isolateId: ControllerJson.requiredString(json, 'isolateId'),
-        input: ControllerJson.requiredString(json, 'input'),
+        input: ControllerJson.requiredString(json, 'input', allowEmpty: true),
         focused: ControllerJson.optionalString(json, 'focused'),
         text: ControllerJson.optionalString(json, 'text'),
         key: ControllerJson.optionalString(json, 'key'),
