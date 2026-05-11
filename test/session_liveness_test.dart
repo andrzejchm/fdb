@@ -474,6 +474,80 @@ exit 0
       expect(File(pidFile).existsSync(), isFalse);
       expect(File(controllerPidFile).existsSync(), isFalse);
     });
+
+    test('cleanupTempFiles is called even when controller succeeded and visible processes stopped', () async {
+      // Regression: previously cleanupTempFiles() was skipped in the
+      // controllerStopped=true branch when visibleProcessesStopped=false.
+      // This test verifies that all session files are deleted after a fully
+      // successful kill via the controller path.
+      final root = await _createTempSessionRoot();
+      final appProcess = await _startSleepProcess();
+      final toolProcess = await _startSleepProcess();
+      final controllerProcess = await _startSleepProcess();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        await server.close();
+        await _killIfAlive(appProcess.pid);
+        await _killIfAlive(toolProcess.pid);
+        await _killIfAlive(controllerProcess.pid);
+        await root.delete(recursive: true);
+      });
+
+      File(platformFile).writeAsStringSync('macos false');
+      File(appPidFile).writeAsStringSync(appProcess.pid.toString());
+      File(pidFile).writeAsStringSync(toolProcess.pid.toString());
+      File(controllerPidFile).writeAsStringSync(controllerProcess.pid.toString());
+      File(controllerPortFile).writeAsStringSync(server.port.toString());
+      File(controllerTokenFile).writeAsStringSync('cleanup-token');
+
+      server.listen((socket) async {
+        await readControllerRequest(socket);
+        await writeControllerResponse(
+          socket,
+          ControllerResponse.success({'stopped': true}),
+        );
+        await socket.close();
+      });
+
+      final result = await killApp(());
+
+      expect(result, isA<KillSuccess>());
+      await _expectProcessDead(appProcess.pid);
+      await _expectProcessDead(toolProcess.pid);
+      await _expectProcessDead(controllerProcess.pid);
+      // All session files must be deleted — this is the regression assertion.
+      expect(File(appPidFile).existsSync(), isFalse, reason: 'appPidFile should be cleaned up');
+      expect(File(pidFile).existsSync(), isFalse, reason: 'pidFile should be cleaned up');
+      expect(File(controllerPidFile).existsSync(), isFalse, reason: 'controllerPidFile should be cleaned up');
+      expect(File(controllerPortFile).existsSync(), isFalse, reason: 'controllerPortFile should be cleaned up');
+      expect(File(controllerTokenFile).existsSync(), isFalse, reason: 'controllerTokenFile should be cleaned up');
+      expect(File(platformFile).existsSync(), isFalse, reason: 'platformFile should be cleaned up');
+    });
+  });
+
+  group('session', () {
+    test('resolveSessionDir finds session when only controller.pid is alive', () async {
+      // Regression: previously controller.pid was not included in the PID
+      // liveness checks inside _hasLiveSessionState, so a session kept alive
+      // only by the controller process was invisible to resolveSessionDir.
+      final parent = await Directory.systemTemp.createTemp('fdb_resolve_session_test_');
+      final sessionDir = Directory('${parent.path}/.fdb');
+      sessionDir.createSync(recursive: true);
+
+      final controllerProcess = await _startSleepProcess();
+      addTearDown(() async {
+        await _killIfAlive(controllerProcess.pid);
+        await parent.delete(recursive: true);
+      });
+
+      // Write only controller.pid — no fdb.app_pid, no fdb.pid, no vm_uri.txt.
+      File('${sessionDir.path}/controller.pid').writeAsStringSync(controllerProcess.pid.toString());
+
+      final resolved = resolveSessionDir(start: parent);
+
+      expect(resolved, isNotNull, reason: 'resolveSessionDir should find the session via controller.pid');
+      expect(resolved, sessionDir.absolute.path);
+    });
   });
 
   group('grant-permission', () {
