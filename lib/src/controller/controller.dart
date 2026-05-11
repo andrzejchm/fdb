@@ -12,8 +12,6 @@ import 'package:fdb/src/controller/log_collector_manager.dart';
 import 'package:fdb/src/controller/vm_service/vm_service.dart';
 import 'package:fdb/src/controller/process_utils.dart';
 
-/// @Throwing(ArgParserException)
-/// @Throwing(ArgumentError)
 Future<void> runController(List<String> args) async {
   final config = _parseArgs(args);
   if (config == null) {
@@ -46,8 +44,6 @@ class _ControllerConfig {
   final bool verbose;
 }
 
-/// @Throwing(ArgParserException)
-/// @Throwing(ArgumentError)
 _ControllerConfig? _parseArgs(List<String> args) {
   final parser = ArgParser()
     ..addOption('session-dir')
@@ -325,7 +321,6 @@ class _FdbController implements ControllerContext {
     }
   }
 
-  /// @Throwing(StateError)
   @override
   String requireAppId() {
     final appId = _appId;

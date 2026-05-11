@@ -173,7 +173,8 @@ bool isAppPidAlive(int pid) {
   final platformInfo = readPlatformInfo();
   final platform = platformInfo?.platform.toLowerCase();
   if (platform != null && platform.startsWith('ios')) {
-    return platformInfo?.emulator == true && isProcessAlive(pid);
+    if (platformInfo?.emulator != true) return true; // physical iOS: device-side PID, can't verify from host
+    return isProcessAlive(pid);
   }
 
   return isProcessAlive(pid);

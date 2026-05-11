@@ -7,14 +7,10 @@ import 'package:fdb/src/controller/controller_context.dart';
 
 abstract class ControllerRequest implements CommandRequest {
   const ControllerRequest({required this.token});
-
-  /// @Throwing(FormatException)
   factory ControllerRequest.fromJsonLine(String line) {
     final json = jsonDecode(line) as Map<String, dynamic>;
     return ControllerRequest.fromJson(json);
   }
-
-  /// @Throwing(FormatException)
   factory ControllerRequest.fromJson(Map<String, dynamic> json) {
     final command = ControllerCommand.fromWireName(json['command'] as String?);
     if (command == null) {

@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/launch/launch_models.dart';
 import 'package:fdb/core/process_utils.dart';
-import 'package:pubspec_manager/pubspec_manager.dart';
 
 export 'package:fdb/core/commands/launch/launch_models.dart';
 
@@ -45,6 +44,14 @@ Future<LaunchResult> launchApp(
 
     // Point all session files at <project>/.fdb/
     initSessionDir(project);
+
+    // Kill any previous controller.
+    final oldControllerPid = readControllerPid();
+    if (oldControllerPid != null && isProcessAlive(oldControllerPid)) {
+      try {
+        Process.killPid(oldControllerPid, ProcessSignal.sigterm);
+      } catch (_) {}
+    }
 
     // Kill any previous log collector.
     final oldCollectorPid = readLogCollectorPid();
@@ -104,6 +111,21 @@ Future<LaunchResult> launchApp(
     }
     File(controllerPidFile).writeAsStringSync(controllerProcess.pid.toString());
 
+    // Guard against Ctrl-C / SIGTERM during the poll loop: kill the controller
+    // so it does not linger as an orphan after the fdb process exits.
+    final sigintSub = ProcessSignal.sigint.watch().listen((_) {
+      try {
+        Process.killPid(controllerProcess.pid, ProcessSignal.sigterm);
+      } catch (_) {}
+      exit(1);
+    });
+    final sigtermSub = ProcessSignal.sigterm.watch().listen((_) {
+      try {
+        Process.killPid(controllerProcess.pid, ProcessSignal.sigterm);
+      } catch (_) {}
+      exit(1);
+    });
+
     // Poll log file for VM service URI.
     final stopwatch = Stopwatch()..start();
     var lastHeartbeat = 0;
@@ -111,64 +133,69 @@ Future<LaunchResult> launchApp(
     String? vmUri;
     onProgress('launch: starting Flutter on ${deviceLabel ?? 'device $device'}');
 
-    while (stopwatch.elapsed.inSeconds < launchTimeoutSeconds) {
-      await Future<void>.delayed(const Duration(milliseconds: pollIntervalMs));
+    try {
+      while (stopwatch.elapsed.inSeconds < launchTimeoutSeconds) {
+        await Future<void>.delayed(const Duration(milliseconds: pollIntervalMs));
 
-      // Heartbeat so the caller knows we're not stuck.
-      final elapsedSeconds = stopwatch.elapsed.inSeconds;
-      if (elapsedSeconds ~/ heartbeatIntervalSeconds > lastHeartbeat) {
-        lastHeartbeat = elapsedSeconds ~/ heartbeatIntervalSeconds;
-        onProgress(
-          'launch: still waiting for VM service (${elapsedSeconds}s elapsed)',
-        );
-      }
-
-      // Check if the controller process died unexpectedly.
-      if (!_isAlive(controllerProcess.pid)) {
-        final logExists = File(logFile).existsSync();
-        if (logExists) {
-          final logContent = File(logFile).readAsStringSync();
-          return LaunchProcessDied(fullLog: logContent);
-        } else {
-          return const LaunchProcessDied(noLogFile: true);
+        // Heartbeat so the caller knows we're not stuck.
+        final elapsedSeconds = stopwatch.elapsed.inSeconds;
+        if (elapsedSeconds ~/ heartbeatIntervalSeconds > lastHeartbeat) {
+          lastHeartbeat = elapsedSeconds ~/ heartbeatIntervalSeconds;
+          onProgress(
+            'launch: still waiting for VM service (${elapsedSeconds}s elapsed)',
+          );
         }
-      }
 
-      if (!File(logFile).existsSync()) continue;
-
-      final lines = File(logFile).readAsLinesSync();
-      if (lines.length > reportedLogLines) {
-        for (final line in lines.skip(reportedLogLines)) {
-          final progress = _progressFromLogLine(line);
-          if (progress != null) {
-            onProgress(progress);
+        // Check if the controller process died unexpectedly.
+        if (!_isAlive(controllerProcess.pid)) {
+          final logExists = File(logFile).existsSync();
+          if (logExists) {
+            final logContent = File(logFile).readAsStringSync();
+            return LaunchProcessDied(fullLog: logContent);
+          } else {
+            return const LaunchProcessDied(noLogFile: true);
           }
         }
-        reportedLogLines = lines.length;
-      }
 
-      vmUri = readVmUri();
-      if (vmUri != null && vmUri.isNotEmpty) break;
-    }
+        if (!File(logFile).existsSync()) continue;
 
-    if (vmUri == null) {
-      final tailLogLines = <String>[];
-      if (File(logFile).existsSync()) {
         final lines = File(logFile).readAsLinesSync();
-        tailLogLines.addAll(
-          lines.length > 10 ? lines.sublist(lines.length - 10) : lines,
-        );
+        if (lines.length > reportedLogLines) {
+          for (final line in lines.skip(reportedLogLines)) {
+            final progress = _progressFromLogLine(line);
+            if (progress != null) {
+              onProgress(progress);
+            }
+          }
+          reportedLogLines = lines.length;
+        }
+
+        vmUri = readVmUri();
+        if (vmUri != null && vmUri.isNotEmpty) break;
       }
-      return LaunchTimeout(tailLogLines: tailLogLines);
+
+      if (vmUri == null) {
+        final tailLogLines = <String>[];
+        if (File(logFile).existsSync()) {
+          final lines = File(logFile).readAsLinesSync();
+          tailLogLines.addAll(
+            lines.length > 10 ? lines.sublist(lines.length - 10) : lines,
+          );
+        }
+        return LaunchTimeout(tailLogLines: tailLogLines);
+      }
+
+      final pid = readLaunchPid();
+
+      return LaunchSuccess(
+        vmServiceUri: vmUri,
+        pid: pid,
+        logFilePath: logFile,
+      );
+    } finally {
+      await sigintSub.cancel();
+      await sigtermSub.cancel();
     }
-
-    final pid = readLaunchPid();
-
-    return LaunchSuccess(
-      vmServiceUri: vmUri,
-      pid: pid,
-      logFilePath: logFile,
-    );
   } catch (e) {
     return LaunchError(e.toString());
   }
@@ -277,8 +304,8 @@ String? _findLocalControllerEntrypoint() {
   }
 
   try {
-    final packageSpec = PubSpec.loadFromPath(pubspec.path);
-    if (packageSpec.name.value != 'fdb') {
+    final content = pubspec.readAsStringSync();
+    if (!content.contains('name: fdb')) {
       return null;
     }
     return controller.path;

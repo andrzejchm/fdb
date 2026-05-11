@@ -8,8 +8,6 @@ import 'package:fdb/src/controller/vm_service/vm.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 import 'package:vm_service/vm_service_io.dart' as vm_service_io;
 
-/// @Throwing(AppDiedException)
-/// @Throwing(StateError)
 Future<VM?> getVm({Duration timeout = const Duration(seconds: 3)}) async {
   final service = await _connectToVMService(timeout: timeout);
   try {
@@ -33,8 +31,6 @@ Future<VM?> getVmFromUri(
   }
 }
 
-/// @Throwing(AppDiedException)
-/// @Throwing(StateError)
 Future<Map<String, dynamic>> callVmServiceMethod(
   String method, {
   Map<String, dynamic> params = const {},
@@ -47,8 +43,6 @@ Future<Map<String, dynamic>> callVmServiceMethod(
 /// Returns the normalized extension payload map.
 /// Throws [AppDiedException] when the app process is detected as dead,
 /// or on connection failure / timeout.
-/// @Throwing(AppDiedException)
-/// @Throwing(StateError)
 Future<Map<String, dynamic>> _vmServiceCall(
   String method, {
   Map<String, dynamic> params = const {},
@@ -100,8 +94,6 @@ Future<Map<String, dynamic>> _vmServiceCall(
   }
 }
 
-/// @Throwing(AppDiedException)
-/// @Throwing(StateError)
 Future<vm_service.VmService> _connectToVMService({
   String? uri,
   Duration timeout = const Duration(seconds: 5),
@@ -119,8 +111,6 @@ Future<vm_service.VmService> _connectToVMService({
 
 /// Connects to the VM service at [uri], with a single retry if the connection
 /// fails due to a missing/changed URI or connection refused (app not running).
-/// @Throwing(AppDiedException)
-/// @Throwing(StateError)
 Future<vm_service.VmService> _connectToVM(
   String uri, {
   Duration timeout = const Duration(seconds: 5),
@@ -188,7 +178,6 @@ Future<String?> _refreshVmUriFromController() async {
 /// Uses the app PID on a macOS target (host-visible); on Android/iOS the
 /// app PID lives in the device namespace and is not host-visible, so the
 /// flutter-tools PID is the only useful value.
-/// @Throwing(StateError)
 Future<AppDiedException> _buildDeadAppError() async {
   if (isAndroidTarget()) {
     final appPid = readAppPid();

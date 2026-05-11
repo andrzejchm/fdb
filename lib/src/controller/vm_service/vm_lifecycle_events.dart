@@ -93,7 +93,6 @@ Future<bool> waitForVmServiceEvent({
 
 /// Subscribes to VM service streams, sends [signal], then waits for a matching
 /// event or timeout.
-/// @Throwing(StateError)
 Future<bool> waitForVmEventAfterSignal({
   required List<String> streamIds,
   required VmEventMatcher matches,
