@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fdb/core/models/command_result.dart';
 
 /// A single connected device entry returned by `flutter devices --machine`.
@@ -8,9 +10,13 @@ typedef DeviceInfo = ({
   bool emulator,
 });
 
-/// Input parameters for [listDevices]. Empty record because `fdb devices`
-/// takes no arguments today.
-typedef DevicesInput = ();
+/// Input parameters for [listDevices].
+typedef DevicesInput = ({String projectPath, ProcessRunner processRunner});
+
+typedef ProcessRunner = Future<ProcessResult> Function(
+  String executable,
+  List<String> arguments,
+);
 
 /// Result of a [listDevices] invocation.
 ///

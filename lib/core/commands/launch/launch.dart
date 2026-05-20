@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/launch/launch_models.dart';
+import 'package:fdb/core/flutter_binary.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/launch/launch_models.dart';
@@ -70,7 +71,11 @@ Future<LaunchResult> launchApp(
     File(deviceFile).writeAsStringSync(device);
 
     // Resolve the flutter binary: explicit --flutter-sdk, FVM auto-detect, or PATH.
-    final flutter = _resolveFlutter(project, flutterSdk, onProgress);
+    final flutter = resolveFlutterBinary(
+      project,
+      explicitSdk: flutterSdk,
+      onWarning: onProgress,
+    );
 
     // Resolve and persist the target platform + emulator flag for this device.
     // Used by `fdb screenshot` to dispatch to the correct capture backend.
@@ -312,38 +317,6 @@ String? _findLocalControllerEntrypoint() {
   } catch (_) {
     return null;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Flutter binary resolution
-// ---------------------------------------------------------------------------
-
-/// Resolve the flutter binary path.
-///
-/// Priority:
-/// 1. Explicit --flutter-sdk path → path/bin/flutter
-/// 2. FVM auto-detect: project/.fvm/flutter_sdk/bin/flutter
-/// 3. flutter from PATH
-String _resolveFlutter(
-  String projectPath,
-  String? explicitSdk,
-  void Function(String) onProgress,
-) {
-  if (explicitSdk != null) {
-    final bin = '$explicitSdk/bin/flutter';
-    if (File(bin).existsSync()) return bin;
-    onProgress(
-      'WARNING: --flutter-sdk path not found ($bin), falling back to PATH',
-    );
-  }
-
-  // FVM stores a symlink at .fvm/flutter_sdk → sdk-version
-  final fvmBin = '$projectPath/.fvm/flutter_sdk/bin/flutter';
-  if (File(fvmBin).existsSync() || Link(fvmBin).existsSync()) {
-    return fvmBin;
-  }
-
-  return 'flutter';
 }
 
 // ---------------------------------------------------------------------------
