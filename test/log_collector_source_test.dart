@@ -248,7 +248,10 @@ Future<void> main(List<String> args) async {
   initSessionDirFromPath(args[0]);
   final manager = LogCollectorManager(logWarning: (_) {});
   await manager.start(args[1]);
-  await Future<void>.delayed(const Duration(milliseconds: 200));
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!File(logCollectorPidFile).existsSync() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  }
   stdout.writeln('STARTED=' + File(logCollectorPidFile).existsSync().toString());
   manager.stop();
 }
