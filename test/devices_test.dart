@@ -11,8 +11,7 @@ void main() {
         await root.delete(recursive: true);
       });
 
-      final flutterBin = File('${root.path}/.fvm/flutter_sdk/bin/flutter')
-        ..createSync(recursive: true);
+      final flutterBin = File('${root.path}/.fvm/flutter_sdk/bin/flutter')..createSync(recursive: true);
 
       String? executable;
       List<String>? arguments;
