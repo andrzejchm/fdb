@@ -665,6 +665,39 @@ tasks:
           exit 1
         fi
 
+  test:describe-textfield:
+    desc: Verify fdb describe includes visible TextField content
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Entering text into TextField"
+        INPUT_OUTPUT=$({{.FDB}} input --key test_input "hello fdb" 2>&1)
+        INPUT_EXIT_CODE=$?
+        echo "$INPUT_OUTPUT"
+        if [ $INPUT_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb input for describe-textfield exited with code $INPUT_EXIT_CODE" >&2
+          exit 1
+        fi
+
+        echo "==> Describing screen after text input"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb describe (textfield) exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+
+        if echo "$OUTPUT" | grep -q "VISIBLE TEXT:" && echo "$OUTPUT" | grep -q "hello fdb"; then
+          echo "PASS: fdb describe includes visible TextField content"
+        else
+          echo "FAIL: fdb describe did not include visible TextField content in VISIBLE TEXT output" >&2
+          exit 1
+        fi
+
+        echo "==> Clearing TextField"
+        {{.FDB}} input --key test_input "" >/dev/null 2>&1 || true
+
   test:describe-grid:
     desc: Verify fdb describe returns off-screen GridView children
     dir: '{{.TEST_APP}}'
@@ -3762,6 +3795,7 @@ tasks:
       - task: test:crash-report
       - task: test:tree
       - task: test:describe
+      - task: test:describe-textfield
       - task: test:describe-grid
       - task: test:describe-nested-gestures
       - task: test:describe-listtile-button

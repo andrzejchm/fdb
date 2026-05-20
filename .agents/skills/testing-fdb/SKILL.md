@@ -51,6 +51,7 @@ task test:syslog
 task test:crash-report
 task test:tree
 task test:describe
+task test:describe-textfield
 task test:describe-grid
 task test:describe-nested-gestures
 task test:describe-router
