@@ -15,7 +15,9 @@ import 'package:fdb/core/commands/devices/devices.dart';
 Future<int> runDevicesCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
 
 Future<int> _execute(ArgResults _) async {
-  final result = await listDevices(());
+  final result = await listDevices(
+    (projectPath: Directory.current.path, processRunner: Process.run),
+  );
   return _format(result);
 }
 

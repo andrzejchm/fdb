@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/commands/devices/devices_models.dart';
+import 'package:fdb/core/flutter_binary.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/devices/devices_models.dart';
@@ -10,9 +11,11 @@ export 'package:fdb/core/commands/devices/devices_models.dart';
 ///
 /// Never throws; never writes to stdio. All error conditions are represented
 /// as distinct [DevicesResult] subtypes.
-Future<DevicesResult> listDevices(DevicesInput _) async {
+Future<DevicesResult> listDevices(DevicesInput input) async {
   final ProcessResult result;
-  result = await Process.run('flutter', ['devices', '--machine']);
+  final flutter = resolveFlutterBinary(input.projectPath);
+
+  result = await input.processRunner(flutter, ['devices', '--machine']);
 
   if (result.exitCode != 0) {
     return DevicesFlutterFailed(result.stderr as String);
