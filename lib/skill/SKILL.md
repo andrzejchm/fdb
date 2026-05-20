@@ -46,6 +46,20 @@ void main() {
 
 After adding `fdb_helper`, run `flutter pub get` and relaunch the app.
 
+### Make widgets discoverable
+
+For reliable automation, add stable keys to important interactive widgets and screen landmarks. Prefer explicit keys on buttons, text fields, list rows, tabs, and cards you may need to target with `fdb describe`, `fdb tap`, `fdb input`, or `fdb scroll-to`.
+
+```dart
+ElevatedButton(
+  key: const ValueKey('save_button'),
+  onPressed: save,
+  child: const Text('Save'),
+)
+```
+
+Keys make widget targeting more precise and usually produce better `fdb describe` output than relying on text or widget type alone.
+
 ## Commands
 
 ### List devices
