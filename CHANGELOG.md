@@ -1,3 +1,8 @@
+## 1.7.1
+
+### Fixes
+- `fdb devices` now honors project-local FVM Flutter SDKs instead of requiring a global `flutter` on `PATH`
+
 ## 1.7.0
 
 ### New commands

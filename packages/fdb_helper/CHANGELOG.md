@@ -1,3 +1,7 @@
+## 1.7.1
+
+No functional changes. Version bumped in lockstep with fdb 1.7.1.
+
 ## 1.7.0
 
 No functional changes. Version bumped in lockstep with fdb 1.7.0.
