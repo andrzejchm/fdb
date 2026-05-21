@@ -1,3 +1,11 @@
+## 1.7.2
+
+### Improvements
+- `fdb skill` now tells users to add stable widget keys for better discoverability and more reliable `describe`, `tap`, `input`, and `scroll-to` automation
+
+### Fixes
+- Added smoke coverage for the `fdb describe` regression where visible `TextField` content must appear in `VISIBLE TEXT`
+
 ## 1.7.1
 
 ### Fixes
