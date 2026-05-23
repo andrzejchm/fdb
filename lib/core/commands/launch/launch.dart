@@ -43,8 +43,7 @@ Future<LaunchResult> launchApp(
     if (device == null) return const LaunchMissingDevice();
     onProgress('launch: preparing session');
 
-    // Point all session files at <project>/.fdb/
-    initSessionDir(project);
+    initLaunchSession(project: project, sessionDir: input.sessionDir);
 
     // Kill any previous controller.
     final oldControllerPid = readControllerPid();
@@ -266,6 +265,17 @@ _ControllerLaunchCommand _resolveControllerLaunch() {
   }
 
   return const _ControllerLaunchCommand('fdb-controller', []);
+}
+
+void initLaunchSession({
+  required String project,
+  String? sessionDir,
+}) {
+  if (sessionDir != null) {
+    initSessionDirFromPath(sessionDir);
+  } else {
+    initSessionDir(project);
+  }
 }
 
 String? _progressFromLogLine(String line) {

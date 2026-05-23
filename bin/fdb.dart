@@ -141,8 +141,9 @@ Future<void> main(List<String> args) async {
   }
 
   try {
-    final exitCode =
-        command == CliCommand.launch ? await runLaunchCli(commandArgs) : await runFdbCommand(command, commandArgs);
+    final exitCode = command == CliCommand.launch
+        ? await runLaunchCli(commandArgs, sessionDir: explicitSessionDir)
+        : await runFdbCommand(command, commandArgs);
     exit(exitCode);
   } on AppDiedException catch (e) {
     formatAppDied(e);

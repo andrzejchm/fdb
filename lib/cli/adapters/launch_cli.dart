@@ -16,7 +16,7 @@ import 'package:fdb/core/launch_failure_analyzer.dart';
 ///   --flutter-sdk  Path to Flutter SDK root
 ///   --verbose      Pass --verbose to flutter run
 ///   --interactive  Start an fdb REPL after launching
-Future<int> runLaunchCli(List<String> args) => runCliAdapter(
+Future<int> runLaunchCli(List<String> args, {String? sessionDir}) => runCliAdapter(
       ArgParser()
         ..addOption('device', help: '(required) target device/simulator ID')
         ..addOption('project', help: 'Flutter project root (default: CWD)')
@@ -38,10 +38,10 @@ Future<int> runLaunchCli(List<String> args) => runCliAdapter(
           help: 'Start an fdb REPL after launching',
         ),
       args,
-      _execute,
+      (results) => _execute(results, sessionDir: sessionDir),
     );
 
-Future<int> _execute(ArgResults results) async {
+Future<int> _execute(ArgResults results, {String? sessionDir}) async {
   final device = results['device'] as String?;
 
   if (device == null) {
@@ -55,6 +55,7 @@ Future<int> _execute(ArgResults results) async {
     flavor: results['flavor'] as String?,
     target: results['target'] as String?,
     flutterSdk: results['flutter-sdk'] as String?,
+    sessionDir: sessionDir,
     verbose: results['verbose'] as bool,
     interactive: results['interactive'] as bool,
   );
