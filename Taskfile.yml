@@ -1865,10 +1865,10 @@ tasks:
           echo "FAIL: fdb swipe exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "SWIPED="; then
+        if echo "$OUTPUT" | grep -q "SWIPED=left"; then
           echo "PASS: fdb swipe"
         else
-          echo "FAIL: fdb swipe - SWIPED= not found in output" >&2
+          echo "FAIL: fdb swipe - SWIPED=left not found in output" >&2
           exit 1
         fi
 

@@ -19,7 +19,7 @@ sealed class SwipeResult extends CommandResult {
 class SwipeSuccess extends SwipeResult {
   const SwipeSuccess({required this.direction, required this.actualDistance});
 
-  /// Direction in uppercase (e.g. "LEFT").
+  /// Direction in lowercase (e.g. "left").
   final String direction;
 
   /// The distance returned by the VM extension, or the requested distance, or
