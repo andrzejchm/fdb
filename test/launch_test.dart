@@ -61,6 +61,33 @@ void main() {
       expect(readLaunchPid(), '1111');
     });
 
+    test('initLaunchSession uses explicit session dir instead of project .fdb', () async {
+      final root = await Directory.systemTemp.createTemp('fdb_launch_session_');
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      final project = Directory('${root.path}/project')..createSync(recursive: true);
+      final explicitSession = Directory('${root.path}/custom-session');
+
+      initLaunchSession(project: project.path, sessionDir: explicitSession.path);
+
+      expect(sessionDirPath, explicitSession.absolute.path);
+    });
+
+    test('initLaunchSession falls back to project .fdb without explicit session dir', () async {
+      final root = await Directory.systemTemp.createTemp('fdb_launch_session_');
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      final project = Directory('${root.path}/project')..createSync(recursive: true);
+
+      initLaunchSession(project: project.path);
+
+      expect(sessionDirPath, '${project.absolute.path}/.fdb');
+    });
+
     test('writeAppIdFromProjectForLaunch skips ambiguous app ids when platform hint is unavailable', () async {
       final root = await Directory.systemTemp.createTemp('fdb_launch_project_');
       addTearDown(() async {

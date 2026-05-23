@@ -11,6 +11,7 @@ typedef LaunchInput = ({
   String? flavor,
   String? target,
   String? flutterSdk,
+  String? sessionDir,
   bool verbose,
   bool interactive,
 });
