@@ -33,6 +33,8 @@ class _ControllerConfig {
     this.flavor,
     this.target,
     required this.verbose,
+    this.dartDefines = const [],
+    this.dartDefineFromFiles = const [],
   });
 
   final String sessionDir;
@@ -42,6 +44,8 @@ class _ControllerConfig {
   final String? flavor;
   final String? target;
   final bool verbose;
+  final List<String> dartDefines;
+  final List<String> dartDefineFromFiles;
 }
 
 _ControllerConfig? _parseArgs(List<String> args) {
@@ -52,6 +56,8 @@ _ControllerConfig? _parseArgs(List<String> args) {
     ..addOption('flutter')
     ..addOption('flavor')
     ..addOption('target')
+    ..addMultiOption('dart-define')
+    ..addMultiOption('dart-define-from-file')
     ..addFlag('verbose', negatable: false);
 
   late final ArgResults results;
@@ -78,6 +84,8 @@ _ControllerConfig? _parseArgs(List<String> args) {
     flavor: results.option('flavor'),
     target: results.option('target'),
     verbose: results.flag('verbose'),
+    dartDefines: results.multiOption('dart-define'),
+    dartDefineFromFiles: results.multiOption('dart-define-from-file'),
   );
 }
 
@@ -130,6 +138,8 @@ class _FdbController implements ControllerContext {
       pidFile,
       if (config.flavor != null) ...['--flavor', config.flavor!],
       if (config.target != null) ...['--target', config.target!],
+      for (final define in config.dartDefines) '--dart-define=$define',
+      for (final file in config.dartDefineFromFiles) '--dart-define-from-file=$file',
       if (config.verbose) '--verbose',
     ];
 
