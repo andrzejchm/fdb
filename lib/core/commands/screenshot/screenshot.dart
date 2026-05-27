@@ -194,7 +194,7 @@ Future<String?> _captureIosSimulator(String? deviceId, String output) async {
 /// Falls back to fdb_helper if the window cannot be found or `screencapture`
 /// lacks Screen Recording permission.
 Future<String?> _captureMacOs(String output, List<String> warnings) async {
-  final pid = readPid();
+  final pid = screenshotHostPid();
   if (pid == null) {
     return 'No PID in session — cannot locate macOS window. Re-launch the app.';
   }
@@ -230,6 +230,8 @@ Future<String?> _captureMacOs(String output, List<String> warnings) async {
     return 'macOS screenshot failed: $e';
   }
 }
+
+int? screenshotHostPid() => readAppPid() ?? readPid();
 
 /// Returns the CGWindowID for the on-screen window owned by [pid] or any of
 /// its child processes.

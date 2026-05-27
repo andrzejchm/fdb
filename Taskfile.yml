@@ -3762,6 +3762,10 @@ tasks:
     cmds:
       - |
         {{.FDB}} kill 2>/dev/null || true
+        # `fdb kill` relies on session files. If a previous smoke run removed
+        # `.fdb/` but left the macOS test app alive, kill it by executable path
+        # so the next launch starts from a clean home-route state.
+        pkill -f "$PWD/build/macos/Build/Products/Debug/test_app.app/Contents/MacOS/test_app" 2>/dev/null || true
         rm -rf .fdb
         echo "Cleanup done"
 

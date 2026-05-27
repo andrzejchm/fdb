@@ -1,3 +1,9 @@
+## 1.7.3
+
+### Fixes
+- `fdb launch --dart-define` and `--dart-define-from-file` now preserve comma-containing values instead of splitting them during passthrough to `flutter run` (contributed by Rustam Gilyaev)
+- `fdb screenshot` on macOS now uses the app PID from controller-backed launches, so screenshots work reliably after launch
+
 ## 1.7.2
 
 ### Improvements
