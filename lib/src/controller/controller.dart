@@ -33,6 +33,8 @@ class _ControllerConfig {
     this.flavor,
     this.target,
     required this.verbose,
+    this.dartDefines = const [],
+    this.dartDefineFromFiles = const [],
   });
 
   final String sessionDir;
@@ -42,17 +44,23 @@ class _ControllerConfig {
   final String? flavor;
   final String? target;
   final bool verbose;
+  final List<String> dartDefines;
+  final List<String> dartDefineFromFiles;
 }
 
+ArgParser buildControllerArgParser() => ArgParser()
+  ..addOption('session-dir')
+  ..addOption('project')
+  ..addOption('device')
+  ..addOption('flutter')
+  ..addOption('flavor')
+  ..addOption('target')
+  ..addMultiOption('dart-define', splitCommas: false)
+  ..addMultiOption('dart-define-from-file', splitCommas: false)
+  ..addFlag('verbose', negatable: false);
+
 _ControllerConfig? _parseArgs(List<String> args) {
-  final parser = ArgParser()
-    ..addOption('session-dir')
-    ..addOption('project')
-    ..addOption('device')
-    ..addOption('flutter')
-    ..addOption('flavor')
-    ..addOption('target')
-    ..addFlag('verbose', negatable: false);
+  final parser = buildControllerArgParser();
 
   late final ArgResults results;
   try {
@@ -78,8 +86,33 @@ _ControllerConfig? _parseArgs(List<String> args) {
     flavor: results.option('flavor'),
     target: results.option('target'),
     verbose: results.flag('verbose'),
+    dartDefines: results.multiOption('dart-define'),
+    dartDefineFromFiles: results.multiOption('dart-define-from-file'),
   );
 }
+
+List<String> buildFlutterRunArgs({
+  required String device,
+  String? flavor,
+  String? target,
+  required List<String> dartDefines,
+  required List<String> dartDefineFromFiles,
+  required bool verbose,
+}) =>
+    <String>[
+      'run',
+      '--machine',
+      '-d',
+      device,
+      '--debug',
+      '--pid-file',
+      pidFile,
+      if (flavor != null) ...['--flavor', flavor],
+      if (target != null) ...['--target', target],
+      for (final define in dartDefines) '--dart-define=$define',
+      for (final file in dartDefineFromFiles) '--dart-define-from-file=$file',
+      if (verbose) '--verbose',
+    ];
 
 class _FdbController implements ControllerContext {
   _FdbController(this.config);
@@ -120,18 +153,14 @@ class _FdbController implements ControllerContext {
     File(controllerPortFile).writeAsStringSync(_server.port.toString());
     unawaited(_acceptClients());
 
-    final args = <String>[
-      'run',
-      '--machine',
-      '-d',
-      config.device,
-      '--debug',
-      '--pid-file',
-      pidFile,
-      if (config.flavor != null) ...['--flavor', config.flavor!],
-      if (config.target != null) ...['--target', config.target!],
-      if (config.verbose) '--verbose',
-    ];
+    final args = buildFlutterRunArgs(
+      device: config.device,
+      flavor: config.flavor,
+      target: config.target,
+      dartDefines: config.dartDefines,
+      dartDefineFromFiles: config.dartDefineFromFiles,
+      verbose: config.verbose,
+    );
 
     _flutterProcess = await Process.start(
       config.flutter,

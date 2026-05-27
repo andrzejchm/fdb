@@ -22,4 +22,27 @@ void main() {
       );
     });
   });
+
+  group('launch CLI parser', () {
+    test('keeps commas inside dart-define values', () {
+      final results = buildLaunchArgParser().parse([
+        '--device',
+        'macos',
+        '--dart-define',
+        'API_BASE_URL=https://example.com/v1,canary',
+      ]);
+
+      expect(
+        results['dart-define'],
+        ['API_BASE_URL=https://example.com/v1,canary'],
+      );
+    });
+
+    test('advertises passthrough launch flags in help', () {
+      final usage = buildLaunchArgParser().usage;
+
+      expect(usage, contains('--dart-define'));
+      expect(usage, contains('--dart-define-from-file'));
+    });
+  });
 }

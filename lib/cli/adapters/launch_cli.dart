@@ -14,29 +14,44 @@ import 'package:fdb/core/launch_failure_analyzer.dart';
 ///   --flavor       Build flavor
 ///   --target       Entry-point file (default: lib/main.dart)
 ///   --flutter-sdk  Path to Flutter SDK root
+///   --dart-define  Pass a --dart-define to flutter run (repeatable)
+///   --dart-define-from-file
+///                  Pass a --dart-define-from-file to flutter run (repeatable)
 ///   --verbose      Pass --verbose to flutter run
 ///   --interactive  Start an fdb REPL after launching
+ArgParser buildLaunchArgParser() => ArgParser()
+  ..addOption('device', help: '(required) target device/simulator ID')
+  ..addOption('project', help: 'Flutter project root (default: CWD)')
+  ..addOption('flavor', help: 'Build flavor')
+  ..addOption(
+    'target',
+    help: 'Entry-point file (default: lib/main.dart)',
+  )
+  ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
+  ..addMultiOption(
+    'dart-define',
+    help: 'Pass a --dart-define=KEY=VALUE to flutter run (repeatable)',
+    splitCommas: false,
+  )
+  ..addMultiOption(
+    'dart-define-from-file',
+    help: 'Pass a --dart-define-from-file to flutter run (repeatable)',
+    splitCommas: false,
+  )
+  ..addFlag(
+    'verbose',
+    negatable: false,
+    help: 'Pass --verbose to flutter run',
+  )
+  ..addFlag(
+    'interactive',
+    abbr: 'i',
+    negatable: false,
+    help: 'Start an fdb REPL after launching',
+  );
+
 Future<int> runLaunchCli(List<String> args, {String? sessionDir}) => runCliAdapter(
-      ArgParser()
-        ..addOption('device', help: '(required) target device/simulator ID')
-        ..addOption('project', help: 'Flutter project root (default: CWD)')
-        ..addOption('flavor', help: 'Build flavor')
-        ..addOption(
-          'target',
-          help: 'Entry-point file (default: lib/main.dart)',
-        )
-        ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
-        ..addFlag(
-          'verbose',
-          negatable: false,
-          help: 'Pass --verbose to flutter run',
-        )
-        ..addFlag(
-          'interactive',
-          abbr: 'i',
-          negatable: false,
-          help: 'Start an fdb REPL after launching',
-        ),
+      buildLaunchArgParser(),
       args,
       (results) => _execute(results, sessionDir: sessionDir),
     );
@@ -58,6 +73,8 @@ Future<int> _execute(ArgResults results, {String? sessionDir}) async {
     sessionDir: sessionDir,
     verbose: results['verbose'] as bool,
     interactive: results['interactive'] as bool,
+    dartDefines: results['dart-define'] as List<String>,
+    dartDefineFromFiles: results['dart-define-from-file'] as List<String>,
   );
 
   final result = await launchApp(

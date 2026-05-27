@@ -18,6 +18,9 @@ Commands:
                --flavor <name>     Build flavor
                --target <file>     Entry-point file (default: lib/main.dart)
                --flutter-sdk <path> Path to Flutter SDK root
+               --dart-define <k=v> Pass through to flutter run (repeatable)
+               --dart-define-from-file <path>
+                                   Pass through to flutter run (repeatable)
                --verbose           Pass --verbose to flutter run; full output
                                    is captured in .fdb/logs.txt
                -i, --interactive   Start an fdb REPL after launching

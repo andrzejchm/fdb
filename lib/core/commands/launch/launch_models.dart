@@ -14,6 +14,8 @@ typedef LaunchInput = ({
   String? sessionDir,
   bool verbose,
   bool interactive,
+  List<String> dartDefines,
+  List<String> dartDefineFromFiles,
 });
 
 /// Result of a [launchApp] invocation.
