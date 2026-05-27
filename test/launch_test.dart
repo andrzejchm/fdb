@@ -88,6 +88,43 @@ void main() {
       expect(sessionDirPath, '${project.absolute.path}/.fdb');
     });
 
+    test('buildLaunchControllerArgs keeps repeated define flags as separate arguments', () {
+      expect(
+        buildLaunchControllerArgs(
+          ['controller.dart'],
+          sessionDir: '/tmp/.fdb',
+          project: '/tmp/project',
+          device: 'macos',
+          flutter: '/opt/flutter/bin/flutter',
+          flavor: 'staging',
+          target: 'lib/main_staging.dart',
+          dartDefines: ['API_BASE_URL=https://example.com/v1,canary'],
+          dartDefineFromFiles: ['config/dev,canary.json'],
+          verbose: true,
+        ),
+        [
+          'controller.dart',
+          '--session-dir',
+          '/tmp/.fdb',
+          '--project',
+          '/tmp/project',
+          '--device',
+          'macos',
+          '--flutter',
+          '/opt/flutter/bin/flutter',
+          '--flavor',
+          'staging',
+          '--target',
+          'lib/main_staging.dart',
+          '--dart-define',
+          'API_BASE_URL=https://example.com/v1,canary',
+          '--dart-define-from-file',
+          'config/dev,canary.json',
+          '--verbose',
+        ],
+      );
+    });
+
     test('writeAppIdFromProjectForLaunch skips ambiguous app ids when platform hint is unavailable', () async {
       final root = await Directory.systemTemp.createTemp('fdb_launch_project_');
       addTearDown(() async {

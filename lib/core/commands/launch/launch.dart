@@ -89,22 +89,18 @@ Future<LaunchResult> launchApp(
 
     final controllerLaunch = _resolveControllerLaunch();
 
-    final controllerArgs = [
-      ...controllerLaunch.arguments,
-      '--session-dir',
-      ensureSessionDir(),
-      '--project',
-      project,
-      '--device',
-      device,
-      '--flutter',
-      flutter,
-      if (flavor != null) ...['--flavor', flavor],
-      if (target != null) ...['--target', target],
-      for (final define in dartDefines) ...['--dart-define', define],
-      for (final file in dartDefineFromFiles) ...['--dart-define-from-file', file],
-      if (verbose) '--verbose',
-    ];
+    final controllerArgs = buildLaunchControllerArgs(
+      controllerLaunch.arguments,
+      sessionDir: ensureSessionDir(),
+      project: project,
+      device: device,
+      flutter: flutter,
+      flavor: flavor,
+      target: target,
+      dartDefines: dartDefines,
+      dartDefineFromFiles: dartDefineFromFiles,
+      verbose: verbose,
+    );
 
     late final Process controllerProcess;
     try {
@@ -208,6 +204,34 @@ Future<LaunchResult> launchApp(
     return LaunchError(e.toString());
   }
 }
+
+List<String> buildLaunchControllerArgs(
+  List<String> controllerEntrypointArgs, {
+  required String sessionDir,
+  required String project,
+  required String device,
+  required String flutter,
+  String? flavor,
+  String? target,
+  required List<String> dartDefines,
+  required List<String> dartDefineFromFiles,
+  required bool verbose,
+}) => [
+  ...controllerEntrypointArgs,
+  '--session-dir',
+  sessionDir,
+  '--project',
+  project,
+  '--device',
+  device,
+  '--flutter',
+  flutter,
+  if (flavor != null) ...['--flavor', flavor],
+  if (target != null) ...['--target', target],
+  for (final define in dartDefines) ...['--dart-define', define],
+  for (final file in dartDefineFromFiles) ...['--dart-define-from-file', file],
+  if (verbose) '--verbose',
+];
 
 /// Reads the app or flutter-tools PID written during launch.
 ///

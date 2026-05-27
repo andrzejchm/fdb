@@ -80,6 +80,11 @@ dart pub global activate --source git https://github.com/andrzejchm/fdb.git
 # Launch your app on a connected device
 fdb launch --device <device_id> --project /path/to/your/flutter/app
 
+# Or pass compile-time config through to flutter run
+fdb launch --device <device_id> --project /path/to/your/flutter/app \
+  --dart-define API_BASE_URL=https://example.com/v1,canary \
+  --dart-define-from-file config/dev.json
+
 # Or launch into an interactive fdb session
 fdb launch --device <device_id> --project /path/to/your/flutter/app -i
 
@@ -106,7 +111,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
-| `fdb launch --device <id> --project <path> [-i] [--verbose]` | Launch app, wait for start; use `-i`/`--interactive` to stay in an fdb REPL |
+| `fdb launch --device <id> --project <path> [--dart-define <k=v>] [--dart-define-from-file <path>] [-i] [--verbose]` | Launch app, wait for start; use repeatable define flags to pass compile-time config through to `flutter run`, and `-i`/`--interactive` to stay in an fdb REPL |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
 | `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
@@ -235,6 +240,16 @@ fdb prompt instead of running separate shell commands:
 
 ```bash
 fdb launch --device <device_id> --project /path/to/your/flutter/app -i
+```
+
+Repeat `--dart-define` and `--dart-define-from-file` when the app needs
+compile-time configuration from `flutter run`:
+
+```bash
+fdb launch --device <device_id> --project /path/to/your/flutter/app \
+  --dart-define API_BASE_URL=https://example.com/v1,canary \
+  --dart-define ENABLE_DIAGNOSTICS=true \
+  --dart-define-from-file config/dev.json
 ```
 
 The REPL accepts the same commands as the CLI, plus short aliases for the
