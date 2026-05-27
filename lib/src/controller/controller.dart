@@ -98,20 +98,21 @@ List<String> buildFlutterRunArgs({
   required List<String> dartDefines,
   required List<String> dartDefineFromFiles,
   required bool verbose,
-}) => <String>[
-  'run',
-  '--machine',
-  '-d',
-  device,
-  '--debug',
-  '--pid-file',
-  pidFile,
-  if (flavor != null) ...['--flavor', flavor],
-  if (target != null) ...['--target', target],
-  for (final define in dartDefines) '--dart-define=$define',
-  for (final file in dartDefineFromFiles) '--dart-define-from-file=$file',
-  if (verbose) '--verbose',
-];
+}) =>
+    <String>[
+      'run',
+      '--machine',
+      '-d',
+      device,
+      '--debug',
+      '--pid-file',
+      pidFile,
+      if (flavor != null) ...['--flavor', flavor],
+      if (target != null) ...['--target', target],
+      for (final define in dartDefines) '--dart-define=$define',
+      for (final file in dartDefineFromFiles) '--dart-define-from-file=$file',
+      if (verbose) '--verbose',
+    ];
 
 class _FdbController implements ControllerContext {
   _FdbController(this.config);

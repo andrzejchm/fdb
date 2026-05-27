@@ -216,22 +216,23 @@ List<String> buildLaunchControllerArgs(
   required List<String> dartDefines,
   required List<String> dartDefineFromFiles,
   required bool verbose,
-}) => [
-  ...controllerEntrypointArgs,
-  '--session-dir',
-  sessionDir,
-  '--project',
-  project,
-  '--device',
-  device,
-  '--flutter',
-  flutter,
-  if (flavor != null) ...['--flavor', flavor],
-  if (target != null) ...['--target', target],
-  for (final define in dartDefines) ...['--dart-define', define],
-  for (final file in dartDefineFromFiles) ...['--dart-define-from-file', file],
-  if (verbose) '--verbose',
-];
+}) =>
+    [
+      ...controllerEntrypointArgs,
+      '--session-dir',
+      sessionDir,
+      '--project',
+      project,
+      '--device',
+      device,
+      '--flutter',
+      flutter,
+      if (flavor != null) ...['--flavor', flavor],
+      if (target != null) ...['--target', target],
+      for (final define in dartDefines) ...['--dart-define', define],
+      for (final file in dartDefineFromFiles) ...['--dart-define-from-file', file],
+      if (verbose) '--verbose',
+    ];
 
 /// Reads the app or flutter-tools PID written during launch.
 ///
