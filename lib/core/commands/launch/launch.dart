@@ -85,7 +85,7 @@ Future<LaunchResult> launchApp(
 
     // Persist the app bundle id / package name for later use by crash-report.
     // Non-fatal: crash-report will ask the user for --app-id if this fails.
-    writeAppIdFromProjectForLaunch(project);
+    writeAppIdFromProjectForLaunch(project, flavor: flavor);
 
     final controllerLaunch = _resolveControllerLaunch();
 
@@ -412,7 +412,7 @@ Future<String?> writePlatformInfoForLaunch(
 /// project's native config files and persists it to [appIdFile].
 ///
 /// Silently no-ops on any failure — crash-report falls back to --app-id flag.
-void writeAppIdFromProjectForLaunch(String projectPath) {
+void writeAppIdFromProjectForLaunch(String projectPath, {String? flavor}) {
   try {
     final platformInfo = readPlatformInfo();
     final platform = platformInfo?.platform ?? '';
@@ -423,9 +423,9 @@ void writeAppIdFromProjectForLaunch(String projectPath) {
     if (!hasPlatformHint) {
       final candidates = {
         ...[
-          _readIosAppId(projectPath),
-          _readMacosAppId(projectPath),
-          _readAndroidAppId(projectPath),
+          _readIosAppId(projectPath, flavor: flavor),
+          _readMacosAppId(projectPath, flavor: flavor),
+          _readAndroidAppId(projectPath, flavor: flavor),
         ].whereType<String>(),
       };
 
@@ -436,11 +436,11 @@ void writeAppIdFromProjectForLaunch(String projectPath) {
     }
 
     final extractors = <String? Function()>[
-      if (isIos) () => _readIosAppId(projectPath),
-      if (isMacos) () => _readMacosAppId(projectPath),
-      if (!isIos && !isMacos) () => _readAndroidAppId(projectPath),
-      if (!isIos) () => _readIosAppId(projectPath),
-      if (!isMacos) () => _readMacosAppId(projectPath),
+      if (isIos) () => _readIosAppId(projectPath, flavor: flavor),
+      if (isMacos) () => _readMacosAppId(projectPath, flavor: flavor),
+      if (!isIos && !isMacos) () => _readAndroidAppId(projectPath, flavor: flavor),
+      if (!isIos) () => _readIosAppId(projectPath, flavor: flavor),
+      if (!isMacos) () => _readMacosAppId(projectPath, flavor: flavor),
     ];
 
     for (final extractor in extractors) {
@@ -455,35 +455,70 @@ void writeAppIdFromProjectForLaunch(String projectPath) {
   }
 }
 
-String? _readIosAppId(String projectPath) {
+String? _readIosAppId(String projectPath, {String? flavor}) {
   final file = File('$projectPath/ios/Runner/Info.plist');
   if (!file.existsSync()) return null;
 
   final id = _extractPlistBundleId(file.readAsStringSync());
   if (id != null) return id;
 
-  return _resolvePbxprojBundleId('$projectPath/ios/Runner.xcodeproj/project.pbxproj');
+  if (flavor != null) {
+    final flavoredXcconfig = _resolveXcconfigBundleId(
+      '$projectPath/ios/Flutter/Debug-$flavor.xcconfig',
+    );
+    if (flavoredXcconfig != null) {
+      return flavoredXcconfig;
+    }
+  }
+
+  return _resolvePbxprojBundleId(
+    '$projectPath/ios/Runner.xcodeproj/project.pbxproj',
+    flavor: flavor,
+  );
 }
 
-String? _readMacosAppId(String projectPath) {
+String? _readMacosAppId(String projectPath, {String? flavor}) {
   final file = File('$projectPath/macos/Runner/Info.plist');
   if (!file.existsSync()) return null;
 
   final id = _extractPlistBundleId(file.readAsStringSync());
   if (id != null) return id;
 
+  if (flavor != null) {
+    for (final path in [
+      '$projectPath/macos/Flutter/Debug-$flavor.xcconfig',
+      '$projectPath/macos/Runner/Configs/Debug-$flavor.xcconfig',
+    ]) {
+      final flavoredXcconfig = _resolveXcconfigBundleId(path);
+      if (flavoredXcconfig != null) {
+        return flavoredXcconfig;
+      }
+    }
+
+    final flavoredPbxproj = _resolvePbxprojBundleId(
+      '$projectPath/macos/Runner.xcodeproj/project.pbxproj',
+      flavor: flavor,
+    );
+    if (flavoredPbxproj != null) {
+      return flavoredPbxproj;
+    }
+  }
+
   return _resolveXcconfigBundleId('$projectPath/macos/Runner/Configs/AppInfo.xcconfig') ??
-      _resolvePbxprojBundleId('$projectPath/macos/Runner.xcodeproj/project.pbxproj');
+      _resolvePbxprojBundleId(
+        '$projectPath/macos/Runner.xcodeproj/project.pbxproj',
+        flavor: flavor,
+      );
 }
 
-String? _readAndroidAppId(String projectPath) {
+String? _readAndroidAppId(String projectPath, {String? flavor}) {
   for (final path in ['$projectPath/android/app/build.gradle.kts', '$projectPath/android/app/build.gradle']) {
     final file = File(path);
     if (!file.existsSync()) {
       continue;
     }
 
-    final appId = _extractApplicationId(file.readAsStringSync());
+    final appId = _extractApplicationId(file.readAsStringSync(), flavor: flavor);
     if (appId != null) {
       return appId;
     }
@@ -493,18 +528,38 @@ String? _readAndroidAppId(String projectPath) {
 }
 
 /// Extracts `applicationId` or `namespace` from a Gradle build file.
-String? _extractApplicationId(String content) {
-  // Kotlin DSL: applicationId = "com.example.app" or namespace = "com.example.app"
-  // Groovy DSL: applicationId "com.example.app" or namespace "com.example.app"
-  final patterns = [
-    RegExp(r'applicationId\s*[=\s]\s*["\x27]([a-zA-Z0-9._]+)["\x27]'),
-    RegExp(r'namespace\s*[=\s]\s*["\x27]([a-zA-Z0-9._]+)["\x27]'),
-  ];
-  for (final pattern in patterns) {
-    final match = pattern.firstMatch(content);
-    if (match != null) return match.group(1);
+String? _extractApplicationId(String content, {String? flavor}) {
+  final defaultConfig = _extractGradleBlock(content, RegExp(r'\bdefaultConfig\b\s*\{'));
+  final baseAppId = _extractGradleStringValue(defaultConfig ?? content, 'applicationId');
+  final namespace = _extractGradleStringValue(content, 'namespace');
+  if (flavor == null) {
+    return baseAppId ?? namespace;
   }
-  return null;
+
+  final productFlavors = _extractGradleBlock(content, RegExp(r'\bproductFlavors\b\s*\{'));
+  final flavorBlock = productFlavors == null ? null : _extractFlavorGradleBlock(productFlavors, flavor);
+  if (flavorBlock == null) {
+    return baseAppId ?? namespace;
+  }
+
+  final buildTypes = _extractGradleBlock(content, RegExp(r'\bbuildTypes\b\s*\{'));
+  final debugBlock = buildTypes == null ? null : _extractGradleBlock(buildTypes, RegExp(r'\bdebug\b\s*\{'));
+  final buildTypeSuffix = debugBlock == null ? null : _extractGradleStringValue(debugBlock, 'applicationIdSuffix');
+
+  final explicitFlavorAppId = _extractGradleStringValue(flavorBlock, 'applicationId');
+  final flavorSuffix = _extractGradleStringValue(flavorBlock, 'applicationIdSuffix');
+  if (explicitFlavorAppId != null) {
+    final suffixes = [flavorSuffix, buildTypeSuffix].whereType<String>().join();
+    return '$explicitFlavorAppId$suffixes';
+  }
+
+  final baseId = baseAppId ?? namespace;
+  if (baseId == null) {
+    return null;
+  }
+
+  final suffixes = [flavorSuffix, buildTypeSuffix].whereType<String>().join();
+  return '$baseId$suffixes';
 }
 
 /// Extracts `CFBundleIdentifier` from an Info.plist file.
@@ -532,10 +587,18 @@ String? _extractPlistBundleId(String content) {
 /// bundle ID is shorter than test targets (which append suffixes such as
 /// `.RunnerTests`), so the shortest value is the main app bundle ID.
 /// Returns null when the file does not exist or contains no matching entry.
-String? _resolvePbxprojBundleId(String pbxprojPath) {
+String? _resolvePbxprojBundleId(String pbxprojPath, {String? flavor}) {
   final f = File(pbxprojPath);
   if (!f.existsSync()) return null;
   final content = f.readAsStringSync();
+
+  if (flavor != null) {
+    final flavoredBundleId = _resolveFlavoredPbxprojBundleId(content, flavor);
+    if (flavoredBundleId != null) {
+      return flavoredBundleId;
+    }
+  }
+
   final matches = RegExp(
     r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([A-Za-z0-9._-]+)\s*;',
   ).allMatches(content);
@@ -548,6 +611,42 @@ String? _resolvePbxprojBundleId(String pbxprojPath) {
       best = id;
     }
   }
+  return best;
+}
+
+String? _resolveFlavoredPbxprojBundleId(String content, String flavor) {
+  final flavorLower = flavor.toLowerCase();
+  final blockStarts = RegExp(r'=\s*\{').allMatches(content);
+  String? best;
+
+  for (final blockStart in blockStarts) {
+    final headerStart = content.lastIndexOf('\n', blockStart.start);
+    final header = content.substring(headerStart == -1 ? 0 : headerStart + 1, blockStart.start).toLowerCase();
+    final body = _extractBraceBody(content, blockStart.end - 1);
+    if (body == null) {
+      continue;
+    }
+
+    final hasFlavorMatch = header.contains(flavorLower) ||
+        RegExp(r'name\s*=\s*([^;]+);', caseSensitive: false)
+            .allMatches(body)
+            .map((match) => match.group(1)?.toLowerCase() ?? '')
+            .any((name) => name.contains(flavorLower));
+    if (!hasFlavorMatch) {
+      continue;
+    }
+
+    final bundleIdMatch = RegExp(
+      r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([A-Za-z0-9._-]+)\s*;',
+    ).firstMatch(body);
+    if (bundleIdMatch != null) {
+      final id = bundleIdMatch.group(1)!;
+      if (best == null || id.length < best.length) {
+        best = id;
+      }
+    }
+  }
+
   return best;
 }
 
@@ -570,6 +669,61 @@ String? _resolveXcconfigBundleId(String xcconfigPath) {
   if (commentIndex == -1) return raw.isEmpty ? null : raw;
   final stripped = raw.substring(0, commentIndex).trim();
   return stripped.isEmpty ? null : stripped;
+}
+
+String? _extractGradleStringValue(String content, String propertyName) {
+  final match = RegExp(
+    '$propertyName\\s*[=\\s]\\s*["\\x27]([a-zA-Z0-9._-]+)["\\x27]',
+  ).firstMatch(content);
+  return match?.group(1);
+}
+
+String? _extractFlavorGradleBlock(String content, String flavor) {
+  final escapedFlavor = RegExp.escape(flavor);
+
+  for (final pattern in [
+    RegExp('\\b$escapedFlavor\\b\\s*\\{'),
+    RegExp('create\\(\\s*["\\x27]$escapedFlavor["\\x27]\\s*\\)\\s*\\{'),
+  ]) {
+    final block = _extractGradleBlock(content, pattern);
+    if (block != null) {
+      return block;
+    }
+  }
+
+  return null;
+}
+
+String? _extractGradleBlock(String content, RegExp startPattern) {
+  final match = startPattern.firstMatch(content);
+  if (match == null) {
+    return null;
+  }
+
+  final openBraceIndex = content.indexOf('{', match.start);
+  if (openBraceIndex == -1) {
+    return null;
+  }
+
+  return _extractBraceBody(content, openBraceIndex);
+}
+
+String? _extractBraceBody(String content, int openBraceIndex) {
+  var depth = 0;
+
+  for (var index = openBraceIndex; index < content.length; index++) {
+    final char = content[index];
+    if (char == '{') {
+      depth++;
+    } else if (char == '}') {
+      depth--;
+      if (depth == 0) {
+        return content.substring(openBraceIndex + 1, index);
+      }
+    }
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
