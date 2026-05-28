@@ -26,35 +26,46 @@ Future<void> runController(List<String> args) async {
 
 class _ControllerConfig {
   const _ControllerConfig({
+    required this.mode,
     required this.sessionDir,
     required this.project,
     required this.device,
     required this.flutter,
     this.flavor,
     this.target,
+    this.appId,
+    this.debugUrl,
     required this.verbose,
     this.dartDefines = const [],
     this.dartDefineFromFiles = const [],
   });
 
+  final _ControllerMode mode;
   final String sessionDir;
   final String project;
   final String device;
   final String flutter;
   final String? flavor;
   final String? target;
+  final String? appId;
+  final String? debugUrl;
   final bool verbose;
   final List<String> dartDefines;
   final List<String> dartDefineFromFiles;
 }
 
+enum _ControllerMode { run, attach }
+
 ArgParser buildControllerArgParser() => ArgParser()
+  ..addOption('mode', allowed: ['run', 'attach'], defaultsTo: 'run')
   ..addOption('session-dir')
   ..addOption('project')
   ..addOption('device')
   ..addOption('flutter')
   ..addOption('flavor')
   ..addOption('target')
+  ..addOption('app-id')
+  ..addOption('debug-url')
   ..addMultiOption('dart-define', splitCommas: false)
   ..addMultiOption('dart-define-from-file', splitCommas: false)
   ..addFlag('verbose', negatable: false);
@@ -78,13 +89,18 @@ _ControllerConfig? _parseArgs(List<String> args) {
     return null;
   }
 
+  final modeName = results.option('mode') ?? 'run';
+
   return _ControllerConfig(
+    mode: modeName == 'attach' ? _ControllerMode.attach : _ControllerMode.run,
     sessionDir: sessionDir,
     project: project,
     device: device,
     flutter: flutter,
     flavor: results.option('flavor'),
     target: results.option('target'),
+    appId: results.option('app-id'),
+    debugUrl: results.option('debug-url'),
     verbose: results.flag('verbose'),
     dartDefines: results.multiOption('dart-define'),
     dartDefineFromFiles: results.multiOption('dart-define-from-file'),
@@ -111,6 +127,26 @@ List<String> buildFlutterRunArgs({
       if (target != null) ...['--target', target],
       for (final define in dartDefines) '--dart-define=$define',
       for (final file in dartDefineFromFiles) '--dart-define-from-file=$file',
+      if (verbose) '--verbose',
+    ];
+
+List<String> buildFlutterAttachArgs({
+  required String device,
+  String? target,
+  String? appId,
+  String? debugUrl,
+  required bool verbose,
+}) =>
+    <String>[
+      'attach',
+      '--machine',
+      '-d',
+      device,
+      '--pid-file',
+      pidFile,
+      if (target != null) ...['--target', target],
+      if (appId != null) ...['--app-id', appId],
+      if (debugUrl != null) ...['--debug-url', debugUrl],
       if (verbose) '--verbose',
     ];
 
@@ -153,14 +189,23 @@ class _FdbController implements ControllerContext {
     File(controllerPortFile).writeAsStringSync(_server.port.toString());
     unawaited(_acceptClients());
 
-    final args = buildFlutterRunArgs(
-      device: config.device,
-      flavor: config.flavor,
-      target: config.target,
-      dartDefines: config.dartDefines,
-      dartDefineFromFiles: config.dartDefineFromFiles,
-      verbose: config.verbose,
-    );
+    final args = switch (config.mode) {
+      _ControllerMode.run => buildFlutterRunArgs(
+          device: config.device,
+          flavor: config.flavor,
+          target: config.target,
+          dartDefines: config.dartDefines,
+          dartDefineFromFiles: config.dartDefineFromFiles,
+          verbose: config.verbose,
+        ),
+      _ControllerMode.attach => buildFlutterAttachArgs(
+          device: config.device,
+          target: config.target,
+          appId: config.appId,
+          debugUrl: config.debugUrl,
+          verbose: config.verbose,
+        ),
+    };
 
     _flutterProcess = await Process.start(
       config.flutter,

@@ -26,7 +26,7 @@ task setup    # dart pub get + flutter pub get in test app
 
 ### Full smoke test
 
-Runs all fdb commands end-to-end: launch, status, reload, restart, logs, tree, screenshot, select, kill.
+Runs all fdb commands end-to-end: launch, attach, status, reload, restart, logs, tree, screenshot, select, kill.
 
 ```bash
 task smoke                    # auto-detect device
@@ -40,6 +40,7 @@ The app must already be running (via `task test:launch`) before running individu
 ```bash
 task test:launch DEVICE=iPhone-16
 task test:launch-verbose DEVICE=iPhone-16
+task test:attach DEVICE=iPhone-16
 task test:devices
 task test:status
 task test:status-after-interrupted-launch

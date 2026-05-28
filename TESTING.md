@@ -25,6 +25,7 @@ task smoke DEVICE=iPhone-16    # specific device
 task test:devices
 task test:launch DEVICE=<id>
 task test:launch-verbose DEVICE=<id>
+task test:attach DEVICE=<id>
 task test:status
 task test:doctor
 task test:reload
