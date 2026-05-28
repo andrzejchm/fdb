@@ -88,6 +88,9 @@ fdb launch --device <device_id> --project /path/to/your/flutter/app \
 # Or launch into an interactive fdb session
 fdb launch --device <device_id> --project /path/to/your/flutter/app -i
 
+# Or attach to an app already launched from Xcode, Android Studio, or another tool
+fdb attach --device <device_id> --project /path/to/your/flutter/app
+
 # See what it looks like
 fdb screenshot
 
@@ -111,6 +114,7 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
+| `fdb attach --device <id> --project <path> [--app-id <id>] [--debug-url <url>] [-i] [--verbose]` | Attach fdb to an already-running debug/profile Flutter app launched from Xcode, Android Studio, `simctl`, `adb`, or another native workflow |
 | `fdb launch --device <id> --project <path> [--dart-define <k=v>] [--dart-define-from-file <path>] [-i] [--verbose]` | Launch app, wait for start; use repeatable define flags to pass compile-time config through to `flutter run`, and `-i`/`--interactive` to stay in an fdb REPL |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
@@ -264,6 +268,32 @@ fdb launch --device <device_id> --project /path/to/your/flutter/app \
   --dart-define API_BASE_URL=https://example.com/v1,canary \
   --dart-define ENABLE_DIAGNOSTICS=true \
   --dart-define-from-file config/dev.json
+```
+
+Use `fdb attach` when the app must be started by native tooling first. This is
+the recommended workflow for iOS Firebase Analytics DebugView, because Firebase
+expects native Xcode launch arguments rather than Flutter `--dart-define` values:
+
+```text
+Xcode -> Product -> Scheme -> Edit Scheme -> Run -> Arguments
+Add: -FIRDebugEnabled
+Optional console logging: -FIRAnalyticsDebugEnabled
+```
+
+Then launch the app from Xcode and attach fdb:
+
+```bash
+fdb attach --device <ios_device_or_simulator_id> \
+  --project /path/to/your/flutter/app \
+  --app-id <bundle_id>
+```
+
+If iOS or macOS VM service discovery is unreliable, copy the Dart VM service URL
+from Xcode, app logs, or `fdb status` and pass it directly. Both `http://.../`
+and `ws://.../ws` forms are accepted:
+
+```bash
+fdb attach --device <device_id> --project /path/to/app --debug-url <vm_service_url>
 ```
 
 The REPL accepts the same commands as the CLI, plus short aliases for the

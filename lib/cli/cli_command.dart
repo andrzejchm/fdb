@@ -3,6 +3,7 @@ import 'package:fdb/cli/adapters/adapters.g.dart';
 typedef CliRunner = Future<int> Function(List<String> args);
 
 enum CliCommand {
+  attach('attach', null),
   devices('devices', runDevicesCli),
   deeplink('deeplink', runDeeplinkCli),
   launch('launch', null),

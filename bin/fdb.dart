@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/cli/adapters/attach_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
 import 'package:fdb/cli/cli_command.dart';
 import 'package:fdb/cli/command_dispatch.dart';
@@ -10,6 +11,16 @@ const usage = '''
 Usage: fdb [--session-dir <path>] <command> [args]
 
 Commands:
+  attach      Attach to an already-running Flutter app
+               --device <id>       (required) target device/simulator ID
+               --project <path>    Flutter project root (default: CWD)
+               --flavor <name>     Build flavor used for app id metadata
+               --app-id <id>       Package name / bundle id to disambiguate
+               --debug-url <url>   Dart VM service URL from Xcode/logs
+               --target <file>     Entry-point file used by flutter attach
+               --flutter-sdk <path> Path to Flutter SDK root
+               --verbose           Pass --verbose to flutter attach
+               -i, --interactive   Start an fdb REPL after attaching
   devices     List connected devices
   deeplink    Open a deep link URL on the device
   launch      Launch a Flutter app
@@ -115,7 +126,7 @@ Future<void> main(List<String> args) async {
   final commandArgs = remaining.sublist(1);
 
   // Resolve session directory.
-  // `launch` manages its own session dir via --project; skip auto-resolution.
+  // `launch` and `attach` manage their own session dirs via --project; skip auto-resolution.
   // `--help` / `-h` is also session-agnostic — adapters print parser.usage
   // without needing a session.
   // All other commands benefit from walking up to find an active .fdb/.
@@ -129,7 +140,13 @@ Future<void> main(List<String> args) async {
 
   final isMemDiff = command == CliCommand.mem && commandArgs.isNotEmpty && commandArgs[0] == 'diff';
   // Commands that manage their own session dir or must run even on unhealthy sessions.
-  const sessionResolutionExempt = {CliCommand.launch, CliCommand.devices, CliCommand.skill, CliCommand.simulator};
+  const sessionResolutionExempt = {
+    CliCommand.attach,
+    CliCommand.launch,
+    CliCommand.devices,
+    CliCommand.skill,
+    CliCommand.simulator,
+  };
   // Commands that run against a potentially dead/missing session (soft-fail on null).
   const sessionSoftFail = {
     CliCommand.status,
@@ -153,9 +170,11 @@ Future<void> main(List<String> args) async {
   }
 
   try {
-    final exitCode = command == CliCommand.launch
-        ? await runLaunchCli(commandArgs, sessionDir: explicitSessionDir)
-        : await runFdbCommand(command, commandArgs);
+    final exitCode = switch (command) {
+      CliCommand.attach => await runAttachCli(commandArgs, sessionDir: explicitSessionDir),
+      CliCommand.launch => await runLaunchCli(commandArgs, sessionDir: explicitSessionDir),
+      _ => await runFdbCommand(command, commandArgs),
+    };
     exit(exitCode);
   } on AppDiedException catch (e) {
     formatAppDied(e);

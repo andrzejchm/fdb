@@ -1,3 +1,4 @@
+import 'package:fdb/cli/adapters/attach_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
 import 'package:fdb/cli/cli_command.dart';
 import 'package:fdb/cli/command_dispatch.dart';
@@ -8,6 +9,7 @@ import '../bin/fdb.dart' as fdb_bin;
 void main() {
   group('command dispatch', () {
     const routedCommands = [
+      'attach',
       'devices',
       'deeplink',
       'launch',
@@ -38,6 +40,7 @@ void main() {
       'selected',
       'mem',
       'gc',
+      'heap',
       'status',
       'kill',
       'simulator',
@@ -50,9 +53,11 @@ void main() {
 
     for (final command in routedCommands) {
       test('$command supports --help through the dispatcher', () async {
-        final exitCode = command == 'launch'
-            ? await runLaunchCli(['--help'])
-            : await runFdbCommand(CliCommand.fromWireName(command)!, ['--help']);
+        final exitCode = switch (command) {
+          'attach' => await runAttachCli(['--help']),
+          'launch' => await runLaunchCli(['--help']),
+          _ => await runFdbCommand(CliCommand.fromWireName(command)!, ['--help']),
+        };
         expect(exitCode, 0);
       });
     }

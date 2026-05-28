@@ -130,6 +130,38 @@ tasks:
         done
         echo "PASS: re-launch after verbose test"
 
+  test:attach:
+    desc: "Attach to an already-running test app (set DEVICE or auto-detect)"
+    dir: '{{.TEST_APP}}'
+    vars:
+      DEVICE:
+        sh: '{{if .DEVICE}}echo "{{.DEVICE}}"{{else}}task detect-device{{end}}'
+    cmds:
+      - |
+        echo "==> Attaching to running test app on device: {{.DEVICE}}"
+        DEBUG_URL_FLAG=""
+        PLATFORM=""
+        if [ -f .fdb/platform.txt ]; then
+          PLATFORM=$(cut -d ' ' -f1 .fdb/platform.txt)
+        fi
+        if [ -f .fdb/vm_uri.txt ] && ! echo "$PLATFORM" | grep -q '^android'; then
+          DEBUG_URL_FLAG="--debug-url $(cat .fdb/vm_uri.txt)"
+        fi
+        OUTPUT=$({{.FDB}} attach --device "{{.DEVICE}}" $DEBUG_URL_FLAG 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb attach exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        for TOKEN in '^APP_ATTACHED$' '^VM_SERVICE_URI=' '^PID=' '^LOG_FILE='; do
+          if ! echo "$OUTPUT" | grep -q "$TOKEN"; then
+            echo "FAIL: fdb attach - token $TOKEN not found in output" >&2
+            exit 1
+          fi
+        done
+        echo "PASS: fdb attach"
+
   test:status:
     desc: Check app status (expects a running app)
     dir: '{{.TEST_APP}}'
@@ -4073,6 +4105,9 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:launch-verbose
+        vars:
+          DEVICE: '{{.DEVICE}}'
+      - task: test:attach
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:status

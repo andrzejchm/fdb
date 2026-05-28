@@ -109,6 +109,39 @@ Known `LAUNCH_ERROR` categories and their meanings:
 
 Find device IDs: `fdb devices`
 
+### Attach to an already-running app
+
+```bash
+fdb attach --device <device_id> --project <path> [--app-id <bundle_or_package>] [--debug-url <vm_service_url>]
+```
+
+Output on success: `APP_ATTACHED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+
+Use `attach` when the app must be started by native tooling first, such as Xcode,
+Android Studio, `simctl`, or `adb`. The target app must be a debug/profile Flutter
+app exposing the Dart VM service.
+
+For iOS Firebase Analytics DebugView / GA4:
+
+```text
+Xcode -> Product -> Scheme -> Edit Scheme -> Run -> Arguments
+Add: -FIRDebugEnabled
+Optional console logging: -FIRAnalyticsDebugEnabled
+```
+
+Launch from Xcode, then run:
+
+```bash
+fdb attach --device <ios_device_or_simulator_id> --project <path> --app-id <bundle_id>
+```
+
+If iOS/macOS discovery fails, copy the Dart VM service URL from Xcode, logs, or
+`fdb status`. Both `http://.../` and `ws://.../ws` forms are accepted:
+
+```bash
+fdb attach --device <device_id> --project <path> --debug-url <vm_service_url>
+```
+
 ### Doctor pre-flight check
 
 ```bash

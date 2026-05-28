@@ -68,7 +68,7 @@ Future<LaunchResult> launchApp(
 
     // Create .fdb/ session directory and persist device ID.
     ensureSessionDir();
-    _ensureGitignored(project);
+    ensureGitignored(project);
     File(deviceFile).writeAsStringSync(device);
 
     // Resolve the flutter binary: explicit --flutter-sdk, FVM auto-detect, or PATH.
@@ -87,7 +87,7 @@ Future<LaunchResult> launchApp(
     // Non-fatal: crash-report will ask the user for --app-id if this fails.
     writeAppIdFromProjectForLaunch(project, flavor: flavor);
 
-    final controllerLaunch = _resolveControllerLaunch();
+    final controllerLaunch = resolveControllerLaunch();
 
     final controllerArgs = buildLaunchControllerArgs(
       controllerLaunch.arguments,
@@ -277,23 +277,23 @@ void cleanupLaunchSessionFiles() {
   }
 }
 
-class _ControllerLaunchCommand {
-  const _ControllerLaunchCommand(this.executable, this.arguments);
+class ControllerLaunchCommand {
+  const ControllerLaunchCommand(this.executable, this.arguments);
 
   final String executable;
   final List<String> arguments;
 }
 
-_ControllerLaunchCommand _resolveControllerLaunch() {
+ControllerLaunchCommand resolveControllerLaunch() {
   final localController = _findLocalControllerEntrypoint();
   if (localController != null) {
-    return _ControllerLaunchCommand(
+    return ControllerLaunchCommand(
       Platform.resolvedExecutable,
       [localController],
     );
   }
 
-  return const _ControllerLaunchCommand('fdb-controller', []);
+  return const ControllerLaunchCommand('fdb-controller', []);
 }
 
 void initLaunchSession({
@@ -739,7 +739,7 @@ String? _extractBraceBody(String content, int openBraceIndex) {
 // ---------------------------------------------------------------------------
 
 /// Append .fdb/ to the project's .gitignore if not already present.
-void _ensureGitignored(String projectPath) {
+void ensureGitignored(String projectPath) {
   final gitignore = File('$projectPath/.gitignore');
   if (gitignore.existsSync()) {
     final content = gitignore.readAsStringSync();

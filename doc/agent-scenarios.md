@@ -978,6 +978,30 @@ dart run ../../bin/fdb.dart longpress --at "$X,$Y" --duration 800
 
 ---
 
+## S38 · attach — external running app session
+
+**Purpose:** verifies that fdb can replace a launch-created controller with an
+attach-created controller while keeping normal follow-up commands usable. This
+approximates attaching to an app started by Xcode or Android Studio.
+
+```bash
+dart run ../../bin/fdb.dart attach --device <device_id>
+dart run ../../bin/fdb.dart status
+dart run ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+
+- `attach` exits 0 and prints `APP_ATTACHED`, `VM_SERVICE_URI=`, `PID=`, and
+  `LOG_FILE=`
+- `status` exits 0 and prints `RUNNING=true`
+- `describe` still describes the current app screen, proving the attached
+  controller can serve normal fdb commands after attach
+- If attach cannot discover the app, retry with the app's bundle/package id:
+  `dart run ../../bin/fdb.dart attach --device <device_id> --app-id <id>`
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

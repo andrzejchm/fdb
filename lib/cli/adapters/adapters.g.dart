@@ -5,6 +5,7 @@
 // https://onepub.dev
 //
 export 'back_cli.dart';
+export 'attach_cli.dart';
 export 'clean_cli.dart';
 export 'crash_report_cli.dart';
 export 'deeplink_cli.dart';
