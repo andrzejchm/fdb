@@ -3,7 +3,9 @@ version: '3'
 silent: true
 
 vars:
-  FDB: 'dart run {{.ROOT_DIR}}/bin/fdb.dart'
+  FDB: 'env PATH="$HOME/fvm/versions/3.44.0/bin:$PATH" dart run {{.ROOT_DIR}}/bin/fdb.dart'
+  FLUTTER:
+    sh: 'if [ -x "$HOME/fvm/versions/3.44.0/bin/flutter" ]; then printf "%s" "$HOME/fvm/versions/3.44.0/bin/flutter"; elif command -v flutter >/dev/null 2>&1; then command -v flutter; else printf "%s" "flutter"; fi'
   TEST_APP: '{{.ROOT_DIR}}/example/test_app'
 
 tasks:
@@ -14,9 +16,9 @@ tasks:
     desc: Install dependencies and prepare the test app
     cmds:
       - dart pub get
-      - cmd: flutter pub get
+      - cmd: '{{.FLUTTER}} pub get'
         dir: 'packages/fdb_helper'
-      - cmd: flutter pub get
+      - cmd: '{{.FLUTTER}} pub get'
         dir: '{{.TEST_APP}}'
 
   # ---------------------------------------------------------------------------
@@ -4092,7 +4094,7 @@ tasks:
     desc: "Run static analysis on fdb and fdb_helper"
     cmds:
       - dart analyze lib/ bin/ test/
-      - cd packages/fdb_helper && flutter analyze --suppress-analytics
+      - cd packages/fdb_helper && {{.FLUTTER}} analyze --suppress-analytics
 
   test:fdb-helper-release-stubs:
     desc: "Verify fdb_helper debug/release native tap source selection"
