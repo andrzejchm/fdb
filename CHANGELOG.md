@@ -1,3 +1,17 @@
+## 1.8.0
+
+### New commands
+- `fdb attach` attaches fdb to an already-running debug/profile Flutter app, including apps started from Xcode or Android Studio. It supports `--app-id` for disambiguation and `--debug-url` for iOS/macOS/manual discovery fallbacks.
+- `fdb heap dump --output` captures DevTools-loadable heap snapshots.
+- `fdb mem native` runs platform-native memory tools for Android, iOS simulator, and macOS.
+
+### Improvements
+- `fdb longpress --at` now uses native long-press injection on supported platforms.
+- The fdb skill and README now include a memory leak investigation workflow.
+
+### Fixes
+- `fdb launch --flavor` now resolves flavor-specific Android application ids and iOS/macOS bundle ids for `.fdb/app_id.txt`.
+
 ## 1.7.3
 
 ### Fixes

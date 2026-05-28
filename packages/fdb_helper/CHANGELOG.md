@@ -1,3 +1,8 @@
+## 1.8.0
+
+### Improvements
+- Added native long-press support for coordinate-based fdb interactions on supported platforms.
+
 ## 1.7.3
 
 No functional changes. Version bumped in lockstep with fdb 1.7.3.

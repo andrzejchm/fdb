@@ -15,7 +15,7 @@ Add to your Flutter app's `pubspec.yaml`:
 
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.7.2
+  fdb_helper: ^1.8.0
 ```
 
 Initialize in `main.dart`:
