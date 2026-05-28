@@ -1,0 +1,2 @@
+PRODUCT_NAME = flavored_app (Staging)
+PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.macos.staging

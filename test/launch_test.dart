@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fdb/core/commands/launch/launch.dart';
+import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/src/controller/session.dart';
 import 'package:test/test.dart';
 
@@ -175,6 +176,366 @@ void main() {
 
       expect(File(appIdFile).readAsStringSync(), 'com.example.android');
     });
+
+    test('writeAppIdFromProjectForLaunch resolves iOS flavored bundle id from Debug xcconfig', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('ios', false);
+      _writeFile('${setup.project.path}/ios/Runner/Info.plist', '''
+<plist>
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  </dict>
+</plist>
+''');
+      _writeFile(
+        '${setup.project.path}/ios/Flutter/Debug-staging.xcconfig',
+        'PRODUCT_BUNDLE_IDENTIFIER = com.example.ios.staging',
+      );
+      _writeFile(
+        '${setup.project.path}/ios/Runner.xcodeproj/project.pbxproj',
+        'PRODUCT_BUNDLE_IDENTIFIER = com.example.ios.base;',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.ios.staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch resolves iOS flavored bundle id from pbxproj build config', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('ios', false);
+      _writeFile('${setup.project.path}/ios/Runner/Info.plist', '''
+<plist>
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  </dict>
+</plist>
+''');
+      _writeFile(
+        '${setup.project.path}/ios/Runner.xcodeproj/project.pbxproj',
+        '''
+Debug = {
+  PRODUCT_BUNDLE_IDENTIFIER = com.example.base;
+};
+Debug-staging-RunnerTests = {
+  PRODUCT_BUNDLE_IDENTIFIER = com.example.staging.RunnerTests;
+};
+Debug-staging = {
+  PRODUCT_BUNDLE_IDENTIFIER = com.example.staging;
+};
+RunnerTests = {
+  PRODUCT_BUNDLE_IDENTIFIER = com.example.base.RunnerTests;
+};
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch resolves macOS flavored bundle id from Flutter xcconfig', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('macos', false);
+      _writeFile('${setup.project.path}/macos/Runner/Info.plist', '''
+<plist>
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  </dict>
+</plist>
+''');
+      _writeFile(
+        '${setup.project.path}/macos/Flutter/Debug-staging.xcconfig',
+        'PRODUCT_BUNDLE_IDENTIFIER = com.example.macos.flutter-staging',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.macos.flutter-staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch resolves macOS flavored bundle id from Runner config xcconfig', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('macos', false);
+      _writeFile('${setup.project.path}/macos/Runner/Info.plist', '''
+<plist>
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  </dict>
+</plist>
+''');
+      _writeFile(
+        '${setup.project.path}/macos/Runner/Configs/Debug-staging.xcconfig',
+        'PRODUCT_BUNDLE_IDENTIFIER = com.example.macos.runner-staging',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.macos.runner-staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch keeps macOS AppInfo fallback without flavor', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('macos', false);
+      _writeFile('${setup.project.path}/macos/Runner/Info.plist', '''
+<plist>
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  </dict>
+</plist>
+''');
+      _writeFile(
+        '${setup.project.path}/macos/Runner/Configs/AppInfo.xcconfig',
+        'PRODUCT_BUNDLE_IDENTIFIER = com.example.macos.base',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path);
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.macos.base');
+    });
+
+    test('writeAppIdFromProjectForLaunch prefers macOS flavored pbxproj over AppInfo fallback', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('macos', false);
+      _writeFile('${setup.project.path}/macos/Runner/Info.plist', '''
+<plist>
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  </dict>
+</plist>
+''');
+      _writeFile(
+        '${setup.project.path}/macos/Runner/Configs/AppInfo.xcconfig',
+        'PRODUCT_BUNDLE_IDENTIFIER = com.example.macos.base',
+      );
+      _writeFile(
+        '${setup.project.path}/macos/Runner.xcodeproj/project.pbxproj',
+        '''
+Debug = {
+  PRODUCT_BUNDLE_IDENTIFIER = com.example.macos.base;
+};
+Debug-staging = {
+  PRODUCT_BUNDLE_IDENTIFIER = com.example.macos.staging;
+};
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.macos.staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch resolves Android Groovy flavor applicationId', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('android-arm64', false);
+      _writeFile(
+        '${setup.project.path}/android/app/build.gradle',
+        '''
+android {
+  defaultConfig {
+    applicationId "com.example.base"
+  }
+  productFlavors {
+    staging {
+      applicationId "com.example.staging"
+    }
+  }
+}
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch resolves Android Kotlin flavor applicationId', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('android-arm64', false);
+      _writeFile(
+        '${setup.project.path}/android/app/build.gradle.kts',
+        '''
+android {
+  defaultConfig {
+    applicationId = "com.example.base"
+  }
+  productFlavors {
+    create("staging") {
+      applicationId = "com.example.staging"
+    }
+  }
+}
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.staging');
+    });
+
+    test('writeAppIdFromProjectForLaunch appends suffixes to Android explicit flavor applicationId', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('android-arm64', false);
+      _writeFile(
+        '${setup.project.path}/android/app/build.gradle',
+        '''
+android {
+  defaultConfig {
+    applicationId "com.example.base"
+  }
+  productFlavors {
+    staging {
+      applicationId "com.example.staging"
+      applicationIdSuffix ".flavor"
+    }
+  }
+  buildTypes {
+    debug {
+      applicationIdSuffix ".debug"
+    }
+  }
+}
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.staging.flavor.debug');
+    });
+
+    test('writeAppIdFromProjectForLaunch composes Android flavor and build-type suffixes', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('android-arm64', false);
+      _writeFile(
+        '${setup.project.path}/android/app/build.gradle',
+        '''
+android {
+  defaultConfig {
+    applicationId "com.example.base"
+  }
+  productFlavors {
+    staging {
+      applicationIdSuffix ".staging"
+    }
+  }
+  buildTypes {
+    debug {
+      applicationIdSuffix ".debug"
+    }
+  }
+}
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.base.staging.debug');
+    });
+
+    test('writeAppIdFromProjectForLaunch composes Android namespace with suffixes', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('android-arm64', false);
+      _writeFile(
+        '${setup.project.path}/android/app/build.gradle',
+        '''
+android {
+  namespace "com.example.base"
+  productFlavors {
+    staging {
+      applicationIdSuffix ".staging"
+    }
+  }
+  buildTypes {
+    debug {
+      applicationIdSuffix ".debug"
+    }
+  }
+}
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.base.staging.debug');
+    });
+
+    test('writeAppIdFromProjectForLaunch falls back to base app id when flavor is unresolved', () async {
+      final setup = await _createTempProjectWithSession();
+      addTearDown(() async {
+        await setup.root.delete(recursive: true);
+      });
+
+      writePlatformInfo('android-arm64', false);
+      _writeFile(
+        '${setup.project.path}/android/app/build.gradle',
+        '''
+android {
+  defaultConfig {
+    applicationId "com.example.base"
+  }
+  productFlavors {
+    production {
+      applicationId "com.example.production"
+    }
+  }
+}
+''',
+      );
+
+      writeAppIdFromProjectForLaunch(setup.project.path, flavor: 'staging');
+
+      expect(File(appIdFile).readAsStringSync(), 'com.example.base');
+    });
   });
 }
 
@@ -184,4 +545,19 @@ Future<Directory> _createTempSessionRoot() async {
   session.createSync(recursive: true);
   initSessionDirFromPath(session.path);
   return root;
+}
+
+Future<({Directory root, Directory project})> _createTempProjectWithSession() async {
+  final root = await Directory.systemTemp.createTemp('fdb_launch_project_');
+  final session = Directory('${root.path}/session')..createSync(recursive: true);
+  initSessionDirFromPath(session.path);
+
+  final project = Directory('${root.path}/project')..createSync(recursive: true);
+  return (root: root, project: project);
+}
+
+void _writeFile(String path, String content) {
+  final file = File(path);
+  file.parent.createSync(recursive: true);
+  file.writeAsStringSync(content);
 }
