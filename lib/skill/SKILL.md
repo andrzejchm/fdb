@@ -573,18 +573,36 @@ fdb ext call ext.flutter.collectLeaks
 The response is structured JSON that includes retaining paths, culprit/victim
 analysis, and disposal status — this is the fastest and most actionable path.
 
-*Path B — fdb retainers fallback:*
+*Path B — DevTools / websocat fallback:*
 
-If `ext.flutter.collectLeaks` is NOT listed, use `fdb retainers` to walk the
-VM service and print instance counts and retaining paths for the suspect class:
+If `ext.flutter.collectLeaks` is NOT listed, there is no dedicated `fdb`
+command for retaining paths today. Use one of these approaches:
+
+Option 1 — DevTools (easiest):
+Skip ahead to Step 5 and use **Memory → Trace Instances** in DevTools.
+Select the culprit class from Step 2 and use **Retaining Path** to see what
+is keeping instances alive.
+
+Option 2 — raw websocat (scriptable):
+Fetch the VM service URI, then use the `getInstances` + `getRetainingPath`
+RPCs directly:
 
 ```bash
-fdb retainers --class <CulpritClass>
+VM_URI=$(dart run ../../bin/fdb.dart status 2>/dev/null | grep VM_SERVICE_URI | cut -d= -f2)
+# 1. Get all isolate IDs
+echo '{"jsonrpc":"2.0","method":"getVM","params":{},"id":"1"}' \
+  | websocat -n1 -B 10485760 "$VM_URI"
+# 2. Find instances of the suspect class (replace <isolateId> and <classId>)
+echo '{"jsonrpc":"2.0","method":"getInstances","params":{"isolateId":"<isolateId>","objectId":"<classId>","limit":10},"id":"2"}' \
+  | websocat -n1 -B 10485760 "$VM_URI"
+# 3. Get the retaining path for the first instance (replace <objectId>)
+echo '{"jsonrpc":"2.0","method":"getRetainingPath","params":{"isolateId":"<isolateId>","targetId":"<objectId>","limit":20},"id":"3"}' \
+  | websocat -n1 -B 10485760 "$VM_URI"
 ```
 
-Replace `<CulpritClass>` with the class name from Step 2 (e.g. `ProductPageBloc`).
-Read the printed retaining paths to find which object is holding a reference that
-prevents GC.
+The `getRetainingPath` response walks from the object back to a GC root,
+listing each retainer by type and field name — use this to identify which
+live object is holding the reference.
 
 **Step 4 — Suggest leak_tracker for ongoing prevention**
 

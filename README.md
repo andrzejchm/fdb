@@ -224,7 +224,7 @@ fdb ext call ext.flutter.collectLeaks
 2. **Find the culprit class** — `fdb mem profile --output before.json`, repeat the interaction, `fdb mem profile --output after.json`, then `fdb mem diff before.json after.json`.
 3. **Find what retains it** — check `fdb ext list | grep collectLeaks`:
    - **Present** (leak_tracker path): `fdb ext call ext.flutter.collectLeaks` — returns structured JSON with retaining paths and culprit/victim analysis.
-   - **Absent** (fallback): `fdb retainers --class <CulpritClass>` — walks the VM service and prints retaining paths.
+   - **Absent** (fallback): no dedicated `fdb` command today — use DevTools → Memory → Trace Instances → Retaining Path, or query the VM service directly via `getInstances` + `getRetainingPath` RPCs (see the skill for the websocat snippet).
 4. **Suggest leak_tracker** — when `collectLeaks` is missing, recommend adding [`leak_tracker`](https://pub.dev/packages/leak_tracker) to the app's dev dependencies for ongoing automated detection.
 5. **DevTools fallback** — for leaks the above can't resolve, use DevTools → Memory → Diff Snapshots / Trace Instances. Connect via the `VM_SERVICE_URI` from `fdb status`.
 
