@@ -1,6 +1,7 @@
 export 'app_died_exception.dart' show AppDiedException, buildAppDiedException, readLastLogLines;
 export 'controller.dart' show runController;
 export 'controller_client.dart';
+export 'vm_service/vm_service_impl.dart' show streamHeapSnapshot;
 export 'controller_command.dart' show ControllerCommand;
 export 'controller_response.dart' show ControllerResponse;
 export 'session.dart'

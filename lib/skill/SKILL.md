@@ -452,32 +452,6 @@ fdb mem diff before.json after.json --sort bytes  # sort by byte delta instead
 fdb mem diff before.json after.json --json    # machine-readable JSON
 ```
 
-### Platform-native memory snapshot
-
-`fdb mem native` shells out to the platform's own memory tool and prints raw output.
-No `fdb_helper` required. Use this to see memory that the Dart VM service doesn't expose
-(native allocations, graphics buffers, shared libraries).
-
-Platform dispatch:
-- **Android** — `adb shell dumpsys meminfo <package>`
-- **macOS** — `footprint <pid>` (default) or `vmmap <pid>` (with `--tool vmmap`)
-- **iOS simulator** — `vmmap <pid>` (sim apps run as macOS host processes)
-- **iOS physical** — not supported in v1; use Xcode Instruments instead
-
-```bash
-fdb mem native                            # auto-resolve package/pid from session
-fdb mem native --app-id com.example.app  # Android: explicit package name
-fdb mem native --pid 12345               # macOS / iOS sim: explicit PID override
-fdb mem native --tool vmmap              # macOS: use vmmap instead of footprint
-```
-
-The exact command is echoed to stderr before execution so you can re-run it manually:
-```
-+ adb -s emulator-5554 shell dumpsys meminfo com.example.app
-```
-
-Output is the raw tool output — not parsed into fdb tokens.
-
 `fdb mem` output:
 ```
 isolate                          heapUsage    external    capacity
@@ -541,121 +515,23 @@ fdb mem profile --output /tmp/after.json
 fdb mem diff /tmp/before.json /tmp/after.json
 ```
 
-### Investigating memory leaks
+### Heap snapshot (DevTools-loadable)
 
-Use this five-step escalation ladder when you suspect the app is leaking memory.
-Each step builds on the previous one — stop as soon as the leak source is confirmed.
-
-**Step 1 — Confirm there is growth**
-
-Run `fdb mem` before and after the suspected interaction to verify the heap is
-actually growing and the increase survives a GC:
+No `fdb_helper` required — pure VM service, works on any platform fdb supports.
 
 ```bash
-fdb gc
-fdb mem                       # note heap usage
-# ... perform the suspected interaction ...
-fdb gc
-fdb mem                       # compare: is heapUsage higher?
+fdb heap dump --output leak.heapsnapshot          # capture snapshot (GC first)
+fdb heap dump --output leak.heapsnapshot --no-gc  # skip pre-snapshot GC
+fdb heap dump --output leak.heapsnapshot --isolate isolates/123  # specific isolate
 ```
 
-If heap usage returns to baseline after GC, the objects are being collected
-correctly — there is no leak.
-
-**Step 2 — Identify the culprit class**
-
-Narrow down which Dart class is accumulating instances:
-
-```bash
-fdb gc
-fdb mem profile --output /tmp/before.json
-# ... repeat the suspected interaction loop several times ...
-fdb gc
-fdb mem profile --output /tmp/after.json
-fdb mem diff /tmp/before.json /tmp/after.json
+`fdb heap dump` output:
+```
+SNAPSHOT_SAVED=leak.heapsnapshot
+Wrote 47.2 MB. Open in DevTools: Memory tab -> Import snapshot
 ```
 
-The top growing classes are the primary leak candidates. Classes whose instance
-count rises proportionally with loop iterations are the strongest signal.
-
-**Step 3 — Find what retains the leaked instances**
-
-Two paths depending on whether `leak_tracker` is set up in the app:
-
-*Path A — leak_tracker (preferred):*
-
-Check whether `leak_tracker` is registered:
-
-```bash
-fdb ext list | grep collectLeaks
-```
-
-If `ext.flutter.collectLeaks` appears in the output, invoke it:
-
-```bash
-fdb ext call ext.flutter.collectLeaks
-```
-
-The response is structured JSON that includes retaining paths, culprit/victim
-analysis, and disposal status — this is the fastest and most actionable path.
-
-*Path B — DevTools / websocat fallback:*
-
-If `ext.flutter.collectLeaks` is NOT listed, there is no dedicated `fdb`
-command for retaining paths today. Use one of these approaches:
-
-Option 1 — DevTools (easiest):
-Skip ahead to Step 5 and use **Memory → Trace Instances** in DevTools.
-Select the culprit class from Step 2 and use **Retaining Path** to see what
-is keeping instances alive.
-
-Option 2 — raw websocat (scriptable):
-Fetch the VM service URI, then use the `getInstances` + `getRetainingPath`
-RPCs directly:
-
-```bash
-VM_URI=$(dart run ../../bin/fdb.dart status 2>/dev/null | grep VM_SERVICE_URI | cut -d= -f2)
-# 1. Get all isolate IDs
-echo '{"jsonrpc":"2.0","method":"getVM","params":{},"id":"1"}' \
-  | websocat -n1 -B 10485760 "$VM_URI"
-# 2. Find instances of the suspect class (replace <isolateId> and <classId>)
-echo '{"jsonrpc":"2.0","method":"getInstances","params":{"isolateId":"<isolateId>","objectId":"<classId>","limit":10},"id":"2"}' \
-  | websocat -n1 -B 10485760 "$VM_URI"
-# 3. Get the retaining path for the first instance (replace <objectId>)
-echo '{"jsonrpc":"2.0","method":"getRetainingPath","params":{"isolateId":"<isolateId>","targetId":"<objectId>","limit":20},"id":"3"}' \
-  | websocat -n1 -B 10485760 "$VM_URI"
-```
-
-The `getRetainingPath` response walks from the object back to a GC root,
-listing each retainer by type and field name — use this to identify which
-live object is holding the reference.
-
-**Step 4 — Suggest leak_tracker for ongoing prevention**
-
-When `fdb ext list | grep collectLeaks` returns nothing, the app does not have
-`leak_tracker` integrated. Suggest adding it for automated leak detection:
-
-> Consider adding `leak_tracker` to the app's dev dependencies for continuous
-> leak detection in debug/profile builds:
-> https://pub.dev/packages/leak_tracker
-
-No change to fdb itself is required — this is a recommendation to the app author.
-
-**Step 5 — Manual fallback (DevTools)**
-
-For leaks the above steps can't crack (e.g. native memory, complex isolate
-topologies, or leaks that only surface under production-like conditions), point
-at Flutter DevTools:
-
-1. Open DevTools → **Memory** tab.
-2. Take a snapshot before the interaction (**Diff Snapshots**).
-3. Perform the interaction, take a second snapshot, and diff.
-4. Use **Trace Instances** to find allocations by class.
-
-DevTools Memory view URL is printed when the app is running:
-```bash
-fdb status    # prints VM_SERVICE_URI; paste into DevTools → Connect
-```
+Open the snapshot in Chrome DevTools: `Memory` tab → `Load` (or `Import snapshot`) button, then select the `.heapsnapshot` file. Use the `Summary` view to inspect retained-size trees, or the `Comparison` view to diff two snapshots.
 
 ### Grant, revoke, or reset runtime permissions
 

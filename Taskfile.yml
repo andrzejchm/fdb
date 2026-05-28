@@ -3,7 +3,9 @@ version: '3'
 silent: true
 
 vars:
-  FDB: 'dart run {{.ROOT_DIR}}/bin/fdb.dart'
+  FDB: 'env PATH="$HOME/fvm/versions/3.44.0/bin:$PATH" dart run {{.ROOT_DIR}}/bin/fdb.dart'
+  FLUTTER:
+    sh: 'if [ -x "$HOME/fvm/versions/3.44.0/bin/flutter" ]; then printf "%s" "$HOME/fvm/versions/3.44.0/bin/flutter"; elif command -v flutter >/dev/null 2>&1; then command -v flutter; else printf "%s" "flutter"; fi'
   TEST_APP: '{{.ROOT_DIR}}/example/test_app'
 
 tasks:
@@ -14,9 +16,9 @@ tasks:
     desc: Install dependencies and prepare the test app
     cmds:
       - dart pub get
-      - cmd: flutter pub get
+      - cmd: '{{.FLUTTER}} pub get'
         dir: 'packages/fdb_helper'
-      - cmd: flutter pub get
+      - cmd: '{{.FLUTTER}} pub get'
         dir: '{{.TEST_APP}}'
 
   # ---------------------------------------------------------------------------
@@ -3595,6 +3597,104 @@ tasks:
 
         echo "PASS: fdb gc"
 
+  test:heap-dump:
+    desc: Capture a heap snapshot and verify it is written with non-zero size
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        SNAPSHOT=$(mktemp)
+        SNAPSHOT="${SNAPSHOT}.heapsnapshot"
+        rm -f "$SNAPSHOT"
+
+        echo "==> fdb heap dump --output (default: GC enabled)"
+        OUTPUT=$({{.FDB}} heap dump --output "$SNAPSHOT" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb heap dump exited with code $EXIT_CODE" >&2
+          rm -f "$SNAPSHOT"
+          exit 1
+        fi
+        if ! echo "$OUTPUT" | grep -q "SNAPSHOT_SAVED="; then
+          echo "FAIL: fdb heap dump - SNAPSHOT_SAVED= not found in output" >&2
+          rm -f "$SNAPSHOT"
+          exit 1
+        fi
+        if [ ! -f "$SNAPSHOT" ]; then
+          echo "FAIL: fdb heap dump - snapshot file not created: $SNAPSHOT" >&2
+          exit 1
+        fi
+        SIZE=$(wc -c < "$SNAPSHOT")
+        if [ "$SIZE" -le 0 ]; then
+          echo "FAIL: fdb heap dump - snapshot file is empty" >&2
+          rm -f "$SNAPSHOT"
+          exit 1
+        fi
+        echo "PASS: fdb heap dump (size=${SIZE} bytes)"
+        rm -f "$SNAPSHOT"
+
+        echo "==> fdb heap dump --no-gc"
+        SNAPSHOT2=$(mktemp)
+        SNAPSHOT2="${SNAPSHOT2}.heapsnapshot"
+        rm -f "$SNAPSHOT2"
+        OUTPUT2=$({{.FDB}} heap dump --output "$SNAPSHOT2" --no-gc 2>&1)
+        EXIT_CODE2=$?
+        echo "$OUTPUT2"
+        if [ $EXIT_CODE2 -ne 0 ]; then
+          echo "FAIL: fdb heap dump --no-gc exited with code $EXIT_CODE2" >&2
+          rm -f "$SNAPSHOT2"
+          exit 1
+        fi
+        if ! echo "$OUTPUT2" | grep -q "SNAPSHOT_SAVED="; then
+          echo "FAIL: fdb heap dump --no-gc - SNAPSHOT_SAVED= not found in output" >&2
+          rm -f "$SNAPSHOT2"
+          exit 1
+        fi
+        SIZE2=$(wc -c < "$SNAPSHOT2")
+        if [ "$SIZE2" -le 0 ]; then
+          echo "FAIL: fdb heap dump --no-gc - snapshot file is empty" >&2
+          rm -f "$SNAPSHOT2"
+          exit 1
+        fi
+        echo "PASS: fdb heap dump --no-gc (size=${SIZE2} bytes)"
+        rm -f "$SNAPSHOT2"
+
+        echo "==> fdb heap dump missing --output (expect error)"
+        set +e
+        ERROR_OUTPUT=$({{.FDB}} heap dump 2>&1)
+        ERROR_EXIT=$?
+        set -e
+        echo "$ERROR_OUTPUT"
+        if [ $ERROR_EXIT -eq 0 ]; then
+          echo "FAIL: fdb heap dump without --output should have failed" >&2
+          exit 1
+        fi
+        if echo "$ERROR_OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb heap dump missing --output rejected"
+        else
+          echo "FAIL: fdb heap dump missing --output - expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "==> fdb heap unknown-subcommand (expect error)"
+        set +e
+        UNKNOWN_OUTPUT=$({{.FDB}} heap unknown-cmd 2>&1)
+        UNKNOWN_EXIT=$?
+        set -e
+        echo "$UNKNOWN_OUTPUT"
+        if [ $UNKNOWN_EXIT -eq 0 ]; then
+          echo "FAIL: fdb heap unknown-cmd should have failed" >&2
+          exit 1
+        fi
+        if echo "$UNKNOWN_OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb heap unknown subcommand rejected"
+        else
+          echo "FAIL: fdb heap unknown-cmd - expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb heap-dump"
+
   test:status-stopped:
     desc: Verify status shows not running after kill
     dir: '{{.TEST_APP}}'
@@ -3955,6 +4055,7 @@ tasks:
       - task: test:mem
       - task: test:mem-native
       - task: test:gc
+      - task: test:heap-dump
       - task: test:wait
       - task: test:swipe
       - task: test:back
@@ -3993,7 +4094,7 @@ tasks:
     desc: "Run static analysis on fdb and fdb_helper"
     cmds:
       - dart analyze lib/ bin/ test/
-      - cd packages/fdb_helper && flutter analyze --suppress-analytics
+      - cd packages/fdb_helper && {{.FLUTTER}} analyze --suppress-analytics
 
   test:fdb-helper-release-stubs:
     desc: "Verify fdb_helper debug/release native tap source selection"

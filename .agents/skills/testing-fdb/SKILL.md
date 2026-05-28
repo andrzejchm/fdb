@@ -75,6 +75,7 @@ task test:scroll-to
 task test:mem
 task test:mem-native
 task test:gc
+task test:heap-dump
 task test:wait
 task test:swipe
 task test:back

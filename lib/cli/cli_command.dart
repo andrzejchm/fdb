@@ -35,6 +35,7 @@ enum CliCommand {
   mem('mem', runMemCli),
   gc('gc', runGcCli),
   grantPermission('grant-permission', runGrantPermissionCli),
+  heap('heap', runHeapCli),
   simulator('simulator', runSimulatorCli),
   skill('skill', runSkillCli);
 
