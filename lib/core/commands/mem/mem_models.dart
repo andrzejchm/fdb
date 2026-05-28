@@ -334,3 +334,57 @@ class MemDiffError extends MemDiffResult {
   const MemDiffError(this.message);
   final String message;
 }
+
+// ---------------------------------------------------------------------------
+// fdb mem native  (platform-native memory snapshot)
+// ---------------------------------------------------------------------------
+
+/// Input for [runMemNative].
+typedef MemNativeInput = ({
+  /// App bundle id / package name override (null → read from `.fdb/app_id.txt`).
+  String? appId,
+
+  /// Process PID override (null → read from `.fdb/fdb.app_pid`).
+  int? pid,
+
+  /// Tool selection override (`dumpsys`, `footprint`, `vmmap`).
+  /// Null means use the platform default.
+  String? tool,
+});
+
+/// Result of [runMemNative].
+sealed class MemNativeResult extends CommandResult {
+  const MemNativeResult();
+}
+
+/// The tool ran successfully; [output] is the raw stdout.
+class MemNativeSuccess extends MemNativeResult {
+  const MemNativeSuccess(this.output);
+  final String output;
+}
+
+/// A required platform tool was not found on PATH.
+class MemNativeToolMissing extends MemNativeResult {
+  const MemNativeToolMissing({required this.tool, required this.hint});
+  final String tool;
+  final String hint;
+}
+
+/// The current platform does not support `fdb mem native`.
+class MemNativeUnsupportedPlatform extends MemNativeResult {
+  const MemNativeUnsupportedPlatform({required this.platform, required this.message});
+  final String platform;
+  final String message;
+}
+
+/// A required piece of session state (app-id, PID) could not be resolved.
+class MemNativeMissingInfo extends MemNativeResult {
+  const MemNativeMissingInfo(this.message);
+  final String message;
+}
+
+/// Generic / unrecognised error.
+class MemNativeError extends MemNativeResult {
+  const MemNativeError(this.message);
+  final String message;
+}

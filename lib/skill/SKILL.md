@@ -452,6 +452,32 @@ fdb mem diff before.json after.json --sort bytes  # sort by byte delta instead
 fdb mem diff before.json after.json --json    # machine-readable JSON
 ```
 
+### Platform-native memory snapshot
+
+`fdb mem native` shells out to the platform's own memory tool and prints raw output.
+No `fdb_helper` required. Use this to see memory that the Dart VM service doesn't expose
+(native allocations, graphics buffers, shared libraries).
+
+Platform dispatch:
+- **Android** — `adb shell dumpsys meminfo <package>`
+- **macOS** — `footprint <pid>` (default) or `vmmap <pid>` (with `--tool vmmap`)
+- **iOS simulator** — `vmmap <pid>` (sim apps run as macOS host processes)
+- **iOS physical** — not supported in v1; use Xcode Instruments instead
+
+```bash
+fdb mem native                            # auto-resolve package/pid from session
+fdb mem native --app-id com.example.app  # Android: explicit package name
+fdb mem native --pid 12345               # macOS / iOS sim: explicit PID override
+fdb mem native --tool vmmap              # macOS: use vmmap instead of footprint
+```
+
+The exact command is echoed to stderr before execution so you can re-run it manually:
+```
++ adb -s emulator-5554 shell dumpsys meminfo com.example.app
+```
+
+Output is the raw tool output — not parsed into fdb tokens.
+
 `fdb mem` output:
 ```
 isolate                          heapUsage    external    capacity

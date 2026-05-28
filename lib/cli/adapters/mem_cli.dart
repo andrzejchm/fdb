@@ -11,11 +11,17 @@ Usage: fdb mem [subcommand] [options]
 
 Subcommands:
   (none)       Print per-isolate heap totals
+  native       Run a platform-native memory tool (dumpsys / footprint / vmmap)
   profile      Capture a full allocation profile to a JSON file
   diff         Diff two allocation profile files
 
 Options (fdb mem):
   --json       Output machine-readable JSON
+
+Options (fdb mem native):
+  --app-id <id>    App bundle id / package name (Android; auto from .fdb/app_id.txt)
+  --pid <pid>      Process PID override (iOS sim / macOS; auto from .fdb/fdb.app_pid)
+  --tool <name>    Tool to use (Android: dumpsys; iOS sim: vmmap; macOS: footprint|vmmap)
 
 Options (fdb mem profile):
   --output <file>    (required) Path for the output JSON file
@@ -39,6 +45,8 @@ Future<int> runMemCli(List<String> args) async {
   if (args.isEmpty) return _runMemTotals(args);
 
   switch (args[0]) {
+    case 'native':
+      return _runMemNative(args.sublist(1));
     case 'profile':
       return _runMemProfile(args.sublist(1));
     case 'diff':
@@ -124,6 +132,55 @@ void _printHeapTable(List<IsolateHeapInfo> isolates) {
   stdout.writeln(
     '${nameCol('TOTAL')}${numCol(fmtBytes(totalHeap))}${numCol(fmtBytes(totalExternal))}${numCol(fmtBytes(totalCapacity))}',
   );
+}
+
+// ---------------------------------------------------------------------------
+// fdb mem native — platform-native memory snapshot
+// ---------------------------------------------------------------------------
+
+Future<int> _runMemNative(List<String> args) {
+  final parser = ArgParser()
+    ..addOption('app-id', help: 'App bundle id / package name (Android; overrides .fdb/app_id.txt)')
+    ..addOption('pid', help: 'Process PID override (iOS sim / macOS; overrides .fdb/fdb.app_pid)')
+    ..addOption('tool', help: 'Tool to use: dumpsys (Android) | footprint | vmmap (macOS / iOS sim)');
+
+  return runCliAdapter(parser, args, (results) async {
+    final rawPid = results.option('pid');
+    int? pid;
+    if (rawPid != null) {
+      pid = int.tryParse(rawPid);
+      if (pid == null) {
+        stderr.writeln('ERROR: Invalid --pid value: $rawPid (must be an integer)');
+        return 1;
+      }
+    }
+
+    final result = await runMemNative(
+      (appId: results.option('app-id'), pid: pid, tool: results.option('tool')),
+      onCommand: (cmd) => stderr.writeln('+ $cmd'),
+    );
+    return _formatMemNativeResult(result);
+  });
+}
+
+int _formatMemNativeResult(MemNativeResult result) {
+  switch (result) {
+    case MemNativeSuccess(:final output):
+      stdout.write(output);
+      return 0;
+    case MemNativeToolMissing(:final tool, :final hint):
+      stderr.writeln('ERROR: Required tool "$tool" not found on PATH. $hint');
+      return 1;
+    case MemNativeUnsupportedPlatform(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
+    case MemNativeMissingInfo(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
+    case MemNativeError(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
+  }
 }
 
 // ---------------------------------------------------------------------------
