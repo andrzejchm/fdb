@@ -1,0 +1,54 @@
+// !$*UTF8*$!
+// Trimmed pbxproj fixture for fdb-iox flavor app-id tests.
+// Only the XCBuildConfiguration section is meaningful; everything else
+// in a real pbxproj has been omitted.
+{
+	objects = {
+
+/* Begin XCBuildConfiguration section */
+		AA00000000000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored;
+			};
+			name = Debug;
+		};
+		AA00000000000000000000A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored;
+			};
+			name = Release;
+		};
+		AA00000000000000000000A3 /* Debug-staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.staging;
+			};
+			name = "Debug-staging";
+		};
+		AA00000000000000000000A4 /* Debug-prod */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.prod;
+			};
+			name = "Debug-prod";
+		};
+		AA00000000000000000000B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.RunnerTests;
+			};
+			name = Debug;
+		};
+		AA00000000000000000000B2 /* Debug-prod */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.prod.RunnerTests;
+			};
+			name = "Debug-prod";
+		};
+/* End XCBuildConfiguration section */
+
+	};
+}

@@ -1,0 +1,31 @@
+// !$*UTF8*$!
+// Trimmed pbxproj fixture for fdb-iox macOS flavor app-id tests.
+{
+	objects = {
+
+/* Begin XCBuildConfiguration section */
+		BB00000000000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.macos;
+			};
+			name = Debug;
+		};
+		BB00000000000000000000A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.macos;
+			};
+			name = Release;
+		};
+		BB00000000000000000000A3 /* Debug-internal */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.macos.internal;
+			};
+			name = "Debug-internal";
+		};
+/* End XCBuildConfiguration section */
+
+	};
+}

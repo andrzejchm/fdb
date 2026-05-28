@@ -1,0 +1,4 @@
+#include "Debug.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.staging
+PRODUCT_NAME = flavored_app (Staging)

@@ -614,6 +614,19 @@ String? _resolvePbxprojBundleId(String pbxprojPath, {String? flavor}) {
   return best;
 }
 
+/// Resolves the flavor-specific `PRODUCT_BUNDLE_IDENTIFIER` from a pbxproj
+/// file.
+///
+/// Scans each `... = { ... }` block and keeps the shortest bundle id whose
+/// block header contains the flavor name (case-insensitive). The header is
+/// the line that opens the block, which in Xcode-generated pbxproj has the
+/// form `XYZ /* Debug-<flavor> */ = {` and in trimmed fixtures has the form
+/// `Debug-<flavor> = {`.
+///
+/// Wrapper blocks like `objects = { ... }` are correctly ignored: their
+/// header does not contain the flavor, and the nested `name = "Debug-..."`
+/// lines from child blocks are deliberately not consulted to avoid
+/// matching the wrapper.
 String? _resolveFlavoredPbxprojBundleId(String content, String flavor) {
   final flavorLower = flavor.toLowerCase();
   final blockStarts = RegExp(r'=\s*\{').allMatches(content);
@@ -622,17 +635,12 @@ String? _resolveFlavoredPbxprojBundleId(String content, String flavor) {
   for (final blockStart in blockStarts) {
     final headerStart = content.lastIndexOf('\n', blockStart.start);
     final header = content.substring(headerStart == -1 ? 0 : headerStart + 1, blockStart.start).toLowerCase();
-    final body = _extractBraceBody(content, blockStart.end - 1);
-    if (body == null) {
+    if (!header.contains(flavorLower)) {
       continue;
     }
 
-    final hasFlavorMatch = header.contains(flavorLower) ||
-        RegExp(r'name\s*=\s*([^;]+);', caseSensitive: false)
-            .allMatches(body)
-            .map((match) => match.group(1)?.toLowerCase() ?? '')
-            .any((name) => name.contains(flavorLower));
-    if (!hasFlavorMatch) {
+    final body = _extractBraceBody(content, blockStart.end - 1);
+    if (body == null) {
       continue;
     }
 

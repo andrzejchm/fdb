@@ -1,0 +1,3 @@
+PRODUCT_NAME = flavored_app
+PRODUCT_BUNDLE_IDENTIFIER = com.example.flavored.macos
+PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
