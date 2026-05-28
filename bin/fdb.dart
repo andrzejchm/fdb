@@ -62,6 +62,11 @@ Commands:
                               --tool <name>    Tool selection (platform default if omitted)
   gc          Force a full garbage collection across all isolates
                --json              Output KEY=value tokens (HEAP_BEFORE, HEAP_AFTER, HEAP_DELTA)
+  heap        Heap operations; subcommands: dump
+               heap dump --output <file>
+                                   Capture a DevTools-loadable heap snapshot
+                                   --no-gc     Skip pre-snapshot garbage collection
+                                   --isolate <id>  Target a specific isolate
   status      Check if the app is running
   kill        Stop the running app
   simulator   iOS simulator command palette (appearance, push, location, etc.)

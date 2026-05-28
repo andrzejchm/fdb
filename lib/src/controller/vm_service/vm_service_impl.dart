@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:fdb/src/controller/app_died_exception.dart';
 import 'package:fdb/src/controller/process_utils.dart';
@@ -230,4 +231,59 @@ VM _vmFromService(vm_service.VM vm) {
     pid: vm.pid,
     isolates: vm.isolates?.map((isolate) => isolate.id).whereType<String>().toList() ?? const [],
   );
+}
+
+/// Streams a DevTools-format heap snapshot for [isolateId] and appends binary
+/// chunks to [outFile] as they arrive. Returns the total number of bytes written.
+///
+/// Subscribes to the `HeapSnapshot` event stream before calling
+/// `requestHeapSnapshot` to ensure no chunks are missed. Chunks are written
+/// synchronously to [outFile] so the entire snapshot is never held in memory.
+///
+/// [timeout] controls how long to wait for all chunks to arrive (default: 5 min).
+Future<int> streamHeapSnapshot(
+  String isolateId,
+  RandomAccessFile outFile, {
+  Duration timeout = const Duration(minutes: 5),
+}) async {
+  final service = await _connectToVMService();
+  var bytesWritten = 0;
+  final done = Completer<void>();
+
+  try {
+    // Subscribe before requesting so that no chunks are missed.
+    await service.streamListen('HeapSnapshot');
+
+    late StreamSubscription<vm_service.Event> subscription;
+    subscription = service.onHeapSnapshotEvent.listen(
+      (event) {
+        final data = event.data;
+        if (data != null) {
+          final bytes = Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes);
+          outFile.writeFromSync(bytes);
+          bytesWritten += bytes.length;
+        }
+        if (event.last == true && !done.isCompleted) {
+          done.complete();
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!done.isCompleted) done.completeError(error, stack);
+      },
+      cancelOnError: true,
+    );
+
+    // Trigger the snapshot after the listener is in place.
+    await service.requestHeapSnapshot(isolateId);
+
+    try {
+      await done.future.timeout(timeout);
+    } finally {
+      await subscription.cancel();
+    }
+
+    return bytesWritten;
+  } finally {
+    await service.dispose();
+  }
 }

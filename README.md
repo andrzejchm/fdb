@@ -213,6 +213,7 @@ fdb ext call ext.flutter.collectLeaks
 | `fdb mem profile --output <file> [--isolate <id>] [--all-isolates]` | Capture a full allocation profile to a JSON file |
 | `fdb mem diff <before.json> <after.json> [--sort count\|bytes] [--top N] [--all] [--json]` | Show classes that grew between two profiles |
 | `fdb gc [--json]` | Force a full garbage collection across all isolates |
+| `fdb heap dump --output <file> [--no-gc] [--isolate <id>]` | Capture a DevTools-loadable heap snapshot (.heapsnapshot) |
 
 **Three-tier heap workflow:**
 1. `fdb mem` — inspect live per-isolate heap state (usage, external, capacity) to get a quick health check.

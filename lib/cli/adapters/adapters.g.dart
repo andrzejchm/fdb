@@ -15,6 +15,7 @@ export 'double_tap_cli.dart';
 export 'ext_cli.dart';
 export 'gc_cli.dart';
 export 'grant_permission_cli.dart';
+export 'heap_dump_cli.dart';
 export 'input_cli.dart';
 export 'kill_cli.dart';
 export 'launch_cli.dart';
