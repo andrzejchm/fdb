@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://pub.dev/packages/fdb"><img src="https://img.shields.io/pub/v/fdb?style=flat-square&label=pub.dev&color=blue" alt="pub.dev version"></a>
   <a href="https://pub.dev/packages/fdb"><img src="https://img.shields.io/pub/likes/fdb?style=flat-square&label=pub.dev+likes&color=EA4C89" alt="pub.dev likes"></a>
-  <a href="https://github.com/andrzejchm/fdb/stargazers"><img src="https://img.shields.io/github/stars/andrzejchm/fdb?style=flat-square&color=yellow" alt="GitHub stars"></a>
+  <a href="https://github.com/andrzejchm/fdb/stargazers"><img src="https://badgen.net/github/stars/andrzejchm/fdb?icon=github&label=stars" alt="GitHub stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License: MIT"></a>
 </p>
 
