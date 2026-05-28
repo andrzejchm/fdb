@@ -156,6 +156,53 @@ Future<void> dispatchTap(
   await Future<void>.delayed(_kDelay);
 }
 
+/// Dispatches a native in-process long-press at [globalPosition] for
+/// [holdDuration] via the platform channel, bypassing Flutter's
+/// [GestureBinding].
+///
+/// Routes through the platform's own input dispatch, holding the touch/pointer
+/// down for [holdDuration] before releasing:
+///   iOS     — UITouchPhaseStationary pulses at 10 ms intervals between Began and Ended
+///   macOS   — NSEvent delay between leftMouseDown and leftMouseUp
+///   Android — MotionEvent DOWN held for [holdDuration], then UP
+///
+/// This reaches native views overlaid on the Flutter surface
+/// (UIAlertController, WKWebView, platform views, AlertDialog) that
+/// [dispatchTap] cannot reach.
+///
+/// Returns [NativeTapResult] indicating which path actually delivered the
+/// long-press. Falls back to [dispatchTap] with [holdDuration] on:
+///   - Platforms without a native impl: web, Linux, Windows.
+///   - Native injection failures on a supported platform.
+Future<NativeTapResult> dispatchNativeLongPress(
+  Offset globalPosition, {
+  Duration holdDuration = const Duration(milliseconds: 500),
+}) async {
+  final platform = defaultTargetPlatform;
+  final hasNativeImpl =
+      platform == TargetPlatform.iOS || platform == TargetPlatform.android || platform == TargetPlatform.macOS;
+  if (!hasNativeImpl || kIsWeb) {
+    await dispatchTap(globalPosition, holdDuration: holdDuration);
+    return NativeTapResult.unsupportedPlatform;
+  }
+
+  try {
+    await NativeTapApi().nativeLongPress(
+      globalPosition.dx,
+      globalPosition.dy,
+      holdDuration.inMilliseconds,
+    );
+    return NativeTapResult.native;
+  } catch (e) {
+    debugPrint(
+      '[fdb_helper] native long-press failed on $platform, falling back to '
+      'GestureBinding (native overlays will NOT receive this long-press): $e',
+    );
+    await dispatchTap(globalPosition, holdDuration: holdDuration);
+    return NativeTapResult.nativeFailedFallback;
+  }
+}
+
 /// Dispatches two taps in quick succession at the same [globalPosition].
 Future<void> dispatchDoubleTap(Offset globalPosition) async {
   if (_tapPointerKind() == PointerDeviceKind.mouse) {

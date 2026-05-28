@@ -59,6 +59,17 @@ private open class NativeTapPigeonCodec : StandardMessageCodec() {
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface NativeTapApi {
   fun nativeTap(x: Double, y: Double)
+  /**
+   * Performs a long-press at ([x], [y]) for [durationMs] milliseconds.
+   *
+   * The implementation must hold the touch/pointer DOWN for at least
+   * [durationMs] before sending the UP event. The exact mechanism is
+   * platform-specific:
+   *   iOS  — UITouchPhaseStationary pulses at 10ms intervals between Began and Ended
+   *   Android — MotionEvent timestamps advanced by [durationMs]
+   *   macOS  — NSEvent delay between leftMouseDown and leftMouseUp
+   */
+  fun nativeLongPress(x: Double, y: Double, durationMs: Long)
 
   companion object {
     /** The codec used by NativeTapApi. */
@@ -78,6 +89,26 @@ interface NativeTapApi {
             val yArg = args[1] as Double
             val wrapped: List<Any?> = try {
               api.nativeTap(xArg, yArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              NativeTapPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.fdb_helper.NativeTapApi.nativeLongPress$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val xArg = args[0] as Double
+            val yArg = args[1] as Double
+            val durationMsArg = args[2] as Long
+            val wrapped: List<Any?> = try {
+              api.nativeLongPress(xArg, yArg, durationMsArg)
               listOf(null)
             } catch (exception: Throwable) {
               NativeTapPigeonUtils.wrapError(exception)

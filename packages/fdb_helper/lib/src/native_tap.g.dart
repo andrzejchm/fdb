@@ -84,4 +84,30 @@ class NativeTapApi {
       isNullValid: true,
     );
   }
+
+  /// Performs a long-press at ([x], [y]) for [durationMs] milliseconds.
+  ///
+  /// The implementation must hold the touch/pointer DOWN for at least
+  /// [durationMs] before sending the UP event. The exact mechanism is
+  /// platform-specific:
+  ///   iOS  — UITouchPhaseStationary pulses at 10ms intervals between Began and Ended
+  ///   Android — MotionEvent timestamps advanced by [durationMs]
+  ///   macOS  — NSEvent delay between leftMouseDown and leftMouseUp
+  Future<void> nativeLongPress(double x, double y, int durationMs) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.fdb_helper.NativeTapApi.nativeLongPress$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[x, y, durationMs]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
 }

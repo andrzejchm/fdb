@@ -393,3 +393,92 @@ BOOL FdbHelperNativeTapAtPoint(CGPoint point, NSError **error) {
 
   return YES;
 }
+
+BOOL FdbHelperNativeLongPressAtPoint(CGPoint point, NSTimeInterval durationSeconds, NSError **error) {
+  UIWindow *window = FdbTopmostWindowAtPoint(point);
+  if (window == nil) {
+    if (error) {
+      *error = [NSError errorWithDomain:@"io.fdb.helper.tap" code:1
+          userInfo:@{NSLocalizedDescriptionKey: @"No window available"}];
+    }
+    return NO;
+  }
+
+  CGPoint windowPoint = point;
+
+  UITouch *touch = [[UITouch alloc] init];
+  if (touch == nil) {
+    if (error) {
+      *error = [NSError errorWithDomain:@"io.fdb.helper.tap" code:2
+          userInfo:@{NSLocalizedDescriptionKey: @"UITouch alloc failed"}];
+    }
+    return NO;
+  }
+
+  NSString *missing = FdbMissingRequiredSelector(touch);
+  if (missing != nil) {
+    if (error) {
+      *error = [NSError errorWithDomain:@"io.fdb.helper.tap" code:3
+          userInfo:@{NSLocalizedDescriptionKey:
+            [NSString stringWithFormat:
+              @"Required private selector %@ is unavailable on this iOS version. "
+              @"fdb_helper's long-press injection mirrors KIF v3.12.2 and depends on private "
+              @"UIKit selectors that may change between iOS releases.", missing]}];
+    }
+    return NO;
+  }
+
+  [touch setWindow:window];
+  [touch setTapCount:1];
+  [touch _setLocationInWindow:windowPoint resetPrevious:YES];
+
+  UIView *hitView = [window hitTest:windowPoint withEvent:nil];
+  if (hitView == nil) hitView = window;
+  [touch setView:hitView];
+
+  if ([touch respondsToSelector:@selector(_setIsFirstTouchForView:)]) {
+    [touch _setIsFirstTouchForView:YES];
+  }
+  if ([touch respondsToSelector:@selector(setGestureView:)]) {
+    [touch setGestureView:hitView];
+  }
+
+  // ----- Began -----
+  [touch setTimestamp:NSProcessInfo.processInfo.systemUptime];
+  [touch setPhase:UITouchPhaseBegan];
+  CFTypeRef initialHid = FdbCreateHidEventForTouch(touch);
+  if (initialHid != NULL) {
+    [touch _setHidEvent:initialHid];
+    CFRelease(initialHid);
+  }
+  UIEvent *beganEvent = FdbBuildEventForTouch(touch);
+  [UIApplication.sharedApplication sendEvent:beganEvent];
+
+  // ----- Stationary pulses -----
+  // KIF's longPressAtPoint:duration: pulses UITouchPhaseStationary every 10 ms
+  // until the requested hold time has elapsed. Each pulse needs a fresh
+  // UIEvent + IOHIDEvent (iOS 26 requirement).
+  const NSTimeInterval kPulseInterval = 0.01; // 10 ms
+  NSTimeInterval elapsed = 0.0;
+  while (elapsed < durationSeconds) {
+    [NSThread sleepForTimeInterval:kPulseInterval];
+    elapsed += kPulseInterval;
+    [touch setTimestamp:NSProcessInfo.processInfo.systemUptime];
+    [touch setPhase:UITouchPhaseStationary];
+    CFTypeRef stationaryHid = FdbCreateHidEventForTouch(touch);
+    if (stationaryHid != NULL) {
+      [touch _setHidEvent:stationaryHid];
+      CFRelease(stationaryHid);
+    }
+    UIEvent *stationaryEvent = FdbBuildEventForTouch(touch);
+    [UIApplication.sharedApplication sendEvent:stationaryEvent];
+  }
+
+  // ----- Ended -----
+  [touch setTimestamp:NSProcessInfo.processInfo.systemUptime];
+  [touch setPhase:UITouchPhaseEnded];
+  UIEvent *endedEvent = FdbBuildEventForTouch(touch);
+  [UIApplication.sharedApplication sendEvent:endedEvent];
+
+  return YES;
+}

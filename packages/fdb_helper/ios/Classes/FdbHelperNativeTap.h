@@ -30,4 +30,17 @@ NS_ASSUME_NONNULL_BEGIN
 /// called on the main thread.
 BOOL FdbHelperNativeTapAtPoint(CGPoint point, NSError *_Nullable *_Nullable error);
 
+/// Synthesises a long-press (Began → Stationary pulses → Ended) at the given
+/// window-coordinate [point] for the specified [durationSeconds].
+///
+/// Mirrors KIF's `longPressAtPoint:duration:`: sends UITouchPhaseStationary
+/// events at 10 ms intervals between Began and Ended so that UILongPress-
+/// GestureRecognizer fires after the threshold. A fresh UIEvent + IOHIDEvent
+/// is built for every phase (required by the iOS 26 / KIF v3.12.2 fix).
+///
+/// Returns `YES` on success. Returns `NO` if any required private selector
+/// is unavailable on this iOS version, with [error] populated. Must be
+/// called on the main thread.
+BOOL FdbHelperNativeLongPressAtPoint(CGPoint point, NSTimeInterval durationSeconds, NSError *_Nullable *_Nullable error);
+
 NS_ASSUME_NONNULL_END

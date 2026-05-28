@@ -3044,6 +3044,71 @@ tasks:
 
         echo "PASS: fdb grant-permission"
 
+  test:native-longpress:
+    desc: "Long-press by coordinate routes through native injection (not GestureBinding fallback)"
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> [native-longpress] Resolving increment button coordinates"
+        KEY_OUTPUT=$({{.FDB}} tap --key "increment_button" 2>&1)
+        KEY_EXIT=$?
+        echo "$KEY_OUTPUT"
+        if [ $KEY_EXIT -ne 0 ]; then
+          echo "FAIL: fdb tap --key increment_button exited with code $KEY_EXIT" >&2
+          exit 1
+        fi
+        X=$(echo "$KEY_OUTPUT" | sed -n 's/.* X=\([^ ]*\).*/\1/p' | head -1)
+        Y=$(echo "$KEY_OUTPUT" | sed -n 's/.* Y=\([^ ]*\).*/\1/p' | head -1)
+        if [ -z "$X" ] || [ -z "$Y" ]; then
+          echo "FAIL: could not extract X/Y from tap output" >&2
+          exit 1
+        fi
+
+        echo "==> [native-longpress] Long-press by coordinates with --duration 500ms"
+        OUTPUT=$({{.FDB}} longpress --at "$X,$Y" --duration 500 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb longpress --at --duration exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LONG_PRESSED=coordinates"; then
+          echo "PASS: fdb longpress --at --duration returned LONG_PRESSED=coordinates"
+        else
+          echo "FAIL: fdb longpress --at --duration — LONG_PRESSED=coordinates not found" >&2
+          exit 1
+        fi
+
+        # Verify the response does NOT carry the GestureBinding-fallback warning
+        # on platforms that support native injection (iOS, Android, macOS).
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "iOS" ] || \
+           [ "$PLATFORM" = "android" ] || [ "$PLATFORM" = "Android" ] || \
+           [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "macOS" ]; then
+          if echo "$OUTPUT" | grep -q "WARNING: native_long_press_fallback"; then
+            echo "WARN: native long-press fell back to GestureBinding on $PLATFORM (expected native path)"
+          else
+            echo "PASS: fdb longpress --at used native injection on $PLATFORM (no fallback warning)"
+          fi
+        fi
+
+        echo "==> [native-longpress] Long-press by coordinates with default duration"
+        OUTPUT=$({{.FDB}} longpress --at "$X,$Y" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb longpress --at default duration exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "LONG_PRESSED=coordinates"; then
+          echo "PASS: fdb longpress --at default duration"
+        else
+          echo "FAIL: fdb longpress --at default duration — LONG_PRESSED=coordinates not found" >&2
+          exit 1
+        fi
+
+        echo "PASS: test:native-longpress"
+
   test:native-tap:
     desc: Tap native UI elements via adb (Android) or xcrun simctl (iOS simulator)
     dir: '{{.TEST_APP}}'
@@ -4027,6 +4092,7 @@ tasks:
       - task: test:describe-router
       - task: test:screenshot
       - task: test:native-view-tap
+      - task: test:native-longpress
       - task: test:deeplink
       - task: test:native-tap
       - task: test:grant-permission
