@@ -905,87 +905,69 @@ dart run ../../bin/fdb.dart tap --text "Cupertino Button"
 
 ---
 
-## S36 · mem native — Android (dumpsys meminfo)
+## S36 · heap dump — snapshot is written and loadable
 
-**Purpose:** `fdb mem native` on Android shells out to `adb shell dumpsys meminfo`
-and prints raw output. Verifies the command echo appears on stderr and that the
-raw dumpsys output contains recognisable memory sections.
-
-> **Android only** — skip on macOS, iOS simulator, iOS physical.
+**Purpose:** `fdb heap dump --output` creates a non-empty file in the
+DevTools-compatible binary format and reports the path and size. Both the
+default (GC-before-dump) and `--no-gc` paths must succeed.
 
 ```bash
-dart run ../../bin/fdb.dart mem native
+# Basic dump — GC runs first by default
+SNAPSHOT=$(mktemp /tmp/fdb_s36_XXXXXX.heapsnapshot)
+dart run ../../bin/fdb.dart heap dump --output "$SNAPSHOT"
+echo "==> File size: $(wc -c < "$SNAPSHOT") bytes"
+
+# Verify the file starts with the HeapSnapshotGraph magic bytes (JSON object)
+head -c 4 "$SNAPSHOT"
+
+# --no-gc path — skip GC, snapshot still captured
+SNAPSHOT_NOGC=$(mktemp /tmp/fdb_s36_nogc_XXXXXX.heapsnapshot)
+dart run ../../bin/fdb.dart heap dump --output "$SNAPSHOT_NOGC" --no-gc
+echo "==> --no-gc file size: $(wc -c < "$SNAPSHOT_NOGC") bytes"
+
+rm -f "$SNAPSHOT" "$SNAPSHOT_NOGC"
 ```
 
 **What to verify:**
 
-- Exits 0
-- A line starting with `+ adb` appears in the output (command echoed to stderr
-  before execution); it contains `dumpsys meminfo` and the app package name
-  (e.g. `+ adb -s emulator-5554 shell dumpsys meminfo com.example.test_app`)
-- The raw dumpsys output is not empty; recognisable sections appear such as
-  `MEMINFO in pid`, `Pss Total`, `Heap Size`, `Heap Alloc`, `Native Heap`,
-  or `Dalvik Heap` — the exact labels depend on the Android version but at
-  least one memory-related term must be present
-- No `ERROR:` line appears in the output
+- `heap dump` (default GC) exits 0
+- stdout contains `SNAPSHOT_SAVED=` followed by the output path
+- stdout contains `Wrote` with a human-readable size and the text
+  `Open in DevTools: Memory tab -> Import snapshot`
+- The snapshot file exists on disk and has a size greater than zero
+  (a real app heap snapshot is typically several MB; anything above a few
+  KB is acceptable as a sanity threshold)
+- `head -c 4` of the file starts with `{` (the HeapSnapshotGraph is a
+  JSON object; an empty or corrupt dump would be empty or start with garbage)
+- `heap dump --no-gc` exits 0 with the same stdout tokens
+- The `--no-gc` snapshot file also exists with a size greater than zero
 
 ---
 
-## S37 · mem native — macOS (footprint default, vmmap via --tool)
+## S37 · heap dump — error cases
 
-**Purpose:** `fdb mem native` on macOS uses `footprint` by default and `vmmap`
-when `--tool vmmap` is supplied. Verifies the correct tool is invoked, the
-command is echoed to stderr, and the output contains recognisable memory content.
-
-> **macOS only** — skip on Android, iOS simulator, iOS physical.
+**Purpose:** input validation produces clear, informative errors for missing
+flags and unknown subcommands.
 
 ```bash
-# Default: footprint
-dart run ../../bin/fdb.dart mem native
+# Missing --output
+dart run ../../bin/fdb.dart heap dump 2>&1; echo "exit: $?"
 
-# Explicit: vmmap
-dart run ../../bin/fdb.dart mem native --tool vmmap
-```
+# Unknown subcommand
+dart run ../../bin/fdb.dart heap frobnicate 2>&1; echo "exit: $?"
 
-**What to verify (footprint):**
-
-- Exits 0
-- A line `+ footprint <pid>` appears in the output (command echoed to stderr)
-- The raw footprint output is not empty; recognisable content appears such as
-  `Footprint:`, `MALLOC`, `Dirty`, `Clean`, `Reclaimable`, or `Regions`
-- No `ERROR:` line appears
-
-**What to verify (--tool vmmap):**
-
-- Exits 0
-- A line `+ vmmap <pid>` appears in the output (command echoed to stderr)
-- The raw vmmap output is not empty; recognisable sections appear such as
-  `__TEXT`, `__DATA`, `MALLOC`, `Stack`, `mapped file`, or `Virtual Memory Map`
-- No `ERROR:` line appears
-
----
-
-## S38 · mem native — iOS simulator (vmmap)
-
-**Purpose:** `fdb mem native` on iOS simulator runs `vmmap` against the
-simulator app process (which runs as a macOS host process) and prints raw output.
-
-> **iOS simulator only** — skip on Android, macOS, iOS physical.
-
-```bash
-dart run ../../bin/fdb.dart mem native
+# No subcommand at all
+dart run ../../bin/fdb.dart heap 2>&1; echo "exit: $?"
 ```
 
 **What to verify:**
 
-- Exits 0
-- A line `+ vmmap <pid>` appears in the output (command echoed to stderr);
-  the PID is the host-visible process ID for the sim app
-- The raw vmmap output is not empty; recognisable sections appear such as
-  `__TEXT`, `__DATA`, `MALLOC`, `Stack`, `mapped file`, or `Virtual Memory Map`
-- No `ERROR:` line appears
-- The output does NOT contain `ERROR: fdb mem native is not supported` (that
-  message is reserved for physical iOS)
+- `heap dump` without `--output`: exits non-zero; stderr contains
+  `ERROR: --output <file> is required`
+- `heap frobnicate`: exits non-zero; stderr contains
+  `ERROR: Unknown subcommand for fdb heap: frobnicate`
+- `heap` with no subcommand: exits non-zero; stderr contains
+  `ERROR: Missing subcommand for fdb heap`
 
 ---
 
