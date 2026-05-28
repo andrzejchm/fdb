@@ -3595,7 +3595,7 @@ tasks:
 
         echo "PASS: fdb gc"
 
-   test:heap-dump:
+  test:heap-dump:
     desc: Capture a heap snapshot and verify it is written with non-zero size
     dir: '{{.TEST_APP}}'
     cmds:
@@ -3693,7 +3693,7 @@ tasks:
 
         echo "PASS: fdb heap-dump"
 
-   test:status-stopped:
+  test:status-stopped:
     desc: Verify status shows not running after kill
     dir: '{{.TEST_APP}}'
     cmds:
