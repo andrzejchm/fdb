@@ -303,6 +303,12 @@ Future<MemNativeResult> _runAndroid({
   required String? device,
   required void Function(String command)? onCommand,
 }) async {
+  if (input.tool != null && input.tool != 'dumpsys') {
+    return MemNativeError(
+      'Unknown tool "${input.tool}". Supported tools on Android: dumpsys',
+    );
+  }
+
   if (!_isToolOnPath('adb')) {
     return const MemNativeToolMissing(
       tool: 'adb',
@@ -336,6 +342,12 @@ Future<MemNativeResult> _runIosSimulator({
   required MemNativeInput input,
   required void Function(String command)? onCommand,
 }) async {
+  if (input.tool != null && input.tool != 'vmmap') {
+    return MemNativeError(
+      'Unknown tool "${input.tool}". Supported tools on iOS simulator: vmmap',
+    );
+  }
+
   if (!_isToolOnPath('vmmap')) {
     return const MemNativeToolMissing(
       tool: 'vmmap',
