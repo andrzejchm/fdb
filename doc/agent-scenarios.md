@@ -905,6 +905,134 @@ dart run ../../bin/fdb.dart tap --text "Cupertino Button"
 
 ---
 
+---
+
+## S36 · leak investigation — steps 1 & 2: confirm growth and identify culprit class
+
+**Purpose:** validates the first two steps of the documented memory-leak investigation
+workflow. Checks that `fdb gc` + `fdb mem` produce a readable heap table and that
+`fdb mem profile` + `fdb mem diff` produce a diff after navigating to a child screen
+several times.
+
+```bash
+# Step 1 — confirm growth baseline
+dart run ../../bin/fdb.dart gc
+dart run ../../bin/fdb.dart mem
+
+# Step 2 — capture before-profile
+dart run ../../bin/fdb.dart gc
+dart run ../../bin/fdb.dart mem profile --output /tmp/s36_before.json
+
+# Trigger repeated navigation to generate allocations
+dart run ../../bin/fdb.dart scroll-to --key go_to_details
+dart run ../../bin/fdb.dart tap --key go_to_details
+sleep 1
+dart run ../../bin/fdb.dart back
+sleep 0.5
+dart run ../../bin/fdb.dart scroll-to --key go_to_details
+dart run ../../bin/fdb.dart tap --key go_to_details
+sleep 1
+dart run ../../bin/fdb.dart back
+sleep 0.5
+dart run ../../bin/fdb.dart scroll-to --key go_to_details
+dart run ../../bin/fdb.dart tap --key go_to_details
+sleep 1
+dart run ../../bin/fdb.dart back
+sleep 0.5
+
+# Capture after-profile and diff
+dart run ../../bin/fdb.dart gc
+dart run ../../bin/fdb.dart mem profile --output /tmp/s36_after.json
+dart run ../../bin/fdb.dart mem diff /tmp/s36_before.json /tmp/s36_after.json
+```
+
+**What to verify:**
+
+- `gc` exits 0 with `GC_COMPLETE HEAP_BEFORE=... HEAP_AFTER=... HEAP_DELTA=...` (all three tokens present)
+- `mem` output contains a table with a header row showing `heapUsage`, `external`,
+  and `capacity` columns, and a `TOTAL` row at the bottom with human-readable values
+  (e.g. `81.0 MB`) — matches the format documented in the skill
+- First `mem profile` exits 0 with `MEM_PROFILE_SAVED=/tmp/s36_before.json`,
+  `CLASSES=<n>` (a positive integer), and `ISOLATE=main`
+- Second `mem profile` exits 0 with `MEM_PROFILE_SAVED=/tmp/s36_after.json`,
+  `CLASSES=<n>`, and `ISOLATE=main`
+- `mem diff` exits 0 and prints either:
+  - A diff table header (`Top N changed classes`) followed by rows with `+` or `-` deltas
+    and class names, **or**
+  - `No changes` if the GC reclaimed all navigation-allocated objects (this is also
+    correct — it confirms no leak survived GC)
+- No `ERROR:` line appears in any command output
+- The diff table format — when changes are present — shows three columns:
+  delta count, class name, and `before -> after` instance counts (e.g.
+  `+12  ProductPageBloc  12 -> 24`), matching the skill documentation
+
+---
+
+## S37 · leak investigation — step 3: check for leak_tracker and query retaining path
+
+**Purpose:** validates step 3 of the documented workflow. Checks whether
+`ext.flutter.collectLeaks` is registered (leak_tracker path), exercises the
+`fdb ext list` detection command, and — since the test app does not include
+`leak_tracker` — confirms the fallback path is reachable and the skill correctly
+directs the agent to DevTools or websocat.
+
+```bash
+# Check whether leak_tracker is set up in the running app
+dart run ../../bin/fdb.dart ext list | grep collectLeaks
+```
+
+**What to verify (ext list | grep):**
+
+- The `ext list` command itself exits 0
+- The `grep collectLeaks` filter produces **no output** (the fdb test app does
+  not include `leak_tracker`, so `ext.flutter.collectLeaks` is not registered)
+- This confirms the skill's detection method works: absence of output means
+  Path B (DevTools / websocat fallback) should be used
+
+```bash
+# Confirm the full ext list output is well-formed
+dart run ../../bin/fdb.dart ext list
+```
+
+**What to verify (full ext list):**
+
+- Output contains `EXT_LIST_COUNT=<n>` on the first line with a positive integer
+- Subsequent lines are extension names in `ext.<namespace>.<method>` format
+- At least `ext.flutter.debugPaint` or another built-in Flutter extension is present
+- `ext.flutter.collectLeaks` does NOT appear (this is the expected state for an
+  app without `leak_tracker`)
+
+```bash
+# Exercise the leak_tracker path with a simulated presence check
+# (Since the test app lacks leak_tracker, we expect no output from the grep.
+#  This step verifies the agent would correctly branch to the DevTools fallback.)
+LEAKS_EXT=$(dart run ../../bin/fdb.dart ext list 2>/dev/null | grep "collectLeaks" || true)
+echo "collectLeaks present: ${LEAKS_EXT:-no}"
+```
+
+**What to verify (branch check):**
+
+- The shell snippet runs without error
+- `collectLeaks present: no` is printed (confirming the absence-detection branch works)
+- If the test app is ever updated to include `leak_tracker`, this line would print
+  the extension name instead — at that point the `fdb ext call ext.flutter.collectLeaks`
+  path should be exercised instead
+
+```bash
+# Verify fdb ext call works for an extension that IS registered (image cache)
+dart run ../../bin/fdb.dart ext call ext.flutter.imageCache.size
+```
+
+**What to verify (ext call):**
+
+- Exits 0 and prints valid JSON (the response object for the image cache size extension)
+- JSON contains a `result` key or a recognisable Flutter extension response shape
+- This confirms that `fdb ext call ext.flutter.collectLeaks` would work identically
+  if `leak_tracker` were installed — the mechanism is the same, only the extension
+  name differs
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

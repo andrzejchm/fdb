@@ -515,6 +515,122 @@ fdb mem profile --output /tmp/after.json
 fdb mem diff /tmp/before.json /tmp/after.json
 ```
 
+### Investigating memory leaks
+
+Use this five-step escalation ladder when you suspect the app is leaking memory.
+Each step builds on the previous one — stop as soon as the leak source is confirmed.
+
+**Step 1 — Confirm there is growth**
+
+Run `fdb mem` before and after the suspected interaction to verify the heap is
+actually growing and the increase survives a GC:
+
+```bash
+fdb gc
+fdb mem                       # note heap usage
+# ... perform the suspected interaction ...
+fdb gc
+fdb mem                       # compare: is heapUsage higher?
+```
+
+If heap usage returns to baseline after GC, the objects are being collected
+correctly — there is no leak.
+
+**Step 2 — Identify the culprit class**
+
+Narrow down which Dart class is accumulating instances:
+
+```bash
+fdb gc
+fdb mem profile --output /tmp/before.json
+# ... repeat the suspected interaction loop several times ...
+fdb gc
+fdb mem profile --output /tmp/after.json
+fdb mem diff /tmp/before.json /tmp/after.json
+```
+
+The top growing classes are the primary leak candidates. Classes whose instance
+count rises proportionally with loop iterations are the strongest signal.
+
+**Step 3 — Find what retains the leaked instances**
+
+Two paths depending on whether `leak_tracker` is set up in the app:
+
+*Path A — leak_tracker (preferred):*
+
+Check whether `leak_tracker` is registered:
+
+```bash
+fdb ext list | grep collectLeaks
+```
+
+If `ext.flutter.collectLeaks` appears in the output, invoke it:
+
+```bash
+fdb ext call ext.flutter.collectLeaks
+```
+
+The response is structured JSON that includes retaining paths, culprit/victim
+analysis, and disposal status — this is the fastest and most actionable path.
+
+*Path B — DevTools / websocat fallback:*
+
+If `ext.flutter.collectLeaks` is NOT listed, there is no dedicated `fdb`
+command for retaining paths today. Use one of these approaches:
+
+Option 1 — DevTools (easiest):
+Skip ahead to Step 5 and use **Memory → Trace Instances** in DevTools.
+Select the culprit class from Step 2 and use **Retaining Path** to see what
+is keeping instances alive.
+
+Option 2 — raw websocat (scriptable):
+Fetch the VM service URI, then use the `getInstances` + `getRetainingPath`
+RPCs directly:
+
+```bash
+VM_URI=$(dart run ../../bin/fdb.dart status 2>/dev/null | grep VM_SERVICE_URI | cut -d= -f2)
+# 1. Get all isolate IDs
+echo '{"jsonrpc":"2.0","method":"getVM","params":{},"id":"1"}' \
+  | websocat -n1 -B 10485760 "$VM_URI"
+# 2. Find instances of the suspect class (replace <isolateId> and <classId>)
+echo '{"jsonrpc":"2.0","method":"getInstances","params":{"isolateId":"<isolateId>","objectId":"<classId>","limit":10},"id":"2"}' \
+  | websocat -n1 -B 10485760 "$VM_URI"
+# 3. Get the retaining path for the first instance (replace <objectId>)
+echo '{"jsonrpc":"2.0","method":"getRetainingPath","params":{"isolateId":"<isolateId>","targetId":"<objectId>","limit":20},"id":"3"}' \
+  | websocat -n1 -B 10485760 "$VM_URI"
+```
+
+The `getRetainingPath` response walks from the object back to a GC root,
+listing each retainer by type and field name — use this to identify which
+live object is holding the reference.
+
+**Step 4 — Suggest leak_tracker for ongoing prevention**
+
+When `fdb ext list | grep collectLeaks` returns nothing, the app does not have
+`leak_tracker` integrated. Suggest adding it for automated leak detection:
+
+> Consider adding `leak_tracker` to the app's dev dependencies for continuous
+> leak detection in debug/profile builds:
+> https://pub.dev/packages/leak_tracker
+
+No change to fdb itself is required — this is a recommendation to the app author.
+
+**Step 5 — Manual fallback (DevTools)**
+
+For leaks the above steps can't crack (e.g. native memory, complex isolate
+topologies, or leaks that only surface under production-like conditions), point
+at Flutter DevTools:
+
+1. Open DevTools → **Memory** tab.
+2. Take a snapshot before the interaction (**Diff Snapshots**).
+3. Perform the interaction, take a second snapshot, and diff.
+4. Use **Trace Instances** to find allocations by class.
+
+DevTools Memory view URL is printed when the app is running:
+```bash
+fdb status    # prints VM_SERVICE_URI; paste into DevTools → Connect
+```
+
 ### Grant, revoke, or reset runtime permissions
 
 ```bash
