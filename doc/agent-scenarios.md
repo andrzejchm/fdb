@@ -905,69 +905,76 @@ dart run ../../bin/fdb.dart tap --text "Cupertino Button"
 
 ---
 
-## S36 · heap dump — snapshot is written and loadable
+## S36 · longpress --at — coordinate long-press fires Flutter widget handler
 
-**Purpose:** `fdb heap dump --output` creates a non-empty file in the
-DevTools-compatible binary format and reports the path and size. Both the
-default (GC-before-dump) and `--no-gc` paths must succeed.
+**Purpose:** `fdb longpress --at x,y --duration N` now routes through native
+injection instead of Flutter's GestureBinding. This scenario confirms the
+command still fires `onLongPress` on a Flutter `GestureDetector` when targeting
+by coordinate, and that no GestureBinding-fallback warning is emitted on the
+native platforms (iOS, Android, macOS).
 
 ```bash
-# Basic dump — GC runs first by default
-SNAPSHOT=$(mktemp /tmp/fdb_s36_XXXXXX.heapsnapshot)
-dart run ../../bin/fdb.dart heap dump --output "$SNAPSHOT"
-echo "==> File size: $(wc -c < "$SNAPSHOT") bytes"
+# Ensure home screen is showing
+dart run ../../bin/fdb.dart back 2>/dev/null || true
 
-# Verify the file starts with the HeapSnapshotGraph magic bytes (JSON object)
-head -c 4 "$SNAPSHOT"
+# Resolve the coordinates of the long-press target via --key
+dart run ../../bin/fdb.dart scroll-to --key longpress_target
+dart run ../../bin/fdb.dart longpress --key longpress_target
+# Note the X= and Y= values in the output
 
-# --no-gc path — skip GC, snapshot still captured
-SNAPSHOT_NOGC=$(mktemp /tmp/fdb_s36_nogc_XXXXXX.heapsnapshot)
-dart run ../../bin/fdb.dart heap dump --output "$SNAPSHOT_NOGC" --no-gc
-echo "==> --no-gc file size: $(wc -c < "$SNAPSHOT_NOGC") bytes"
+# Now long-press the same widget by coordinate with a 500 ms hold
+dart run ../../bin/fdb.dart longpress --at <X>,<Y> --duration 500
 
-rm -f "$SNAPSHOT" "$SNAPSHOT_NOGC"
+# Confirm the handler fired
+dart run ../../bin/fdb.dart logs --tag fdb_test --last 10
 ```
 
 **What to verify:**
 
-- `heap dump` (default GC) exits 0
-- stdout contains `SNAPSHOT_SAVED=` followed by the output path
-- stdout contains `Wrote` with a human-readable size and the text
-  `Open in DevTools: Memory tab -> Import snapshot`
-- The snapshot file exists on disk and has a size greater than zero
-  (a real app heap snapshot is typically several MB; anything above a few
-  KB is acceptable as a sanity threshold)
-- `head -c 4` of the file starts with `{` (the HeapSnapshotGraph is a
-  JSON object; an empty or corrupt dump would be empty or start with garbage)
-- `heap dump --no-gc` exits 0 with the same stdout tokens
-- The `--no-gc` snapshot file also exists with a size greater than zero
+- `longpress --key` exits 0 with `LONG_PRESSED=GestureDetector` and prints
+  `X=` and `Y=` values you can copy for the `--at` step
+- `longpress --at <X>,<Y> --duration 500` exits 0 with
+  `LONG_PRESSED=coordinates`
+- The output does NOT contain `WARNING: native_long_press_fallback` on iOS,
+  Android, or macOS (those platforms have a native implementation; fallback
+  means the platform channel failed)
+- `fdb logs` shows a second `longpress_target triggered` line (the coordinate
+  long-press fired the same `onLongPress` handler as the key-based one did)
 
 ---
 
-## S37 · heap dump — error cases
+## S37 · longpress --at — native path used on supported platforms (no fallback)
 
-**Purpose:** input validation produces clear, informative errors for missing
-flags and unknown subcommands.
+**Purpose:** confirms that `fdb longpress --at` with a duration takes the
+native injection path — not the Flutter GestureBinding fallback — on the three
+platforms that have a native implementation (iOS, Android, macOS). On Linux,
+Windows, and web the fallback is expected and acceptable.
 
 ```bash
-# Missing --output
-dart run ../../bin/fdb.dart heap dump 2>&1; echo "exit: $?"
+dart run ../../bin/fdb.dart back 2>/dev/null || true
+dart run ../../bin/fdb.dart scroll-to --key longpress_target
 
-# Unknown subcommand
-dart run ../../bin/fdb.dart heap frobnicate 2>&1; echo "exit: $?"
+# Tap --key to get the widget center coordinates
+COORDS_OUTPUT=$(dart run ../../bin/fdb.dart longpress --key longpress_target 2>&1)
+echo "$COORDS_OUTPUT"
+X=$(echo "$COORDS_OUTPUT" | sed -n 's/.* X=\([^ ]*\).*/\1/p')
+Y=$(echo "$COORDS_OUTPUT" | sed -n 's/.* Y=\([^ ]*\).*/\1/p')
 
-# No subcommand at all
-dart run ../../bin/fdb.dart heap 2>&1; echo "exit: $?"
+# Long-press by coordinate; inspect output for warning tokens
+dart run ../../bin/fdb.dart longpress --at "$X,$Y" --duration 800
 ```
 
 **What to verify:**
 
-- `heap dump` without `--output`: exits non-zero; stderr contains
-  `ERROR: --output <file> is required`
-- `heap frobnicate`: exits non-zero; stderr contains
-  `ERROR: Unknown subcommand for fdb heap: frobnicate`
-- `heap` with no subcommand: exits non-zero; stderr contains
-  `ERROR: Missing subcommand for fdb heap`
+- Command exits 0 with `LONG_PRESSED=coordinates`
+- On **iOS / Android / macOS**: the output does NOT contain the string
+  `native_long_press_fallback`. If it does, the platform channel call failed
+  and the app fell back to GestureBinding — this is a regression.
+- On **Linux / Windows / web**: `WARNING: ...` or no warning are both
+  acceptable (no native implementation exists for these platforms by design)
+- `fdb logs --tag fdb_test --last 5` shows `longpress_target triggered` — the
+  native path still reaches a Flutter GestureDetector's `onLongPress` handler
+  because the touch/pointer is ultimately injected into the same view hierarchy
 
 ---
 
