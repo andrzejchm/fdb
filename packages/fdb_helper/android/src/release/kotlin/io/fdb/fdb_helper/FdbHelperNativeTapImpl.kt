@@ -15,4 +15,12 @@ class FdbHelperNativeTapImpl(
             null,
         )
     }
+
+    override fun nativeLongPress(x: Double, y: Double, durationMs: Long) {
+        throw FlutterError(
+            "UNAVAILABLE_IN_RELEASE",
+            "Native long-press is disabled in release builds of fdb_helper",
+            null,
+        )
+    }
 }

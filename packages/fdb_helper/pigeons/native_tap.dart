@@ -11,4 +11,14 @@ import 'package:pigeon/pigeon.dart';
 @HostApi()
 abstract class NativeTapApi {
   void nativeTap(double x, double y);
+
+  /// Performs a long-press at ([x], [y]) for [durationMs] milliseconds.
+  ///
+  /// The implementation must hold the touch/pointer DOWN for at least
+  /// [durationMs] before sending the UP event. The exact mechanism is
+  /// platform-specific:
+  ///   iOS  — UITouchPhaseStationary pulses at 10ms intervals between Began and Ended
+  ///   Android — MotionEvent timestamps advanced by [durationMs]
+  ///   macOS  — NSEvent delay between leftMouseDown and leftMouseUp
+  void nativeLongPress(double x, double y, int durationMs);
 }

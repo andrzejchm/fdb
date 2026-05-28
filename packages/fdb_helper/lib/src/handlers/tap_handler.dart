@@ -23,15 +23,9 @@ Future<developer.ServiceExtensionResponse> handleTap(
     final matcher = WidgetMatcher.fromParams(params);
 
     if (matcher is CoordinatesMatcher) {
-      // For quick taps, use native in-process injection so that native
-      // overlays (UIAlertController, WKWebView, platform views, AlertDialog)
-      // are reachable — not just Flutter widgets.
-      //
-      // For long-press by coordinate (rawDuration != null, typically 500ms+),
-      // fall back to Flutter's GestureBinding because native_tap.g.dart's
-      // Pigeon API only supports a quick tap. Long-press by coordinate on
-      // native overlays is not currently supported — see beads ticket for
-      // adding a holdDuration parameter to NativeTapApi.
+      // For quick taps and long-presses by coordinate, use native in-process
+      // injection so that native overlays (UIAlertController, WKWebView,
+      // platform views, AlertDialog) are reachable — not just Flutter widgets.
       final response = <String, Object?>{
         'status': 'Success',
         'x': matcher.x,
@@ -45,7 +39,13 @@ Future<developer.ServiceExtensionResponse> handleTap(
           response['warning'] = 'native_tap_fallback';
         }
       } else {
-        await dispatchTap(matcher.offset, holdDuration: holdDuration);
+        final result = await dispatchNativeLongPress(
+          matcher.offset,
+          holdDuration: holdDuration,
+        );
+        if (result == NativeTapResult.nativeFailedFallback) {
+          response['warning'] = 'native_long_press_fallback';
+        }
       }
       return developer.ServiceExtensionResponse.result(jsonEncode(response));
     }

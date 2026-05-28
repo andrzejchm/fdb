@@ -88,6 +88,15 @@ class NativeTapPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol NativeTapApi {
   func nativeTap(x: Double, y: Double) throws
+  /// Performs a long-press at ([x], [y]) for [durationMs] milliseconds.
+  ///
+  /// The implementation must hold the touch/pointer DOWN for at least
+  /// [durationMs] before sending the UP event. The exact mechanism is
+  /// platform-specific:
+  ///   iOS  — UITouchPhaseStationary pulses at 10ms intervals between Began and Ended
+  ///   Android — MotionEvent timestamps advanced by [durationMs]
+  ///   macOS  — NSEvent delay between leftMouseDown and leftMouseUp
+  func nativeLongPress(x: Double, y: Double, durationMs: Int64) throws
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -111,6 +120,31 @@ class NativeTapApiSetup {
       }
     } else {
       nativeTapChannel.setMessageHandler(nil)
+    }
+    /// Performs a long-press at ([x], [y]) for [durationMs] milliseconds.
+    ///
+    /// The implementation must hold the touch/pointer DOWN for at least
+    /// [durationMs] before sending the UP event. The exact mechanism is
+    /// platform-specific:
+    ///   iOS  — UITouchPhaseStationary pulses at 10ms intervals between Began and Ended
+    ///   Android — MotionEvent timestamps advanced by [durationMs]
+    ///   macOS  — NSEvent delay between leftMouseDown and leftMouseUp
+    let nativeLongPressChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.fdb_helper.NativeTapApi.nativeLongPress\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      nativeLongPressChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let xArg = args[0] as! Double
+        let yArg = args[1] as! Double
+        let durationMsArg = args[2] as! Int64
+        do {
+          try api.nativeLongPress(x: xArg, y: yArg, durationMs: durationMsArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      nativeLongPressChannel.setMessageHandler(nil)
     }
   }
 }

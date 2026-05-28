@@ -3,7 +3,8 @@ import FlutterMacOS
 
 #if FDB_HELPER_NATIVE_TAP_REAL
 
-/// Injects a synthetic in-process mouse click at the given Flutter logical coordinates.
+/// Injects a synthetic in-process mouse click or long-press at the given Flutter
+/// logical coordinates.
 ///
 /// Flutter logical coordinates have their origin at the top-left of the content view.
 /// NSEvent uses AppKit coordinates with the origin at the bottom-left of the content view,
@@ -22,6 +23,22 @@ class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
       DispatchQueue.main.sync {
         do {
           try self._doTap(x: x, y: y)
+        } catch {
+          tapError = error
+        }
+      }
+      if let err = tapError { throw err }
+    }
+  }
+
+  func nativeLongPress(x: Double, y: Double, durationMs: Int64) throws {
+    if Thread.isMainThread {
+      try _doLongPress(x: x, y: y, durationMs: durationMs)
+    } else {
+      var tapError: Error?
+      DispatchQueue.main.sync {
+        do {
+          try self._doLongPress(x: x, y: y, durationMs: durationMs)
         } catch {
           tapError = error
         }
@@ -76,6 +93,52 @@ class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
     Thread.sleep(forTimeInterval: 0.05)
     NSApplication.shared.sendEvent(up)
   }
+
+  private func _doLongPress(x: Double, y: Double, durationMs: Int64) throws {
+    guard let window = NSApplication.shared.keyWindow
+      ?? NSApplication.shared.windows.first(where: { $0.isVisible })
+    else {
+      throw PigeonError(code: "NO_WINDOW", message: "No NSWindow found", details: nil)
+    }
+
+    let contentHeight = window.contentView?.bounds.height ?? window.frame.height
+    let windowPoint = CGPoint(x: x, y: contentHeight - y)
+
+    let holdSeconds = Double(durationMs) / 1000.0
+    let ts = ProcessInfo.processInfo.systemUptime
+
+    guard let down = NSEvent.mouseEvent(
+      with: .leftMouseDown,
+      location: windowPoint,
+      modifierFlags: [],
+      timestamp: ts,
+      windowNumber: window.windowNumber,
+      context: nil,
+      eventNumber: 0,
+      clickCount: 1,
+      pressure: 1.0
+    ) else {
+      throw PigeonError(code: "EVENT_FAILED", message: "Could not create NSEvent mouseDown for long-press", details: nil)
+    }
+
+    guard let up = NSEvent.mouseEvent(
+      with: .leftMouseUp,
+      location: windowPoint,
+      modifierFlags: [],
+      timestamp: ts + holdSeconds,
+      windowNumber: window.windowNumber,
+      context: nil,
+      eventNumber: 1,
+      clickCount: 1,
+      pressure: 0.0
+    ) else {
+      throw PigeonError(code: "EVENT_FAILED", message: "Could not create NSEvent mouseUp for long-press", details: nil)
+    }
+
+    NSApplication.shared.sendEvent(down)
+    Thread.sleep(forTimeInterval: holdSeconds)
+    NSApplication.shared.sendEvent(up)
+  }
 }
 
 #else
@@ -86,6 +149,14 @@ class FdbHelperNativeTapImpl: NSObject, NativeTapApi {
     throw PigeonError(
       code: "UNAVAILABLE_IN_RELEASE",
       message: "Native tap is disabled in release builds of fdb_helper",
+      details: nil,
+    )
+  }
+
+  func nativeLongPress(x: Double, y: Double, durationMs: Int64) throws {
+    throw PigeonError(
+      code: "UNAVAILABLE_IN_RELEASE",
+      message: "Native long-press is disabled in release builds of fdb_helper",
       details: nil,
     )
   }
