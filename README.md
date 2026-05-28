@@ -218,6 +218,18 @@ fdb ext call ext.flutter.collectLeaks
 2. `fdb mem profile --output before.json` — capture a full allocation-profile snapshot as a baseline before exercising the feature under test.
 3. `fdb mem profile --output after.json` followed by `fdb mem diff before.json after.json` — compare the two snapshots to see exactly which classes grew in instance count or byte size.
 
+**Memory leak investigation (5-step ladder):**
+
+1. **Confirm growth** — `fdb gc && fdb mem` before and after the interaction; if heap returns to baseline after GC, no leak.
+2. **Find the culprit class** — `fdb mem profile --output before.json`, repeat the interaction, `fdb mem profile --output after.json`, then `fdb mem diff before.json after.json`.
+3. **Find what retains it** — check `fdb ext list | grep collectLeaks`:
+   - **Present** (leak_tracker path): `fdb ext call ext.flutter.collectLeaks` — returns structured JSON with retaining paths and culprit/victim analysis.
+   - **Absent** (fallback): `fdb retainers --class <CulpritClass>` — walks the VM service and prints retaining paths.
+4. **Suggest leak_tracker** — when `collectLeaks` is missing, recommend adding [`leak_tracker`](https://pub.dev/packages/leak_tracker) to the app's dev dependencies for ongoing automated detection.
+5. **DevTools fallback** — for leaks the above can't resolve, use DevTools → Memory → Diff Snapshots / Trace Instances. Connect via the `VM_SERVICE_URI` from `fdb status`.
+
+For the full walkthrough see the [fdb skill](lib/skill/SKILL.md) → "Investigating memory leaks".
+
 **Utility**
 
 | Command | Description |

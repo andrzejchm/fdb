@@ -515,6 +515,104 @@ fdb mem profile --output /tmp/after.json
 fdb mem diff /tmp/before.json /tmp/after.json
 ```
 
+### Investigating memory leaks
+
+Use this five-step escalation ladder when you suspect the app is leaking memory.
+Each step builds on the previous one — stop as soon as the leak source is confirmed.
+
+**Step 1 — Confirm there is growth**
+
+Run `fdb mem` before and after the suspected interaction to verify the heap is
+actually growing and the increase survives a GC:
+
+```bash
+fdb gc
+fdb mem                       # note heap usage
+# ... perform the suspected interaction ...
+fdb gc
+fdb mem                       # compare: is heapUsage higher?
+```
+
+If heap usage returns to baseline after GC, the objects are being collected
+correctly — there is no leak.
+
+**Step 2 — Identify the culprit class**
+
+Narrow down which Dart class is accumulating instances:
+
+```bash
+fdb gc
+fdb mem profile --output /tmp/before.json
+# ... repeat the suspected interaction loop several times ...
+fdb gc
+fdb mem profile --output /tmp/after.json
+fdb mem diff /tmp/before.json /tmp/after.json
+```
+
+The top growing classes are the primary leak candidates. Classes whose instance
+count rises proportionally with loop iterations are the strongest signal.
+
+**Step 3 — Find what retains the leaked instances**
+
+Two paths depending on whether `leak_tracker` is set up in the app:
+
+*Path A — leak_tracker (preferred):*
+
+Check whether `leak_tracker` is registered:
+
+```bash
+fdb ext list | grep collectLeaks
+```
+
+If `ext.flutter.collectLeaks` appears in the output, invoke it:
+
+```bash
+fdb ext call ext.flutter.collectLeaks
+```
+
+The response is structured JSON that includes retaining paths, culprit/victim
+analysis, and disposal status — this is the fastest and most actionable path.
+
+*Path B — fdb retainers fallback:*
+
+If `ext.flutter.collectLeaks` is NOT listed, use `fdb retainers` to walk the
+VM service and print instance counts and retaining paths for the suspect class:
+
+```bash
+fdb retainers --class <CulpritClass>
+```
+
+Replace `<CulpritClass>` with the class name from Step 2 (e.g. `ProductPageBloc`).
+Read the printed retaining paths to find which object is holding a reference that
+prevents GC.
+
+**Step 4 — Suggest leak_tracker for ongoing prevention**
+
+When `fdb ext list | grep collectLeaks` returns nothing, the app does not have
+`leak_tracker` integrated. Suggest adding it for automated leak detection:
+
+> Consider adding `leak_tracker` to the app's dev dependencies for continuous
+> leak detection in debug/profile builds:
+> https://pub.dev/packages/leak_tracker
+
+No change to fdb itself is required — this is a recommendation to the app author.
+
+**Step 5 — Manual fallback (DevTools)**
+
+For leaks the above steps can't crack (e.g. native memory, complex isolate
+topologies, or leaks that only surface under production-like conditions), point
+at Flutter DevTools:
+
+1. Open DevTools → **Memory** tab.
+2. Take a snapshot before the interaction (**Diff Snapshots**).
+3. Perform the interaction, take a second snapshot, and diff.
+4. Use **Trace Instances** to find allocations by class.
+
+DevTools Memory view URL is printed when the app is running:
+```bash
+fdb status    # prints VM_SERVICE_URI; paste into DevTools → Connect
+```
+
 ### Grant, revoke, or reset runtime permissions
 
 ```bash
