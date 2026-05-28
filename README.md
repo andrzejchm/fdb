@@ -209,6 +209,7 @@ fdb ext call ext.flutter.collectLeaks
 | Command | Description |
 |---------|-------------|
 | `fdb mem [--json]` | Per-isolate heap totals (usage, external, capacity) |
+| `fdb mem native [--app-id <id>] [--pid <pid>] [--tool <name>]` | Platform-native memory snapshot (dumpsys / footprint / vmmap) |
 | `fdb mem profile --output <file> [--isolate <id>] [--all-isolates]` | Capture a full allocation profile to a JSON file |
 | `fdb mem diff <before.json> <after.json> [--sort count\|bytes] [--top N] [--all] [--json]` | Show classes that grew between two profiles |
 | `fdb gc [--json]` | Force a full garbage collection across all isolates |

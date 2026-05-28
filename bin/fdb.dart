@@ -55,7 +55,11 @@ Commands:
   ext         list|call VM service extensions registered by the running app
   select      Toggle widget selection mode
   selected    Get the currently selected widget
-  mem         Inspect heap usage; subcommands: profile, diff
+  mem         Inspect heap usage; subcommands: native, profile, diff
+               native       Run platform-native memory tool (dumpsys / footprint / vmmap)
+                              --app-id <id>    Bundle id / package name (Android; auto from .fdb/app_id.txt)
+                              --pid <pid>      PID override (iOS sim / macOS; auto from .fdb/fdb.app_pid)
+                              --tool <name>    Tool selection (platform default if omitted)
   gc          Force a full garbage collection across all isolates
                --json              Output KEY=value tokens (HEAP_BEFORE, HEAP_AFTER, HEAP_DELTA)
   status      Check if the app is running

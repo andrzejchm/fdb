@@ -3437,6 +3437,127 @@ tasks:
         rm -rf "$MEM_TMP_DIR"
         echo "PASS: fdb mem"
 
+  test:mem-native:
+    desc: Verify fdb mem native shells out to the platform-native memory tool
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
+        echo "==> fdb mem native — platform=$PLATFORM"
+
+        if echo "$PLATFORM" | grep -qi "android"; then
+          # Android: dumpsys meminfo via adb
+          OUTPUT=$({{.FDB}} mem native 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb mem native exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          # Verify the command echo appeared on stderr (captured in combined output)
+          if echo "$OUTPUT" | grep -q '+ adb.*dumpsys meminfo'; then
+            echo "PASS: fdb mem native echoed adb command to stderr"
+          else
+            echo "FAIL: fdb mem native — expected '+ adb.*dumpsys meminfo' in output" >&2
+            exit 1
+          fi
+          # Verify raw dumpsys output appeared
+          if echo "$OUTPUT" | grep -qi 'pss\|heap\|native\|MEMINFO'; then
+            echo "PASS: fdb mem native produced dumpsys meminfo output"
+          else
+            echo "FAIL: fdb mem native — expected meminfo output (Pss/Heap/MEMINFO)" >&2
+            exit 1
+          fi
+
+        elif [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "macos" ]; then
+          # macOS: footprint (default)
+          OUTPUT=$({{.FDB}} mem native 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb mem native (footprint) exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if echo "$OUTPUT" | grep -q '+ footprint'; then
+            echo "PASS: fdb mem native echoed footprint command to stderr"
+          else
+            echo "FAIL: fdb mem native — expected '+ footprint' in output" >&2
+            exit 1
+          fi
+
+          # macOS: vmmap via --tool vmmap
+          OUTPUT=$({{.FDB}} mem native --tool vmmap 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb mem native --tool vmmap exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if echo "$OUTPUT" | grep -q '+ vmmap'; then
+            echo "PASS: fdb mem native --tool vmmap echoed vmmap command to stderr"
+          else
+            echo "FAIL: fdb mem native --tool vmmap — expected '+ vmmap' in output" >&2
+            exit 1
+          fi
+
+        elif [ "$PLATFORM" = "ios" ] || echo "$PLATFORM" | grep -qi "^ios"; then
+          # iOS simulator: vmmap
+          OUTPUT=$({{.FDB}} mem native 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: fdb mem native (iOS sim) exited with code $EXIT_CODE" >&2
+            exit 1
+          fi
+          if echo "$OUTPUT" | grep -q '+ vmmap'; then
+            echo "PASS: fdb mem native echoed vmmap command to stderr"
+          else
+            echo "FAIL: fdb mem native — expected '+ vmmap' in output" >&2
+            exit 1
+          fi
+
+        else
+          echo "SKIP: fdb mem native — unsupported platform '$PLATFORM' (Android/macOS/iOS sim only)"
+        fi
+
+        # Invalid --tool (expect error)
+        echo "==> fdb mem native --tool invalid (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} mem native --tool badtool 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb mem native --tool badtool should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb mem native --tool badtool rejected"
+        else
+          echo "FAIL: fdb mem native --tool badtool — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        # Invalid --pid (expect error)
+        echo "==> fdb mem native --pid notanumber (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} mem native --pid notanumber 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb mem native --pid notanumber should have failed" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb mem native --pid notanumber rejected"
+        else
+          echo "FAIL: fdb mem native --pid notanumber — expected ERROR: in output" >&2
+          exit 1
+        fi
+
+        echo "PASS: fdb mem native"
+
   test:gc:
     desc: Force full GC across all isolates and verify output
     dir: '{{.TEST_APP}}'
@@ -3832,6 +3953,7 @@ tasks:
       - task: test:scroll
       - task: test:scroll-to
       - task: test:mem
+      - task: test:mem-native
       - task: test:gc
       - task: test:wait
       - task: test:swipe

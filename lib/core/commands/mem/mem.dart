@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/commands/mem/mem_models.dart';
+import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/mem/mem_models.dart';
@@ -240,4 +241,190 @@ String _stripExtension(String path) {
   final lastSlash = path.lastIndexOf('/');
   if (lastDot > lastSlash) return path.substring(0, lastDot);
   return path;
+}
+
+// ---------------------------------------------------------------------------
+// fdb mem native — platform-native memory snapshot
+// ---------------------------------------------------------------------------
+
+/// Shells out to a platform-native memory tool and returns its raw output.
+///
+/// Platform dispatch:
+///   Android       — adb shell dumpsys meminfo `<appId>`
+///   iOS simulator — vmmap `<pid>`
+///   iOS physical  — unsupported in v1; returns [MemNativeUnsupportedPlatform]
+///   macOS         — footprint `<pid>` (default) or vmmap `<pid>` (--tool vmmap)
+///
+/// The exact command is reported via [onCommand] before execution so callers
+/// can echo it to stderr.
+///
+/// Never throws; all error conditions are represented as sealed result cases.
+Future<MemNativeResult> runMemNative(
+  MemNativeInput input, {
+  void Function(String command)? onCommand,
+}) async {
+  try {
+    final platformInfo = readPlatformInfo();
+    if (platformInfo == null) {
+      return const MemNativeError('No platform info found. Is the app running?');
+    }
+
+    final platform = platformInfo.platform.toLowerCase();
+    final emulator = platformInfo.emulator;
+    final device = readDevice();
+
+    if (platform.startsWith('android')) {
+      return _runAndroid(input: input, device: device, onCommand: onCommand);
+    } else if (platform == 'ios' || platform.startsWith('ios-')) {
+      if (emulator) {
+        return _runIosSimulator(input: input, onCommand: onCommand);
+      } else {
+        return const MemNativeUnsupportedPlatform(
+          platform: 'ios-physical',
+          message: 'fdb mem native is not supported on physical iOS devices in v1. '
+              'Use Xcode Instruments (Product > Profile > Allocations) for native iOS memory profiling.',
+        );
+      }
+    } else if (platform == 'darwin' || platform == 'macos') {
+      return _runMacos(input: input, onCommand: onCommand);
+    } else {
+      return MemNativeUnsupportedPlatform(
+        platform: platform,
+        message: 'fdb mem native is not supported on platform: $platform',
+      );
+    }
+  } catch (e) {
+    return MemNativeError(e.toString());
+  }
+}
+
+Future<MemNativeResult> _runAndroid({
+  required MemNativeInput input,
+  required String? device,
+  required void Function(String command)? onCommand,
+}) async {
+  if (!_isToolOnPath('adb')) {
+    return const MemNativeToolMissing(
+      tool: 'adb',
+      hint: 'Install Android SDK platform-tools and ensure adb is on PATH.',
+    );
+  }
+
+  final appId = input.appId ?? readAppId();
+  if (appId == null || appId.isEmpty) {
+    return const MemNativeMissingInfo(
+      'Could not resolve package name. '
+      'Pass --app-id <package> or run from a project that was launched with fdb.',
+    );
+  }
+
+  final adbArgs = <String>[
+    if (device != null) ...['-s', device],
+    'shell',
+    'dumpsys',
+    'meminfo',
+    appId,
+  ];
+
+  final cmd = 'adb ${adbArgs.join(' ')}';
+  onCommand?.call(cmd);
+
+  return _captureOutput(executable: 'adb', args: adbArgs);
+}
+
+Future<MemNativeResult> _runIosSimulator({
+  required MemNativeInput input,
+  required void Function(String command)? onCommand,
+}) async {
+  if (!_isToolOnPath('vmmap')) {
+    return const MemNativeToolMissing(
+      tool: 'vmmap',
+      hint: 'vmmap is bundled with Xcode command-line tools: xcode-select --install',
+    );
+  }
+
+  final pid = input.pid ?? readAppPid();
+  if (pid == null) {
+    return const MemNativeMissingInfo(
+      'Could not resolve process PID. '
+      'Pass --pid <pid> or run from a project that was launched with fdb.',
+    );
+  }
+
+  final vmmapArgs = [pid.toString()];
+  final cmd = 'vmmap ${vmmapArgs.join(' ')}';
+  onCommand?.call(cmd);
+
+  return _captureOutput(executable: 'vmmap', args: vmmapArgs);
+}
+
+Future<MemNativeResult> _runMacos({
+  required MemNativeInput input,
+  required void Function(String command)? onCommand,
+}) async {
+  final toolName = input.tool ?? 'footprint';
+
+  if (toolName != 'footprint' && toolName != 'vmmap') {
+    return MemNativeError('Unknown tool "$toolName". Supported tools on macOS: footprint, vmmap');
+  }
+
+  if (!_isToolOnPath(toolName)) {
+    return MemNativeToolMissing(
+      tool: toolName,
+      hint: toolName == 'footprint'
+          ? 'footprint is bundled with Xcode command-line tools: xcode-select --install'
+          : 'vmmap is bundled with Xcode command-line tools: xcode-select --install',
+    );
+  }
+
+  final pid = input.pid ?? readAppPid();
+  if (pid == null) {
+    return const MemNativeMissingInfo(
+      'Could not resolve process PID. '
+      'Pass --pid <pid> or run from a project that was launched with fdb.',
+    );
+  }
+
+  final toolArgs = [pid.toString()];
+  final cmd = '$toolName ${toolArgs.join(' ')}';
+  onCommand?.call(cmd);
+
+  return _captureOutput(executable: toolName, args: toolArgs);
+}
+
+/// Runs [executable] with [args], collects all stdout, and returns [MemNativeSuccess].
+///
+/// Stderr from the child process is piped to the host stderr directly.
+Future<MemNativeResult> _captureOutput({
+  required String executable,
+  required List<String> args,
+}) async {
+  final Process process;
+  try {
+    process = await Process.start(executable, args);
+  } catch (e) {
+    return MemNativeError('Failed to start $executable: $e');
+  }
+
+  // Pipe stderr through so the user can see tool errors/warnings.
+  process.stderr.transform(const SystemEncoding().decoder).listen(stderr.write);
+
+  final buffer = StringBuffer();
+  await for (final chunk in process.stdout.transform(const SystemEncoding().decoder)) {
+    buffer.write(chunk);
+  }
+
+  await process.exitCode; // wait for process to finish
+
+  return MemNativeSuccess(buffer.toString());
+}
+
+/// Returns true if [tool] can be found via `which`.
+bool _isToolOnPath(String tool) {
+  try {
+    final result = Process.runSync('which', [tool]);
+    return result.exitCode == 0;
+  } catch (_) {
+    return false;
+  }
 }

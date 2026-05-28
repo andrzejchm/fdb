@@ -73,6 +73,7 @@ task test:input
 task test:scroll
 task test:scroll-to
 task test:mem
+task test:mem-native
 task test:gc
 task test:wait
 task test:swipe
