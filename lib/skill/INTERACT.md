@@ -60,13 +60,17 @@ Add keys to: buttons, text fields, list rows, tabs, cards, bottom-sheet handles,
 
 ## Selector priority
 
-When choosing how to target a widget, prefer in this order:
+ALWAYS run `fdb describe` before any tap, input, or scroll. It shows every interactive widget, its `@N` ref, and its key in one call. Use that output — do NOT guess coordinates or target by `--text`/`--type` without checking first.
 
-1. `--key` — stable, survives text changes and refactors. Always prefer.
-2. `@N` ref from `fdb describe` — good for one-off taps in the current screen context. Refs reset on navigation.
-3. `--text` — brittle if the text is localised or changes. Use when no key is available.
-4. `--type` — most brittle; breaks on widget type refactors. Last resort.
-5. `--at x,y` — coordinate tap; use only for elements with no other selector (native overlays, canvas).
+After `fdb describe`, choose a selector in this order:
+
+1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs reset on navigation.
+2. `--key` — stable across navigation changes; prefer for repeated or scripted taps. Keys are shown in `fdb describe` output.
+3. `--text` — brittle if text is localised or changes. Use only when neither a ref nor a key is available.
+4. `--type` — most brittle; breaks on widget type refactors. Last resort before coordinates.
+5. `--at x,y` — coordinate tap. Use ONLY for elements with no other selector (native overlays, canvas). NEVER guess coordinates.
+
+NEVER reach for `--text`, `--type`, or `--at` without first running `fdb describe` and exhausting `@N` ref and `--key` options.
 
 ## Screenshot
 
@@ -167,11 +171,11 @@ For OS-level permission prompts on iOS simulator, use `fdb grant-permission` ins
 Requires `fdb_helper` in the app.
 
 ```bash
-fdb tap --key "increment_button"      # tap by widget key  ← prefer this
-fdb tap --text "Submit"               # tap by visible text
-fdb tap --type "FloatingActionButton" # tap by widget type
-fdb tap --at 200,400                  # tap absolute screen coordinates
-fdb tap @3                            # tap by describe ref
+fdb tap @3                            # tap by describe ref  ← use after fdb describe
+fdb tap --key "increment_button"      # tap by widget key    ← stable across navigation
+fdb tap --text "Submit"               # tap by visible text  (only if no key)
+fdb tap --type "FloatingActionButton" # tap by widget type   (last resort before coordinates)
+fdb tap --at 200,400                  # tap absolute coordinates — LAST RESORT ONLY
 ```
 
 Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`
@@ -290,11 +294,13 @@ fdb doctor                                 # verify environment before interacti
 fdb describe                               # compact screen snapshot — preferred over screenshot for navigation
 fdb screenshot                             # visual verification
 
-# Describe-driven interaction (preferred)
-fdb describe                               # see what's on screen + get refs
-fdb tap @2                                 # tap by ref (quick, one-off)
-fdb tap --key perm_request_camera          # tap by key (stable, prefer for scripts)
-fdb describe                               # re-describe after navigation for fresh refs
+# Describe-driven interaction (required — always start here)
+fdb describe                               # ALWAYS run first — gives @N refs, keys, visible text
+fdb tap @2                                 # tap by @N ref from describe output
+fdb tap --key perm_request_camera          # or tap by key (stable across navigation)
+fdb describe                               # re-run after every navigation — refs reset on route change
+# NEVER tap by --text, --type, or --at without first running fdb describe
+# NEVER guess coordinates
 
 # Full interaction loop
 fdb tap --key "submit_button"
