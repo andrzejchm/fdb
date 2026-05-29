@@ -5,9 +5,17 @@ import 'package:fdb/core/commands/skill/skill_models.dart';
 
 export 'package:fdb/core/commands/skill/skill_models.dart';
 
-/// Resolves and reads the bundled SKILL.md from the package root.
+/// Resolves and reads the bundled skill file from the package root.
 ///
-/// The authoritative skill content lives at `lib/skill/SKILL.md` (internal,
+/// Without [topic], reads the core `lib/skill/SKILL.md` (install instructions,
+/// fdb_helper setup, and the full command index with topic routing).
+///
+/// With [topic] (e.g. `"launch"`, `"interact"`), reads the corresponding
+/// `lib/skill/<TOPIC>.md` sub-document. Topic matching is case-insensitive.
+///
+/// Available topics: launch, interact, data, diagnostics, memory, simulator.
+///
+/// The authoritative skill content lives under `lib/skill/` (internal,
 /// bundled with the CLI). This is intentionally separate from
 /// `skills/using-fdb/SKILL.md`, which is the lean shim users install into
 /// their OpenCode config — it simply instructs the agent to run `fdb skill`.
@@ -17,13 +25,13 @@ export 'package:fdb/core/commands/skill/skill_models.dart';
 ///   The package URI `package:fdb/core/commands/skill/skill.dart` resolves to the
 ///   absolute file path. Walking `.parent` five times reaches the package root:
 ///     skill.dart → skill/ → commands/ → core/ → lib/ → package-root
-///   (Compare: the old file in lib/core/commands/ only needed four `.parent` calls.)
 ///
 ///   If the URI resolver returns null (unusual but possible), we fall back to
 ///   `Platform.script` which points to `bin/fdb.dart`; one `.parent` up is
 ///   `bin/`, and one more is the package root.
-Future<SkillResult> resolveSkill() async {
-  const relativePath = 'lib/skill/SKILL.md';
+Future<SkillResult> resolveSkill({String? topic}) async {
+  final filename = topic != null ? '${topic.toUpperCase()}.md' : 'SKILL.md';
+  const relativeDir = 'lib/skill/';
 
   // Primary: resolve via package URI — works for both `dart run` and
   // `dart pub global activate` installs.
@@ -32,7 +40,7 @@ Future<SkillResult> resolveSkill() async {
   if (resolved != null) {
     // Five .parent calls: skill.dart → skill/ → commands/ → core/ → lib/ → package root
     final packageRoot = File.fromUri(resolved).parent.parent.parent.parent.parent;
-    final candidate = File('${packageRoot.path}/$relativePath');
+    final candidate = File('${packageRoot.path}/$relativeDir$filename');
     if (candidate.existsSync()) {
       return SkillContent(candidate.readAsStringSync());
     }
@@ -42,10 +50,13 @@ Future<SkillResult> resolveSkill() async {
   // scriptDir = bin/, scriptDir.parent = package root.
   final scriptDir = Directory.fromUri(Platform.script).parent;
   final packageRoot = scriptDir.parent;
-  final fallback = File('${packageRoot.path}/$relativePath');
+  final fallback = File('${packageRoot.path}/$relativeDir$filename');
   if (fallback.existsSync()) {
     return SkillContent(fallback.readAsStringSync());
   }
 
+  if (topic != null) {
+    return SkillTopicNotFound(topic);
+  }
   return const SkillNotFound();
 }

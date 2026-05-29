@@ -12,3 +12,8 @@ class SkillContent extends SkillResult {
 class SkillNotFound extends SkillResult {
   const SkillNotFound();
 }
+
+class SkillTopicNotFound extends SkillResult {
+  final String topic;
+  const SkillTopicNotFound(this.topic);
+}
