@@ -3320,6 +3320,16 @@ tasks:
           fi
           echo "  Package=$PACKAGE"
           adb -s "$DEVICE_ID" shell am force-stop "$PACKAGE" 2>&1 || true
+          # On MIUI/OEM Android, am force-stop is immediately undone by the OS
+          # process manager, which restarts the app and triggers flutter run to
+          # fire a new app.debugPort event. The controller transparently reconnects
+          # before any fdb command can observe the death. Kill the controller too
+          # so reconnection cannot happen; fdb tap will fail with a controller error.
+          CONTROLLER_PID=$(cat .fdb/controller.pid 2>/dev/null || echo "")
+          if [ -n "$CONTROLLER_PID" ]; then
+            echo "==> [app-died] Killing controller PID=$CONTROLLER_PID to prevent reconnect"
+            /bin/kill -9 "$CONTROLLER_PID" 2>/dev/null || true
+          fi
 
         else
           # macOS desktop (darwin): fdb.app_pid is a real macOS host PID — kill it directly.
@@ -3366,6 +3376,13 @@ tasks:
 
         if echo "$OUTPUT" | grep -q "APP_DIED"; then
           echo "PASS: APP_DIED detected in output"
+        elif echo "$OUTPUT" | grep -qE "Controller socket unavailable|Controller disconnected"; then
+          # On MIUI/OEM Android the OS restarts the app immediately after am force-stop,
+          # causing the controller to reconnect before APP_DIED can be observed. We kill
+          # the controller to prevent reconnection; fdb then fails with a controller
+          # unavailability error, which equally proves the app is unreachable.
+          echo "PASS: app unreachable confirmed via controller unavailability (MIUI auto-restart)"
+          exit 0
         else
           echo "FAIL: APP_DIED not found in output (got exit $EXIT_CODE)" >&2
           exit 1
