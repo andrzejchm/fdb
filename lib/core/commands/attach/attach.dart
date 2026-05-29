@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/attach/attach_models.dart';
+import 'package:fdb/core/commands/attach/vm_uri_discovery.dart';
 import 'package:fdb/core/commands/launch/launch.dart';
 import 'package:fdb/core/flutter_binary.dart';
 import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/attach/attach_models.dart';
+export 'package:fdb/core/commands/attach/vm_uri_discovery.dart' show discoverVmServiceUrl;
 
 void _noop(String _) {}
 
@@ -23,7 +25,6 @@ Future<AttachResult> attachApp(
     final project = input.project ?? Directory.current.path;
     final flutterSdk = input.flutterSdk;
     final appId = input.appId;
-    final debugUrl = input.debugUrl == null ? null : normalizeAttachDebugUrl(input.debugUrl!);
     String? deviceLabel;
 
     if (device == null) return const AttachMissingDevice();
@@ -47,6 +48,37 @@ Future<AttachResult> attachApp(
     writeAppIdFromProjectForLaunch(project, flavor: input.flavor);
     if (appId != null && appId.isNotEmpty) {
       writeAppId(appId);
+    }
+
+    // Resolve the debug URL: use the explicit flag when provided; otherwise
+    // try to auto-discover it from device logs (Android logcat, iOS unified
+    // log, or idevicesyslog on physical devices).
+    String? debugUrl;
+    if (input.debugUrl != null) {
+      debugUrl = normalizeAttachDebugUrl(input.debugUrl!);
+    } else {
+      final platformInfo = readPlatformInfo();
+      if (platformInfo != null) {
+        onProgress('attach: attempting VM service URI auto-discovery');
+
+        // Physical iOS log collection (idevicesyslog archive) typically takes
+        // 10–15 s; use a 30 s timeout so the archive has time to complete.
+        final isPhysicalIos =
+            (platformInfo.platform == 'ios' || platformInfo.platform.startsWith('ios-')) && !platformInfo.emulator;
+        final discoveryTimeout = isPhysicalIos ? const Duration(seconds: 30) : const Duration(seconds: 5);
+
+        debugUrl = await discoverVmServiceUrl(
+          device: device,
+          platformInfo: platformInfo,
+          timeout: discoveryTimeout,
+          onProgress: onProgress,
+        );
+        if (debugUrl != null) {
+          onProgress('attach: discovered VM service URI — $debugUrl');
+        } else {
+          onProgress('attach: VM service URI not found in device logs; falling back to mDNS discovery');
+        }
+      }
     }
 
     final controllerLaunch = resolveControllerLaunch();
