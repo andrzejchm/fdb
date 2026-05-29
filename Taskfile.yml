@@ -743,7 +743,7 @@ tasks:
           echo "FAIL: could not navigate to grid describe screen (fdb tap --key go_to_grid_describe_test failed)" >&2
           exit 1
         fi
-        sleep 1
+        {{.FDB}} wait --key "grid_item_0" --present --timeout 5000 >/dev/null
 
         echo "==> Describing grid screen"
         OUTPUT=$({{.FDB}} describe 2>&1)
@@ -793,7 +793,7 @@ tasks:
           echo "FAIL: could not navigate to nested gesture describe screen" >&2
           exit 1
         fi
-        sleep 1
+        {{.FDB}} wait --key "nested_gesture_reject" --present --timeout 5000 >/dev/null
 
         echo "==> Describing nested gesture screen"
         OUTPUT=$({{.FDB}} describe 2>&1)
@@ -834,7 +834,7 @@ tasks:
           echo "FAIL: could not navigate to ListTile Describe Test screen" >&2
           exit 1
         fi
-        sleep 1
+        {{.FDB}} wait --key "perm_request_camera" --present --timeout 5000 >/dev/null
 
         echo "==> Describing ListTile Describe Test screen"
         OUTPUT=$({{.FDB}} describe 2>&1)
@@ -868,7 +868,7 @@ tasks:
           echo "FAIL: could not navigate to Detail Page (fdb tap --key go_to_details failed)" >&2
           exit 1
         fi
-        sleep 1
+        {{.FDB}} wait --text "Detail Page Content" --present --timeout 5000 >/dev/null
 
         echo "==> Describing Detail Page (child route)"
         OUTPUT=$({{.FDB}} describe 2>&1)
@@ -1665,16 +1665,15 @@ tasks:
         # ---------------------------------------------------------------
         echo "==> Navigating to scroll-to test home"
         {{.FDB}} scroll-to --key "go_to_scroll_to_test" >/dev/null 2>&1
-        sleep 1
         {{.FDB}} tap --key "go_to_scroll_to_test" >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "scroll_to_test_home" --present --timeout 5000 >/dev/null
 
         # ---------------------------------------------------------------
         # Scenario 2: lazy list — scroll to item by key (index 50)
         # ---------------------------------------------------------------
         echo "==> [scroll-to] lazy list — navigate to lazy list screen"
         {{.FDB}} tap --key "go_to_lazy_list" >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "lazy_item_0" --present --timeout 5000 >/dev/null
 
         echo "==> [scroll-to] lazy list — scroll to lazy_item_50 by key"
         OUTPUT=$({{.FDB}} scroll-to --key "lazy_item_50" 2>&1)
@@ -1690,8 +1689,6 @@ tasks:
           echo "FAIL: fdb scroll-to (lazy list by key) - SCROLLED_TO= not found in output" >&2
           exit 1
         fi
-
-        sleep 1
 
         # ---------------------------------------------------------------
         # Scenario 3: lazy list — scroll to item by text (index 99)
@@ -1713,14 +1710,14 @@ tasks:
 
         echo "==> Navigating back from lazy list"
         {{.FDB}} back >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "go_to_horizontal" --present --timeout 5000 >/dev/null
 
         # ---------------------------------------------------------------
         # Scenario 4: horizontal list — scroll to item by key (index 30)
         # ---------------------------------------------------------------
         echo "==> [scroll-to] horizontal list — navigate to horizontal screen"
         {{.FDB}} tap --key "go_to_horizontal" >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "h_item_0" --present --timeout 5000 >/dev/null
 
         echo "==> [scroll-to] horizontal list — scroll to h_item_30 by key"
         OUTPUT=$({{.FDB}} scroll-to --key "h_item_30" 2>&1)
@@ -1739,14 +1736,14 @@ tasks:
 
         echo "==> Navigating back from horizontal list"
         {{.FDB}} back >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "go_to_reversed" --present --timeout 5000 >/dev/null
 
         # ---------------------------------------------------------------
         # Scenario 5: reversed list — scroll to item by key (rev_item_5)
         # ---------------------------------------------------------------
         echo "==> [scroll-to] reversed list — navigate to reversed screen"
         {{.FDB}} tap --key "go_to_reversed" >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "rev_item_0" --present --timeout 5000 >/dev/null
 
         echo "==> [scroll-to] reversed list — scroll to rev_item_5 by key"
         OUTPUT=$({{.FDB}} scroll-to --key "rev_item_5" 2>&1)
@@ -1765,14 +1762,14 @@ tasks:
 
         echo "==> Navigating back from reversed list"
         {{.FDB}} back >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "go_to_already_visible" --present --timeout 5000 >/dev/null
 
         # ---------------------------------------------------------------
         # Scenario 6: already-visible list — target already on screen
         # ---------------------------------------------------------------
         echo "==> [scroll-to] already-visible list — navigate to already-visible screen"
         {{.FDB}} tap --key "go_to_already_visible" >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "visible_item_2" --present --timeout 5000 >/dev/null
 
         echo "==> [scroll-to] already-visible list — scroll to visible_item_2 by key"
         OUTPUT=$({{.FDB}} scroll-to --key "visible_item_2" 2>&1)
@@ -1791,14 +1788,14 @@ tasks:
 
         echo "==> Navigating back from already-visible list"
         {{.FDB}} back >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "scroll_to_test_home" --present --timeout 5000 >/dev/null
 
         # ---------------------------------------------------------------
         # Navigate back to home
         # ---------------------------------------------------------------
         echo "==> Navigating back to home from scroll-to test menu"
         {{.FDB}} back >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "go_to_scroll_to_test" --present --timeout 5000 >/dev/null
 
   test:wait:
     desc: Wait until widgets and routes change state
@@ -1908,7 +1905,7 @@ tasks:
 
         echo "==> Verifying swipe inside PageView page with scale recognizer"
         {{.FDB}} restart >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "go_to_scale_page_view_test" --present --timeout 10000 >/dev/null
         TAP_OUT=$({{.FDB}} tap --key go_to_scale_page_view_test 2>&1)
         echo "$TAP_OUT"
         {{.FDB}} wait --key scale_page_view --present --timeout 5000 >/dev/null
@@ -1942,11 +1939,11 @@ tasks:
       - |
         echo "==> Hot restarting to reset UI state"
         {{.FDB}} restart >/dev/null 2>&1
-        sleep 1
+        {{.FDB}} wait --key "go_to_details" --present --timeout 10000 >/dev/null
         echo "==> Navigating to details page first"
         TAP_OUT=$({{.FDB}} tap --key go_to_details 2>&1)
         echo "$TAP_OUT"
-        sleep 1
+        {{.FDB}} wait --text "Detail Page Content" --present --timeout 5000 >/dev/null
         echo "==> Navigating back"
         OUTPUT=$({{.FDB}} back 2>&1)
         EXIT_CODE=$?
@@ -2209,7 +2206,9 @@ tasks:
           # Use the increment FAB which has a counter that's logged in the heartbeat.
           # First reset state with a hot restart.
           {{.FDB}} restart >/dev/null 2>&1
-          sleep 6
+          # Wait for the home screen to be ready — no need to sleep an arbitrary
+          # duration; fdb wait polls describe until the FAB is visible.
+          {{.FDB}} wait --key "increment_button" --present --timeout 10000 >/dev/null
 
           # Get FAB position via --key (also gives us a baseline tap)
           POS=$({{.FDB}} tap --key increment_button 2>&1 | tail -1)
@@ -2226,16 +2225,22 @@ tasks:
           for i in 1 2 3 4 5; do
             {{.FDB}} tap --at "$X,$Y" >/dev/null 2>&1
           done
-          sleep 6
 
-          COUNTER=$({{.FDB}} logs --last 3 2>&1 | grep -oE "counter=[0-9]+" | tail -1 | cut -d= -f2)
-          echo "==> Counter after 1 --key + 5 --at taps: $COUNTER (expected 6)"
-          if [ "$COUNTER" = "6" ]; then
+          # The counter widget (key=counter_text) is in the live widget tree — no
+          # need to wait for a heartbeat log; fdb wait polls describe directly.
+          echo "==> Waiting for counter_text to show Counter: 6"
+          set +e
+          WAIT_OUT=$({{.FDB}} wait --text "Counter: 6" --present --timeout 5000 2>&1)
+          WAIT_EXIT=$?
+          set -e
+          echo "$WAIT_OUT"
+          if [ $WAIT_EXIT -eq 0 ]; then
             echo "PASS: fdb tap --at delivers real taps to Flutter widgets on macOS"
             exit 0
           fi
 
-          echo "FAIL: counter is $COUNTER, expected 6 — --at taps did not register" >&2
+          COUNTER=$({{.FDB}} describe 2>&1 | grep -oE "Counter: [0-9]+" | head -1)
+          echo "FAIL: counter did not reach 6 — --at taps did not register (got: $COUNTER)" >&2
           exit 1
         fi
 
@@ -2245,12 +2250,15 @@ tasks:
           # Restart to get a clean foreground state (defends against any pending
           # SpringBoard dialogs from earlier tests like test:deeplink).
           {{.FDB}} restart >/dev/null 2>&1 || true
-          sleep 2
+          # Wait for home screen to be ready — avoids tapping into an incomplete UI.
+          {{.FDB}} wait --key "show_native_alert" --present --timeout 10000 >/dev/null || true
 
           # Show alert
           {{.FDB}} scroll-to --key "show_native_alert" >/dev/null 2>&1 || true
           ALERT_TAP=$({{.FDB}} tap --key "show_native_alert" 2>&1)
           echo "$ALERT_TAP"
+          # UIAlertController is a native overlay — fdb cannot observe it via the
+          # widget tree, so a short sleep is the only option here.
           sleep 1
 
           # The alert is centered; Confirm is right half. Use coordinates measured
@@ -3149,9 +3157,16 @@ tasks:
         echo "==> [native-tap] --at with valid coordinates"
         PLATFORM=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $1}' || echo "")
 
-        # Determine a safe coordinate that is always on screen (center-ish)
-        X=200
-        Y=400
+        # Resolve coordinates from increment_button — always on screen, avoids
+        # hardcoded values that break on tablets or non-standard resolutions.
+        COORD_OUT=$({{.FDB}} tap --key "increment_button" 2>&1)
+        echo "$COORD_OUT"
+        X=$(echo "$COORD_OUT" | sed -n 's/.* X=\([^ ]*\).*/\1/p' | head -1 | sed 's/\..*//')
+        Y=$(echo "$COORD_OUT" | sed -n 's/.* Y=\([^ ]*\).*/\1/p' | head -1 | sed 's/\..*//')
+        if [ -z "$X" ] || [ -z "$Y" ]; then
+          echo "FAIL: could not resolve tap coordinates from increment_button" >&2
+          exit 1
+        fi
 
         set +e
         OUTPUT=$({{.FDB}} native-tap --at "$X,$Y" 2>&1)
@@ -3331,7 +3346,16 @@ tasks:
           fi
         fi
 
-        sleep 2
+        # Poll until the VM service is unreachable (up to 10s), then proceed.
+        # A fixed sleep is both wasteful when the process dies quickly and
+        # insufficient when the OS kill is deferred (e.g. Android OOM killer).
+        echo "==> [app-died] Waiting for VM service to become unreachable (up to 10s)"
+        for i in $(seq 1 20); do
+          if ! {{.FDB}} --session-dir "$(pwd)/.fdb" tree --depth 1 >/dev/null 2>&1; then
+            break
+          fi
+          sleep 0.5
+        done
 
         echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
         # Pin the session dir explicitly. After the kill, this worktree's .fdb/fdb.pid
