@@ -1,3 +1,9 @@
+## 1.9.0
+
+### Improvements
+- `FdbBinding.ensureInitialized()` now calls `broadcastVmUri()` at startup, emitting a `[FDB_VM_URI]` log marker that `fdb attach` uses for reliable auto-discovery on Android and iOS without needing `--debug-url`.
+- `broadcastVmUri()` calls `Service.controlWebServer(enable: true)` when `getInfo()` returns null, enabling discovery in profile builds launched without Flutter tooling.
+
 ## 1.8.0
 
 ### Improvements

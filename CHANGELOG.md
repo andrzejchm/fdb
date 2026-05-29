@@ -1,3 +1,15 @@
+## 1.9.0
+
+### New commands
+- `fdb attach` now auto-discovers the VM service URI from device logs on Android and iOS — no `--debug-url` needed. Android uses `adb logcat`; iOS Simulator uses `xcrun simctl` log; physical iOS uses `idevicesyslog` archive lookback. Falls back to mDNS when discovery returns null.
+- Adding `fdb_helper` to the app enables the `[FDB_VM_URI]` log marker, which fdb prefers over Flutter's own output for more reliable auto-discovery.
+
+### Improvements
+- `fdb skill` now prints a compact core (~60 lines) instead of the full 800-line reference. Full docs are split into 6 topic sub-documents loaded on demand: `fdb skill launch`, `fdb skill interact`, `fdb skill data`, `fdb skill diagnostics`, `fdb skill memory`, `fdb skill simulator`. Each sub-doc includes a best-practices section.
+
+### Fixes
+- Smoke tests replaced timing-based sleeps with deterministic app-state checks to fix intermittent failures on Android.
+
 ## 1.8.0
 
 ### New commands
