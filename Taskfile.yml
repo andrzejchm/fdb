@@ -3346,16 +3346,7 @@ tasks:
           fi
         fi
 
-        # Poll until the VM service is unreachable (up to 10s), then proceed.
-        # A fixed sleep is both wasteful when the process dies quickly and
-        # insufficient when the OS kill is deferred (e.g. Android OOM killer).
-        echo "==> [app-died] Waiting for VM service to become unreachable (up to 10s)"
-        for i in $(seq 1 20); do
-          if ! {{.FDB}} --session-dir "$(pwd)/.fdb" tree --depth 1 >/dev/null 2>&1; then
-            break
-          fi
-          sleep 0.5
-        done
+        sleep 2
 
         echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
         # Pin the session dir explicitly. After the kill, this worktree's .fdb/fdb.pid
