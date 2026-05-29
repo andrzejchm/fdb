@@ -297,7 +297,7 @@ version changes.
 |---|---|---|
 | **Android** (physical + emulator) | `adb logcat -d -s flutter` | Also runs `adb forward` so the device port is accessible on the host |
 | **iOS Simulator** | `xcrun simctl spawn <udid> log show --last 5m` | Looks back up to 5 minutes; no permission prompts |
-| **Physical iOS** | `idevicesyslog` live stream | Catches the URI if `fdb attach` is called while the app is starting; requires `brew install libimobiledevice` |
+| **Physical iOS** | `idevicesyslog archive --age-limit 300` + `log show --archive` | Looks back up to 5 minutes; requires `brew install libimobiledevice` |
 | **macOS / Linux / Windows** | Not supported | Pass `--debug-url` from Xcode console, `flutter logs`, or `fdb status` |
 
 If auto-discovery fails or the platform is unsupported, copy the Dart VM service URL
@@ -331,7 +331,7 @@ normal shell.
 
 ### Widget Interaction (tap, input, scroll)
 
-Requires `fdb_helper` in your app:
+Requires `fdb_helper` in your app. Adding it also enables automatic VM service URI discovery for `fdb attach` on Android and iOS (no manual `--debug-url` needed):
 
 ```yaml
 # pubspec.yaml

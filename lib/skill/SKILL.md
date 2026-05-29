@@ -23,7 +23,7 @@ Verify: `fdb status`
 
 ## fdb_helper setup (required for in-app UI/data commands)
 
-The `describe`, `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, `wait`, `swipe`, `back`, `clean`, and `shared-prefs` commands require `fdb_helper` to be added to the Flutter app under test. Some platform screenshot fallbacks also use `fdb_helper`.
+The `describe`, `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, `wait`, `swipe`, `back`, `clean`, and `shared-prefs` commands require `fdb_helper`. Some platform screenshot fallbacks also use it. Adding `fdb_helper` also enables automatic VM service URI discovery for `fdb attach` on Android and iOS — no manual `--debug-url` needed.
 
 **`pubspec.yaml`:**
 ```yaml
@@ -128,7 +128,7 @@ the VM service URI automatically:
 |---|---|
 | **Android** (physical + emulator) | `adb logcat` + automatic `adb forward` for the VM port |
 | **iOS Simulator** | `xcrun simctl spawn <udid> log show --last 5m` |
-| **Physical iOS** | `idevicesyslog` live stream (`brew install libimobiledevice` required) |
+| **Physical iOS** | `idevicesyslog archive --age-limit 300` + `log show --archive` — looks back up to 5 minutes (`brew install libimobiledevice` required) |
 | **macOS / Linux / Windows** | Not supported — pass `--debug-url` manually |
 
 For more reliable discovery, add `fdb_helper` to the app — it emits a stable

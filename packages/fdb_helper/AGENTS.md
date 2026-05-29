@@ -9,6 +9,7 @@ lib/
   fdb_helper.dart              # Public export — re-exports FdbBinding only
   src/
     fdb_binding.dart           # THIN: singleton binding, extension registration only
+    vm_uri_broadcaster.dart    # broadcastVmUri() — emits [FDB_VM_URI] to device log at startup
     handlers/
       handler_utils.dart       # Shared: errorResponse()
       back_handler.dart        # ext.fdb.back
@@ -34,8 +35,10 @@ lib/
 
 `fdb_binding.dart` must contain **only**:
 - The `FdbBinding` class and its singleton setup
-- `initServiceExtensions` — registers extensions by name, delegates to handler functions
+- `initServiceExtensions` — calls `unawaited(broadcastVmUri())`, registers extensions by name, delegates to handler functions
 - `_registerExtension` — the hot-reload-safe wrapper around `developer.registerExtension`
+
+`broadcastVmUri()` lives in `vm_uri_broadcaster.dart` (not in the binding). It calls `dart:developer` `Service.getInfo()` / `Service.controlWebServer(enable: true)` to obtain the VM service URI and emits it to the platform log via `debugPrint('[FDB_VM_URI] $uri')` so `fdb attach` can auto-discover it.
 
 **No handler logic, no helper functions, no imports of `dart:io`, `dart:ui`, `path_provider`, or `shared_preferences` belong in `fdb_binding.dart`.** If you find yourself adding logic there, you are in the wrong file.
 
