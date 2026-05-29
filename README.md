@@ -288,7 +288,19 @@ fdb attach --device <ios_device_or_simulator_id> \
   --app-id <bundle_id>
 ```
 
-If iOS or macOS VM service discovery is unreliable, copy the Dart VM service URL
+**Auto-discovery** — when `--debug-url` is omitted, fdb scans the device logs
+for the Dart VM service URI automatically. Add `fdb_helper` to your app to emit
+a stable `[FDB_VM_URI]` marker that makes discovery more reliable across Flutter
+version changes.
+
+| Platform | Discovery method | Notes |
+|---|---|---|
+| **Android** (physical + emulator) | `adb logcat -d -s flutter` | Also runs `adb forward` so the device port is accessible on the host |
+| **iOS Simulator** | `xcrun simctl spawn <udid> log show --last 5m` | Looks back up to 5 minutes; no permission prompts |
+| **Physical iOS** | `idevicesyslog` live stream | Catches the URI if `fdb attach` is called while the app is starting; requires `brew install libimobiledevice` |
+| **macOS / Linux / Windows** | Not supported | Pass `--debug-url` from Xcode console, `flutter logs`, or `fdb status` |
+
+If auto-discovery fails or the platform is unsupported, copy the Dart VM service URL
 from Xcode, app logs, or `fdb status` and pass it directly. Both `http://.../`
 and `ws://.../ws` forms are accepted:
 

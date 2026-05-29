@@ -1,6 +1,6 @@
 ---
 name: using-fdb
-description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, taps/inputs/scrolls/swipes/navigates, forces garbage collection (`fdb gc`), and grants/revokes/resets runtime permissions (`fdb grant-permission`). Use when launching a Flutter app on device, hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, interacting with widgets via fdb, forcing a GC to disambiguate live-retained vs unreachable-but-uncollected memory, or pre-granting runtime permissions before automated tests.
+description: Uses fdb (Flutter Debug Bridge) CLI to interact with running Flutter apps on devices and simulators. Launches or attaches to apps, hot reloads, screenshots, reads app logs (`fdb logs`) and native system logs (`fdb syslog` — Android logcat, iOS syslog, macOS log), fetches OS-level crash records (`fdb crash-report` — jetsam, LMK, native .ips), inspects widget trees, describes screens including off-screen GridView/ListView children, taps/inputs/scrolls/swipes/navigates, forces garbage collection (`fdb gc`), and grants/revokes/resets runtime permissions (`fdb grant-permission`). Use when launching or attaching to a Flutter app on device (including apps started outside fdb via Xcode/simctl/adb), hot reloading, taking screenshots, reading app or native system logs, diagnosing native crashes (jetsam, LMK), fetching post-mortem crash reports, inspecting or describing the UI, interacting with widgets via fdb, forcing a GC to disambiguate live-retained vs unreachable-but-uncollected memory, or pre-granting runtime permissions before automated tests.
 license: MIT
 compatibility: opencode
 ---
@@ -121,7 +121,21 @@ Use `attach` when the app must be started by native tooling first, such as Xcode
 Android Studio, `simctl`, or `adb`. The target app must be a debug/profile Flutter
 app exposing the Dart VM service.
 
-For iOS Firebase Analytics DebugView / GA4:
+**Auto-discovery** — when `--debug-url` is omitted fdb scans device logs to find
+the VM service URI automatically:
+
+| Platform | Discovery method |
+|---|---|
+| **Android** (physical + emulator) | `adb logcat` + automatic `adb forward` for the VM port |
+| **iOS Simulator** | `xcrun simctl spawn <udid> log show --last 5m` |
+| **Physical iOS** | `idevicesyslog` live stream (`brew install libimobiledevice` required) |
+| **macOS / Linux / Windows** | Not supported — pass `--debug-url` manually |
+
+For more reliable discovery, add `fdb_helper` to the app — it emits a stable
+`[FDB_VM_URI]` log marker at startup that fdb prefers over Flutter's own output
+(whose format has changed several times across versions).
+
+**Firebase Analytics DebugView / GA4 workflow:**
 
 ```text
 Xcode -> Product -> Scheme -> Edit Scheme -> Run -> Arguments
@@ -135,8 +149,11 @@ Launch from Xcode, then run:
 fdb attach --device <ios_device_or_simulator_id> --project <path> --app-id <bundle_id>
 ```
 
-If iOS/macOS discovery fails, copy the Dart VM service URL from Xcode, logs, or
-`fdb status`. Both `http://.../` and `ws://.../ws` forms are accepted:
+fdb will auto-discover the VM service URI from the simulator/device log.
+
+If auto-discovery fails or the platform is unsupported, copy the Dart VM service
+URL from Xcode, `flutter logs`, or `fdb status`. Both `http://.../` and
+`ws://.../ws` forms are accepted:
 
 ```bash
 fdb attach --device <device_id> --project <path> --debug-url <vm_service_url>

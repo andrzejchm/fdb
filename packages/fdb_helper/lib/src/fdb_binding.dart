@@ -1,10 +1,12 @@
 // fdb_binding.dart — thin binding: registration only, zero logic
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'handlers/back_handler.dart';
+import 'vm_uri_broadcaster.dart';
 import 'handlers/clean_handler.dart';
 import 'handlers/describe_handler.dart';
 import 'handlers/double_tap_handler.dart';
@@ -42,6 +44,10 @@ import 'handlers/wait_handler.dart';
 /// - `ext.fdb.clean` — delete app storage directories
 /// - `ext.fdb.sharedPrefs` — read/write shared preferences
 /// - `ext.fdb.screenshot` — capture the Flutter rendering surface as base64 PNG
+///
+/// On initialisation (debug/profile only) this binding also emits the Dart VM
+/// service URI to the platform log via [broadcastVmUri], enabling
+/// `fdb attach` to discover the URI automatically on Android and iOS.
 class FdbBinding extends WidgetsFlutterBinding {
   FdbBinding._();
 
@@ -65,6 +71,7 @@ class FdbBinding extends WidgetsFlutterBinding {
   void initServiceExtensions() {
     super.initServiceExtensions();
     if (kReleaseMode) return;
+    unawaited(broadcastVmUri());
     _registerExtension('ext.fdb.elements', handleElements);
     _registerExtension('ext.fdb.describe', handleDescribe);
     _registerExtension('ext.fdb.tap', handleTap);
