@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 // ---------------------------------------------------------------------------
@@ -125,40 +124,64 @@ Future<String?> _discoverIosSimulator({
   }
 }
 
+/// Discovers the VM service URI from a physical iOS device by requesting a
+/// short log archive from the device and scanning it — mirroring the
+/// [_discoverIosSimulator] "look-back" approach used on iOS simulators.
+///
+/// `idevicesyslog archive PATH --age-limit <seconds>` collects recent device
+/// logs into a tar archive. After extraction and renaming to `.logarchive`,
+/// the standard `log show --archive` command searches the contents.
+///
+/// This works for apps launched via Xcode or another tooling that properly
+/// handles the iOS ptrace requirement and enables the Dart VM service.
 Future<String?> _discoverIosPhysical({
   required Duration timeout,
   required void Function(String) onProgress,
 }) async {
   if (!_isToolOnPath('idevicesyslog')) return null;
-  onProgress('attach: streaming idevicesyslog for VM service URI (${timeout.inSeconds}s)');
+  onProgress('attach: scanning physical iOS device log for VM service URI');
 
-  // idevicesyslog only streams new messages; we rely on the app having been
-  // launched very recently (within the timeout window) so the URI line is
-  // still being emitted or is in the short ring-buffer flush at startup.
-  final completer = Completer<String?>();
-  Process? process;
+  final tmpDir = Directory.systemTemp.createTempSync('fdb_ios_log_');
+  final tarPath = '${tmpDir.path}/device.tar';
+  // Extract into a dedicated subdirectory so the flat tar contents form a
+  // complete logarchive directory that `log show --archive` can accept.
+  final extractDir = Directory('${tmpDir.path}/extracted')..createSync();
+  final archivePath = '${tmpDir.path}/device.logarchive';
 
   try {
-    process = await Process.start('idevicesyslog', const []);
+    // Collect the last 5 minutes of device logs into a tar archive.
+    final collectResult = await Process.run(
+      'idevicesyslog',
+      ['archive', tarPath, '--age-limit', '300'],
+    ).timeout(timeout, onTimeout: () => ProcessResult(0, 1, '', ''));
 
-    final sub = process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
-      if (completer.isCompleted) return;
-      final uri = _extractVmUri(line);
-      if (uri != null) completer.complete(_normalizeUri(uri));
-    });
+    if (collectResult.exitCode != 0 || !File(tarPath).existsSync()) return null;
 
-    // Resolve with null when the timeout expires.
-    final result = await completer.future.timeout(
-      timeout,
-      onTimeout: () => null,
-    );
+    // Extract the tar into extractDir, then rename it to .logarchive.
+    await Process.run('tar', ['xf', tarPath, '-C', extractDir.path])
+        .timeout(const Duration(seconds: 30), onTimeout: () => ProcessResult(0, 1, '', ''));
 
-    await sub.cancel();
-    process.kill();
-    return result;
-  } catch (_) {
-    process?.kill();
+    extractDir.renameSync(archivePath);
+
+    // Query the archive for VM URI patterns.
+    final predicate = 'eventMessage CONTAINS "[FDB_VM_URI]"'
+        ' OR eventMessage CONTAINS "VM Service"'
+        ' OR eventMessage CONTAINS "Observatory"';
+    final showResult = await Process.run(
+      '/usr/bin/log',
+      ['show', '--archive', archivePath, '--predicate', predicate],
+    ).timeout(const Duration(seconds: 30), onTimeout: () => ProcessResult(0, 1, '', ''));
+
+    final uri = _extractVmUri(showResult.stdout as String);
+    return uri != null ? _normalizeUri(uri) : null;
+  } on TimeoutException {
     return null;
+  } catch (_) {
+    return null;
+  } finally {
+    try {
+      tmpDir.deleteSync(recursive: true);
+    } catch (_) {}
   }
 }
 

@@ -60,9 +60,17 @@ Future<AttachResult> attachApp(
       final platformInfo = readPlatformInfo();
       if (platformInfo != null) {
         onProgress('attach: attempting VM service URI auto-discovery');
+
+        // Physical iOS log collection (idevicesyslog archive) typically takes
+        // 10–15 s; use a 30 s timeout so the archive has time to complete.
+        final isPhysicalIos =
+            (platformInfo.platform == 'ios' || platformInfo.platform.startsWith('ios-')) && !platformInfo.emulator;
+        final discoveryTimeout = isPhysicalIos ? const Duration(seconds: 30) : const Duration(seconds: 5);
+
         debugUrl = await discoverVmServiceUrl(
           device: device,
           platformInfo: platformInfo,
+          timeout: discoveryTimeout,
           onProgress: onProgress,
         );
         if (debugUrl != null) {

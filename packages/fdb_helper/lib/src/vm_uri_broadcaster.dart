@@ -20,8 +20,17 @@ import 'package:flutter/foundation.dart';
 Future<void> broadcastVmUri() async {
   if (kReleaseMode) return;
   try {
-    final info = await developer.Service.getInfo();
-    final uri = info.serverUri;
+    var info = await developer.Service.getInfo();
+    var uri = info.serverUri;
+
+    // In profile builds launched without Flutter tooling the VM service web
+    // server may not be started automatically. Enable it explicitly so the
+    // URI is available, matching the pattern from dart-lang/sdk#53262.
+    if (uri == null) {
+      info = await developer.Service.controlWebServer(enable: true);
+      uri = info.serverUri;
+    }
+
     if (uri == null) return;
     // Use debugPrint so it goes through the platform log on iOS/Android.
     debugPrint('[FDB_VM_URI] $uri');
