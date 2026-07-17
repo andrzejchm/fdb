@@ -1,3 +1,11 @@
+## 1.10.0
+
+### New commands
+- `fdb swipe-path --points "x1,y1;x2,y2;..."` dispatches an arbitrary multi-point path as a single continuous pointer stroke, for drawing canvases, signature pads, and handwriting/gesture recognizers that `swipe`'s straight-line model can't express.
+
+### Improvements
+- `fdb swipe` and `fdb swipe-path` now accept `--precision` to control the max pixel gap between synthesized move events (default `8.0`, matching prior `swipe` behavior).
+
 ## 1.9.0
 
 ### New commands

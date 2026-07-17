@@ -1,3 +1,11 @@
+## 1.10.0
+
+### New extensions
+- `ext.fdb.swipePath` dispatches an arbitrary multi-point path as a single continuous pointer stroke via the new `dispatchPath` gesture helper in `gesture_dispatcher.dart`.
+
+### Improvements
+- `ext.fdb.swipe` now accepts an optional `precision` param controlling `dispatchScroll`'s max move-event step size (default `8.0`, unchanged from before).
+
 ## 1.9.0
 
 ### Improvements
