@@ -55,6 +55,7 @@ task test:scroll
 task test:scroll-to
 task test:wait
 task test:swipe
+task test:swipe-path
 task test:back
 task test:clean
 task test:ext

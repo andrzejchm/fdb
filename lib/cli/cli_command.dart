@@ -25,6 +25,7 @@ enum CliCommand {
   scrollTo('scroll-to', runScrollToCli),
   wait('wait', runWaitCli),
   swipe('swipe', runSwipeCli),
+  swipePath('swipe-path', runSwipePathCli),
   back('back', runBackCli),
   clean('clean', runCleanCli),
   sharedPrefs('shared-prefs', runSharedPrefsCli),

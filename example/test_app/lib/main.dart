@@ -47,12 +47,15 @@ class FdbTestApp extends StatelessWidget {
         scrollToTestLazyRoute: (_) => const LazyListScrollToPage(),
         scrollToTestHorizontalRoute: (_) => const HorizontalListScrollToPage(),
         scrollToTestReversedRoute: (_) => const ReversedListScrollToPage(),
-        scrollToTestAlreadyVisibleRoute: (_) => const AlreadyVisibleScrollToPage(),
-        '/nested-gesture-describe-test': (_) => const NestedGestureDescribeScreen(),
+        scrollToTestAlreadyVisibleRoute: (_) =>
+            const AlreadyVisibleScrollToPage(),
+        '/nested-gesture-describe-test': (_) =>
+            const NestedGestureDescribeScreen(),
         '/listtile-describe-test': (_) => const ListTileDescribeScreen(),
         '/notification-test': (_) => NotificationTestScreen(),
         '/permission-test': (_) => const PermissionTestScreen(),
         '/scale-page-view-test': (_) => const ScalePageViewTestScreen(),
+        '/drawing-path-test': (_) => const DrawingPathTestScreen(),
       },
     );
   }
@@ -146,14 +149,23 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 16),
               ElevatedButton(
                 key: const Key('go_to_notification_test_top'),
-                onPressed: () => Navigator.pushNamed(context, '/notification-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/notification-test'),
                 child: const Text('Notification Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_scale_page_view_test'),
-                onPressed: () => Navigator.pushNamed(context, '/scale-page-view-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/scale-page-view-test'),
                 child: const Text('Scale PageView Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('go_to_drawing_path_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/drawing-path-test'),
+                child: const Text('Drawing Path Test'),
               ),
               const SizedBox(height: 8),
               // Navigation buttons
@@ -212,20 +224,23 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_scroll_to_test'),
-                onPressed: () => Navigator.pushNamed(context, scrollToTestRoute),
+                onPressed: () =>
+                    Navigator.pushNamed(context, scrollToTestRoute),
                 child: const Text('Scroll-To Tests'),
               ),
               const SizedBox(height: 8),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_native_view_test'),
-                onPressed: () => Navigator.pushNamed(context, '/native-view-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/native-view-test'),
                 child: const Text('Native View Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_grid_describe_test'),
-                onPressed: () => Navigator.pushNamed(context, '/grid-describe-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/grid-describe-test'),
                 child: const Text('Grid Describe Test'),
               ),
               const SizedBox(height: 8),
@@ -240,19 +255,22 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_listtile_describe_test'),
-                onPressed: () => Navigator.pushNamed(context, '/listtile-describe-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/listtile-describe-test'),
                 child: const Text('ListTile Describe Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_notification_test'),
-                onPressed: () => Navigator.pushNamed(context, '/notification-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/notification-test'),
                 child: const Text('Notification Test'),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 key: const Key('go_to_permission_test'),
-                onPressed: () => Navigator.pushNamed(context, '/permission-test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/permission-test'),
                 child: const Text('Permission Test'),
               ),
               const SizedBox(height: 8),
@@ -260,7 +278,8 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 key: const Key('show_native_alert'),
                 onPressed: () async {
                   try {
-                    final result = await _nativeDialogChannel.invokeMethod<String>('showNativeAlert');
+                    final result = await _nativeDialogChannel
+                        .invokeMethod<String>('showNativeAlert');
                     if (mounted) {
                       setState(() => _nativeAlertResult = result ?? 'null');
                     }
@@ -337,7 +356,10 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
               CupertinoButton(
                 key: const Key('cupertino_button_test'),
                 onPressed: () {
-                  developer.log('cupertino_button_test pressed', name: 'fdb_test');
+                  developer.log(
+                    'cupertino_button_test pressed',
+                    name: 'fdb_test',
+                  );
                 },
                 child: const Text('Cupertino Button'),
               ),
@@ -507,7 +529,8 @@ class ScalePageViewTestScreen extends StatefulWidget {
   const ScalePageViewTestScreen({super.key});
 
   @override
-  State<ScalePageViewTestScreen> createState() => _ScalePageViewTestScreenState();
+  State<ScalePageViewTestScreen> createState() =>
+      _ScalePageViewTestScreenState();
 }
 
 class _ScalePageViewTestScreenState extends State<ScalePageViewTestScreen> {
@@ -563,4 +586,117 @@ class _ScalePageViewTestScreenState extends State<ScalePageViewTestScreen> {
       ),
     );
   }
+}
+
+/// A minimal freeform drawing canvas used to verify that `fdb swipe-path`
+/// dispatches a single continuous stroke (one pan gesture, many move
+/// updates) rather than several disjoint drags. The received points are
+/// painted as a visible polyline so the stroke can be confirmed with a
+/// screenshot, not just inferred from callback counts.
+class DrawingPathTestScreen extends StatefulWidget {
+  const DrawingPathTestScreen({super.key});
+
+  @override
+  State<DrawingPathTestScreen> createState() => _DrawingPathTestScreenState();
+}
+
+class _DrawingPathTestScreenState extends State<DrawingPathTestScreen> {
+  int _strokeCount = 0;
+  int _moveCount = 0;
+  bool _isDrawing = false;
+  Offset? _lastPosition;
+  final List<Offset> _strokePoints = <Offset>[];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Drawing Path Test')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'drawing=$_isDrawing strokes=$_strokeCount moves=$_moveCount '
+              'last=${_lastPosition?.dx.toStringAsFixed(0)},${_lastPosition?.dy.toStringAsFixed(0)}',
+              key: const Key('drawing_path_status_text'),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              key: const Key('drawing_path_canvas'),
+              onPanStart: (details) {
+                setState(() {
+                  _isDrawing = true;
+                  _moveCount = 0;
+                  _lastPosition = details.globalPosition;
+                  _strokePoints
+                    ..clear()
+                    ..add(details.localPosition);
+                });
+                developer.log('drawing_path_canvas start', name: 'fdb_test');
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  _moveCount++;
+                  _lastPosition = details.globalPosition;
+                  _strokePoints.add(details.localPosition);
+                });
+              },
+              onPanEnd: (details) {
+                setState(() {
+                  _isDrawing = false;
+                  _strokeCount++;
+                });
+                developer.log(
+                  'drawing_path_canvas end strokes=$_strokeCount moves=$_moveCount',
+                  name: 'fdb_test',
+                );
+              },
+              child: ColoredBox(
+                color: Colors.grey.shade200,
+                child: Stack(
+                  children: [
+                    const Center(child: Text('Draw here')),
+                    CustomPaint(
+                      key: const Key('drawing_path_painted_stroke'),
+                      painter: _StrokePainter(points: _strokePoints),
+                      size: Size.infinite,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Paints [points] as a connected polyline, visualizing the stroke received
+/// from `fdb swipe-path` (or a manual finger/mouse drag) on the drawing
+/// canvas.
+class _StrokePainter extends CustomPainter {
+  const _StrokePainter({required this.points});
+
+  final List<Offset> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final paint = Paint()
+      ..color = Colors.deepPurple
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _StrokePainter oldDelegate) =>
+      oldDelegate.points != points;
 }

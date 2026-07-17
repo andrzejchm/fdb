@@ -150,7 +150,8 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
 | `fdb scroll-to --text/--key/--type <selector> [--index N]` | Scroll until widget is visible |
 | `fdb wait --key/--text/--type/--route <selector> --present\|--absent [--timeout <ms>]` | Wait for a widget or route condition without shell polling |
-| `fdb swipe <direction> [--key/--text/--type <selector>]` | Swipe widget (PageView, Dismissible) |
+| `fdb swipe <direction> [--key/--text/--type <selector>] [--precision px]` | Swipe widget (PageView, Dismissible) |
+| `fdb swipe-path --points "x1,y1;x2,y2;..." [--precision px]` | Dispatch a freeform multi-point gesture as a single continuous stroke (drawing/handwriting/signature) |
 | `fdb back` | Navigate back (Navigator.maybePop) |
 | `fdb deeplink <url>` | Open a deep link |
 

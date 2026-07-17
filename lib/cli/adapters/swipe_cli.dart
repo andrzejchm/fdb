@@ -8,7 +8,8 @@ import 'package:fdb/core/commands/swipe/swipe.dart';
 const _directions = ['up', 'down', 'left', 'right'];
 
 const _usageMessage = 'ERROR: Usage: fdb swipe <left|right|up|down> '
-    '[--key KEY] [--text TEXT] [--type TYPE] [--at x,y] [--distance PIXELS]';
+    '[--key KEY] [--text TEXT] [--type TYPE] [--at x,y] [--distance PIXELS] '
+    '[--precision PIXELS]';
 
 /// CLI adapter for `fdb swipe`.
 Future<int> runSwipeCli(List<String> args) {
@@ -22,7 +23,8 @@ Future<int> runSwipeCli(List<String> args) {
     ..addOption('text')
     ..addOption('type')
     ..addOption('at')
-    ..addOption('distance');
+    ..addOption('distance')
+    ..addOption('precision');
 
   return runCliAdapter(parser, args, _execute);
 }
@@ -49,6 +51,16 @@ Future<int> _execute(ArgResults results) async {
     }
   }
 
+  final precisionRaw = results['precision'] as String?;
+  double? precision;
+  if (precisionRaw != null) {
+    precision = double.tryParse(precisionRaw);
+    if (precision == null) {
+      stderr.writeln('ERROR: Invalid --precision value: "$precisionRaw". Expected a number.');
+      return 1;
+    }
+  }
+
   final input = (
     direction: direction,
     key: results['key'] as String?,
@@ -56,6 +68,7 @@ Future<int> _execute(ArgResults results) async {
     type: results['type'] as String?,
     at: results['at'] as String?,
     distance: distance,
+    precision: precision,
   );
 
   final result = await runSwipe(input);

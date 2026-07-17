@@ -32,6 +32,7 @@ void main() {
       'scroll-to',
       'wait',
       'swipe',
+      'swipe-path',
       'back',
       'clean',
       'shared-prefs',

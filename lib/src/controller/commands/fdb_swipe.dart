@@ -19,6 +19,7 @@ class FdbSwipeCommandRequest extends IsolateIdCommandRequest {
     this.type,
     this.at,
     this.distance,
+    this.precision,
   });
   factory FdbSwipeCommandRequest.fromJson(Map<String, Object?> json) => FdbSwipeCommandRequest(
         token: ControllerJson.token(json),
@@ -29,6 +30,7 @@ class FdbSwipeCommandRequest extends IsolateIdCommandRequest {
         type: ControllerJson.optionalString(json, 'type'),
         at: ControllerJson.optionalString(json, 'at'),
         distance: ControllerJson.optionalString(json, 'distance'),
+        precision: double.tryParse(ControllerJson.optionalString(json, 'precision') ?? ''),
       );
 
   final String direction;
@@ -37,6 +39,7 @@ class FdbSwipeCommandRequest extends IsolateIdCommandRequest {
   final String? type;
   final String? at;
   final String? distance;
+  final double? precision;
 
   @override
   ControllerCommand get command => ControllerCommand.fdbSwipe;
@@ -49,6 +52,7 @@ class FdbSwipeCommandRequest extends IsolateIdCommandRequest {
         if (type != null) 'type': type,
         if (at != null) 'at': at,
         if (distance != null) 'distance': distance,
+        if (precision != null) 'precision': '$precision',
       };
 
   @override
@@ -60,6 +64,7 @@ class FdbSwipeCommandRequest extends IsolateIdCommandRequest {
         if (type != null) 'type': type,
         if (at != null) 'at': at,
         if (distance != null) 'distance': distance,
+        if (precision != null) 'precision': '$precision',
       };
 
   @override

@@ -20,6 +20,7 @@ enum ControllerCommand {
   fdbScroll('fdbScroll', FdbScrollCommandRequest.fromJson),
   fdbScrollTo('fdbScrollTo', FdbScrollToCommandRequest.fromJson),
   fdbSwipe('fdbSwipe', FdbSwipeCommandRequest.fromJson),
+  fdbSwipePath('fdbSwipePath', FdbSwipePathCommandRequest.fromJson),
   fdbTap('fdbTap', FdbTapCommandRequest.fromJson),
   fdbWaitFor('fdbWaitFor', FdbWaitForCommandRequest.fromJson),
   fdbElements('fdbElements', FdbElementsCommandRequest.fromJson),

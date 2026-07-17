@@ -347,3 +347,75 @@ Future<void> dispatchScroll({
   WidgetsBinding.instance.scheduleFrame();
   await Future<void>.delayed(_kDelay);
 }
+
+/// Dispatches a synthetic multi-point swipe gesture following [points] as a
+/// single continuous pointer path.
+///
+/// Unlike [dispatchScroll], which drags between exactly two points, this
+/// interpolates PointerMoveEvents across every consecutive pair in [points]
+/// under one continuous pointer id and timestamp stream — producing a single
+/// unbroken gesture (e.g. an L-shape or a curve approximated by a polyline)
+/// instead of several disjoint drags.
+///
+/// Each segment is split into steps of at most [maxStepSize] pixels, using
+/// the same step-count math as [dispatchScroll], so gesture recognizers see
+/// a smooth path they can respond to.
+Future<void> dispatchPath({
+  required List<Offset> points,
+  double maxStepSize = 40.0,
+}) async {
+  assert(points.length >= 2, 'dispatchPath requires at least 2 points');
+
+  final pointerId = _nextPointerId++;
+  var timeStamp = _clock.elapsed;
+  final start = points.first;
+  final end = points.last;
+
+  // Add + Down
+  GestureBinding.instance.handlePointerEvent(
+    PointerAddedEvent(timeStamp: timeStamp, position: start, device: _kDeviceId),
+  );
+  timeStamp += _kDelay;
+  GestureBinding.instance.handlePointerEvent(
+    PointerDownEvent(timeStamp: timeStamp, pointer: pointerId, position: start, device: _kDeviceId),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDelay);
+
+  // Move steps, per segment, continuing the same pointer id and clock.
+  for (var segment = 0; segment < points.length - 1; segment++) {
+    final segmentStart = points[segment];
+    final segmentEnd = points[segment + 1];
+    final delta = segmentEnd - segmentStart;
+    final distance = delta.distance;
+    final stepCount = (distance / maxStepSize).ceil().clamp(1, 1000);
+    final stepDelta = delta / stepCount.toDouble();
+
+    for (var i = 1; i <= stepCount; i++) {
+      timeStamp += _kDelay;
+      final position = segmentStart + stepDelta * i.toDouble();
+      GestureBinding.instance.handlePointerEvent(
+        PointerMoveEvent(
+          timeStamp: timeStamp,
+          pointer: pointerId,
+          position: position,
+          delta: stepDelta,
+          device: _kDeviceId,
+        ),
+      );
+      WidgetsBinding.instance.scheduleFrame();
+      await Future<void>.delayed(_kDelay);
+    }
+  }
+
+  // Up + Remove
+  timeStamp += _kDelay;
+  GestureBinding.instance.handlePointerEvent(
+    PointerUpEvent(timeStamp: timeStamp, pointer: pointerId, position: end, device: _kDeviceId),
+  );
+  GestureBinding.instance.handlePointerEvent(
+    PointerRemovedEvent(timeStamp: timeStamp, position: end, device: _kDeviceId),
+  );
+  WidgetsBinding.instance.scheduleFrame();
+  await Future<void>.delayed(_kDelay);
+}

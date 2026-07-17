@@ -60,6 +60,11 @@ Commands:
   scroll-to   Scroll until a widget is visible
   wait        Wait until a widget or route changes state
   swipe       Swipe a widget or screen (PageView, Dismissible)
+               --precision <n>     Max pixel gap between move events (default: 8.0)
+  swipe-path  Swipe along a multi-point path of screen coordinates
+               --points <list>     (required) semicolon-separated x,y pairs
+                                   (e.g. "10,10;15,40;40,55")
+               --precision <n>     Max pixel gap between move events (default: 8.0)
   back        Navigate back (Navigator.maybePop)
   clean       Clear app cache and data directories (requires fdb_helper)
   shared-prefs get|get-all|set|remove|clear SharedPreferences (requires fdb_helper)

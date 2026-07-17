@@ -16,6 +16,7 @@ import 'handlers/scroll_handler.dart';
 import 'handlers/scroll_to_handler.dart';
 import 'handlers/shared_prefs_handler.dart';
 import 'handlers/swipe_handler.dart';
+import 'handlers/swipe_path_handler.dart';
 import 'handlers/tap_handler.dart';
 import 'handlers/wait_handler.dart';
 
@@ -40,6 +41,7 @@ import 'handlers/wait_handler.dart';
 /// - `ext.fdb.scrollTo` — scroll until a target widget becomes visible
 /// - `ext.fdb.waitFor` — wait until a widget or route is present or absent
 /// - `ext.fdb.swipe` — swipe in a direction
+/// - `ext.fdb.swipePath` — swipe along a multi-point path of screen coordinates
 /// - `ext.fdb.back` — trigger Navigator.maybePop()
 /// - `ext.fdb.clean` — delete app storage directories
 /// - `ext.fdb.sharedPrefs` — read/write shared preferences
@@ -87,6 +89,7 @@ class FdbBinding extends WidgetsFlutterBinding {
     _registerExtension('ext.fdb.scrollTo', handleScrollTo);
     _registerExtension('ext.fdb.waitFor', handleWaitFor);
     _registerExtension('ext.fdb.swipe', handleSwipe);
+    _registerExtension('ext.fdb.swipePath', handleSwipePath);
     _registerExtension('ext.fdb.back', handleBack);
     _registerExtension('ext.fdb.clean', handleClean);
     _registerExtension('ext.fdb.sharedPrefs', handleSharedPrefs);

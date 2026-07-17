@@ -30,6 +30,7 @@ Future<SwipeResult> runSwipe(
     if (input.type != null) params['type'] = input.type;
     if (input.at != null) params['at'] = input.at;
     if (input.distance != null) params['distance'] = input.distance.toString();
+    if (input.precision != null) params['precision'] = '${input.precision}';
 
     final result = await swipeRunner(params);
 

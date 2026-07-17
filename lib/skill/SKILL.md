@@ -20,7 +20,7 @@ Verify: `fdb status`
 
 ## fdb_helper setup (required for in-app UI/data commands)
 
-The `describe`, `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, `wait`, `swipe`, `back`, `clean`, and `shared-prefs` commands require `fdb_helper` in the Flutter app under test. Some platform screenshot fallbacks also use it. Adding `fdb_helper` also enables automatic VM service URI discovery for `fdb attach` on Android and iOS — no manual `--debug-url` needed.
+The `describe`, `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`, `wait`, `swipe`, `swipe-path`, `back`, `clean`, and `shared-prefs` commands require `fdb_helper` in the Flutter app under test. Some platform screenshot fallbacks also use it. Adding `fdb_helper` also enables automatic VM service URI discovery for `fdb attach` on Android and iOS — no manual `--debug-url` needed.
 
 **`pubspec.yaml`:**
 ```yaml
@@ -50,7 +50,7 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 | Topic | Commands | Run |
 |-------|----------|-----|
 | **launch** | `devices`, `launch`, `attach`, `doctor`, `reload`, `restart`, `status`, `kill`, `deeplink` | `fdb skill launch` |
-| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap`, `tap`, `longpress`, `double-tap`, `input`, `scroll`, `scroll-to`, `swipe`, `back` | `fdb skill interact` |
+| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap`, `tap`, `longpress`, `double-tap`, `input`, `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
 | **data** | `shared-prefs`, `clean`, `ext`, `grant-permission` | `fdb skill data` |
 | **diagnostics** | `logs`, `syslog`, `crash-report` + websocat fallback | `fdb skill diagnostics` |
 | **memory** | `mem`, `gc`, `heap` | `fdb skill memory` |

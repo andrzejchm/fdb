@@ -36,6 +36,7 @@ export 'simulator_cli.dart';
 export 'skill_cli.dart';
 export 'status_cli.dart';
 export 'swipe_cli.dart';
+export 'swipe_path_cli.dart';
 export 'syslog_cli.dart';
 export 'tap_cli.dart';
 export 'tree_cli.dart';
