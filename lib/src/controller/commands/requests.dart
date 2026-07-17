@@ -13,6 +13,7 @@ export 'fdb_scroll.dart';
 export 'fdb_scroll_to.dart';
 export 'fdb_shared_prefs.dart';
 export 'fdb_swipe.dart';
+export 'fdb_swipe_path.dart';
 export 'fdb_tap.dart';
 export 'fdb_wait_for.dart';
 export 'find_all_isolate_ids.dart';

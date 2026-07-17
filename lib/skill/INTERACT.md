@@ -274,6 +274,19 @@ fdb swipe left --distance 400       # custom pixel distance
 
 Output: `SWIPED=<DIR> DISTANCE=<n>`
 
+## Swipe path (freeform drawing, handwriting, signatures)
+
+Requires `fdb_helper` in the app.
+
+Use `swipe-path` when a gesture needs to follow a shape `swipe` can't express — a curve, a zigzag, a loop, a letter — as one continuous stroke. This is the tool for drawing canvases, signature pads, and `$1`/`$P`-style handwriting/gesture recognizers. `swipe-path` only accepts raw screen coordinates (no `--key`/`--text`/`--type` selector); run `fdb describe` first if you need to anchor the path relative to a widget's position.
+
+```bash
+fdb swipe-path --points "10,10;15,40;40,55;70,40;75,10"   # freeform path, min 2 points
+fdb swipe-path --points "10,10;300,300" --precision 4      # finer interpolation (smaller = smoother)
+```
+
+Output: `SWIPED_PATH POINTS=<n>`
+
 ## Navigate back
 
 Requires `fdb_helper` in the app.

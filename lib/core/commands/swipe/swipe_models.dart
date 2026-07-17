@@ -8,6 +8,7 @@ typedef SwipeInput = ({
   String? type,
   String? at,
   int? distance,
+  double? precision,
 });
 
 /// Result of a [runSwipe] invocation.

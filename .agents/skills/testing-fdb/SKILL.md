@@ -79,6 +79,7 @@ task test:gc
 task test:heap-dump
 task test:wait
 task test:swipe
+task test:swipe-path
 task test:back
 task test:clean
 task test:ext

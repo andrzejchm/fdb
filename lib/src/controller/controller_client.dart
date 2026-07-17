@@ -236,9 +236,22 @@ Future<FdbSwipeCommandResponse> fdbSwipe(Map<String, dynamic> params) async {
       type: _optionalString(params, 'type'),
       at: _optionalString(params, 'at'),
       distance: _optionalString(params, 'distance'),
+      precision: _optionalDouble(params, 'precision'),
     ),
   );
   return FdbSwipeCommandResponse.fromResponse(_responseFields(response));
+}
+
+Future<FdbSwipePathCommandResponse> fdbSwipePath(Map<String, dynamic> params) async {
+  final response = await _sendControllerRequest(
+    (token) => FdbSwipePathCommandRequest(
+      token: token,
+      isolateId: _string(params, 'isolateId'),
+      points: _string(params, 'points'),
+      precision: _optionalDouble(params, 'precision'),
+    ),
+  );
+  return FdbSwipePathCommandResponse.fromResponse(_responseFields(response));
 }
 
 Future<FdbTapCommandResponse> fdbTap(Map<String, dynamic> params) async {
@@ -439,6 +452,14 @@ String? _optionalString(Map<String, Object?> json, String name) {
   final value = json[name];
   if (value == null) return null;
   return value.toString();
+}
+
+double? _optionalDouble(Map<String, Object?> json, String name) {
+  final value = json[name];
+  if (value == null) return null;
+  if (value is double) return value;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
 }
 
 int _int(Map<String, Object?> json, String name) {

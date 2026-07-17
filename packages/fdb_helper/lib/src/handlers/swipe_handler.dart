@@ -111,10 +111,12 @@ Future<developer.ServiceExtensionResponse> handleSwipe(
         );
     }
 
+    final maxStepSize = double.tryParse(params['precision'] ?? '') ?? 8.0;
+
     await dispatchScroll(
       start: Offset(startX, startY),
       end: Offset(endX, endY),
-      maxStepSize: 8.0,
+      maxStepSize: maxStepSize,
     );
 
     return developer.ServiceExtensionResponse.result(

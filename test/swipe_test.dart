@@ -13,6 +13,7 @@ void main() {
           type: null,
           at: null,
           distance: 250,
+          precision: null,
         ),
         checkFdbHelperFn: () async => 'isolates/1',
         fdbSwipeFn: (_) async => const FdbSwipeCommandResponse(

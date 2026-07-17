@@ -61,6 +61,21 @@ Future<int> runSimpleCliAdapter(
   return (x, y);
 }
 
+/// Parses a semicolon-separated list of "x,y" coordinate pairs into a list
+/// of (double, double) tuples, or returns null if malformed or fewer than
+/// 2 points are present.
+///
+/// Used by CLI adapters that accept multi-point path flags like `--points`.
+List<(double, double)>? parsePointList(String raw) {
+  final points = <(double, double)>[];
+  for (final part in raw.split(';')) {
+    final xy = parseXY(part);
+    if (xy == null) return null;
+    points.add(xy);
+  }
+  return points.length >= 2 ? points : null;
+}
+
 /// Formats [bytes] as a human-readable string with one decimal place.
 ///
 /// Used by CLI adapters that display memory sizes (e.g. `fdb mem`).

@@ -1002,6 +1002,40 @@ dart run ../../bin/fdb.dart describe
 
 ---
 
+## S39 · swipe-path — freeform multi-point gesture as one continuous stroke
+
+**Purpose:** swipe-path dispatches an arbitrary multi-point path as a single
+continuous pointer stroke (one down, many moves, one up) — not several
+disjoint drags — so it can drive drawing canvases, signature pads, and
+handwriting/gesture recognizers that swipe's straight-line model can't
+express.
+
+```bash
+dart run ../../bin/fdb.dart tap --key go_to_drawing_path_test
+dart run ../../bin/fdb.dart wait --key drawing_path_canvas --present --timeout 5000
+dart run ../../bin/fdb.dart swipe-path --points "100,300;150,350;200,300;250,350;300,300"
+dart run ../../bin/fdb.dart wait --text "drawing=false" --present --timeout 5000
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- `swipe-path` exits 0 with `SWIPED_PATH POINTS=5`
+- Final `describe` VISIBLE TEXT shows `strokes=1` — proving the whole
+  zigzag was delivered as one uninterrupted `onPanStart`/`onPanUpdate*`/
+  `onPanEnd` sequence, not five separate taps or drags
+- `moves=` in that same text is greater than the point count (5), showing
+  the path was interpolated into multiple synthesized move events rather
+  than one jump per waypoint
+- `swipe-path --points "10,10"` (a single point) exits non-zero with
+  `ERROR:` — at least 2 points are required
+- `swipe --precision <n>` and `swipe-path --precision <n>` both still exit 0
+  (the `--precision` flag is accepted without changing default behavior
+  when omitted)
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

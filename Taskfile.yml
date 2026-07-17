@@ -1932,6 +1932,98 @@ tasks:
           exit 1
         fi
 
+        echo "==> Verifying --precision is accepted by fdb swipe"
+        PRECISION_OUTPUT=$({{.FDB}} swipe right --precision 20 2>&1)
+        PRECISION_EXIT_CODE=$?
+        echo "$PRECISION_OUTPUT"
+        if [ $PRECISION_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb swipe --precision exited with code $PRECISION_EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$PRECISION_OUTPUT" | grep -q "SWIPED=right"; then
+          echo "PASS: fdb swipe --precision"
+        else
+          echo "FAIL: fdb swipe --precision - SWIPED=right not found in output" >&2
+          exit 1
+        fi
+
+  test:swipe-path:
+    desc: Dispatch a freeform multi-point swipe path
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Dispatching a zigzag path on the drawing canvas"
+        {{.FDB}} restart >/dev/null 2>&1
+        {{.FDB}} wait --key "go_to_drawing_path_test" --present --timeout 10000 >/dev/null
+        TAP_OUT=$({{.FDB}} tap --key go_to_drawing_path_test 2>&1)
+        echo "$TAP_OUT"
+        {{.FDB}} wait --key drawing_path_canvas --present --timeout 5000 >/dev/null
+
+        OUTPUT=$({{.FDB}} swipe-path --points "100,300;150,350;200,300;250,350;300,300" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb swipe-path exited with code $EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$OUTPUT" | grep -q "SWIPED_PATH POINTS=5"; then
+          echo "PASS: fdb swipe-path token"
+        else
+          echo "FAIL: fdb swipe-path - SWIPED_PATH POINTS=5 not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Verifying the path was a single continuous stroke"
+        STATUS=$({{.FDB}} describe 2>&1)
+        echo "$STATUS"
+        if ! echo "$STATUS" | grep -q "strokes=1 "; then
+          echo "FAIL: fdb swipe-path - expected exactly one continuous stroke (strokes=1)" >&2
+          exit 1
+        fi
+        MOVES=$(echo "$STATUS" | grep -oE "moves=[0-9]+" | head -1 | grep -oE "[0-9]+")
+        if [ -n "$MOVES" ] && [ "$MOVES" -ge 3 ]; then
+          echo "PASS: fdb swipe-path single continuous stroke"
+        else
+          echo "FAIL: fdb swipe-path - expected at least 3 move updates across the path, got moves=$MOVES" >&2
+          exit 1
+        fi
+
+        echo "==> Verifying --precision is accepted by fdb swipe-path"
+        {{.FDB}} restart >/dev/null 2>&1
+        {{.FDB}} wait --key "go_to_drawing_path_test" --present --timeout 10000 >/dev/null
+        {{.FDB}} tap --key go_to_drawing_path_test >/dev/null 2>&1
+        {{.FDB}} wait --key drawing_path_canvas --present --timeout 5000 >/dev/null
+        PRECISION_OUTPUT=$({{.FDB}} swipe-path --points "100,300;300,300" --precision 20 2>&1)
+        PRECISION_EXIT_CODE=$?
+        echo "$PRECISION_OUTPUT"
+        if [ $PRECISION_EXIT_CODE -ne 0 ]; then
+          echo "FAIL: fdb swipe-path --precision exited with code $PRECISION_EXIT_CODE" >&2
+          exit 1
+        fi
+        if echo "$PRECISION_OUTPUT" | grep -q "SWIPED_PATH POINTS=2"; then
+          echo "PASS: fdb swipe-path --precision"
+        else
+          echo "FAIL: fdb swipe-path --precision - SWIPED_PATH POINTS=2 not found in output" >&2
+          exit 1
+        fi
+
+        echo "==> Verifying --points validation error"
+        set +e
+        ERR_OUTPUT=$({{.FDB}} swipe-path --points "10,10" 2>&1)
+        ERR_EXIT_CODE=$?
+        set -e
+        echo "$ERR_OUTPUT"
+        if [ $ERR_EXIT_CODE -eq 0 ]; then
+          echo "FAIL: fdb swipe-path with a single point should fail" >&2
+          exit 1
+        fi
+        if echo "$ERR_OUTPUT" | grep -q "ERROR:"; then
+          echo "PASS: fdb swipe-path rejects fewer than 2 points"
+        else
+          echo "FAIL: fdb swipe-path - expected ERROR: for a single-point path" >&2
+          exit 1
+        fi
+
   test:back:
     desc: Navigate back in the running app
     dir: '{{.TEST_APP}}'
@@ -4191,6 +4283,7 @@ tasks:
       - task: test:heap-dump
       - task: test:wait
       - task: test:swipe
+      - task: test:swipe-path
       - task: test:back
       - task: test:clean
       - task: test:ext
