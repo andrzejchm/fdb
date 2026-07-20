@@ -123,12 +123,17 @@ Future<LaunchResult> launchApp(
       } catch (_) {}
       exit(1);
     });
-    final sigtermSub = ProcessSignal.sigterm.watch().listen((_) {
-      try {
-        Process.killPid(controllerProcess.pid, ProcessSignal.sigterm);
-      } catch (_) {}
-      exit(1);
-    });
+    // ProcessSignal.sigterm.watch() throws a synchronous SignalException on
+    // Windows (sigterm/sigusr1/sigusr2/sigwinch are not watchable there).
+    // Skip it on Windows; sigint (Ctrl-C) above still works.
+    final sigtermSub = Platform.isWindows
+        ? null
+        : ProcessSignal.sigterm.watch().listen((_) {
+            try {
+              Process.killPid(controllerProcess.pid, ProcessSignal.sigterm);
+            } catch (_) {}
+            exit(1);
+          });
 
     // Poll log file for VM service URI.
     final stopwatch = Stopwatch()..start();
@@ -151,7 +156,7 @@ Future<LaunchResult> launchApp(
         }
 
         // Check if the controller process died unexpectedly.
-        if (!_isAlive(controllerProcess.pid)) {
+        if (!isProcessAlive(controllerProcess.pid)) {
           final logExists = File(logFile).existsSync();
           if (logExists) {
             final logContent = File(logFile).readAsStringSync();
@@ -198,7 +203,7 @@ Future<LaunchResult> launchApp(
       );
     } finally {
       await sigintSub.cancel();
-      await sigtermSub.cancel();
+      await sigtermSub?.cancel();
     }
   } catch (e) {
     return LaunchError(e.toString());
@@ -750,18 +755,5 @@ void ensureGitignored(String projectPath) {
     );
   } else {
     gitignore.writeAsStringSync('# fdb session state\n.fdb/\n');
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-bool _isAlive(int pid) {
-  try {
-    final result = Process.runSync('kill', ['-0', pid.toString()]);
-    return result.exitCode == 0;
-  } catch (_) {
-    return false;
   }
 }

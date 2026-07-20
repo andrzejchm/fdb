@@ -111,10 +111,15 @@ Future<AttachResult> attachApp(
       _killPid(controllerProcess.pid);
       exit(1);
     });
-    final sigtermSub = ProcessSignal.sigterm.watch().listen((_) {
-      _killPid(controllerProcess.pid);
-      exit(1);
-    });
+    // ProcessSignal.sigterm.watch() throws a synchronous SignalException on
+    // Windows (sigterm/sigusr1/sigusr2/sigwinch are not watchable there).
+    // Skip it on Windows; sigint (Ctrl-C) above still works.
+    final sigtermSub = Platform.isWindows
+        ? null
+        : ProcessSignal.sigterm.watch().listen((_) {
+            _killPid(controllerProcess.pid);
+            exit(1);
+          });
 
     final stopwatch = Stopwatch()..start();
     var lastHeartbeat = 0;
@@ -178,7 +183,7 @@ Future<AttachResult> attachApp(
       );
     } finally {
       await sigintSub.cancel();
-      await sigtermSub.cancel();
+      await sigtermSub?.cancel();
     }
   } catch (e) {
     return AttachError(e.toString());

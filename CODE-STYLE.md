@@ -82,6 +82,23 @@ Split files only when the consolidated command file becomes hard to read.
 - Null-check every external read (files, JSON fields, process output).
 - `bin/fdb.dart` has a top-level catch-all for unexpected exceptions.
 
+## Cross-platform host support
+
+fdb runs as a host process on macOS, Linux, and Windows (separate from the *target device
+platform*, which is read from `.fdb/platform.txt`). Do not shell out directly to POSIX-only
+tools or assume POSIX signal semantics:
+
+- Checking whether a tool is on `PATH`: use `isToolOnPath()` from `lib/core/process_utils.dart`
+  (dispatches to `where` on Windows, `which` elsewhere). Do not add another private
+  `_isToolOnPath`/`Process.runSync('which', ...)` copy.
+- Checking whether a PID is alive: use `isProcessAlive()` from `lib/core/process_utils.dart`
+  (dispatches to `tasklist` on Windows, `kill -0` elsewhere). Do not shell out to `kill -0`
+  directly.
+- `ProcessSignal.sigterm.watch()` (and `sigusr1`/`sigusr2`/`sigwinch`) throws a synchronous,
+  unhandled exception on Windows — the Dart VM does not support watching them there. Guard any
+  new `.watch()` call on one of these signals with `if (!Platform.isWindows)`. `sigint` (Ctrl-C)
+  is watchable on all three platforms.
+
 ## Doc comments
 
 - `///` on non-trivial public functions only.

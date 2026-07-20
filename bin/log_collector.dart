@@ -18,7 +18,12 @@ Future<void> main(List<String> args) async {
     exit(0);
   }
 
-  ProcessSignal.sigterm.watch().listen((_) => cleanup());
+  // ProcessSignal.sigterm.watch() throws a synchronous SignalException on
+  // Windows (sigterm/sigusr1/sigusr2/sigwinch are not watchable there).
+  // Skip it on Windows; sigint (Ctrl-C) below still works.
+  if (!Platform.isWindows) {
+    ProcessSignal.sigterm.watch().listen((_) => cleanup());
+  }
   ProcessSignal.sigint.watch().listen((_) => cleanup());
 
   try {

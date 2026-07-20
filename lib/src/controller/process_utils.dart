@@ -1,8 +1,24 @@
 import 'dart:io';
 
+import 'package:fdb/src/controller/pid_liveness.dart';
 import 'package:fdb/src/controller/session.dart';
 
+export 'package:fdb/src/controller/pid_liveness.dart' show isProcessAlive;
+
 String adbExecutable = 'adb';
+
+/// Returns true if [tool] can be found on `PATH`.
+///
+/// Uses `where` on Windows and `which` everywhere else, since Windows does
+/// not ship a `which` binary.
+bool isToolOnPath(String tool) {
+  try {
+    final result = Process.runSync(Platform.isWindows ? 'where' : 'which', [tool]);
+    return result.exitCode == 0;
+  } catch (_) {
+    return false;
+  }
+}
 
 int? readPid() {
   final file = File(pidFile);
@@ -97,15 +113,6 @@ String? extractDevicesJson(String output) {
   final end = output.lastIndexOf(']');
   if (end == -1 || end < start) return null;
   return output.substring(start, end + 1);
-}
-
-bool isProcessAlive(int pid) {
-  try {
-    final result = Process.runSync('kill', ['-0', pid.toString()]);
-    return result.exitCode == 0;
-  } catch (_) {
-    return false;
-  }
 }
 
 bool isAndroidTarget() {

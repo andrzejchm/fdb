@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:fdb/src/controller/pid_liveness.dart';
+
 /// Name of the session directory created inside the Flutter project.
 const sessionDirName = '.fdb';
 
@@ -75,11 +77,7 @@ bool _isPidFileAlive(String path) {
     return false;
   }
 
-  try {
-    return Process.runSync('kill', ['-0', pid.toString()]).exitCode == 0;
-  } catch (_) {
-    return false;
-  }
+  return isProcessAlive(pid);
 }
 
 /// Ensure the session directory exists and return its path.

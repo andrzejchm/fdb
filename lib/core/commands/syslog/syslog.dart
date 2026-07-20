@@ -53,7 +53,7 @@ Future<SyslogResult> _runAndroid({
   required String? device,
   required SyslogInput input,
 }) async {
-  if (!_isToolOnPath('adb')) {
+  if (!isToolOnPath('adb')) {
     return const SyslogToolMissing(
       tool: 'adb',
       hint: 'Install Android SDK platform-tools and ensure adb is on PATH.',
@@ -87,7 +87,7 @@ Future<SyslogResult> _runIosSimulator({
   required String? device,
   required SyslogInput input,
 }) async {
-  if (!_isToolOnPath('xcrun')) {
+  if (!isToolOnPath('xcrun')) {
     return const SyslogToolMissing(
       tool: 'xcrun',
       hint: 'Install Xcode command-line tools: xcode-select --install',
@@ -142,7 +142,7 @@ Future<SyslogResult> _runIosSimulator({
 }
 
 Future<SyslogResult> _runIosPhysical({required SyslogInput input}) async {
-  if (!_isToolOnPath('idevicesyslog')) {
+  if (!isToolOnPath('idevicesyslog')) {
     return const SyslogToolMissing(
       tool: 'idevicesyslog',
       hint: 'Install: brew install libimobiledevice',
@@ -171,7 +171,7 @@ Future<SyslogResult> _runIosPhysical({required SyslogInput input}) async {
 }
 
 Future<SyslogResult> _runMacos({required SyslogInput input}) async {
-  if (!_isToolOnPath('log')) {
+  if (!isToolOnPath('log')) {
     return const SyslogToolMissing(
       tool: 'log',
       hint: 'This is unexpected on macOS — ensure /usr/bin is on PATH.',
@@ -333,16 +333,6 @@ Future<SyslogResult> _snapshotStream({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Returns true if [tool] can be found via `which`.
-bool _isToolOnPath(String tool) {
-  try {
-    final result = Process.runSync('which', [tool]);
-    return result.exitCode == 0;
-  } catch (_) {
-    return false;
-  }
-}
 
 /// Parses a duration string like `30s`, `5m`, `1h` into seconds.
 /// Returns null if the format is unrecognised.

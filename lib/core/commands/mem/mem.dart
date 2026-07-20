@@ -309,7 +309,7 @@ Future<MemNativeResult> _runAndroid({
     );
   }
 
-  if (!_isToolOnPath('adb')) {
+  if (!isToolOnPath('adb')) {
     return const MemNativeToolMissing(
       tool: 'adb',
       hint: 'Install Android SDK platform-tools and ensure adb is on PATH.',
@@ -348,7 +348,7 @@ Future<MemNativeResult> _runIosSimulator({
     );
   }
 
-  if (!_isToolOnPath('vmmap')) {
+  if (!isToolOnPath('vmmap')) {
     return const MemNativeToolMissing(
       tool: 'vmmap',
       hint: 'vmmap is bundled with Xcode command-line tools: xcode-select --install',
@@ -380,7 +380,7 @@ Future<MemNativeResult> _runMacos({
     return MemNativeError('Unknown tool "$toolName". Supported tools on macOS: footprint, vmmap');
   }
 
-  if (!_isToolOnPath(toolName)) {
+  if (!isToolOnPath(toolName)) {
     return MemNativeToolMissing(
       tool: toolName,
       hint: toolName == 'footprint'
@@ -429,14 +429,4 @@ Future<MemNativeResult> _captureOutput({
   await process.exitCode; // wait for process to finish
 
   return MemNativeSuccess(buffer.toString());
-}
-
-/// Returns true if [tool] can be found via `which`.
-bool _isToolOnPath(String tool) {
-  try {
-    final result = Process.runSync('which', [tool]);
-    return result.exitCode == 0;
-  } catch (_) {
-    return false;
-  }
 }

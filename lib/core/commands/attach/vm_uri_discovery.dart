@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:fdb/core/process_utils.dart';
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -57,7 +59,7 @@ Future<String?> _discoverAndroid({
   required Duration timeout,
   required void Function(String) onProgress,
 }) async {
-  if (!_isToolOnPath('adb')) return null;
+  if (!isToolOnPath('adb')) return null;
   onProgress('attach: scanning Android logcat for VM service URI');
   try {
     // Dump the current logcat buffer for the flutter tag only.
@@ -93,7 +95,7 @@ Future<String?> _discoverIosSimulator({
   required Duration timeout,
   required void Function(String) onProgress,
 }) async {
-  if (!_isToolOnPath('xcrun')) return null;
+  if (!isToolOnPath('xcrun')) return null;
   onProgress('attach: scanning iOS Simulator log for VM service URI');
   try {
     // Try the last 5 minutes of the unified log with a predicate filter.
@@ -138,7 +140,7 @@ Future<String?> _discoverIosPhysical({
   required Duration timeout,
   required void Function(String) onProgress,
 }) async {
-  if (!_isToolOnPath('idevicesyslog')) return null;
+  if (!isToolOnPath('idevicesyslog')) return null;
   onProgress('attach: scanning physical iOS device log for VM service URI');
 
   final tmpDir = Directory.systemTemp.createTempSync('fdb_ios_log_');
@@ -247,17 +249,4 @@ String? _normalizeUri(String uri) {
   if (normalized.endsWith('/ws/')) return normalized.substring(0, normalized.length - 3);
   if (normalized.endsWith('/ws')) return normalized.substring(0, normalized.length - 2);
   return normalized;
-}
-
-// ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-
-bool _isToolOnPath(String tool) {
-  try {
-    final result = Process.runSync('which', [tool]);
-    return result.exitCode == 0;
-  } catch (_) {
-    return false;
-  }
 }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fdb/core/commands/doctor/doctor_models.dart';
 import 'package:fdb/core/commands/status/status.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
@@ -132,8 +130,7 @@ Future<({List<String> present, List<String> missing})> _checkPlatformTools() asy
   final missing = <String>[];
 
   for (final tool in ['adb', 'xcrun', 'screencapture']) {
-    final result = await Process.run('which', [tool]);
-    if (result.exitCode == 0) {
+    if (isToolOnPath(tool)) {
       present.add(tool);
     } else {
       missing.add(tool);

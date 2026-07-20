@@ -68,6 +68,10 @@ dart pub global activate fdb
 
 Requires Dart SDK >= 3.0.0. Make sure `~/.pub-cache/bin` is in your `PATH`.
 
+Runs on macOS, Linux, and Windows. Windows support is newer and less battle-tested than
+macOS/Linux — see [Troubleshooting](#troubleshooting) if `fdb launch`/`fdb kill` behave
+unexpectedly on Windows.
+
 **Or from git (latest main):**
 
 ```bash
@@ -372,6 +376,8 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 **Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
 
 **Agent setup fails mid-flow** - Run `fdb doctor` to check app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
+
+**Running fdb itself on Windows** - fdb resolves platform tools (`adb`, `xcrun`, etc.) via `where` instead of `which`, and probes process liveness via `tasklist` instead of `kill -0`. `Ctrl-C` (SIGINT) is handled during `fdb launch`/`fdb attach`; graceful SIGTERM shutdown is not available on Windows (Dart itself doesn't support watching it there) — `fdb kill`/`fdb launch`'s cleanup falls back to a forceful terminate. This is newer, less-tested territory than macOS/Linux; please file an issue with the exact command and error if something doesn't work.
 
 ## Contributing
 
