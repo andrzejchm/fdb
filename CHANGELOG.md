@@ -1,3 +1,10 @@
+## 1.10.1
+
+### Fixes
+- Windows: `fdb` no longer crashes on `which` (Windows has no `which` binary) — tool lookup now dispatches to `where` on Windows. Affects `mem`, `doctor`, `syslog`, `crash-report`, and `attach`'s VM URI auto-discovery.
+- Windows: `fdb launch` and `fdb attach` no longer crash immediately — they no longer try to watch `SIGTERM`, which Dart cannot watch on Windows.
+- Windows: PID-liveness checks (previously `kill -0`) now use `tasklist` on Windows. Fixes `fdb launch` falsely reporting the app died seconds after starting, and `fdb kill` silently reporting success without actually killing the process.
+
 ## 1.10.0
 
 ### New commands

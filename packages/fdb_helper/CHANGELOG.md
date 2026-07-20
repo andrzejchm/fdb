@@ -1,3 +1,7 @@
+## 1.10.1
+
+No functional changes. Version bump to keep lockstep with `fdb` 1.10.1 (Windows compatibility fixes in the CLI host process; `fdb_helper` itself is unaffected).
+
 ## 1.10.0
 
 ### New extensions
