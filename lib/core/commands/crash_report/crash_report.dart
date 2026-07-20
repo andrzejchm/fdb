@@ -56,7 +56,7 @@ Future<CrashReportResult> _runAndroid({
   required String? appId,
   required CrashReportInput input,
 }) async {
-  if (!_isToolOnPath('adb')) {
+  if (!isToolOnPath('adb')) {
     return const CrashReportToolMissing(
       tool: 'adb',
       hint: 'Install Android SDK platform-tools and ensure adb is on PATH.',
@@ -116,7 +116,7 @@ Future<CrashReportResult> _runIosSimulator({
   required String? appId,
   required CrashReportInput input,
 }) async {
-  if (!_isToolOnPath('xcrun')) {
+  if (!isToolOnPath('xcrun')) {
     return const CrashReportToolMissing(
       tool: 'xcrun',
       hint: 'Install Xcode command-line tools: xcode-select --install',
@@ -187,7 +187,7 @@ Future<CrashReportResult> _runIosPhysical({
   required String? appId,
   required CrashReportInput input,
 }) async {
-  if (!_isToolOnPath('idevicecrashreport')) {
+  if (!isToolOnPath('idevicecrashreport')) {
     return const CrashReportToolMissing(
       tool: 'idevicecrashreport',
       hint: 'Install: brew install libimobiledevice',
@@ -238,7 +238,7 @@ Future<CrashReportResult> _runMacos({
   required String? appId,
   required CrashReportInput input,
 }) async {
-  if (!_isToolOnPath('log')) {
+  if (!isToolOnPath('log')) {
     return const CrashReportToolMissing(
       tool: 'log',
       hint: 'This is unexpected on macOS — ensure /usr/bin is on PATH.',
@@ -293,16 +293,6 @@ Future<CrashReportResult> _runMacos({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Returns true if [tool] can be found via `which`.
-bool _isToolOnPath(String tool) {
-  try {
-    final result = Process.runSync('which', [tool]);
-    return result.exitCode == 0;
-  } catch (_) {
-    return false;
-  }
-}
 
 /// Returns only lines containing [substring].
 String _filterLines(String text, String substring) =>
