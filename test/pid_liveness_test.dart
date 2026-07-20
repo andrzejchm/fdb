@@ -38,6 +38,23 @@ void main() {
       expect(tasklistOutputHasPid(output, 4821), isFalse);
     });
 
+    test('returns false when the queried PID is a numeric prefix of the actual PID', () {
+      // Guards against a naive numeric-substring match: 123 must not match
+      // a row for PID 1234 just because "123" is a substring of "1234".
+      const output = '"flutter.exe","1234","Console","1","123,456 K"';
+
+      expect(tasklistOutputHasPid(output, 123), isFalse);
+    });
+
+    test('returns false when the queried PID matches only inside the memory usage column', () {
+      // The mem usage column can contain the same digits as a PID once comma
+      // separators are stripped mentally, but it is never wrapped in its own
+      // matching quotes the way the PID column is — must not false-match.
+      const output = '"flutter.exe","4821","Console","1","123,456 K"';
+
+      expect(tasklistOutputHasPid(output, 123), isFalse);
+    });
+
     test('is tolerant of surrounding whitespace/newlines', () {
       const output = '\n\r\n"dart.exe","9001","Console","1","50,000 K"\r\n';
 
