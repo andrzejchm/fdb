@@ -6,9 +6,10 @@
 
 ```
 lib/
-  fdb_helper.dart              # Public export — re-exports FdbBinding only
+  fdb_helper.dart              # Public exports
   src/
-    fdb_binding.dart           # THIN: singleton binding, extension registration only
+    fdb_binding.dart           # Default singleton binding
+    fdb_service_extensions_mixin.dart # Composable extension registration
     vm_uri_broadcaster.dart    # broadcastVmUri() — emits [FDB_VM_URI] to device log at startup
     handlers/
       handler_utils.dart       # Shared: errorResponse()
@@ -27,20 +28,29 @@ lib/
     hit_test_utils.dart        # isElementHittable
     text_input_simulator.dart  # enterText
     widget_matcher.dart        # WidgetMatcher and subtypes
+test/
+  fdb_binding_test.dart                   # Tests for FdbBinding
+  fdb_service_extensions_mixin_test.dart  # Tests for FdbServiceExtensionsMixin
 ```
 
 ## Architecture rules
 
-### FdbBinding is registration-only
+### Binding responsibilities
 
-`fdb_binding.dart` must contain **only**:
-- The `FdbBinding` class and its singleton setup
-- `initServiceExtensions` — calls `unawaited(broadcastVmUri())`, registers extensions by name, delegates to handler functions
-- `_registerExtension` — the hot-reload-safe wrapper around `developer.registerExtension`
+`fdb_binding.dart` contains only the `FdbBinding` class and its singleton setup.
+It applies `FdbServiceExtensionsMixin` to preserve the default initialization
+API.
+
+`fdb_service_extensions_mixin.dart` contains only:
+- `FdbServiceExtensionsMixin` — the canonical owner of the registered `ext.fdb.*` extension list, documented on its doc comment
+- `initServiceExtensions` — calls `unawaited(broadcastVmUri())`, registers extensions by name, and delegates to handler functions
+- `_registerExtension` — wraps `developer.registerExtension`, silently ignoring the case where an extension of the same name is already registered
 
 `broadcastVmUri()` lives in `vm_uri_broadcaster.dart` (not in the binding). It calls `dart:developer` `Service.getInfo()` / `Service.controlWebServer(enable: true)` to obtain the VM service URI and emits it to the platform log via `debugPrint('[FDB_VM_URI] $uri')` so `fdb attach` can auto-discover it.
 
-**No handler logic, no helper functions, no imports of `dart:io`, `dart:ui`, `path_provider`, or `shared_preferences` belong in `fdb_binding.dart`.** If you find yourself adding logic there, you are in the wrong file.
+**No handler logic, no unrelated helper functions, no imports of `dart:io`,
+`dart:ui`, `path_provider`, or `shared_preferences` belong in either binding
+file.** If you find yourself adding logic there, you are in the wrong file.
 
 ### One file per command
 
@@ -60,8 +70,8 @@ All helpers and constants used only by that handler are **private** (`_prefixed`
 1. Create `lib/src/handlers/your_command_handler.dart` with a single public `handleYourCommand` function.
 2. Add private helpers and constants to that same file.
 3. Import only what the handler needs — do not import the entire `fdb_binding.dart`.
-4. Register it in `fdb_binding.dart:initServiceExtensions` with one line: `_registerExtension('ext.fdb.yourCommand', handleYourCommand);`
-5. Update the doc comment on `FdbBinding` listing the new extension.
+4. Register it in `fdb_service_extensions_mixin.dart:initServiceExtensions` with one line: `_registerExtension('ext.fdb.yourCommand', handleYourCommand);`
+5. Update the doc comment on `FdbServiceExtensionsMixin` listing the new extension.
 
 ### Shared utilities
 
