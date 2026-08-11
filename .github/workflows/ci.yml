@@ -29,7 +29,7 @@ jobs:
         run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/ bin/ test/
 
       - name: Format check (fdb_helper)
-        run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/
+        run: dart format --set-exit-if-changed --page-width 120 --trailing-commas preserve lib/ test/
         working-directory: packages/fdb_helper
 
       - name: Analyze (fdb)
@@ -41,3 +41,7 @@ jobs:
 
       - name: Test (fdb)
         run: dart test
+
+      - name: Test (fdb_helper)
+        run: flutter test --reporter failures-only
+        working-directory: packages/fdb_helper

@@ -34,6 +34,36 @@ void main() {
 
 Then run `flutter pub get` and relaunch the app.
 
+### Custom bindings
+
+If another package also customizes Flutter's binding, compose fdb's service
+extensions into your application binding instead of calling
+`FdbBinding.ensureInitialized()`:
+
+```dart
+import 'package:fdb_helper/fdb_helper.dart';
+import 'package:flutter/widgets.dart';
+import 'package:other_package/other_package.dart';
+
+class AppBinding extends WidgetsFlutterBinding
+    with FdbServiceExtensionsMixin, OtherBindingMixin {}
+
+void main() {
+  AppBinding();
+  runApp(MyApp());
+}
+```
+
+Each binding mixin that overrides `initServiceExtensions()` must call its
+super implementation so every mixin in the chain can register its extensions.
+
+Unlike the `FdbBinding.ensureInitialized()` setup above, this example
+constructs `AppBinding()` unconditionally, without a `if (!kReleaseMode)`
+guard: `OtherBindingMixin` (or another composed mixin) may need to run in
+release builds too, and gating the whole binding would break it there.
+`FdbServiceExtensionsMixin` already no-ops its own extension registration in
+release mode, so it is safe to apply in all build modes.
+
 ## Build-mode behavior
 
 - **Debug** (all platforms): compiles the real native tap implementation.

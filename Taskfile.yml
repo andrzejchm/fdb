@@ -4306,7 +4306,7 @@ tasks:
     desc: "Format code in fdb and fdb_helper"
     cmds:
       - dart format --page-width 120 --trailing-commas preserve lib/ bin/ test/
-      - cd packages/fdb_helper && dart format --page-width 120 --trailing-commas preserve lib/
+      - cd packages/fdb_helper && dart format --page-width 120 --trailing-commas preserve lib/ test/
 
   fix:
     desc: "Apply dart fix to fdb and fdb_helper"
@@ -4315,6 +4315,7 @@ tasks:
       - dart fix --apply bin/
       - dart fix --apply test/
       - cd packages/fdb_helper && dart fix --apply lib/
+      - cd packages/fdb_helper && dart fix --apply test/
 
   analyze:
     desc: "Run static analysis on fdb and fdb_helper"
@@ -4353,9 +4354,11 @@ tasks:
         echo "PASS: fdb_helper release stubs layout"
 
   test:unit:
-    desc: "Run dart unit tests for fdb"
+    desc: "Run unit tests for fdb and fdb_helper"
     cmds:
       - dart test
+      - cmd: '{{.FLUTTER}} test --reporter failures-only'
+        dir: 'packages/fdb_helper'
 
   # ---------------------------------------------------------------------------
   # Comprehensive local verification (format → fix → analyze → test)

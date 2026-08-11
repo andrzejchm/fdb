@@ -16,7 +16,7 @@ import 'package:flutter/foundation.dart';
 ///   does not currently scan stdout for externally-launched apps on these
 ///   platforms — pass `--debug-url` manually if auto-discovery fails.
 ///
-/// Called once from [FdbBinding.initServiceExtensions] (debug/profile only).
+/// Called once from [FdbServiceExtensionsMixin.initServiceExtensions] (debug/profile only).
 Future<void> broadcastVmUri() async {
   if (kReleaseMode) return;
   try {
