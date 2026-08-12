@@ -1,3 +1,8 @@
+## 1.11.0
+
+### Improvements
+- `fdb_helper` now exports `FdbServiceExtensionsMixin`, allowing fdb's VM service extensions to compose with other custom Flutter bindings such as `DevicePreviewBindingMixin`. Existing `FdbBinding.ensureInitialized()` usage remains supported.
+
 ## 1.10.1
 
 ### Fixes

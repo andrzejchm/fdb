@@ -1,3 +1,8 @@
+## 1.11.0
+
+### Improvements
+- Exported `FdbServiceExtensionsMixin` so applications can register fdb's VM service extensions alongside other custom binding mixins. `FdbBinding.ensureInitialized()` remains the default setup for applications without a custom binding.
+
 ## 1.10.1
 
 No functional changes. Version bump to keep lockstep with `fdb` 1.10.1 (Windows compatibility fixes in the CLI host process; `fdb_helper` itself is unaffected).
