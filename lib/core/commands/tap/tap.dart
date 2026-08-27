@@ -14,10 +14,10 @@ Future<TapResult> tapWidget(TapInput input) async {
     if (isolateId == null) return const TapNoFdbHelper();
 
     if (input.describeRef != null) {
-      return _tapByRef(isolateId, input.describeRef!, input.timeoutSeconds);
+      return await _tapByRef(isolateId, input.describeRef!, input.timeoutSeconds);
     }
 
-    return _tapWithParams(isolateId, input);
+    return await _tapWithParams(isolateId, input);
   } on AppDiedException catch (e) {
     return TapAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {
