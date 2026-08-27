@@ -2,14 +2,12 @@ group 'io.fdb.fdb_helper'
 version '1.0'
 
 buildscript {
-    ext.kotlin_version = '1.9.0'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.1.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
@@ -20,8 +18,14 @@ rootProject.allprojects {
     }
 }
 
+// No longer applies 'kotlin-android' directly: Flutter's Gradle plugin
+// detects the absence of a Kotlin Gradle Plugin application and applies it
+// for us on AGP < 9, and relies on AGP's Built-in Kotlin on AGP 9+. Applying
+// it here ourselves (even behind an AGP-version guard) still trips Flutter's
+// KGP deprecation warning, because that check is a regex over the raw
+// build.gradle text and can't see the guard.
+// See: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-plugin-authors
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 34
@@ -32,10 +36,6 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
         debug.java.srcDirs += 'src/debug/kotlin'
@@ -44,5 +44,11 @@ android {
 
     defaultConfig {
         minSdkVersion 21
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
     }
 }
