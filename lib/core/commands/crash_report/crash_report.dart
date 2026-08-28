@@ -30,15 +30,15 @@ Future<CrashReportResult> fetchCrashReport(CrashReportInput input) async {
     final device = readDevice();
 
     if (platform.startsWith('android')) {
-      return _runAndroid(device: device, appId: appId, input: input);
+      return await _runAndroid(device: device, appId: appId, input: input);
     } else if (platform == 'ios' || platform.startsWith('ios-')) {
       if (emulator) {
-        return _runIosSimulator(device: device, appId: appId, input: input);
+        return await _runIosSimulator(device: device, appId: appId, input: input);
       } else {
-        return _runIosPhysical(appId: appId, input: input);
+        return await _runIosPhysical(appId: appId, input: input);
       }
     } else if (platform == 'darwin' || platform == 'macos') {
-      return _runMacos(appId: appId, input: input);
+      return await _runMacos(appId: appId, input: input);
     } else {
       return CrashReportUnsupportedPlatform(platform);
     }

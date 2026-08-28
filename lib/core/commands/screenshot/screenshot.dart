@@ -206,7 +206,7 @@ Future<String?> _captureMacOs(String output, List<String> warnings) async {
         'WARNING: Could not find macOS window for PID $pid.\n'
         '  Falling back to fdb_helper (Flutter surface only, no title bar).',
       );
-      return _captureViaFdbHelper(output);
+      return await _captureViaFdbHelper(output);
     }
 
     final result = await Process.run('screencapture', [
@@ -221,7 +221,7 @@ Future<String?> _captureMacOs(String output, List<String> warnings) async {
         '  required: System Settings > Privacy & Security > Screen Recording.\n'
         '  Falling back to fdb_helper (Flutter surface only, no title bar).',
       );
-      return _captureViaFdbHelper(output);
+      return await _captureViaFdbHelper(output);
     }
     return null;
   } on AppDiedException {

@@ -14,7 +14,7 @@ class VmServiceCommand<T extends ControllerRequest> implements CommandRunner {
   @override
   Future<CommandResponse> execute(ControllerRequest request) async {
     try {
-      return executeVmCommand(request as T);
+      return await executeVmCommand(request as T);
     } on AppDiedException catch (e) {
       return ControllerResponse.appDied(logLines: e.logLines, reason: e.reason);
     }

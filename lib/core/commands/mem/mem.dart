@@ -76,7 +76,7 @@ Future<MemProfileResult> captureMemProfile(MemProfileInput input) async {
       targetIds = [id];
     }
 
-    if (targetIds.length == 1) return _captureIsolateProfile(targetIds.first, input.outputPath);
+    if (targetIds.length == 1) return await _captureIsolateProfile(targetIds.first, input.outputPath);
 
     // Multi-isolate: one file per isolate, name resolved once and reused for
     // both the filename and the MemProfileSuccess inside _captureIsolateProfile.
@@ -274,10 +274,10 @@ Future<MemNativeResult> runMemNative(
     final device = readDevice();
 
     if (platform.startsWith('android')) {
-      return _runAndroid(input: input, device: device, onCommand: onCommand);
+      return await _runAndroid(input: input, device: device, onCommand: onCommand);
     } else if (platform == 'ios' || platform.startsWith('ios-')) {
       if (emulator) {
-        return _runIosSimulator(input: input, onCommand: onCommand);
+        return await _runIosSimulator(input: input, onCommand: onCommand);
       } else {
         return const MemNativeUnsupportedPlatform(
           platform: 'ios-physical',
@@ -286,7 +286,7 @@ Future<MemNativeResult> runMemNative(
         );
       }
     } else if (platform == 'darwin' || platform == 'macos') {
-      return _runMacos(input: input, onCommand: onCommand);
+      return await _runMacos(input: input, onCommand: onCommand);
     } else {
       return MemNativeUnsupportedPlatform(
         platform: platform,
