@@ -1,3 +1,8 @@
+## 1.11.1
+
+### Fixes
+- Fixed several `core/commands` verbs (`crash-report`, `mem`, `mem native`, `screenshot`, `tap`) and the controller's `VmServiceCommand` runner returning a delegated `Future` without `await` inside a `try` block, which let exceptions from the delegate escape the surrounding error handling instead of being translated into a sealed error result (or `ControllerResponse.appDied` for the controller runner).
+
 ## 1.11.0
 
 ### Improvements

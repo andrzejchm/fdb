@@ -1,3 +1,9 @@
+## 1.11.1
+
+### Fixes
+- Migrated the Android module to Flutter's Built-in Kotlin: dropped the direct `apply plugin: 'kotlin-android'` from `android/build.gradle` and added the `kotlin.compilerOptions` DSL, so apps depending on `fdb_helper` no longer see the "applies Kotlin Gradle Plugin" deprecation warning on Flutter 3.47+.
+- Bumps the minimum Flutter version to 3.44.0, required by the `kotlin.compilerOptions` DSL (needs Kotlin Gradle Plugin >= 2.0.0). The Dart SDK constraint is unchanged.
+
 ## 1.11.0
 
 ### Improvements

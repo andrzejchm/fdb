@@ -5,9 +5,9 @@ license: MIT
 compatibility: opencode
 ---
 
-## Overview - skill version 1.11.0
+## Overview - skill version 1.11.1
 
-> **Version check:** Run `fdb --version`. Expected: `fdb 1.11.0`. This skill may describe unreleased branch behavior.
+> **Version check:** Run `fdb --version`. Expected: `fdb 1.11.1`. This skill may describe unreleased branch behavior.
 > Update: `dart pub global activate --source git https://github.com/andrzejchm/fdb.git`
 
 ## Install
@@ -25,7 +25,7 @@ The `describe`, `tap`, `double-tap`, `longpress`, `input`, `scroll`, `scroll-to`
 **`pubspec.yaml`:**
 ```yaml
 dev_dependencies:
-  fdb_helper: ^1.11.0
+  fdb_helper: ^1.11.1
 ```
 
 **`main.dart`:**
