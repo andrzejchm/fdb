@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/boosterai-pl/agentkit/main/schemas/lock.schema.json",
+  "lockVersion": "1",
+  "source": "github:boosterai-pl/agentkit",
+  "ref": "v3.2.0",
+  "installed": {
+    "skills": {
+      "managing-pull-requests": {
+        "version": "2.0.1",
+        "installPath": ".agents/skills",
+        "syncedAt": "2026-09-30T10:50:12.346Z"
+      },
+      "humanizing-ai-text": {
+        "version": "2.1.0",
+        "installPath": ".agents/skills",
+        "syncedAt": "2026-09-30T10:50:12.346Z"
+      },
+      "writing-client-facing-content": {
+        "version": "1.1.0",
+        "installPath": ".agents/skills",
+        "syncedAt": "2026-09-30T10:50:12.346Z"
+      }
+    },
+    "agents": {},
+    "commands": {}
+  }
+}

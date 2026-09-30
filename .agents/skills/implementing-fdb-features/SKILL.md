@@ -59,7 +59,7 @@ Platform tests (ALL mandatory before PR):
 
 PR:
 - [ ] Load humanizing-ai-text skill before writing PR body
-- [ ] Load managing-pr-descriptions-global skill
+- [ ] Load managing-pull-requests skill
 - [ ] Push branch
 - [ ] Open PR (gh pr create)
 - [ ] CI green (gh pr checks --watch)
@@ -315,7 +315,7 @@ task smoke   # runs on Android
 
 ## Step 8 — Open PR
 
-Load `humanizing-ai-text` and `managing-pr-descriptions-global` skills before writing the PR body.
+Load `humanizing-ai-text` and `managing-pull-requests` skills before writing the PR body.
 
 ```bash
 gh pr create \
