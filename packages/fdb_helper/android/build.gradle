@@ -42,6 +42,17 @@ android {
         release.java.srcDirs += 'src/release/kotlin'
     }
 
+    // The Flutter Gradle plugin adds a `profile` build type to plugin projects,
+    // so the plugin compiles its own `profile` variant (matchingFallbacks does
+    // not apply). Give it the real (debug) implementation, as profile builds
+    // are meant to support fdb. `configureEach` also covers source sets created
+    // after this block is evaluated.
+    sourceSets.configureEach { sourceSet ->
+        if (sourceSet.name == 'profile') {
+            sourceSet.java.srcDirs += 'src/debug/kotlin'
+        }
+    }
+
     defaultConfig {
         minSdkVersion 21
     }

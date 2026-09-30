@@ -4324,7 +4324,7 @@ tasks:
       - cd packages/fdb_helper && {{.FLUTTER}} analyze --suppress-analytics
 
   test:fdb-helper-release-stubs:
-    desc: "Verify fdb_helper debug/release native tap source selection"
+    desc: "Verify fdb_helper debug/profile/release native tap source selection"
     cmds:
       - |
         echo "==> Checking Android source sets"
@@ -4333,6 +4333,13 @@ tasks:
         test ! -f packages/fdb_helper/android/src/main/kotlin/io/fdb/fdb_helper/FdbHelperNativeTapImpl.kt
         if grep -q 'flutter_embedding_debug' packages/fdb_helper/android/build.gradle; then
           echo "FAIL: android/build.gradle still references flutter_embedding_debug" >&2
+          exit 1
+        fi
+        # Flutter adds a `profile` build type to plugin projects, so the plugin
+        # compiles its own profile variant; it must get the real (debug) impl.
+        if ! grep -q "sourceSet.name == 'profile'" packages/fdb_helper/android/build.gradle \
+          || ! grep -q "sourceSet.java.srcDirs += 'src/debug/kotlin'" packages/fdb_helper/android/build.gradle; then
+          echo "FAIL: android/build.gradle must add src/debug/kotlin to the profile source set" >&2
           exit 1
         fi
 

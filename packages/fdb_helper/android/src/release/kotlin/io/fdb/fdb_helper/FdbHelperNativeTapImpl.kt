@@ -4,7 +4,8 @@ package io.fdb.fdb_helper
 ///
 /// The real implementation depends on in-process input injection and must not
 /// ship in production Android binaries. Profile builds keep the real
-/// implementation via Flutter's `matchingFallbacks` (debug → release).
+/// implementation: `android/build.gradle` adds `src/debug/kotlin` to the
+/// `profile` source set.
 class FdbHelperNativeTapImpl(
     @Suppress("UNUSED_PARAMETER") activityProvider: () -> android.app.Activity?,
 ) : NativeTapApi {
