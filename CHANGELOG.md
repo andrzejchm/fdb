@@ -1,3 +1,8 @@
+## 1.11.2
+
+### Fixes
+- Fixed `flutter build apk --profile` (and `flutter run --profile`) failing for Android apps that depend on `fdb_helper` with `Unresolved reference 'FdbHelperNativeTapImpl'`. Profile builds now compile the real native tap implementation, so `fdb attach`, `tap`, `input`, and `describe` work against Android profile builds (#163).
+
 ## 1.11.1
 
 ### Fixes

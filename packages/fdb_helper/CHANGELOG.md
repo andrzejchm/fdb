@@ -1,3 +1,8 @@
+## 1.11.2
+
+### Fixes
+- Fixed Android `--profile` builds failing to compile with `Unresolved reference 'FdbHelperNativeTapImpl'`. The Flutter Gradle plugin adds a `profile` build type to plugin projects, so `android/build.gradle` now adds `src/debug/kotlin` to the `profile` source set. Profile builds keep the real implementation; release builds still use the safe stub (#163).
+
 ## 1.11.1
 
 ### Fixes
