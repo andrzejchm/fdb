@@ -1,9 +1,0 @@
-- Start with the current CLI rule before reviewing files.
-- If CHANGED FILES is empty, skip every remaining rule with `--reason changed-file-scope`.
-- Return the standard summary after the skips. Do not read code.
-- Do not report pre-existing issues outside the changed hunks unless this change introduced, exposed, or now depends on them.
-- Files marked [deleted] no longer exist. Skip their diffs unless the current rule explicitly applies to removed code.
-- Per-file diffs are pre-split and stored under: {{diffsDir}}
-- For a changed file at <path>, read its diff at: {{diffsDir}}/<path>.diff
-- Diff lines carry a line-number gutter: `R<n> |` (new file, `--side RIGHT`) and `L<n> |` (old file, `--side LEFT`). Pass that number as `--line`; never count lines yourself.
-- Read the full source file only when the diff alone is insufficient.

@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Self-contained launcher for the review-cli engine.
-# Runs the TypeScript source directly on Node >= 23 (native type stripping) —
-# zero runtime deps, no build step, no node_modules.
-set -euo pipefail
-SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"
-exec node "$SCRIPT_DIR/src/index.ts" "$@"

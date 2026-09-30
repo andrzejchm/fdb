@@ -1,7 +1,0 @@
-- Start with the current CLI rule before reviewing files.
-- If CHANGED FILES is empty, skip every remaining rule with `--reason changed-file-scope`.
-- Return the standard summary after the skips. Do not read code.
-- Do not report pre-existing issues outside the changed hunks unless this change introduced, exposed, or now depends on them.
-- This review target only provides a changed-file list.
-- Review only the minimum file context needed to validate the changed files for the current rule.
-- No scoped diff is bundled with this review target. Avoid full file reads except for the minimum context needed to validate a changed file.

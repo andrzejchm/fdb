@@ -2,7 +2,6 @@
   "permission": {
     "skill": {
       "*": "deny",
-      "code-reviewing": "allow",
       "humanizing-ai-text": "allow",
       "implementing-fdb-features": "allow",
       "managing-beads": "allow",
