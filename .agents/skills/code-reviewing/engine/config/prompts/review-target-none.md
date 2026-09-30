@@ -1,0 +1,4 @@
+- Start with the current CLI rule before reviewing files.
+- If CHANGED FILES is empty, skip every remaining rule with `--reason changed-file-scope`.
+- Return the standard summary after the skips. Do not read code.
+- Do not report pre-existing issues outside the changed hunks unless this change introduced, exposed, or now depends on them.

@@ -1,0 +1,5 @@
+- This is the initial full review for this PR.
+- Treat this as the primary chance to find rule violations in the changed hunks before follow-up reviews narrow the scope.
+- Coverage is the goal: every file in your CHANGED FILES list must be inspected at least once during this session. Findings scale with diff size — a large diff with one finding usually means the sweep was too shallow, not that the code is clean.
+- Do not stop a rule at its first violation. Record every instance, then close the rule with rule-done.
+- Be thorough, but stay anchored to changed hunks and canonical rules. Do not speculate.

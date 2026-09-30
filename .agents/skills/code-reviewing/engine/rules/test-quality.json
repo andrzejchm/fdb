@@ -1,0 +1,77 @@
+[
+  {
+    "slug": "test-state-machine-paths",
+    "severity": "critical",
+    "description": "State machine transitions should be tested for both valid and invalid paths."
+  },
+  {
+    "slug": "test-logic-change-no-test",
+    "severity": "critical",
+    "description": "Flag actual business-logic changes without updated or added tests: server-side invariants, permissions, state transitions, money or availability rules, API or worker behavior, data transformations, or contract semantics. SKIP purely presentational UI variants, class composition, visual-only branches, AND pure wrappers around a single external dependency where any unit test would only mock that dependency (these fail the value gate). Load the project's testing-conventions skill, if one exists, before flagging — apply its value gate first."
+  },
+  {
+    "slug": "test-ui-variant-no-test",
+    "severity": "warning",
+    "description": "Flag new reusable UI component variants or presentational branches without focused tests when a regression would be user-visible. Do not use this rule for one-off markup or class-only changes."
+  },
+  {
+    "slug": "test-passthrough-delegation",
+    "severity": "critical",
+    "description": "Unit test where mock returns X and assertion checks X came back with no transformation or branching in between. Proves the mock works, not the code."
+  },
+  {
+    "slug": "test-per-field-repetition",
+    "severity": "critical",
+    "description": "N near-identical tests varying only the field name when all fields go through the same code path. Collapse into one test with multiple assertions."
+  },
+  {
+    "slug": "test-excessive-mock-wiring",
+    "severity": "critical",
+    "description": "Mock setup exceeds 5x the assertion code. Replace with an integration/e2e test."
+  },
+  {
+    "slug": "test-shared-state",
+    "severity": "critical",
+    "description": "No shared mutable state between tests - each test sets up and tears down its own data."
+  },
+  {
+    "slug": "test-execution-order",
+    "severity": "critical",
+    "description": "Tests must not depend on execution order."
+  },
+  {
+    "slug": "test-module-level-mutation",
+    "severity": "warning",
+    "description": "Flag test files that import or mutate module-level variables shared across test cases."
+  },
+  {
+    "slug": "test-false-green",
+    "severity": "critical",
+    "description": "Flag `expect(true).toBe(true)` or other tautological assertions."
+  },
+  {
+    "slug": "test-call-count-assertion",
+    "severity": "warning",
+    "description": "Flag tests that assert on internal method call counts instead of observable results."
+  },
+  {
+    "slug": "test-unfailable-assertion",
+    "severity": "critical",
+    "description": "Flag tests where the assertion cannot possibly fail given the test setup."
+  },
+  {
+    "slug": "test-mock-at-boundary",
+    "severity": "warning",
+    "description": "Mock at boundaries (DB adapters, HTTP clients, queue producers), not internal service methods."
+  },
+  {
+    "slug": "test-mock-replicates-logic",
+    "severity": "warning",
+    "description": "Flag mocks that replicate business logic instead of returning fixed responses."
+  },
+  {
+    "slug": "test-file-line-cap",
+    "severity": "critical",
+    "description": "Run `wc -l` on EVERY new or modified test file in the diff, not just the ones another finding already implicates — a large PR that splits one oversized file can still leave sibling new files over the cap unflagged. Per the project's testing-conventions skill, if one exists (otherwise use these defaults): <=150 lines is fine, 151-300 needs a look, and >300 MUST be split or have helpers extracted before merging. Applies only to new/modified files; do not flag a pre-existing oversized file the PR didn't touch."
+  }
+]

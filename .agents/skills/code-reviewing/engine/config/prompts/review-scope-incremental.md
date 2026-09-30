@@ -1,0 +1,4 @@
+- This is an incremental re-review.
+- The primary diff contains only changes since {{sourceReviewLabel}}{{baseShaSuffix}}.
+- Use full files for context only; do not raise new findings on unchanged hunks unless these new changes introduce, expose, or now depend on the issue.
+- Prefer confirming that prior fixes did not introduce regressions over re-litigating unchanged code.

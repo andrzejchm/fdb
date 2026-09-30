@@ -1,0 +1,2 @@
+- This review was manually scoped by the orchestrator.
+- Review the provided scoped diff deeply, and do not assume later reruns will revisit unchanged hunks.
