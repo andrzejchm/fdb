@@ -50,7 +50,7 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 | Topic | Commands | Run |
 |-------|----------|-----|
 | **launch** | `devices`, `launch`, `attach`, `doctor`, `reload`, `restart`, `status`, `kill`, `deeplink` | `fdb skill launch` |
-| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap`, `tap`, `longpress`, `double-tap`, `input`, `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
+| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap`, `tap`, `longpress`, `double-tap`, `input` (any text input incl. flutter_quill; `--action send`), `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
 | **data** | `shared-prefs`, `clean`, `ext`, `grant-permission` | `fdb skill data` |
 | **diagnostics** | `logs`, `syslog`, `crash-report` + websocat fallback | `fdb skill diagnostics` |
 | **memory** | `mem`, `gc`, `heap` | `fdb skill memory` |
@@ -59,3 +59,12 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 ## Session directory
 
 All state lives in `<project>/.fdb/`. fdb auto-resolves by walking up from CWD — no need to `cd` to the project root. Key files: `logs.txt`, `vm_uri.txt`, `platform.txt`, `app_id.txt`, `screenshot.png`. Full reference: `fdb skill launch`.
+
+## Caveats
+
+- `--session-dir` is a global option and goes BEFORE the command: `fdb --session-dir $S input "x"`. `fdb input --session-dir $S "x"` fails with `ERROR: Could not find an option named "--session-dir".` (or `No .fdb/ session found` if CWD has no session).
+- `fdb doctor` takes no `--device`; it reads the device from the session. `fdb doctor --device X` fails with `ERROR: Could not find an option named "--device".`
+- `fdb native-tap` on the iOS simulator is in-process only. It can't reach system dialogs (e.g. the paste prompt "would like to paste from CoreSimulator-Bridge") or the software keyboard. To enter text into any field or rich-text editor, use `fdb input` — no paste or keyboard needed.
+- `fdb input --action <name>` only calls `performAction`; what happens is up to the widget. flutter_quill ignores it unless the app sets `QuillEditorConfig.onPerformAction` — tap the app's send button instead. `--action newline` doesn't insert a line break; put `\n` in the text.
+- `WARNING: App is not in the foreground (lifecycle=paused)` on `describe`/`screenshot` means another app (or the home screen) is in front. Output reflects the app's last frame, not the screen.
+- `Can't load Kernel binary: Invalid kernel binary format version` before fdb output means fdb was activated with a different Dart SDK than the `dart` on PATH (common with FVM). fdb repoints its launchers in `~/.pub-cache/bin` to the matching snapshot once and prints a `WARNING:`. `FDB_NO_BINSTUB_REPAIR=1` disables this; then re-run `dart pub global activate ...` with the SDK you use on PATH.

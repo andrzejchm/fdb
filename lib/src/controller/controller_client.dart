@@ -8,6 +8,7 @@ import 'package:fdb/src/controller/controller_request.dart';
 import 'package:fdb/src/controller/controller_transport.dart';
 import 'package:fdb/src/controller/app_died_exception.dart';
 import 'package:fdb/src/controller/process_utils.dart';
+import 'package:fdb/src/controller/vm_not_responding_exception.dart';
 
 class ControllerUnavailable implements Exception {
   const ControllerUnavailable(this.message);
@@ -109,8 +110,18 @@ Future<void> _throwAppDiedIfPersistedAppStopped() async {
   throw await buildAppDiedException(pid: appPid);
 }
 
+/// Returns the Flutter isolate id when fdb_helper is registered, or null when
+/// it is not.
+///
+/// Throws [VmNotRespondingException] when the app PID is alive but its VM
+/// service does not respond (typically: backgrounded and suspended by the OS),
+/// and [AppDiedException] when the app PID is gone.
 Future<String?> checkFdbHelper() async {
   final response = await sendControllerCommand(ControllerCommand.checkFdbHelper);
+  if (response.field(vmNotRespondingField) == true) {
+    await _throwAppDiedIfPersistedAppStopped();
+    throw VmNotRespondingException(pid: readAppPid());
+  }
   return response.field('isolateId') as String?;
 }
 
@@ -166,7 +177,8 @@ Future<FdbEnterTextCommandResponse> fdbEnterText(Map<String, dynamic> params) as
     (token) => FdbEnterTextCommandRequest(
       token: token,
       isolateId: _string(params, 'isolateId'),
-      input: _string(params, 'input', allowEmpty: true),
+      input: _optionalString(params, 'input'),
+      action: _optionalString(params, 'action'),
       focused: _optionalString(params, 'focused'),
       text: _optionalString(params, 'text'),
       key: _optionalString(params, 'key'),

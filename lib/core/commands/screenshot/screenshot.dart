@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/commands/screenshot/screenshot_models.dart';
+import 'package:fdb/core/foreground_check.dart';
 import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:image/image.dart' as img;
@@ -17,13 +18,26 @@ export 'package:fdb/core/commands/screenshot/screenshot_models.dart';
 ///
 /// Never throws (except [AppDiedException] which the dispatcher handles).
 /// All other error conditions are represented as [ScreenshotFailed].
-Future<ScreenshotResult> captureScreenshot(ScreenshotInput input) async {
+///
+/// [lifecycleQuery] reports the app's lifecycle so a not-in-foreground (or
+/// VM-not-responding) warning can be added — the native capture shows whatever
+/// is on screen, which may be another app. Defaults to [queryLifecycleState]
+/// when a VM service URI is recorded in the session; pass a stub in tests.
+/// It runs concurrently with the capture and must not throw.
+Future<ScreenshotResult> captureScreenshot(
+  ScreenshotInput input, {
+  Future<LifecycleQueryResult> Function()? lifecycleQuery,
+}) async {
   final warnings = <String>[];
   final output = input.output;
 
   // Read session state.
   final platformInfo = readPlatformInfo();
   final deviceId = readDevice();
+
+  // Best-effort foreground check, started now so it overlaps the capture.
+  final query = lifecycleQuery ?? (readVmUri() != null ? queryLifecycleState : null);
+  final lifecycleFuture = query?.call();
 
   // Dispatch to the correct capture backend.
   final String? captureError;
@@ -37,6 +51,11 @@ Future<ScreenshotResult> captureScreenshot(ScreenshotInput input) async {
     );
   } else {
     captureError = await _legacyCapture(output, warnings);
+  }
+
+  if (lifecycleFuture != null) {
+    final warning = lifecycleQueryWarning(await lifecycleFuture);
+    if (warning != null) warnings.add(warning);
   }
 
   if (captureError != null) {

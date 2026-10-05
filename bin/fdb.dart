@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/cli/adapters/attach_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
+import 'package:fdb/cli/binstub_sdk_check_cli.dart';
 import 'package:fdb/cli/cli_command.dart';
 import 'package:fdb/cli/command_dispatch.dart';
 import 'package:fdb/constants.dart';
@@ -55,7 +56,10 @@ Commands:
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector or coordinates
   double-tap  Double-tap a widget by selector or coordinates
-  input       Enter text into a field
+  input       Enter text into a field (TextField or any TextInputClient,
+              e.g. flutter_quill); focused field unless a selector is given
+               --action <name>     Send an IME action after the text, or alone
+                                   (send, done, newline, go, search, next, ...)
   scroll      Scroll in a direction
   scroll-to   Scroll until a widget is visible
   wait        Wait until a widget or route changes state
@@ -94,6 +98,8 @@ Global options:
 ''';
 
 Future<void> main(List<String> args) async {
+  runBinstubSdkCheckCli();
+
   if (args.isEmpty) {
     stderr.writeln(usage);
     exit(1);

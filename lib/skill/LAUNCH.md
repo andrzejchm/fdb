@@ -132,6 +132,8 @@ DOCTOR_SUMMARY=pass CHECKS=5 FAILED=0
 
 Warnings do not make the summary fail. Failed checks include `HINT=...` remediation text. The command always exits `0` — parse the summary token instead of the exit code.
 
+`doctor` takes no options. It reads the device from the session; `fdb doctor --device X` fails with `ERROR: Could not find an option named "--device".`
+
 ## Hot reload / restart
 
 ```bash
@@ -153,6 +155,8 @@ fdb auto-locates the active `.fdb/` session by walking up from the current direc
 ```bash
 fdb --session-dir /path/to/project/.fdb status
 ```
+
+`--session-dir` is global: it goes before the command (`fdb --session-dir $S input "x"`), never after it.
 
 ## Deep links
 
