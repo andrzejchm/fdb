@@ -8,7 +8,6 @@ import 'package:flutter/rendering.dart';
 
 import '../element_tree_finder.dart';
 import '../gesture_dispatcher.dart';
-import '../hit_test_utils.dart';
 import '../widget_matcher.dart';
 import 'handler_utils.dart';
 
@@ -45,26 +44,12 @@ Future<developer.ServiceExtensionResponse> handleDoubleTap(
       );
     }
 
-    final (:element, :matchCount) = findHittableElement(matcher);
-    if (element == null) {
-      if (matchCount > 1) {
-        return errorResponse(
-          'Found $matchCount elements matching the selector. '
-          'Use --index to specify which one (0-based).',
-        );
-      }
-      return errorResponse('No hittable element found for matcher');
-    }
+    // A target scrolled out of view still works: its onDoubleTap callback
+    // is invoked directly. A covered one fails.
+    final (:target, :error) = findGestureTarget(matcher, allowScrolledOut: true);
+    if (target == null) return errorResponse(error!);
+    final (:element, point: globalCenter) = target;
 
-    final renderObject = element.renderObject;
-    if (renderObject is! RenderBox) {
-      return errorResponse('Element has no RenderBox');
-    }
-
-    // The centre, or the centre of the visible part when the centre is
-    // scrolled out of view.
-    final globalCenter =
-        findHittablePoint(element) ?? renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     final doubleTapTarget = _findDoubleTapTargetForElement(element);
     if (doubleTapTarget == null) {
       return errorResponse('Matched element has no onDoubleTap handler');

@@ -29,30 +29,20 @@ Future<developer.ServiceExtensionResponse> handleSwipe(
     final hasSelector = params.containsKey('key') || params.containsKey('text') || params.containsKey('type');
 
     if (hasSelector) {
-      // Widget-targeted swipe: find the widget's bounds and compute
-      // start = widget center, distance = 60% of widget dimension.
+      // Widget-targeted swipe: start where a pointer reaches the widget
+      // (its centre unless partly covered or scrolled), distance = 60% of
+      // the widget dimension.
       final matcher = WidgetMatcher.fromParams(params);
-      final (:element, :matchCount) = findHittableElement(matcher);
+      final (:target, :error) = findGestureTarget(matcher);
+      if (target == null) return errorResponse(error!);
 
-      if (element == null) {
-        if (matchCount > 1) {
-          return errorResponse(
-            'Found $matchCount elements matching the selector. '
-            'Use --index to specify which one (0-based).',
-          );
-        }
-        return errorResponse('No hittable element found for matcher');
-      }
-
-      final renderObject = element.renderObject;
+      final renderObject = target.element.renderObject;
       if (renderObject is! RenderBox) {
         return errorResponse('Element has no RenderBox');
       }
 
-      final center = renderObject.size.center(Offset.zero);
-      final globalCenter = renderObject.localToGlobal(center);
-      startX = globalCenter.dx;
-      startY = globalCenter.dy;
+      startX = target.point.dx;
+      startY = target.point.dy;
 
       // Smart default: 60% of widget width for left/right, height for up/down.
       final rawDistance = params['distance'];

@@ -1,11 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-import 'package:flutter/widgets.dart';
-
 import '../gesture_dispatcher.dart';
 import '../element_tree_finder.dart';
-import '../hit_test_utils.dart';
 import '../widget_matcher.dart';
 import 'handler_utils.dart';
 
@@ -51,31 +48,10 @@ Future<developer.ServiceExtensionResponse> handleTap(
       return developer.ServiceExtensionResponse.result(jsonEncode(response));
     }
 
-    final (:element, :matchCount) = findHittableElement(matcher);
-    if (element == null) {
-      if (matchCount > 1) {
-        return errorResponse(
-          'Found $matchCount elements matching the selector. '
-          'Use --index to specify which one (0-based).',
-        );
-      }
-      return errorResponse('No hittable element found for matcher');
-    }
+    final (:target, :error) = findGestureTarget(matcher);
+    if (target == null) return errorResponse(error!);
+    final (:element, point: globalCenter) = target;
 
-    final renderObject = element.renderObject;
-    if (renderObject is! RenderBox) {
-      return errorResponse('Element has no RenderBox');
-    }
-
-    // The centre, or the centre of the visible part when the centre is
-    // scrolled out of view. Null when the whole target is scrolled out.
-    final globalCenter = findHittablePoint(element);
-    if (globalCenter == null) {
-      return errorResponse(
-        '${element.widget.runtimeType} is scrolled out of view. '
-        'Bring it into view first with fdb scroll-to',
-      );
-    }
     // Capture widgetType before the async gap: the tap may cause the widget
     // to disappear (e.g. a button that navigates away or hides itself), which
     // unmounts the element. Accessing element.widget after the await would

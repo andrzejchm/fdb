@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'hit_test_utils.dart';
 import 'widget_matcher.dart';
@@ -62,123 +63,286 @@ List<Map<String, dynamic>> findInteractiveElements() {
 
 /// Result of [findHittableElement].
 ///
-/// [element] is the matched element (or null if none found or on error).
-/// [matchCount] is the total number of hittable elements that matched.
-typedef HittableElementResult = ({Element? element, int matchCount});
+/// [element] is the element a gesture targets: the matched widget, or for a
+/// non-interactive match its nearest interactive ancestor. Null if nothing
+/// matched or the match is ambiguous. [matchCount] is the number of matches.
+///
+/// [tapPoint] is a global point inside the matched widget at which a pointer
+/// reaches [element]. It is null when no such point exists, for example when
+/// the match is covered by a dialog or an overlay; [unreachable] says why.
+typedef HittableElementResult = ({
+  Element? element,
+  int matchCount,
+  Offset? tapPoint,
+  Unreachable? unreachable,
+});
 
-/// Finds the first (or Nth, if [matcher] has an index) hittable element
-/// matching [matcher].
+/// Why no pointer reaches a matched widget. [message] is the error to report;
+/// [scrolledOut] is true when the widget is only scrolled out of a scroll view
+/// the user can reach, not covered.
+typedef Unreachable = ({String message, bool scrolledOut});
+
+typedef _Match = ({Element matched, Element countedAs, Element? gestureOwner, bool ownsGestures});
+
+/// Finds the first (or Nth, if [matcher] has an index) element matching
+/// [matcher] and the point where a gesture on it should land.
 ///
-/// For [TextMatcher], [KeyMatcher], and [TypeMatcher], always prefers the
-/// nearest interactive ancestor over a non-interactive matched element. This
-/// means tapping `--text "Submit"` returns the enclosing button widget, not
-/// the [Text] leaf. A matched element that is interactive or has an
-/// interactive descendant (a custom button) is used as is, also when it is
-/// scrolled out of view. Pass-through wrappers ([IgnorePointer], [AbsorbPointer])
-/// are skipped as fallback targets so route-level wrappers never leak as tap
-/// results.
+/// A matched element that is interactive or has an interactive descendant (a
+/// custom button) is the target itself. A non-interactive match (`--text
+/// "Submit"` on the [Text] inside a button) targets its nearest interactive
+/// ancestor. Either way the tap point lies inside the matched widget and must
+/// reach the target there: the hit test at that point has to go through the
+/// matched widget, or for a non-interactive match through its nearest
+/// interactive ancestor before any other one. A widget covered by a dialog or
+/// an overlay therefore gets no [HittableElementResult.tapPoint]; it never
+/// falls back to tapping an unrelated big ancestor such as the Scaffold.
 ///
-/// Returns a record with the matched element and total match count.
 /// When [matcher.index] is null and more than one element matches,
-/// [element] is null and [matchCount] reflects the ambiguity.
+/// [HittableElementResult.element] is null and `matchCount` reflects the
+/// ambiguity.
 HittableElementResult findHittableElement(WidgetMatcher matcher) {
-  if (matcher is CoordinatesMatcher) return (element: null, matchCount: 0);
+  const none = (element: null, matchCount: 0, tapPoint: null, unreachable: null);
+  // Only Text, Key and Type matchers match elements in the tree.
+  if (matcher is CoordinatesMatcher || matcher is FocusedMatcher) return none;
 
   final root = WidgetsBinding.instance.rootElement;
-  if (root == null) return (element: null, matchCount: 0);
+  if (root == null) return none;
 
-  // For TextMatcher, KeyMatcher, and TypeMatcher we need to track ancestors so
-  // we can walk up when the matched element itself is not hittable.
-  final needsAncestorWalk = matcher is TextMatcher || matcher is KeyMatcher || matcher is TypeMatcher;
-
-  // Collect resolved hittable elements for each match.
-  final matches = <Element>[];
-  // Track resolved render objects to avoid duplicates (e.g. Text and its child
-  // RichText both resolve to the same render object but are different elements).
+  final matches = <_Match>[];
+  // Track counted render objects to avoid duplicates (e.g. Text and its child
+  // RichText resolve to the same render object but are different elements).
   final seen = <RenderObject>{};
+  final interactiveRenderObjects = <RenderObject>{};
 
   // Mutable ancestor stack: push before recursing, pop after (O(depth) memory).
   final ancestors = <Element>[];
 
   void visit(Element element) {
+    final isInteractive = _isInteractiveWidget(element.widget.runtimeType);
+    final elementRenderObject = isInteractive ? element.renderObject : null;
+    if (elementRenderObject != null) interactiveRenderObjects.add(elementRenderObject);
+
     if (matcher.matches(element, extractText: extractWidgetText)) {
-      Element? hittable;
-      final matchedHittable = isElementHittable(element);
       // An interactive widget, or a custom one that owns its gesture handling
       // (e.g. a design-system button that builds its own GestureDetector).
       // Climbing past it would land on an unrelated outer detector, such as a
       // screen-level keyboard dismisser.
-      final ownsGestures = _isInteractiveWidget(element.widget.runtimeType) || _hasInteractiveDescendant(element);
-
-      if (matchedHittable && ownsGestures) {
-        hittable = element;
-      } else if (needsAncestorWalk && ownsGestures && _isScrolledOutOfReachableView(element)) {
-        // Off-screen in a scroll view the user can reach: report the target
-        // itself, not the scroll view's Column whose centre happens to hit.
-        hittable = element;
-      } else if (needsAncestorWalk) {
-        // Prefer the nearest interactive ancestor over a non-interactive
-        // matched element (handles Text inside ElevatedButton). Fall back to a
-        // non-private, non-pass-through hittable ancestor, then to the matched
-        // element itself if hittable.
-        Element? fallbackHittable;
-        for (var i = ancestors.length - 1; i >= 0; i--) {
-          if (!isElementHittable(ancestors[i])) continue;
-          if (_isInteractiveWidget(ancestors[i].widget.runtimeType)) {
-            hittable = ancestors[i];
-            break; // best match — stop immediately
-          }
-          final ancestorType = ancestors[i].widget.runtimeType;
-          if (fallbackHittable == null &&
-              !ancestorType.toString().startsWith('_') &&
-              !_isPassThroughWidget(ancestorType)) {
-            fallbackHittable = ancestors[i];
-          }
-        }
-        // No interactive ancestor — fall back to matched element if hittable,
-        // otherwise to the best non-pass-through ancestor.
-        hittable ??= matchedHittable ? element : null;
-        hittable ??= fallbackHittable;
-      } else if (matchedHittable) {
-        hittable = element;
-      }
-
-      if (hittable != null) {
-        final renderObject = hittable.renderObject;
-        if (renderObject != null && seen.add(renderObject)) {
-          matches.add(hittable);
-        }
+      final ownsGestures = isInteractive || _hasInteractiveDescendant(element);
+      final countedAs = _countedAs(element, ownsGestures: ownsGestures, ancestors: ancestors);
+      final countedRenderObject = countedAs?.renderObject;
+      if (countedAs != null && countedRenderObject != null && seen.add(countedRenderObject)) {
+        matches.add((
+          matched: element,
+          countedAs: countedAs,
+          gestureOwner: ownsGestures
+              ? element
+              : ancestors.reversed.where((a) => _isInteractiveWidget(a.widget.runtimeType)).firstOrNull,
+          ownsGestures: ownsGestures,
+        ));
       }
     }
 
-    if (needsAncestorWalk) ancestors.add(element);
+    ancestors.add(element);
     element.visitChildren(visit);
-    if (needsAncestorWalk) ancestors.removeLast();
+    ancestors.removeLast();
   }
 
   root.visitChildren(visit);
 
   // Stable-partition: user widgets first, framework widgets after.
   // List.sort is not guaranteed stable in Dart, so we split and rejoin.
-  final userMatches = matches.where((e) => !_isFrameworkWidget(e)).toList();
-  final frameworkMatches = matches.where((e) => _isFrameworkWidget(e)).toList();
+  final userMatches = matches.where((m) => !_isFrameworkWidget(m.countedAs)).toList();
+  final frameworkMatches = matches.where((m) => _isFrameworkWidget(m.countedAs)).toList();
   matches
     ..clear()
     ..addAll(userMatches)
     ..addAll(frameworkMatches);
 
-  if (matches.isEmpty) return (element: null, matchCount: 0);
+  if (matches.isEmpty) return none;
 
   // Ambiguous: multiple matches and no index specified — caller must disambiguate.
-  if (matcher.index == null && matches.length > 1) {
-    return (element: null, matchCount: matches.length);
+  final targetIndex = matcher.index ?? 0;
+  if ((matcher.index == null && matches.length > 1) || targetIndex >= matches.length) {
+    return (element: null, matchCount: matches.length, tapPoint: null, unreachable: null);
   }
 
-  final targetIndex = matcher.index ?? 0;
-  if (targetIndex >= matches.length) {
-    return (element: null, matchCount: matches.length);
+  final match = matches[targetIndex];
+  final tapPoint = _findTapPoint(match, interactiveRenderObjects);
+  return (
+    element: match.gestureOwner ?? match.matched,
+    matchCount: matches.length,
+    tapPoint: tapPoint,
+    unreachable: tapPoint == null ? _describeUnreachable(match.matched) : null,
+  );
+}
+
+/// The element and point at which a selector gesture (tap, long-press,
+/// double-tap, swipe) starts, or the error to report when there is none.
+///
+/// With [allowScrolledOut], a match that is only scrolled out of view is
+/// returned with its centre, for gestures that can invoke the callback
+/// directly instead of hit-testing.
+({({Element element, Offset point})? target, String? error}) findGestureTarget(
+  WidgetMatcher matcher, {
+  bool allowScrolledOut = false,
+}) {
+  final (:element, :matchCount, :tapPoint, :unreachable) = findHittableElement(matcher);
+  if (element == null) {
+    final error = matchCount > 1
+        ? 'Found $matchCount elements matching the selector. Use --index to specify which one (0-based).'
+        : 'No hittable element found for matcher';
+    return (target: null, error: error);
   }
-  return (element: matches[targetIndex], matchCount: matches.length);
+  if (tapPoint != null) return (target: (element: element, point: tapPoint), error: null);
+  final box = element.renderObject;
+  if (allowScrolledOut && unreachable!.scrolledOut && box is RenderBox) {
+    return (target: (element: element, point: box.localToGlobal(box.size.center(Offset.zero))), error: null);
+  }
+  return (target: null, error: unreachable!.message);
+}
+
+/// The element a match is counted and de-duplicated by. Unchanged from the
+/// time this also picked the tap target, so match counts, `--index` and
+/// `fdb wait` keep their behaviour. Never used as the tap target: tapping a
+/// hittable ancestor here (a Scaffold, the Overlay) sent stray taps to the
+/// screen centre when the match was covered.
+Element? _countedAs(Element element, {required bool ownsGestures, required List<Element> ancestors}) {
+  final matchedHittable = isElementHittable(element);
+  if (ownsGestures && (matchedHittable || _isScrolledOutOfReachableView(element))) return element;
+
+  Element? fallbackHittable;
+  for (var i = ancestors.length - 1; i >= 0; i--) {
+    if (!isElementHittable(ancestors[i])) continue;
+    final ancestorType = ancestors[i].widget.runtimeType;
+    if (_isInteractiveWidget(ancestorType)) return ancestors[i];
+    if (fallbackHittable == null && !ancestorType.toString().startsWith('_') && !_isPassThroughWidget(ancestorType)) {
+      fallbackHittable = ancestors[i];
+    }
+  }
+  return matchedHittable ? element : fallbackHittable;
+}
+
+/// A point inside the matched widget where a pointer reaches the gesture
+/// target of [match], or null.
+///
+/// A widget that owns its gestures (or has no interactive ancestor) must be
+/// on the hit-test path itself. A non-interactive match must have its nearest
+/// interactive ancestor as the first interactive widget on the path: that
+/// accepts a Text inside a button, and rejects an opaque detector on top that
+/// sits inside the same screen-level detector.
+Offset? _findTapPoint(_Match match, Set<RenderObject> interactiveRenderObjects) {
+  final box = match.matched.renderObject;
+  if (box is! RenderBox || !box.hasSize || !box.attached) return null;
+  final owner = match.gestureOwner;
+  for (final point in tapCandidatePoints(box)) {
+    final path = hitTestAt(point).path;
+    final reaches = match.ownsGestures || owner == null
+        ? path.any((entry) => entry.target == box)
+        : path.map((entry) => entry.target).where(interactiveRenderObjects.contains).firstOrNull == owner.renderObject;
+    if (reaches) return point;
+  }
+  return null;
+}
+
+/// Why no pointer reaches [matched]: scrolled out of view, blocked by an
+/// ignoring ancestor, or covered by another widget.
+Unreachable _describeUnreachable(Element matched) {
+  final type = matched.widget.runtimeType;
+  Unreachable notHittable(String why, {String fix = 'Dismiss what covers it'}) =>
+      (message: '$type is not hittable: $why. $fix or use --index/another selector', scrolledOut: false);
+
+  final box = matched.renderObject;
+  if (box is! RenderBox || !box.hasSize || !box.attached) {
+    return notHittable('it has no laid-out box on screen', fix: 'Pick another widget');
+  }
+
+  if (visibleGlobalRect(box).isEmpty) {
+    if (_isScrolledOutOfReachableView(matched)) {
+      return (message: '$type is scrolled out of view. Bring it into view first with fdb scroll-to', scrolledOut: true);
+    }
+    return notHittable('it is outside the visible screen area', fix: 'Bring it on screen');
+  }
+
+  final point = visibleGlobalRect(box).center;
+  final at = '${point.dx.toStringAsFixed(1)},${point.dy.toStringAsFixed(1)}';
+  final blocker = _pointerBlocker(box);
+  if (blocker != null) {
+    return notHittable('it is inside $blocker, which blocks pointer events at $at', fix: 'Wait until it accepts taps');
+  }
+  final cover = _coveringWidget(hitTestAt(point).path, matched);
+  if (cover == null) return notHittable('a tap at $at does not reach it');
+  return notHittable('it is covered by $cover at $at');
+}
+
+/// The nearest render ancestor (or [box] itself) that drops pointer events
+/// for its subtree: an ignoring [IgnorePointer], an absorbing [AbsorbPointer]
+/// or an [Offstage] (which [Visibility] also uses).
+String? _pointerBlocker(RenderBox box) {
+  for (RenderObject? node = box; node != null; node = node.parent) {
+    final blocks = (node is RenderIgnorePointer && node.ignoring) ||
+        (node is RenderAbsorbPointer && node.absorbing) ||
+        (node is RenderOffstage && node.offstage);
+    if (blocks) return _creatorElement(node)?.widget.runtimeType.toString() ?? node.runtimeType.toString();
+  }
+  return null;
+}
+
+/// Names the widget on top of [matched] from the hit-test [path] at its centre.
+///
+/// Walks up from the deepest hit widget to just below the first ancestor it
+/// shares with [matched]. Prefers a well-known covering widget (a barrier,
+/// dialog, sheet or another screen), then the topmost user-level widget of
+/// the covering subtree. Null when the deepest hit is an ancestor of [matched],
+/// i.e. the tap falls through an empty part of it rather than being covered.
+String? _coveringWidget(Iterable<HitTestEntry> path, Element matched) {
+  final deepest = path.map((entry) => entry.target).whereType<RenderObject>().map(_creatorElement).nonNulls.firstOrNull;
+  if (deepest == null) return null;
+
+  final matchedAncestors = <Element>{matched};
+  matched.visitAncestorElements((ancestor) => matchedAncestors.add(ancestor));
+  if (matchedAncestors.contains(deepest)) return null;
+
+  final coveringChain = [deepest];
+  deepest.visitAncestorElements((ancestor) {
+    if (matchedAncestors.contains(ancestor)) return false;
+    coveringChain.add(ancestor);
+    return true;
+  });
+
+  final known = coveringChain.where((e) => _coveringWidgetTypes.contains(e.widget.runtimeType)).firstOrNull;
+  final topmost = coveringChain.reversed.where(_isUserLevelWidget).firstOrNull;
+  return (known ?? topmost ?? deepest).widget.runtimeType.toString();
+}
+
+Element? _creatorElement(RenderObject renderObject) {
+  final creator = renderObject.debugCreator;
+  return creator is DebugCreator ? creator.element : null;
+}
+
+/// Widgets that typically cover the rest of the screen.
+const _coveringWidgetTypes = {
+  ModalBarrier,
+  Dialog,
+  AlertDialog,
+  SimpleDialog,
+  BottomSheet,
+  Drawer,
+  SnackBar,
+  MaterialBanner,
+  Scaffold,
+  CupertinoAlertDialog,
+  CupertinoActionSheet,
+  CupertinoPopupSurface,
+  CupertinoPageScaffold,
+};
+
+/// A public composite widget, the kind an app defines (a `LoadingOverlay`, a
+/// `GestureDetector`), not layout, inherited or route plumbing.
+bool _isUserLevelWidget(Element element) {
+  final widget = element.widget;
+  if (widget is ProxyWidget || widget is RenderObjectWidget) return false;
+  if (widget is TickerMode || widget is PageStorage) return false;
+  return !_isFrameworkWidget(element);
 }
 
 /// True when [element] sits in a [Scrollable] that is itself hittable: it is
