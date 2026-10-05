@@ -33,7 +33,10 @@ Future<DoubleTapResult> doubleTap(DoubleTapInput input) async {
 
       final error = result.error;
       if (error != null) {
-        final isRetryable = error.contains('not found') || error.contains('No hittable element');
+        final isRetryable = error.contains('not found') ||
+            error.contains('No hittable element') ||
+            // Covered (dialog closing, sheet animating): retry until --timeout.
+            error.contains(' is not hittable: ');
         if (isRetryable && DateTime.now().isBefore(deadline)) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
           continue;

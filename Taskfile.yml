@@ -1623,7 +1623,7 @@ tasks:
 
         echo "==> Tapping the covered button by key (must fail)"
         set +e
-        OUTPUT=$({{.FDB}} tap --key "custom_send_button" 2>&1)
+        OUTPUT=$({{.FDB}} tap --key "custom_send_button" --timeout 1 2>&1)
         EXIT_CODE=$?
         set -e
         echo "$OUTPUT"
