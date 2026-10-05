@@ -72,7 +72,9 @@ typedef HittableElementResult = ({Element? element, int matchCount});
 /// For [TextMatcher], [KeyMatcher], and [TypeMatcher], always prefers the
 /// nearest interactive ancestor over a non-interactive matched element. This
 /// means tapping `--text "Submit"` returns the enclosing button widget, not
-/// the [Text] leaf. Pass-through wrappers ([IgnorePointer], [AbsorbPointer])
+/// the [Text] leaf. A matched element that is interactive or has an
+/// interactive descendant (a custom button) is used as is, also when it is
+/// scrolled out of view. Pass-through wrappers ([IgnorePointer], [AbsorbPointer])
 /// are skipped as fallback targets so route-level wrappers never leak as tap
 /// results.
 ///
@@ -102,10 +104,17 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
     if (matcher.matches(element, extractText: extractWidgetText)) {
       Element? hittable;
       final matchedHittable = isElementHittable(element);
-      final matchedInteractive = _isInteractiveWidget(element.widget.runtimeType);
+      // An interactive widget, or a custom one that owns its gesture handling
+      // (e.g. a design-system button that builds its own GestureDetector).
+      // Climbing past it would land on an unrelated outer detector, such as a
+      // screen-level keyboard dismisser.
+      final ownsGestures = _isInteractiveWidget(element.widget.runtimeType) || _hasInteractiveDescendant(element);
 
-      if (matchedHittable && matchedInteractive) {
-        // Matched element is itself an interactive widget — use it directly.
+      if (matchedHittable && ownsGestures) {
+        hittable = element;
+      } else if (needsAncestorWalk && ownsGestures && _isScrolledOutOfReachableView(element)) {
+        // Off-screen in a scroll view the user can reach: report the target
+        // itself, not the scroll view's Column whose centre happens to hit.
         hittable = element;
       } else if (needsAncestorWalk) {
         // Prefer the nearest interactive ancestor over a non-interactive
@@ -170,6 +179,32 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
     return (element: null, matchCount: matches.length);
   }
   return (element: matches[targetIndex], matchCount: matches.length);
+}
+
+/// True when [element] sits in a [Scrollable] that is itself hittable: it is
+/// only scrolled out of view, not covered by another route or a dialog.
+bool _isScrolledOutOfReachableView(Element element) {
+  var reachable = false;
+  element.visitAncestorElements((ancestor) {
+    if (ancestor.widget is Scrollable) reachable = isElementHittable(ancestor);
+    return !reachable;
+  });
+  return reachable;
+}
+
+bool _hasInteractiveDescendant(Element element) {
+  var found = false;
+  void visit(Element child) {
+    if (found) return;
+    if (_isInteractiveWidget(child.widget.runtimeType)) {
+      found = true;
+      return;
+    }
+    child.visitChildren(visit);
+  }
+
+  element.visitChildren(visit);
+  return found;
 }
 
 /// Returns true if [element] is a framework-internal widget that should not be

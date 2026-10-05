@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../element_tree_finder.dart';
 import '../gesture_dispatcher.dart';
+import '../hit_test_utils.dart';
 import '../widget_matcher.dart';
 import 'handler_utils.dart';
 
@@ -60,8 +61,10 @@ Future<developer.ServiceExtensionResponse> handleDoubleTap(
       return errorResponse('Element has no RenderBox');
     }
 
-    final center = renderObject.size.center(Offset.zero);
-    final globalCenter = renderObject.localToGlobal(center);
+    // The centre, or the centre of the visible part when the centre is
+    // scrolled out of view.
+    final globalCenter =
+        findHittablePoint(element) ?? renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     final doubleTapTarget = _findDoubleTapTargetForElement(element);
     if (doubleTapTarget == null) {
       return errorResponse('Matched element has no onDoubleTap handler');

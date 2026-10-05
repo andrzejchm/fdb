@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../gesture_dispatcher.dart';
 import '../element_tree_finder.dart';
+import '../hit_test_utils.dart';
 import '../widget_matcher.dart';
 import 'handler_utils.dart';
 
@@ -66,8 +67,15 @@ Future<developer.ServiceExtensionResponse> handleTap(
       return errorResponse('Element has no RenderBox');
     }
 
-    final center = renderObject.size.center(Offset.zero);
-    final globalCenter = renderObject.localToGlobal(center);
+    // The centre, or the centre of the visible part when the centre is
+    // scrolled out of view. Null when the whole target is scrolled out.
+    final globalCenter = findHittablePoint(element);
+    if (globalCenter == null) {
+      return errorResponse(
+        '${element.widget.runtimeType} is scrolled out of view. '
+        'Bring it into view first with fdb scroll-to',
+      );
+    }
     // Capture widgetType before the async gap: the tap may cause the widget
     // to disappear (e.g. a button that navigates away or hides itself), which
     // unmounts the element. Accessing element.widget after the await would
