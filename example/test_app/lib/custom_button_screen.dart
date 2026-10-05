@@ -1,0 +1,75 @@
+import 'package:flutter/material.dart';
+
+const customButtonRoute = '/custom-button-test';
+
+/// Screen for `task test:tap-custom-button`: a keyed custom button that owns
+/// its GestureDetector, inside a screen-level GestureDetector (the usual
+/// keyboard-dismiss wrapper). `fdb tap --key custom_send_button` must hit the
+/// button, not the centre of the outer detector.
+class CustomButtonTestScreen extends StatefulWidget {
+  const CustomButtonTestScreen({super.key});
+
+  @override
+  State<CustomButtonTestScreen> createState() => _CustomButtonTestScreenState();
+}
+
+class _CustomButtonTestScreenState extends State<CustomButtonTestScreen> {
+  int _buttonTaps = 0;
+  int _screenTaps = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Custom Button Test')),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _screenTaps++),
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: Text(
+                  'button=$_buttonTaps screen=$_screenTaps',
+                  key: const Key('custom_button_counter'),
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: CustomSendButton(
+                  key: const Key('custom_send_button'),
+                  onPressed: () => setState(() => _buttonTaps++),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A design-system style button: not a Material/Cupertino button type, it
+/// builds its own focus handling, GestureDetector and semantics.
+class CustomSendButton extends StatefulWidget {
+  const CustomSendButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<CustomSendButton> createState() => _CustomSendButtonState();
+}
+
+class _CustomSendButtonState extends State<CustomSendButton> {
+  @override
+  Widget build(BuildContext context) {
+    return FocusableActionDetector(
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: Semantics(button: true, child: const Icon(Icons.send, size: 40)),
+      ),
+    );
+  }
+}

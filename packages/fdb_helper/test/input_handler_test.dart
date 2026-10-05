@@ -271,6 +271,35 @@ void main() {
     expect(state.value.selection, const TextSelection.collapsed(offset: 8));
   });
 
+  // 530: top edge visible, centre below the 600px test surface. 2000: fully out.
+  for (final gap in [530.0, 2000.0]) {
+    testWidgets('--key on a field scrolled past the edge (gap $gap) types into that field', (tester) async {
+      final other = TextEditingController();
+      final keyed = TextEditingController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(controller: other),
+                  SizedBox(height: gap),
+                  TextField(key: const ValueKey('test_input'), controller: keyed),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.getCenter(find.byKey(const ValueKey('test_input'))).dy, greaterThan(600));
+
+      final result = await _enterText({'input': 'x', 'key': 'test_input'});
+
+      expect(result['widgetType'], 'TextField', reason: '$result');
+      expect((keyed.text, other.text), ('x', ''));
+    });
+  }
+
   group('rejections', () {
     testWidgets('nothing focused: refuses instead of typing into the first field', (tester) async {
       final controller = TextEditingController();

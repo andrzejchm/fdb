@@ -10,6 +10,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import 'benchmark_screens.dart';
+import 'custom_button_screen.dart';
 import 'grid_describe_screen.dart';
 import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
@@ -66,6 +67,7 @@ class FdbTestApp extends StatelessWidget {
         '/scale-page-view-test': (_) => const ScalePageViewTestScreen(),
         '/drawing-path-test': (_) => const DrawingPathTestScreen(),
         richEditorRoute: (_) => const RichEditorScreen(),
+        customButtonRoute: (_) => const CustomButtonTestScreen(),
       },
     );
   }
@@ -511,6 +513,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Text('Extra item $i'),
                 ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                key: const Key('go_to_custom_button_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, customButtonRoute),
+                child: const Text('Custom Button Test'),
+              ),
               const SizedBox(height: 16),
             ],
           ),

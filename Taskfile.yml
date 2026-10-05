@@ -1568,6 +1568,39 @@ tasks:
           exit 1
         fi
 
+  test:tap-custom-button:
+    desc: Tap a keyed custom button inside a screen-level GestureDetector; must hit the button, not the outer detector
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to Custom Button screen"
+        {{.FDB}} scroll-to --key "go_to_custom_button_test" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "go_to_custom_button_test" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to custom button screen" >&2
+          exit 1
+        fi
+        {{.FDB}} wait --key "custom_send_button" --present --timeout 5000 >/dev/null
+
+        echo "==> Tapping custom button by key"
+        OUTPUT=$({{.FDB}} tap --key "custom_send_button" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "TAPPED=CustomSendButton"; then
+          echo "FAIL: fdb tap --key custom_send_button (exit=$EXIT_CODE, expected TAPPED=CustomSendButton)" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> Checking that the button, not the screen detector, received the tap"
+        if ! {{.FDB}} wait --text "button=1 screen=0" --present --timeout 3000 >/dev/null 2>&1; then
+          {{.FDB}} describe 2>&1 | grep -E "button=|screen=" >&2
+          echo "FAIL: fdb tap --key custom_send_button - expected counter 'button=1 screen=0'" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb tap --key on a custom button inside a screen-level GestureDetector"
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -1581,10 +1614,12 @@ tasks:
           echo "FAIL: fdb input exited with code $EXIT_CODE" >&2
           exit 1
         fi
-        if echo "$OUTPUT" | grep -q "INPUT="; then
+        # The field may be scrolled out of view here; the matched TextField must
+        # still be reported, not the scroll view's Column.
+        if echo "$OUTPUT" | grep -q "INPUT=TextField"; then
           echo "PASS: fdb input"
         else
-          echo "FAIL: fdb input - INPUT= not found in output" >&2
+          echo "FAIL: fdb input - INPUT=TextField not found in output" >&2
           exit 1
         fi
 
@@ -4365,6 +4400,7 @@ tasks:
       - task: test:tap-cupertino-button
         vars:
           DEVICE: '{{.DEVICE}}'
+      - task: test:tap-custom-button
       - task: test:input
       - task: test:input-rich
       - task: test:scroll
