@@ -1036,6 +1036,48 @@ dart run ../../bin/fdb.dart back
 
 ---
 
+## S40 · input — rich-text editor (flutter_quill) + IME action
+
+**Purpose:** `fdb input` reaches a text input that is not an `EditableText`
+(flutter_quill's `QuillRawEditorState` implements `TextInputClient` directly),
+replaces its content without a keyboard, and `--action send` reaches the
+editor's `onPerformAction`. The test app's Rich Editor screen shows
+`"Sent: <text>"` after a send.
+
+```bash
+dart run ../../bin/fdb.dart scroll-to --key rich_editor_button
+dart run ../../bin/fdb.dart tap --key rich_editor_button
+dart run ../../bin/fdb.dart wait --key quill_editor --present --timeout 5000
+dart run ../../bin/fdb.dart tap --key quill_editor   # focus the editor
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart input "QA test" --action send
+dart run ../../bin/fdb.dart describe
+# Selector path, no focus needed
+dart run ../../bin/fdb.dart input --type QuillEditor "second"
+dart run ../../bin/fdb.dart describe
+# Bad action name
+dart run ../../bin/fdb.dart input --action bogus
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- First `describe` lists the editor as `@N QuillRawEditor(editable) ...` in
+  `INTERACTIVE:` — not missing, not a plain `TextField` line
+- `input "QA test" --action send` exits 0 and prints both
+  `INPUT=<type> VALUE=QA test` and `IME_ACTION=send TARGET=<type>`, where
+  `<type>` is the Quill widget (e.g. `QuillRawEditor`), not `EditableText`
+- Next `describe` shows `"Sent: QA test"` exactly — no stray extra newline,
+  no duplicated text
+- `input --type QuillEditor "second"` exits 0 with `INPUT=QuillEditor
+  VALUE=second`; `describe` shows the editor text replaced (`"second"`, not
+  `"QA testsecond"`)
+- `input --action bogus` exits 1 with
+  `ERROR: Invalid value for --action: bogus. Valid: send, done, ...`
+- No soft keyboard or paste prompt was needed at any point
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:
