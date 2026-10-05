@@ -344,6 +344,18 @@ void main() {
   });
 
   group('rejections', () {
+    testWidgets('nothing focused: refuses instead of typing into the first field', (tester) async {
+      final controller = TextEditingController();
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: TextField(controller: controller))));
+      await tester.pump();
+
+      final result = await _enterText({'input': 'x', 'focused': 'true'});
+
+      expect(result['error'], startsWith('No focused element found'));
+      expect(result['error'], contains('focus scope'));
+      expect(controller.text, isEmpty);
+    });
+
     testWidgets('focused non-text widget: error names its type', (tester) async {
       final focusNode = FocusNode();
       addTearDown(focusNode.dispose);
