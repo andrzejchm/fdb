@@ -160,7 +160,7 @@ Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 
 Platform dispatch:
 - **Android** — `adb shell input tap X Y`. Reaches all on-screen UI including system dialogs.
-- **iOS simulator** — falls back to `fdb tap --at` (in-process). Reaches `UIAlertController` and in-app native overlays. **Cannot reach SpringBoard dialogs** (URL scheme confirmations, OS permission prompts).
+- **iOS simulator** — falls back to `fdb tap --at` (in-process). Reaches `UIAlertController` and in-app native overlays. **Cannot reach SpringBoard dialogs** (URL scheme confirmations, OS permission prompts, the paste prompt "would like to paste from CoreSimulator-Bridge") **or the software keyboard.** native-tap can't type; use `fdb input` for text entry.
 - **iOS physical / macOS** — not supported. Use `fdb tap --at`.
 
 For iOS in-app alerts (`UIAlertController`):

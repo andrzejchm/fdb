@@ -62,4 +62,7 @@ All state lives in `<project>/.fdb/`. fdb auto-resolves by walking up from CWD â
 
 ## Caveats
 
+- `--session-dir` is a global option and goes BEFORE the command: `fdb --session-dir $S input "x"`. `fdb input --session-dir $S "x"` fails with `ERROR: Could not find an option named "--session-dir".` (or `ERROR: No .fdb/ session found.` if CWD has no session).
+- `fdb doctor` takes no options, so no `--device`; it reads the device from the session. `fdb doctor --device X` fails with `ERROR: Could not find an option named "--device".`
+- `fdb native-tap` on the iOS simulator injects the touch in-process (`UIApplication.sendEvent`). It can't reach system dialogs (e.g. the paste prompt "would like to paste from CoreSimulator-Bridge") or the software keyboard, so it can't type. Use `fdb input` for text entry.
 - `Can't load Kernel binary: Invalid kernel binary format version` before fdb output means fdb was activated with a different Dart SDK than the `dart` on PATH (common with FVM). fdb repoints its launchers in `~/.pub-cache/bin` to the matching snapshot once and prints a `WARNING:`. `FDB_NO_BINSTUB_REPAIR=1` disables this; then re-run `dart pub global activate ...` with the SDK you use on PATH.
