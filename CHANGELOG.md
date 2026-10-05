@@ -6,6 +6,9 @@
 - `fdb input` errors now name the widget and the reason, e.g. `ElevatedButton is not a text input: no EditableText and no State implementing TextInputClient was found on it, below it, or above it`.
 - `fdb describe` lists non-`EditableText` text inputs as interactive entries: `@N QuillRawEditor(editable) "current text"` (JSON: `editable: true`, `inputClient: <StateType>`).
 
+### Fixes
+- `Can't load Kernel binary: Invalid kernel binary format version` when fdb was activated with a different Dart SDK than the `dart` on PATH (e.g. FVM). fdb now repoints its `fdb` and `fdb-controller` launchers in `~/.pub-cache/bin` to the snapshot for the running SDK once and prints a `WARNING:`. Set `FDB_NO_BINSTUB_REPAIR=1` to disable; fdb then prints the manual fix.
+
 ## 1.11.2
 
 ### Fixes
