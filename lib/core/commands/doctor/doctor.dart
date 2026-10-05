@@ -1,5 +1,6 @@
 import 'package:fdb/core/commands/doctor/doctor_models.dart';
 import 'package:fdb/core/commands/status/status.dart';
+import 'package:fdb/core/foreground_check.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:fdb/core/process_utils.dart';
 
@@ -29,6 +30,9 @@ Future<DoctorResult> runDoctor(List<String> args) async {
 
   // 2. vm_service
   final vmServiceUri = appRunning ? await _checkVmService(status.vmServiceUri) : null;
+  // An unreachable VM with the app alive is usually an app the OS suspended in
+  // the background. Say so instead of "check if the app crashed".
+  final suspendedHint = appRunning && vmServiceUri == null ? await _vmNotRespondingHint() : null;
   if (vmServiceUri != null) {
     checks.add(CheckResult(
       name: 'vm_service',
@@ -40,9 +44,10 @@ Future<DoctorResult> runDoctor(List<String> args) async {
     checks.add(CheckResult(
       name: 'vm_service',
       status: CheckStatus.fail,
-      hint: appRunning
-          ? 'App is running but VM service is unreachable. Check if the app crashed.'
-          : "Run 'fdb launch --device <id> --project <path>' to start the app",
+      hint: suspendedHint ??
+          (appRunning
+              ? 'App is running but VM service is unreachable. Check if the app crashed.'
+              : "Run 'fdb launch --device <id> --project <path>' to start the app"),
     ));
   }
 
@@ -51,10 +56,11 @@ Future<DoctorResult> runDoctor(List<String> args) async {
     checks.add(const CheckResult(name: 'fdb_helper', status: CheckStatus.pass));
   } else {
     failed++;
-    checks.add(const CheckResult(
+    checks.add(CheckResult(
       name: 'fdb_helper',
       status: CheckStatus.fail,
-      hint: 'Add fdb_helper to pubspec.yaml dev_dependencies and call FdbBinding.ensureInitialized() in main()',
+      hint: suspendedHint ??
+          'Add fdb_helper to pubspec.yaml dev_dependencies and call FdbBinding.ensureInitialized() in main()',
     ));
   }
 
@@ -114,11 +120,21 @@ Future<String?> _checkVmService(String? statusVmServiceUri) async {
   }
 }
 
+/// Returns the not-responding message when a bounded lifecycle query times
+/// out while the app PID is alive, or null otherwise.
+Future<String?> _vmNotRespondingHint() async {
+  final result = await queryLifecycleState();
+  if (result is! LifecycleVmNotResponding) return null;
+  return vmNotRespondingMessage(readAppPid());
+}
+
 Future<bool> _checkFdbHelper() async {
   try {
     final isolateId = await checkFdbHelper();
     return isolateId != null;
   } on ControllerUnavailable {
+    return false;
+  } on VmNotRespondingException {
     return false;
   } on AppDiedException {
     return false;

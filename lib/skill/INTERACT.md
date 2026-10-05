@@ -137,6 +137,8 @@ VISIBLE TEXT:
 ```
 JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lines are unchanged. Target them with `fdb tap @N` + `fdb input`, or `fdb input --type QuillRawEditor`.
 
+**Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
+
 **Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
 
 ## Widget selection
