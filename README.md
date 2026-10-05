@@ -365,6 +365,8 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **`Can't load Kernel binary: Invalid kernel binary format version (expected X, found Y)`** - fdb was activated with one Dart SDK and `dart` on PATH is another (common with FVM). Pub's launcher in `~/.pub-cache/bin` hardcodes the activating SDK's snapshot, so the VM prints this before fdb starts. fdb repoints its `fdb` and `fdb-controller` launchers to the snapshot for the running SDK once and prints a `WARNING:`. Set `FDB_NO_BINSTUB_REPAIR=1` to turn that off; fdb then prints the manual fix — re-run `dart pub global activate ...` with the SDK you use on PATH.
 
+**`WARNING: App is not in the foreground (lifecycle=paused)`** - `describe` and `screenshot` print this on stderr when the app isn't the visible app (e.g. another app is in front on the same simulator). Output reflects the app's last frame. Bring the app to the front and retry. Needs a current `fdb_helper`.
+
 **Launch hangs** - Check the device ID (`fdb devices`) and the project path.
 
 **Screenshot fails** - check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool` + `import` (Linux X11). Physical iOS, Windows, and Linux Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.

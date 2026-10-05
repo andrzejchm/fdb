@@ -4,6 +4,7 @@ export 'controller_client.dart';
 export 'vm_service/vm_service_impl.dart' show streamHeapSnapshot;
 export 'controller_command.dart' show ControllerCommand;
 export 'controller_response.dart' show ControllerResponse;
+export 'vm_not_responding_exception.dart' show VmNotRespondingException, vmNotRespondingMessage;
 export 'session.dart'
     show
         appIdFile,

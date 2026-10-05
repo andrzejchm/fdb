@@ -9,6 +9,7 @@ import 'handlers/clean_handler.dart';
 import 'handlers/describe_handler.dart';
 import 'handlers/double_tap_handler.dart';
 import 'handlers/input_handler.dart';
+import 'handlers/lifecycle_handler.dart';
 import 'handlers/screenshot_handler.dart';
 import 'handlers/scroll_handler.dart';
 import 'handlers/scroll_to_handler.dart';
@@ -41,6 +42,7 @@ import 'vm_uri_broadcaster.dart';
 /// - `ext.fdb.clean` — delete app storage directories
 /// - `ext.fdb.sharedPrefs` — read/write shared preferences
 /// - `ext.fdb.screenshot` — capture the Flutter rendering surface as base64 PNG
+/// - `ext.fdb.lifecycle` — report the current [AppLifecycleState] (foreground check)
 ///
 /// On initialisation (debug/profile only) this mixin also emits the Dart VM
 /// service URI to the platform log via [broadcastVmUri], enabling
@@ -71,6 +73,7 @@ mixin FdbServiceExtensionsMixin on WidgetsBinding {
     _registerExtension('ext.fdb.clean', handleClean);
     _registerExtension('ext.fdb.sharedPrefs', handleSharedPrefs);
     _registerExtension('ext.fdb.screenshot', handleScreenshot);
+    _registerExtension('ext.fdb.lifecycle', handleLifecycle);
   }
 
   /// Registers a VM service extension, silently ignoring the case where an
