@@ -59,3 +59,9 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 ## Session directory
 
 All state lives in `<project>/.fdb/`. fdb auto-resolves by walking up from CWD — no need to `cd` to the project root. Key files: `logs.txt`, `vm_uri.txt`, `platform.txt`, `app_id.txt`, `screenshot.png`. Full reference: `fdb skill launch`.
+
+## Caveats
+
+- `--session-dir` is a global option and goes BEFORE the command: `fdb --session-dir $S input "x"`. `fdb input --session-dir $S "x"` fails with `ERROR: Could not find an option named "--session-dir".` (or `ERROR: No .fdb/ session found.` if CWD has no session).
+- `fdb doctor` takes no options, so no `--device`; it reads the device from the session. `fdb doctor --device X` fails with `ERROR: Could not find an option named "--device".`
+- `fdb native-tap` on the iOS simulator injects the touch in-process (`UIApplication.sendEvent`). It can't reach system dialogs (e.g. the paste prompt "would like to paste from CoreSimulator-Bridge") or the software keyboard, so it can't type. Use `fdb input` for text entry.

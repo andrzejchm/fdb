@@ -122,7 +122,7 @@ fdb kill
 | `fdb launch --device <id> --project <path> [--dart-define <k=v>] [--dart-define-from-file <path>] [-i] [--verbose]` | Launch app, wait for start; use repeatable define flags to pass compile-time config through to `flutter run`, and `-i`/`--interactive` to stay in an fdb REPL |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
-| `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state |
+| `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state. Takes no options (no `--device`); reads the device from the session |
 | `fdb status` | Check if app is running |
 | `fdb kill` | Stop app, clean up |
 
@@ -146,7 +146,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | Command | Description |
 |---------|-------------|
 | `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
-| `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
+| `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning, so it can't reach system dialogs such as the paste prompt, or the software keyboard; use `fdb input` for text). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
 | `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
 | `fdb input [--text/--key/--type <selector>] <text>` | Enter text into a field |
@@ -254,7 +254,7 @@ For the full walkthrough see the [fdb skill](lib/skill/SKILL.md) → "Investigat
 |--------|-------------|
 | `fdb --session-dir <path> <command>` | Use a specific `.fdb/` session directory instead of auto-resolving |
 
-fdb automatically locates the active `.fdb/` session by walking up from the current directory, so you can run any command from a subdirectory without changing to the project root. Pass `--session-dir` to override this and point at a specific session directory.
+fdb automatically locates the active `.fdb/` session by walking up from the current directory, so you can run any command from a subdirectory without changing to the project root. Pass `--session-dir` to override this and point at a specific session directory. It must come before the command: `fdb --session-dir <path> input "x"` works, `fdb input --session-dir <path> "x"` does not.
 
 ### Interactive REPL
 
