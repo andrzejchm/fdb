@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/cli/adapters/attach_cli.dart';
 import 'package:fdb/cli/adapters/launch_cli.dart';
+import 'package:fdb/cli/binstub_sdk_check_cli.dart';
 import 'package:fdb/cli/cli_command.dart';
 import 'package:fdb/cli/command_dispatch.dart';
 import 'package:fdb/constants.dart';
@@ -94,6 +95,8 @@ Global options:
 ''';
 
 Future<void> main(List<String> args) async {
+  runBinstubSdkCheckCli();
+
   if (args.isEmpty) {
     stderr.writeln(usage);
     exit(1);

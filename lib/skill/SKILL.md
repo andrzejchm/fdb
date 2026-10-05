@@ -59,3 +59,7 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 ## Session directory
 
 All state lives in `<project>/.fdb/`. fdb auto-resolves by walking up from CWD — no need to `cd` to the project root. Key files: `logs.txt`, `vm_uri.txt`, `platform.txt`, `app_id.txt`, `screenshot.png`. Full reference: `fdb skill launch`.
+
+## Caveats
+
+- `Can't load Kernel binary: Invalid kernel binary format version` before fdb output means fdb was activated with a different Dart SDK than the `dart` on PATH (common with FVM). fdb repoints its launchers in `~/.pub-cache/bin` to the matching snapshot once and prints a `WARNING:`. `FDB_NO_BINSTUB_REPAIR=1` disables this; then re-run `dart pub global activate ...` with the SDK you use on PATH.
