@@ -6,6 +6,10 @@
 - `fdb input` errors now name the widget and the reason, e.g. `ElevatedButton is not a text input: no EditableText and no State implementing TextInputClient was found on it, below it, or above it`.
 - `fdb describe` lists non-`EditableText` text inputs as interactive entries: `@N QuillRawEditor(editable) "current text"` (JSON: `editable: true`, `inputClient: <StateType>`).
 
+### Fixes
+- Fixed `fdb tap --key` on a custom button (a widget that builds its own `GestureDetector`, not a Material/Cupertino button) tapping the centre of an outer `GestureDetector`, such as a screen-level keyboard dismisser. It now taps the keyed widget and reports its type.
+- Fixed `fdb input --key` on a field scrolled out of view reporting `INPUT=Column` (or `Semantics`, `Listener`) and typing into the first field of that container. It now reports and types into the matched field. `fdb tap` on a partly visible widget taps the visible part; on a widget scrolled fully out of view it fails with an error asking to `fdb scroll-to` it first.
+
 ## 1.11.2
 
 ### Fixes
