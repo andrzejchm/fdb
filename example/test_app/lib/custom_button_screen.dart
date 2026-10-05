@@ -6,6 +6,10 @@ const customButtonRoute = '/custom-button-test';
 /// its GestureDetector, inside a screen-level GestureDetector (the usual
 /// keyboard-dismiss wrapper). `fdb tap --key custom_send_button` must hit the
 /// button, not the centre of the outer detector.
+///
+/// Also for `task test:tap-covered-button`: the "Cover" action shows an opaque
+/// overlay over the body. While it is shown, tapping the button must fail and
+/// deliver no tap anywhere.
 class CustomButtonTestScreen extends StatefulWidget {
   const CustomButtonTestScreen({super.key});
 
@@ -16,34 +20,64 @@ class CustomButtonTestScreen extends StatefulWidget {
 class _CustomButtonTestScreenState extends State<CustomButtonTestScreen> {
   int _buttonTaps = 0;
   int _screenTaps = 0;
+  int _overlayTaps = 0;
+  bool _covered = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Custom Button Test')),
+      appBar: AppBar(
+        title: const Text('Custom Button Test'),
+        actions: [
+          TextButton(
+            key: const Key('cover_toggle'),
+            onPressed: () => setState(() => _covered = !_covered),
+            child: Text(_covered ? 'Uncover' : 'Cover'),
+          ),
+        ],
+      ),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _screenTaps++),
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: Center(
-                child: Text(
-                  'button=$_buttonTaps screen=$_screenTaps',
-                  key: const Key('custom_button_counter'),
+            Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'button=$_buttonTaps screen=$_screenTaps',
+                      key: const Key('custom_button_counter'),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: CustomSendButton(
+                      key: const Key('custom_send_button'),
+                      onPressed: () => setState(() => _buttonTaps++),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_covered)
+              Positioned.fill(
+                child: GestureDetector(
+                  key: const Key('cover_overlay'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _overlayTaps++),
+                  child: ColoredBox(
+                    color: Colors.black26,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Text('overlay=$_overlayTaps'),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: CustomSendButton(
-                  key: const Key('custom_send_button'),
-                  onPressed: () => setState(() => _buttonTaps++),
-                ),
-              ),
-            ),
           ],
         ),
       ),

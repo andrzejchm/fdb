@@ -1601,6 +1601,55 @@ tasks:
         {{.FDB}} back >/dev/null 2>&1 || true
         echo "PASS: fdb tap --key on a custom button inside a screen-level GestureDetector"
 
+  test:tap-covered-button:
+    desc: Tap a keyed button covered by an opaque overlay; must fail with exit 1 and tap nothing, then succeed once uncovered
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() {
+          echo "FAIL: $1" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        }
+
+        echo "==> Navigating to Custom Button screen"
+        {{.FDB}} scroll-to --key "go_to_custom_button_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_custom_button_test" >/dev/null 2>&1 || fail "could not navigate to custom button screen"
+        {{.FDB}} wait --key "custom_send_button" --present --timeout 5000 >/dev/null
+
+        echo "==> Covering the screen with an opaque overlay"
+        {{.FDB}} tap --key "cover_toggle" >/dev/null 2>&1 || fail "could not tap cover_toggle"
+        {{.FDB}} wait --text "overlay=0" --present --timeout 3000 >/dev/null 2>&1 || fail "overlay did not appear"
+
+        echo "==> Tapping the covered button by key (must fail)"
+        set +e
+        OUTPUT=$({{.FDB}} tap --key "custom_send_button" --timeout 1 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "fdb tap on a covered button exited with $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: CustomSendButton is not hittable: it is covered by GestureDetector" \
+          || fail "expected 'CustomSendButton is not hittable: it is covered by GestureDetector'"
+        sleep 0.5
+        {{.FDB}} wait --text "button=0 screen=0" --present --timeout 2000 >/dev/null 2>&1 \
+          || fail "the covered tap reached the button or the screen detector"
+        {{.FDB}} wait --text "overlay=0" --present --timeout 2000 >/dev/null 2>&1 \
+          || fail "the covered tap reached the overlay"
+
+        echo "==> Uncovering and tapping again (must succeed)"
+        {{.FDB}} tap --key "cover_toggle" >/dev/null 2>&1 || fail "could not tap cover_toggle to uncover"
+        {{.FDB}} wait --key "cover_overlay" --absent --timeout 3000 >/dev/null 2>&1 || fail "overlay did not go away"
+        OUTPUT=$({{.FDB}} tap --key "custom_send_button" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "TAPPED=CustomSendButton"; then
+          fail "fdb tap --key custom_send_button after uncovering (exit=$EXIT_CODE, expected TAPPED=CustomSendButton)"
+        fi
+        {{.FDB}} wait --text "button=1 screen=0" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "expected counter 'button=1 screen=0' after uncovering"
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb tap on a covered button fails without tapping, and works once uncovered"
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -4401,6 +4450,7 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:tap-custom-button
+      - task: test:tap-covered-button
       - task: test:input
       - task: test:input-rich
       - task: test:scroll

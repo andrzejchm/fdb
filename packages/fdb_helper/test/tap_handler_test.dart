@@ -82,11 +82,103 @@ void main() {
     expect(rect.contains(point) && point.dy < 600, isTrue, reason: '$point not in visible part of $rect');
     expect(taps, 1);
   });
+
+  group('a covered button', () {
+    late _Taps taps;
+    setUp(() => taps = _Taps());
+
+    testWidgets('under a modal bottom sheet fails and taps nothing', (tester) async {
+      await tester.pumpWidget(_screen(taps));
+      showModalBottomSheet<void>(
+        context: tester.element(find.byKey(const ValueKey('submit'))),
+        builder: (_) => const SizedBox(height: 200, child: Text('Sheet')),
+      );
+      await tester.pumpAndSettle();
+
+      final error = await _tapError(tester, {'key': 'submit'});
+      await tester.pumpAndSettle();
+
+      expect(error, contains('ModalBarrier'));
+      expect(taps.all, (button: 0, screen: 0, overlay: 0));
+      expect(find.text('Sheet'), findsOneWidget, reason: 'the barrier was tapped and dismissed the sheet');
+    });
+
+    for (final selector in [
+      {'key': 'submit'},
+      {'text': 'Submit'},
+    ]) {
+      testWidgets('under a full-screen opaque GestureDetector fails and taps nothing ($selector)', (tester) async {
+        await tester.pumpWidget(_screen(taps, coverWithDetector: true));
+
+        final error = await _tapError(tester, selector);
+
+        expect(error, contains('covered by GestureDetector'));
+        expect(taps.all, (button: 0, screen: 0, overlay: 0));
+      });
+    }
+  });
+
+  testWidgets('--text on a Text inside an ElevatedButton taps the button inside the text', (tester) async {
+    final taps = _Taps();
+    await tester.pumpWidget(_screen(taps));
+
+    final (:type, :point) = await _tap(tester, {'text': 'Submit'});
+
+    expect(type, isNot('Text'));
+    expect(tester.getRect(find.text('Submit')).contains(point), isTrue);
+    expect(taps.all, (button: 1, screen: 0, overlay: 0));
+  });
 }
 
-Future<({String type, Offset point})> _tapKey(WidgetTester tester, String key) async {
-  final response = await tester.runAsync(() => handleTap('ext.fdb.tap', {'key': key}));
-  final result = jsonDecode(response!.result ?? response.errorDetail!) as Map<String, dynamic>;
+class _Taps {
+  int button = 0;
+  int screen = 0;
+  int overlay = 0;
+
+  ({int button, int screen, int overlay}) get all => (button: button, screen: screen, overlay: overlay);
+}
+
+/// A keyed "Submit" button inside a screen-level GestureDetector (a keyboard
+/// dismisser), optionally covered by a full-screen opaque GestureDetector.
+Widget _screen(_Taps taps, {bool coverWithDetector = false}) => MaterialApp(
+      home: Scaffold(
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => taps.screen++,
+          child: Stack(
+            children: [
+              Center(
+                child: ElevatedButton(
+                  key: const ValueKey('submit'),
+                  onPressed: () => taps.button++,
+                  child: const Text('Submit'),
+                ),
+              ),
+              if (coverWithDetector)
+                Positioned.fill(
+                  child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => taps.overlay++),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+Future<({String type, Offset point})> _tapKey(WidgetTester tester, String key) => _tap(tester, {'key': key});
+
+Future<({String type, Offset point})> _tap(WidgetTester tester, Map<String, String> selector) async {
+  final result = await _handleTap(tester, selector);
   expect(result['status'], 'Success', reason: '$result');
   return (type: result['widgetType'] as String, point: Offset(result['x'] as double, result['y'] as double));
+}
+
+Future<String> _tapError(WidgetTester tester, Map<String, String> selector) async {
+  final result = await _handleTap(tester, selector);
+  expect(result['error'], isA<String>(), reason: 'tapped $result');
+  return result['error'] as String;
+}
+
+Future<Map<String, dynamic>> _handleTap(WidgetTester tester, Map<String, String> selector) async {
+  final response = await tester.runAsync(() => handleTap('ext.fdb.tap', selector));
+  return jsonDecode(response!.result ?? response.errorDetail!) as Map<String, dynamic>;
 }

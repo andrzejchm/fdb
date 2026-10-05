@@ -69,7 +69,10 @@ Future<developer.ServiceExtensionResponse> handleEnterText(
       }
       reportedType = target.widgetType;
     } else {
-      final (:element, :matchCount) = findHittableElement(matcher);
+      // No hit test needed: text is entered through the input client, so a
+      // field that is covered or scrolled out of view still works. The match
+      // is the field itself, never an unrelated ancestor.
+      final (:element, :matchCount, tapPoint: _, unreachable: _) = findHittableElement(matcher);
       if (element == null) {
         if (matchCount > 1) {
           return errorResponse(

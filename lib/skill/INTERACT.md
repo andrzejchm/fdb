@@ -188,6 +188,13 @@ fdb tap --at 200,400                  # tap absolute coordinates — LAST RESORT
 
 Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`
 
+A selector tap (and `longpress`, `double-tap`, `swipe --key/--text/--type`) only lands on a point inside the matched widget that actually reaches it. If something is on top, it retries until `--timeout` (default 5s), then fails with exit 1 and taps nothing:
+
+```
+ERROR: ElevatedButton is not hittable: it is covered by ModalBarrier at 200.0,410.0. Dismiss what covers it or use --index/another selector
+ERROR: ElevatedButton is scrolled out of view. Bring it into view first with fdb scroll-to
+```
+
 ## Long-press a widget
 
 Requires `fdb_helper` in the app.

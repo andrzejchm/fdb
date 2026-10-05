@@ -1,23 +1,31 @@
 import 'package:fdb/core/commands/tap/tap_models.dart';
+import 'package:fdb/src/controller/commands/fdb_tap.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/tap/tap_models.dart';
+
+typedef FdbHelperChecker = Future<String?> Function();
+typedef FdbTapRunner = Future<FdbTapCommandResponse> Function(Map<String, dynamic> params);
 
 /// Taps a widget or coordinates in the running Flutter app.
 ///
 /// Handles selector-based taps, coordinate taps, and @N describe-ref taps.
 /// The retry loop (500ms poll until deadline) runs inside this function.
 /// Never throws; all error conditions are represented as sealed result cases.
-Future<TapResult> tapWidget(TapInput input) async {
+Future<TapResult> tapWidget(
+  TapInput input, {
+  FdbHelperChecker? checkFdbHelperFn,
+  FdbTapRunner? fdbTapFn,
+}) async {
   try {
-    final isolateId = await checkFdbHelper();
+    final isolateId = await (checkFdbHelperFn ?? checkFdbHelper)();
     if (isolateId == null) return const TapNoFdbHelper();
 
     if (input.describeRef != null) {
       return await _tapByRef(isolateId, input.describeRef!, input.timeoutSeconds);
     }
 
-    return await _tapWithParams(isolateId, input);
+    return await _tapWithParams(isolateId, input, fdbTapFn ?? fdbTap);
   } on AppDiedException catch (e) {
     return TapAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {
@@ -25,7 +33,7 @@ Future<TapResult> tapWidget(TapInput input) async {
   }
 }
 
-Future<TapResult> _tapWithParams(String isolateId, TapInput input) async {
+Future<TapResult> _tapWithParams(String isolateId, TapInput input, FdbTapRunner tapRunner) async {
   final deadline = DateTime.now().add(Duration(seconds: input.timeoutSeconds));
 
   while (true) {
@@ -37,7 +45,7 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input) async {
     if (input.x != null) params['x'] = input.x.toString();
     if (input.y != null) params['y'] = input.y.toString();
 
-    final result = await fdbTap(params);
+    final result = await tapRunner(params);
 
     if (result.isSuccess) {
       final widgetType = input.usedAt ? 'coordinates' : result.widgetType ?? input.type ?? 'widget';
@@ -53,7 +61,10 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input) async {
 
     final error = result.error;
     if (error != null) {
-      final isRetryable = error.contains('not found') || error.contains('No hittable element');
+      final isRetryable = error.contains('not found') ||
+          error.contains('No hittable element') ||
+          // Covered (dialog closing, sheet animating): retry until --timeout.
+          error.contains(' is not hittable: ');
       if (isRetryable && DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 500));
         continue;
