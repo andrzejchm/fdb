@@ -7,6 +7,7 @@
 - `fdb describe` lists non-`EditableText` text inputs as interactive entries: `@N QuillRawEditor(editable) "current text"` (JSON: `editable: true`, `inputClient: <StateType>`).
 
 ### Fixes
+- `Can't load Kernel binary: Invalid kernel binary format version` when fdb was activated with a different Dart SDK than the `dart` on PATH (e.g. FVM). fdb now repoints its `fdb` and `fdb-controller` launchers in `~/.pub-cache/bin` to the snapshot for the running SDK once and prints a `WARNING:`. Set `FDB_NO_BINSTUB_REPAIR=1` to disable; fdb then prints the manual fix.
 - `fdb describe` and `fdb screenshot` warn on stderr when the app isn't in the foreground (`WARNING: App is not in the foreground (lifecycle=paused). ...`, or the `inactive` variant). Stdout and exit codes are unchanged. When iOS has suspended the backgrounded app and its VM service stops answering, `describe` now reports that instead of the misleading "fdb_helper not detected". Needs the updated fdb_helper (new `ext.fdb.lifecycle` extension, `lifecycleState` in describe JSON).
 
 ## 1.11.2
