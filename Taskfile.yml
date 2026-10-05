@@ -1588,6 +1588,97 @@ tasks:
           exit 1
         fi
 
+  test:input-rich:
+    desc: Enter text + IME actions into a non-EditableText TextInputClient (flutter_quill) and a plain TextField
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        echo "==> Navigating to Rich Editor screen"
+        {{.FDB}} scroll-to --key "rich_editor_button" >/dev/null 2>&1 || true
+        if ! {{.FDB}} tap --key "rich_editor_button" >/dev/null 2>&1; then
+          echo "FAIL: could not navigate to rich editor screen (fdb tap --key rich_editor_button failed)" >&2
+          exit 1
+        fi
+        {{.FDB}} wait --key "quill_editor" --present --timeout 5000 >/dev/null
+
+        echo "==> Focusing the Quill editor"
+        if ! {{.FDB}} tap --key "quill_editor" 2>&1; then
+          echo "FAIL: fdb tap --key quill_editor failed" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> Describing rich editor screen (expect editable QuillRawEditor)"
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -q "(editable)"; then
+          echo "PASS: fdb describe lists the Quill editor as (editable)"
+        else
+          echo "FAIL: fdb describe - (editable) not found on rich editor screen" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> Entering text into the focused Quill editor"
+        OUTPUT=$({{.FDB}} input "QA test" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "INPUT="; then
+          echo "FAIL: fdb input into Quill editor (exit=$EXIT_CODE, expected INPUT=)" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+        echo "PASS: fdb input into Quill editor"
+
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        if echo "$OUTPUT" | grep -q "QA test"; then
+          echo "PASS: fdb describe shows Quill editor text"
+        else
+          echo "$OUTPUT"
+          echo "FAIL: fdb describe - 'QA test' not shown after input" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> Sending IME action 'send' to the Quill editor"
+        OUTPUT=$({{.FDB}} input --action send 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "IME_ACTION=send"; then
+          echo "FAIL: fdb input --action send (exit=$EXIT_CODE, expected IME_ACTION=send)" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+        if {{.FDB}} wait --text "Sent: QA test" --present --timeout 5000 >/dev/null 2>&1; then
+          echo "PASS: fdb input --action send triggered onPerformAction"
+        else
+          {{.FDB}} describe 2>&1
+          echo "FAIL: 'Sent: QA test' not shown after --action send" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> Entering text + IME action 'done' into the plain TextField"
+        OUTPUT=$({{.FDB}} input --key plain_field "hello" --action done 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "IME_ACTION=done"; then
+          echo "FAIL: fdb input --key plain_field --action done (exit=$EXIT_CODE, expected IME_ACTION=done)" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+        if {{.FDB}} wait --text "Submitted: hello" --present --timeout 5000 >/dev/null 2>&1; then
+          echo "PASS: fdb input --action done triggered onSubmitted"
+        else
+          {{.FDB}} describe 2>&1
+          echo "FAIL: 'Submitted: hello' not shown after --action done" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        fi
+
+        echo "==> Navigating back"
+        {{.FDB}} back 2>&1 || echo "INFO: fdb back returned non-zero (already at root — ignored)"
+
   test:scroll:
     desc: Scroll the screen (direction mode and raw coordinate mode)
     dir: '{{.TEST_APP}}'
@@ -4275,6 +4366,7 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:input
+      - task: test:input-rich
       - task: test:scroll
       - task: test:scroll-to
       - task: test:mem

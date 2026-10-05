@@ -3,8 +3,11 @@ import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/input/input_models.dart';
 
-/// Enters text into a field in the running Flutter app.
+/// Enters text into a field in the running Flutter app and/or sends an IME
+/// action (send, done, newline, ...) to it.
 ///
+/// Works for any widget whose State implements `TextInputClient` (EditableText,
+/// flutter_quill editors, custom editors); no keyboard is required.
 /// If no selector flags are provided, targets the focused field.
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<InputResult> enterText(InputInput input) async {
@@ -14,7 +17,8 @@ Future<InputResult> enterText(InputInput input) async {
 
     final params = <String, dynamic>{
       'isolateId': isolateId,
-      'input': input.textToEnter,
+      if (input.textToEnter != null) 'input': input.textToEnter,
+      if (input.action != null) 'action': input.action,
     };
 
     final hasSelector = input.text != null || input.key != null || input.type != null;
@@ -28,9 +32,23 @@ Future<InputResult> enterText(InputInput input) async {
 
     final result = await fdbEnterText(params);
 
+    if (result.isSuccess && input.action != null && result.action == null) {
+      // Older fdb_helper ignores the `action` param.
+      return InputRelayedError(
+        '${input.textToEnter != null ? 'Text was entered, but the ' : 'The '}'
+        '--action was not performed: the fdb_helper in the app does not support it. '
+        'Update fdb_helper and rebuild the app.',
+      );
+    }
+
     if (result.isSuccess) {
       final fieldType = result.widgetType ?? input.type ?? 'field';
-      return InputSuccess(fieldType: fieldType, value: input.textToEnter);
+      return InputSuccess(
+        fieldType: fieldType,
+        value: input.textToEnter,
+        action: result.action,
+        clientType: result.clientType,
+      );
     }
 
     if (result.error != null) return InputRelayedError(result.error!);

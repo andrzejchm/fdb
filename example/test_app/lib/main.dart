@@ -6,6 +6,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 
 import 'benchmark_screens.dart';
 import 'grid_describe_screen.dart';
@@ -14,6 +16,7 @@ import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
 import 'notification_test_screen.dart';
 import 'permission_test_screen.dart';
+import 'rich_editor_screen.dart';
 import 'scroll_to_test_screen.dart';
 
 Future<void> main() async {
@@ -33,6 +36,12 @@ class FdbTestApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        FlutterQuillLocalizations.delegate,
+      ],
       home: const FdbTestHomePage(),
       routes: {
         benchmarkRoute: (_) => const BenchmarkMenuPage(),
@@ -56,6 +65,7 @@ class FdbTestApp extends StatelessWidget {
         '/permission-test': (_) => const PermissionTestScreen(),
         '/scale-page-view-test': (_) => const ScalePageViewTestScreen(),
         '/drawing-path-test': (_) => const DrawingPathTestScreen(),
+        richEditorRoute: (_) => const RichEditorScreen(),
       },
     );
   }
@@ -166,6 +176,12 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/drawing-path-test'),
                 child: const Text('Drawing Path Test'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                key: const Key('rich_editor_button'),
+                onPressed: () => Navigator.pushNamed(context, richEditorRoute),
+                child: const Text('Rich Editor'),
               ),
               const SizedBox(height: 8),
               // Navigation buttons

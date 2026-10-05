@@ -50,7 +50,7 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 | Topic | Commands | Run |
 |-------|----------|-----|
 | **launch** | `devices`, `launch`, `attach`, `doctor`, `reload`, `restart`, `status`, `kill`, `deeplink` | `fdb skill launch` |
-| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap`, `tap`, `longpress`, `double-tap`, `input`, `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
+| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap`, `tap`, `longpress`, `double-tap`, `input` (any text input incl. flutter_quill; `--action send`), `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
 | **data** | `shared-prefs`, `clean`, `ext`, `grant-permission` | `fdb skill data` |
 | **diagnostics** | `logs`, `syslog`, `crash-report` + websocat fallback | `fdb skill diagnostics` |
 | **memory** | `mem`, `gc`, `heap` | `fdb skill memory` |

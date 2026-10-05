@@ -2,8 +2,6 @@ PODS:
   - fdb_helper (1.2.1):
     - Flutter
   - Flutter (1.0.0)
-  - permission_handler_apple (9.3.0):
-    - Flutter
   - push (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -11,7 +9,6 @@ PODS:
 DEPENDENCIES:
   - fdb_helper (from `.symlinks/plugins/fdb_helper/ios`)
   - Flutter (from `Flutter`)
-  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - push (from `.symlinks/plugins/push/darwin`)
 
 EXTERNAL SOURCES:
@@ -19,15 +16,12 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/fdb_helper/ios"
   Flutter:
     :path: Flutter
-  permission_handler_apple:
-    :path: ".symlinks/plugins/permission_handler_apple/ios"
   push:
     :path: ".symlinks/plugins/push/darwin"
 
 SPEC CHECKSUMS:
   fdb_helper: f6485dcf86a8530677d65c69f7b8e62091ee1721
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   push: 91373ae39c5341c6de6adefa3fda7f7287d646bf
 
 PODFILE CHECKSUM: f4c8a3da485db3b8122339b0558d0a053fdc7899
