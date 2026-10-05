@@ -1078,6 +1078,37 @@ dart run ../../bin/fdb.dart back
 
 ---
 
+## S41 · tap — covered button fails instead of tapping the screen centre
+
+**Purpose:** a selector tap on a widget that something covers must fail and
+deliver no tap. It used to tap a big hittable ancestor (the `Overlay`, a
+`Scaffold`, a screen-level `GestureDetector`) at roughly the screen centre.
+The Custom Button screen's "Cover" action shows an opaque `GestureDetector`
+overlay (with its own `overlay=N` counter) inside the screen-level detector.
+
+```bash
+dart run ../../bin/fdb.dart scroll-to --key go_to_custom_button_test
+dart run ../../bin/fdb.dart tap --key go_to_custom_button_test
+dart run ../../bin/fdb.dart tap --key cover_toggle
+dart run ../../bin/fdb.dart tap --key custom_send_button
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart tap --key cover_toggle
+dart run ../../bin/fdb.dart tap --key custom_send_button
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+```
+
+**What to verify:**
+
+- The covered tap exits 1 with `ERROR: CustomSendButton is not hittable: it
+  is covered by GestureDetector at <x>,<y>. ...`, and no `TAPPED=` line
+- The first `describe` still shows `"button=0 screen=0"` and `"overlay=0"`:
+  nothing received the tap
+- After uncovering, the tap prints `TAPPED=CustomSendButton` and the second
+  `describe` shows `"button=1 screen=0"`
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:
