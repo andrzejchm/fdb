@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../element_tree_finder.dart';
@@ -188,6 +189,27 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           }
         }
 
+        // Text inputs that are not EditableText (flutter_quill's
+        // QuillRawEditor, custom editors implementing TextInputClient). Plain
+        // TextField / TextFormField entries are emitted below as before.
+        // Flagged `editable` so agents know `fdb input` can target them. The
+        // walk continues into the subtree (embeds may hold more targets).
+        final inputClient = _nonEditableTextInputClient(element);
+        if (inputClient != null && interactive.length < maxInteractive && (!isOnScreen || isElementHittable(element))) {
+          final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
+          final breadcrumb = _collectBreadcrumb(ancestors, element);
+          interactive.add({
+            'type': typeName,
+            'key': key,
+            'text': _textInputClientText(inputClient),
+            'x': offset.dx + size.width / 2,
+            'y': offset.dy + size.height / 2,
+            'editable': true,
+            'inputClient': (element as StatefulElement).state.runtimeType.toString(),
+            if (breadcrumb != null) 'breadcrumb': breadcrumb,
+          });
+        }
+
         // Collect interactive widgets regardless of viewport position so that
         // off-screen children of eagerly-built scrollable collections
         // (GridView.count, ListView with explicit children, etc.) are included.
@@ -305,7 +327,8 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
       final hasText = text != null && text.trim().isNotEmpty && text.runes.any((r) => r < 0xE000 || r > 0xF8FF);
       final hasKey = key != null;
       final hasInterestingGesture = gestures.any((g) => _interestingGestures.contains(g));
-      return !hasText && !hasKey && !hasInterestingGesture;
+      final isEditable = entry['editable'] == true;
+      return !hasText && !hasKey && !hasInterestingGesture && !isEditable;
     });
 
     interactive.sort((a, b) {
@@ -796,4 +819,29 @@ List<String>? _extractGestures(Widget widget, String typeName) {
     // Dynamic access failed — widget API changed; return what we have.
   }
   return gestures.isEmpty ? null : gestures;
+}
+
+/// Returns the State of [element] when it is a text input client that is NOT
+/// an [EditableTextState] (e.g. flutter_quill's QuillRawEditorState).
+TextInputClient? _nonEditableTextInputClient(Element element) {
+  if (element is! StatefulElement) return null;
+  final state = element.state;
+  if (state is EditableTextState) return null;
+  if (state is TextInputClient) return state as TextInputClient;
+  return null;
+}
+
+/// Current text of a [TextInputClient], trimmed; null when empty or unknown.
+String? _textInputClientText(TextInputClient client) {
+  String? text;
+  try {
+    text = client.currentTextEditingValue?.text;
+    if (text == null && client is TextSelectionDelegate) {
+      text = (client as TextSelectionDelegate).textEditingValue.text;
+    }
+  } catch (_) {
+    // Some clients throw before their first layout; treat as unknown.
+  }
+  final trimmed = text?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }

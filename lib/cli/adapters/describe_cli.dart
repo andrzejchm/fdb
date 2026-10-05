@@ -15,7 +15,7 @@ import 'package:fdb/core/vm_not_responding.dart';
 ///   <blank line>                    (if screen or route was printed)
 ///   INTERACTIVE:                    (if interactive list non-empty)
 ///     [<Ancestor> ["text"] [> ...]] (breadcrumb — only if meaningful)
-///       @N <type>[(gestures)] ["text"] [key=<key>]
+///       @N <type>[(gestures)|(editable)] ["text"] [key=<key>]
 ///   <blank line>
 ///   VISIBLE TEXT:                   (if non-duplicate texts exist)
 ///     "<text>"
@@ -114,7 +114,13 @@ void _printDescribeOutput(Map<String, dynamic> result) {
 
       final indent = rawBreadcrumb != null && rawBreadcrumb.isNotEmpty ? '    ' : '  ';
       final buffer = StringBuffer('$indent@$ref $type');
-      if (gestures != null && gestures.isNotEmpty) {
+      // Text inputs that are not EditableText (e.g. flutter_quill's
+      // QuillRawEditor). `fdb input` can target them via focus, @N tap, or
+      // --type. Plain TextField lines are unchanged.
+      final editable = entry['editable'] == true;
+      if (editable) {
+        buffer.write('(editable)');
+      } else if (gestures != null && gestures.isNotEmpty) {
         buffer.write('(${gestures.join(',')})');
       }
       if (cleanText != null) buffer.write(' "$cleanText"');

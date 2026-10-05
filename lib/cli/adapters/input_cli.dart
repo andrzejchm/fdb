@@ -8,8 +8,10 @@ import 'package:fdb/core/commands/input/input.dart';
 /// CLI adapter for `fdb input`. Accepts optional selector flags and a
 /// positional text argument; emits one of:
 ///
-///   `INPUT=<fieldType> VALUE=<textToEnter>`                        (success)
-///   `ERROR: No input text provided`                                (no positional)
+///   `INPUT=<fieldType> VALUE=<textToEnter>`                        (text entered)
+///   `IME_ACTION=<action> TARGET=<fieldType>`                       (--action sent)
+///   `ERROR: No input text provided`                                (no positional, no --action)
+///   `ERROR: Invalid value for --action: <raw>. ...`                (bad action)
 ///   `ERROR: Invalid value for --index: <raw>`                      (bad index)
 ///   `ERROR: fdb_helper not detected in running app. ...`           (no helper)
 ///   `ERROR: <message>`                                             (relayed / generic)
@@ -20,7 +22,12 @@ Future<int> runInputCli(List<String> args) {
     ..addOption('text', help: 'Select field by its label text')
     ..addOption('key', help: 'Select field by its ValueKey string')
     ..addOption('type', help: 'Select field by widget type name')
-    ..addOption('index', help: 'Select the Nth matching field (0-based)');
+    ..addOption('index', help: 'Select the Nth matching field (0-based)')
+    ..addOption(
+      'action',
+      help: 'Send an IME action to the field after the text (or alone, without text): '
+          '${_actions.join('|')}. Calls TextInputClient.performAction, no keyboard needed.',
+    );
 
   return runCliAdapter(parser, args, _execute);
 }
@@ -37,9 +44,15 @@ Future<int> _execute(ArgResults results) async {
     }
   }
 
-  // First positional argument is the text to enter.
+  final action = results['action'] as String?;
+  if (action != null && !_actions.contains(action)) {
+    stderr.writeln('ERROR: Invalid value for --action: $action. Valid: ${_actions.join(', ')}');
+    return 1;
+  }
+
+  // First positional argument is the text to enter. Optional with --action.
   final textToEnter = results.rest.isNotEmpty ? results.rest.first : null;
-  if (textToEnter == null) {
+  if (textToEnter == null && action == null) {
     stderr.writeln('ERROR: No input text provided');
     return 1;
   }
@@ -50,6 +63,7 @@ Future<int> _execute(ArgResults results) async {
     type: results['type'] as String?,
     index: index,
     textToEnter: textToEnter,
+    action: action,
   ));
 
   return _format(result);
@@ -57,8 +71,9 @@ Future<int> _execute(ArgResults results) async {
 
 int _format(InputResult result) {
   switch (result) {
-    case InputSuccess(:final fieldType, :final value):
-      stdout.writeln('INPUT=$fieldType VALUE=$value');
+    case InputSuccess(:final fieldType, :final value, :final action):
+      if (value != null) stdout.writeln('INPUT=$fieldType VALUE=$value');
+      if (action != null) stdout.writeln('IME_ACTION=$action TARGET=$fieldType');
       return 0;
     case InputNoFdbHelper():
       stderr.writeln(
@@ -80,3 +95,21 @@ int _format(InputResult result) {
       return 1;
   }
 }
+
+/// IME actions accepted by `--action` (TextInputAction names; `continue` maps
+/// to TextInputAction.continueAction in fdb_helper).
+const _actions = [
+  'send',
+  'done',
+  'newline',
+  'go',
+  'search',
+  'next',
+  'previous',
+  'join',
+  'route',
+  'continue',
+  'emergencyCall',
+  'none',
+  'unspecified',
+];

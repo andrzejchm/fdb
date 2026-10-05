@@ -131,6 +131,12 @@ VISIBLE TEXT:
 - `ListTile` without `onTap` → not surfaced, but its interactive children are (with the tile as breadcrumb context)
 - Display-only tiles (no `onTap`, no interactive children) → appear in VISIBLE TEXT only
 
+**Text inputs that aren't `EditableText`** (flutter_quill, custom `TextInputClient` editors) are listed as interactive entries flagged `(editable)`, with their current text:
+```
+  @4 QuillRawEditor(editable) "current text"
+```
+JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lines are unchanged. Target them with `fdb tap @N` + `fdb input`, or `fdb input --type QuillRawEditor`.
+
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
 **Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
@@ -218,14 +224,47 @@ Requires `fdb_helper` in the app.
 fdb input --key "search_field" "flutter"   # type into field by key  ← prefer this
 fdb input --text "Search" "query text"     # type into field by label text
 fdb input "fallback text"                  # type into focused field
+fdb input "QA test" --action send          # type, then send the IME "send" action
+fdb input --action done                    # IME action only, no text
 ```
 
-Output: `INPUT=<type> VALUE=<text>`
+Output:
+```
+INPUT=<type> VALUE=<text>              # when text was given
+IME_ACTION=<action> TARGET=<type>      # when --action was given
+```
+`<type>` is the matched widget with a selector (e.g. `TextField`, `QuillEditor`), or the input widget itself when using focus (e.g. `EditableText`, `QuillRawEditor`).
 
 Tap the field first if it isn't already focused:
 ```bash
 fdb tap --key "search_field"
 fdb input --key "search_field" "flutter"
+```
+
+**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor.
+
+**Mode is replace.** The field's content is replaced with `<text>`. Text goes through the client interface (`updateEditingValue`, or `updateEditingValueWithDeltas` for `DeltaTextInputClient`), so the widget's own controller and listeners run. No soft or hardware keyboard is needed. Rich-text editors keep their trailing document newline.
+
+**`--action <name>`** calls `TextInputClient.performAction` on the same client, after the text if both are given. Valid: `send`, `done`, `newline`, `go`, `search`, `next`, `previous`, `join`, `route`, `continue`, `emergencyCall`, `none`, `unspecified`. What happens next is up to the widget:
+- `EditableText`/`TextField` → `onSubmitted` / `onEditingComplete`.
+- flutter_quill → forwards to `QuillEditorConfig.onPerformAction`; does nothing if the app didn't set it. In that case tap the app's send button instead (`fdb describe`, then `fdb tap @N`).
+- `--action newline` does not insert a line break. Put `\n` in the text for that.
+
+Errors name the widget and the reason:
+```
+ERROR: Focused element is not an editable text field: ElevatedButton is not a text input: no EditableText and no State implementing TextInputClient was found on it, below it, or above it
+ERROR: enterText failed: QuillRawEditor (QuillRawEditorState) has no active text input connection ... Tap the field to focus it, then retry
+ERROR: Invalid value for --action: <x>. Valid: send, done, ...
+```
+If the app's fdb_helper predates `--action`, the command fails saying the action was not performed — update fdb_helper and rebuild the app.
+
+Rich-text editor (flutter_quill) example:
+```bash
+fdb describe                               # @4 QuillRawEditor(editable) ""
+fdb tap @4                                 # focus the editor
+fdb input "Hello from fdb"                 # replaces document content
+fdb input --action send                    # only does something if onPerformAction is set
+fdb describe                               # verify; otherwise tap the app's send button
 ```
 
 ## Scroll
