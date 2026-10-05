@@ -36,6 +36,20 @@ void main() {
       expect(await queryLifecycleState(), isA<LifecycleUnavailable>());
     });
 
+    test('reads the state from the ext.fdb.lifecycle payload relayed by the controller', () async {
+      await _createTempSessionRoot();
+      await _startFakeController({
+        ControllerCommand.findFlutterIsolateId: {'isolateId': 'isolates/1'},
+        ControllerCommand.extCall: {
+          'result': {
+            'result': {'status': 'Success', 'lifecycleState': 'paused'},
+          },
+        },
+      });
+      final result = await queryLifecycleState();
+      expect(result, isA<LifecycleReported>().having((r) => r.state, 'state', 'paused'));
+    });
+
     test('reports not responding when the controller hangs past the budget', () async {
       await _createTempSessionRoot();
       final port = await _startSilentServer();
@@ -49,7 +63,9 @@ void main() {
   group('describeScreen with checkFdbHelper', () {
     test('returns DescribeVmNotResponding when the controller reports an unresponsive VM', () async {
       await _createTempSessionRoot();
-      await _startFakeController({'isolateId': null, vmNotRespondingField: true});
+      await _startFakeController({
+        ControllerCommand.checkFdbHelper: {'isolateId': null, vmNotRespondingField: true},
+      });
       // This test process is alive; platform file makes isAppPidAlive use kill -0.
       File(platformFile).writeAsStringSync('ios true');
       File(appPidFile).writeAsStringSync('$pid');
@@ -59,7 +75,9 @@ void main() {
 
     test('keeps DescribeNoFdbHelper when the extension is simply not registered', () async {
       await _createTempSessionRoot();
-      await _startFakeController({'isolateId': null});
+      await _startFakeController({
+        ControllerCommand.checkFdbHelper: {'isolateId': null},
+      });
       expect(await describeScreen(()), isA<DescribeNoFdbHelper>());
     });
   });
@@ -115,17 +133,17 @@ Future<int> _startSilentServer() async {
   return server.port;
 }
 
-/// Starts a fake controller that answers `checkFdbHelper` with [fields].
-Future<void> _startFakeController(Map<String, Object?> fields) async {
+/// Starts a fake controller that answers each command in [responses] with its
+/// fields, and fails any other command.
+Future<void> _startFakeController(Map<ControllerCommand, Map<String, Object?>> responses) async {
   final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   addTearDown(server.close);
   File(controllerPortFile).writeAsStringSync('${server.port}');
   File(controllerTokenFile).writeAsStringSync('token');
   server.listen((socket) async {
     final request = await readControllerRequest(socket);
-    final response = request.command == ControllerCommand.checkFdbHelper
-        ? ControllerResponse.success(fields)
-        : ControllerResponse.failure('Unexpected command');
+    final fields = responses[request.command];
+    final response = fields != null ? ControllerResponse.success(fields) : ControllerResponse.failure('Unexpected');
     await writeControllerResponse(socket, response);
     await socket.close();
   });

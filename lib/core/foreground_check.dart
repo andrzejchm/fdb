@@ -95,7 +95,11 @@ Future<LifecycleQueryResult> _queryLifecycleState() async {
   // e.g. -32601 MethodNotFound on an older fdb_helper.
   if (response.errorCode != null) return const LifecycleUnavailable();
 
-  final state = response.extensionResult?['lifecycleState'];
+  // Through the controller the extension payload arrives one level down,
+  // as `{result: {status, lifecycleState}}`.
+  final payload = response.extensionResult;
+  final inner = payload?['result'];
+  final state = (inner is Map ? inner : payload)?['lifecycleState'];
   return LifecycleReported(state is String ? state : null);
 }
 
