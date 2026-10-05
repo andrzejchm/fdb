@@ -1,5 +1,11 @@
 ## Unreleased
 
+### Improvements
+- `fdb input` works with any text input, not just `TextField`/`EditableText`. From the focused element (or the `--text`/`--key`/`--type`/`--index` match) fdb_helper checks the element, then its descendants (`EditableText` first, then any `State` implementing `TextInputClient`), then its ancestors. This covers flutter_quill (`QuillEditor`/`QuillRawEditorState`) and custom `TextInputClient`/`DeltaTextInputClient` editors. Text is applied through the client (`updateEditingValue` or `updateEditingValueWithDeltas`), so the widget's controller and listeners run; no keyboard needed. Content is replaced; rich-text editors keep their trailing document newline.
+- New `fdb input --action <name>` sends an IME action via `TextInputClient.performAction`, after the text or on its own (`fdb input "QA test" --action send`, `fdb input --action done`). Prints `IME_ACTION=<action> TARGET=<widgetType>`. The widget decides what the action does: `EditableText` calls `onSubmitted`/`onEditingComplete`; flutter_quill calls `QuillEditorConfig.onPerformAction` if the app set it. Older fdb_helper versions report that the action was not performed.
+- `fdb input` errors now name the widget and the reason, e.g. `ElevatedButton is not a text input: no EditableText and no State implementing TextInputClient was found on it, below it, or above it`.
+- `fdb describe` lists non-`EditableText` text inputs as interactive entries: `@N QuillRawEditor(editable) "current text"` (JSON: `editable: true`, `inputClient: <StateType>`).
+
 ### Fixes
 - `Can't load Kernel binary: Invalid kernel binary format version` when fdb was activated with a different Dart SDK than the `dart` on PATH (e.g. FVM). fdb now repoints its `fdb` and `fdb-controller` launchers in `~/.pub-cache/bin` to the snapshot for the running SDK once and prints a `WARNING:`. Set `FDB_NO_BINSTUB_REPAIR=1` to disable; fdb then prints the manual fix.
 

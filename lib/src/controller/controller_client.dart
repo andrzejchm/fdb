@@ -166,7 +166,8 @@ Future<FdbEnterTextCommandResponse> fdbEnterText(Map<String, dynamic> params) as
     (token) => FdbEnterTextCommandRequest(
       token: token,
       isolateId: _string(params, 'isolateId'),
-      input: _string(params, 'input', allowEmpty: true),
+      input: _optionalString(params, 'input'),
+      action: _optionalString(params, 'action'),
       focused: _optionalString(params, 'focused'),
       text: _optionalString(params, 'text'),
       key: _optionalString(params, 'key'),

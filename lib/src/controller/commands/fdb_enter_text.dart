@@ -13,7 +13,8 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
   const FdbEnterTextCommandRequest({
     required super.token,
     required super.isolateId,
-    required this.input,
+    this.input,
+    this.action,
     this.focused,
     super.text,
     super.key,
@@ -23,7 +24,8 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
   factory FdbEnterTextCommandRequest.fromJson(Map<String, Object?> json) => FdbEnterTextCommandRequest(
         token: ControllerJson.token(json),
         isolateId: ControllerJson.requiredString(json, 'isolateId'),
-        input: ControllerJson.requiredString(json, 'input', allowEmpty: true),
+        input: ControllerJson.optionalString(json, 'input'),
+        action: ControllerJson.optionalString(json, 'action'),
         focused: ControllerJson.optionalString(json, 'focused'),
         text: ControllerJson.optionalString(json, 'text'),
         key: ControllerJson.optionalString(json, 'key'),
@@ -31,7 +33,11 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
         index: ControllerJson.optionalString(json, 'index'),
       );
 
-  final String input;
+  /// Text to enter; null when only [action] is sent.
+  final String? input;
+
+  /// Optional IME action name (send, done, newline, ...).
+  final String? action;
   final String? focused;
 
   @override
@@ -40,14 +46,16 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
   @override
   Map<String, dynamic> toVmParams() => {
         ...super.toVmParams(),
-        'input': input,
+        if (input != null) 'input': input,
+        if (action != null) 'action': action,
         if (focused != null) 'focused': focused,
       };
 
   @override
   Map<String, Object?> toJson() => {
         ...super.toJson(),
-        'input': input,
+        if (input != null) 'input': input,
+        if (action != null) 'action': action,
         if (focused != null) 'focused': focused,
       };
 
@@ -61,6 +69,9 @@ class FdbEnterTextCommandResponse extends FdbActionCommandResponse {
     required super.error,
     required super.unexpected,
     required this.widgetType,
+    this.clientType,
+    this.clientKind,
+    this.action,
   });
 
   factory FdbEnterTextCommandResponse.fromResponse(Map<String, dynamic> response) {
@@ -69,16 +80,31 @@ class FdbEnterTextCommandResponse extends FdbActionCommandResponse {
       status: result?['status'] as String?,
       error: result?['error'] as String?,
       widgetType: result?['widgetType'] as String?,
+      clientType: result?['clientType'] as String?,
+      clientKind: result?['clientKind'] as String?,
+      action: result?['action'] as String?,
       unexpected: result ?? response,
     );
   }
 
   final String? widgetType;
 
+  /// State type that received the text, e.g. EditableTextState or QuillRawEditorState.
+  final String? clientType;
+
+  /// EditableText, TextInputClient, or DeltaTextInputClient.
+  final String? clientKind;
+
+  /// IME action that was performed, if any.
+  final String? action;
+
   @override
   Map<String, Object?> toJson() => {
         ...super.toJson(),
         'widgetType': widgetType,
+        'clientType': clientType,
+        'clientKind': clientKind,
+        'action': action,
       };
 }
 

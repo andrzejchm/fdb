@@ -135,7 +135,7 @@ fdb kill
 | `fdb syslog [--since <dur>] [--predicate <str>] [--last <n>] [--follow]` | Native system logs (Android logcat, iOS syslog, macOS log) |
 | `fdb crash-report [--app-id <id>] [--last <dur>] [--all]` | Fetch the most recent OS-level crash record (jetsam, LMK, native crashes) |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
-| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)* |
+| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)*. Non-`EditableText` inputs (e.g. Quill) show as `@N QuillRawEditor(editable) "text"` |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
 
@@ -149,7 +149,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
 | `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
-| `fdb input [--text/--key/--type <selector>] <text>` | Enter text into a field |
+| `fdb input [--text/--key/--type <selector>] [<text>] [--action <name>]` | Replace the text of the focused or selected field. Works with any text input (`TextField`, flutter_quill, custom `TextInputClient` editors), no keyboard needed. `--action send\|done\|next\|...` sends an IME action after the text, or alone |
 | `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
 | `fdb scroll-to --text/--key/--type <selector> [--index N]` | Scroll until widget is visible |

@@ -6,7 +6,10 @@ typedef InputInput = ({
   String? key,
   String? type,
   int? index,
-  String textToEnter,
+  // Text to enter (replaces the field content). Null when only [action] is sent.
+  String? textToEnter,
+  // IME action to send after the text: send, done, newline, go, search, next, ...
+  String? action,
 });
 
 /// Result of an [enterText] invocation.
@@ -14,11 +17,18 @@ sealed class InputResult extends CommandResult {
   const InputResult();
 }
 
-/// Text was successfully entered; [fieldType] is the widget type string.
+/// Text was entered and/or an IME action was sent.
+///
+/// [fieldType] is the widget type string. [value] is the entered text (null
+/// when only an action was sent). [action] is the IME action performed, if any.
+/// [clientType] is the State that received the input (e.g. EditableTextState,
+/// QuillRawEditorState).
 class InputSuccess extends InputResult {
-  const InputSuccess({required this.fieldType, required this.value});
+  const InputSuccess({required this.fieldType, required this.value, this.action, this.clientType});
   final String fieldType;
-  final String value;
+  final String? value;
+  final String? action;
+  final String? clientType;
 }
 
 /// fdb_helper was not detected in the running app.
