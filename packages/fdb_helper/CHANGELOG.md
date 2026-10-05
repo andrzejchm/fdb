@@ -1,3 +1,17 @@
+## 1.12.0
+
+### Improvements
+- `ext.fdb.enterText` types into any widget whose State implements `TextInputClient`, not only `EditableText`. This covers flutter_quill (`QuillRawEditorState`) and custom `TextInputClient`/`DeltaTextInputClient` editors. Text goes through the client (`updateEditingValue`, or one delta for delta clients), so the widget's controller and listeners run; no keyboard needed.
+- `ext.fdb.enterText` accepts an `action` param (`send`, `done`, `newline`, ...) delivered via `TextInputClient.performAction`.
+- `ext.fdb.describe` lists non-`EditableText` text inputs with `editable: true` and `inputClient`, and reports the app's `lifecycleState`.
+- New `ext.fdb.lifecycle` extension returning the app's lifecycle state.
+
+### Fixes
+- `enterText` with no field focused (focus on a route scope) now fails instead of typing into the first field on screen.
+- Selector taps (`tap`, `longPress`, `doubleTap`, `swipe`) on a custom button that builds its own `GestureDetector` hit the button, not an enclosing screen-level detector.
+- Selector taps on a covered widget (dialog, sheet, opaque overlay) fail with an error naming what covers it instead of tapping an ancestor's centre (roughly the screen centre).
+- `enterText` by selector on a field scrolled out of view targets that field, not the first field of the enclosing container.
+
 ## 1.11.2
 
 ### Fixes

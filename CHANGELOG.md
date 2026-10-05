@@ -1,4 +1,4 @@
-## Unreleased
+## 1.12.0
 
 ### Improvements
 - `fdb input` works with any text input, not just `TextField`/`EditableText`. From the focused element (or the `--text`/`--key`/`--type`/`--index` match) fdb_helper checks the element, then its descendants (`EditableText` first, then any `State` implementing `TextInputClient`), then its ancestors. This covers flutter_quill (`QuillEditor`/`QuillRawEditorState`) and custom `TextInputClient`/`DeltaTextInputClient` editors. Text is applied through the client (`updateEditingValue` or `updateEditingValueWithDeltas`), so the widget's controller and listeners run; no keyboard needed. Content is replaced; rich-text editors keep their trailing document newline.
