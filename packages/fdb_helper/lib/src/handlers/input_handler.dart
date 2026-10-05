@@ -55,10 +55,11 @@ Future<developer.ServiceExtensionResponse> handleEnterText(
       // With no field focused, primary focus sits on a route/app FocusScopeNode.
       // Searching below it would pick an arbitrary field, so refuse.
       if (focusNode is FocusScopeNode) {
+        final scopeType = focusContext.widget.runtimeType.toString();
+        final scopeLabel = scopeType.startsWith('_') ? '' : ' ($scopeType)';
         return errorResponse(
-          'No focused element found: focus is on a focus scope '
-          '(${focusContext.widget.runtimeType}), not on a text field. '
-          'Tap the field first, or pass --key, --text or --type',
+          'No focused element found: focus is on a focus scope$scopeLabel, '
+          'not on a text field. Tap the field first, or pass --key, --text or --type',
         );
       }
       try {
