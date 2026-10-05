@@ -326,6 +326,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         'route': routeName,
         'interactive': interactive,
         'texts': texts.toList(),
+        'lifecycleState': WidgetsBinding.instance.lifecycleState?.name,
       }),
     );
   } catch (e) {

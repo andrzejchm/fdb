@@ -131,6 +131,8 @@ VISIBLE TEXT:
 - `ListTile` without `onTap` → not surfaced, but its interactive children are (with the tile as breadcrumb context)
 - Display-only tiles (no `onTap`, no interactive children) → appear in VISIBLE TEXT only
 
+**Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
+
 **Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
 
 ## Widget selection

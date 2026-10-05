@@ -363,6 +363,8 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **`fdb: command not found`** - Add `~/.pub-cache/bin` to your `PATH`.
 
+**`WARNING: App is not in the foreground (lifecycle=paused)`** - `describe` and `screenshot` print this on stderr when the app isn't the visible app (e.g. another app is in front on the same simulator). Output reflects the app's last frame. Bring the app to the front and retry. Needs a current `fdb_helper`.
+
 **Launch hangs** - Check the device ID (`fdb devices`) and the project path.
 
 **Screenshot fails** - check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool` + `import` (Linux X11). Physical iOS, Windows, and Linux Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.

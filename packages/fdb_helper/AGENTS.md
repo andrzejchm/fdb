@@ -17,6 +17,7 @@ lib/
       clean_handler.dart       # ext.fdb.clean
       describe_handler.dart    # ext.fdb.describe + ext.fdb.elements
       input_handler.dart       # ext.fdb.enterText
+      lifecycle_handler.dart   # ext.fdb.lifecycle
       screenshot_handler.dart  # ext.fdb.screenshot
       scroll_handler.dart      # ext.fdb.scroll
       scroll_to_handler.dart   # ext.fdb.scrollTo
@@ -31,6 +32,7 @@ lib/
 test/
   fdb_binding_test.dart                   # Tests for FdbBinding
   fdb_service_extensions_mixin_test.dart  # Tests for FdbServiceExtensionsMixin
+  lifecycle_handler_test.dart             # Tests for handleLifecycle
 ```
 
 ## Architecture rules

@@ -59,3 +59,7 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 ## Session directory
 
 All state lives in `<project>/.fdb/`. fdb auto-resolves by walking up from CWD — no need to `cd` to the project root. Key files: `logs.txt`, `vm_uri.txt`, `platform.txt`, `app_id.txt`, `screenshot.png`. Full reference: `fdb skill launch`.
+
+## Caveats
+
+- `WARNING: App is not in the foreground (lifecycle=paused)` on `describe`/`screenshot` means another app (or the home screen) is in front. Output reflects the app's last frame, not the screen.

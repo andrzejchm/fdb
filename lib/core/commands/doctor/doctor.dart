@@ -120,6 +120,8 @@ Future<bool> _checkFdbHelper() async {
     return isolateId != null;
   } on ControllerUnavailable {
     return false;
+  } on VmNotRespondingException {
+    return false;
   } on AppDiedException {
     return false;
   }

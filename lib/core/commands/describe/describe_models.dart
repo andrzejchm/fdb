@@ -14,15 +14,27 @@ sealed class DescribeResult extends CommandResult {
 
 /// ext.fdb.describe responded with a valid payload.
 class DescribeSuccess extends DescribeResult {
-  const DescribeSuccess(this.raw);
+  const DescribeSuccess(this.raw, {this.warnings = const []});
 
   /// The raw map returned by ext.fdb.describe (screen, route, interactive, texts).
   final Map<String, dynamic> raw;
+
+  /// Non-fatal `WARNING: ...` lines (e.g. app not in the foreground).
+  final List<String> warnings;
 }
 
 /// fdb_helper was not detected in the running app.
 class DescribeNoFdbHelper extends DescribeResult {
   const DescribeNoFdbHelper();
+}
+
+/// The app PID is alive but its VM service does not respond — typically the
+/// app is backgrounded and suspended by the OS (another app is in front).
+class DescribeVmNotResponding extends DescribeResult {
+  const DescribeVmNotResponding({this.pid});
+
+  /// The app PID confirmed alive, or null when unknown.
+  final int? pid;
 }
 
 /// The VM service returned a response that is not a `Map<String, dynamic>`.

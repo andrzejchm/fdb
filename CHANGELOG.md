@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixes
+- `fdb describe` and `fdb screenshot` warn on stderr when the app isn't in the foreground (`WARNING: App is not in the foreground (lifecycle=paused). ...`, or the `inactive` variant). Stdout and exit codes are unchanged. When iOS has suspended the backgrounded app and its VM service stops answering, `describe` now reports that instead of the misleading "fdb_helper not detected". Needs the updated fdb_helper (new `ext.fdb.lifecycle` extension, `lifecycleState` in describe JSON).
+
 ## 1.11.2
 
 ### Fixes

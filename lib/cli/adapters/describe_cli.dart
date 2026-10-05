@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/describe/describe.dart';
+import 'package:fdb/core/vm_not_responding.dart';
 
 /// CLI adapter for `fdb describe`. Accepts no flags; emits a compact
 /// text snapshot of the current screen:
@@ -28,7 +29,10 @@ Future<int> _execute(ArgResults _) async {
 
 int _format(DescribeResult result) {
   switch (result) {
-    case DescribeSuccess(:final raw):
+    case DescribeSuccess(:final raw, :final warnings):
+      for (final w in warnings) {
+        stderr.writeln(w);
+      }
       _printDescribeOutput(raw);
       return 0;
     case DescribeNoFdbHelper():
@@ -37,6 +41,9 @@ int _format(DescribeResult result) {
         'Add fdb_helper package to your Flutter app and call '
         'FdbBinding.ensureInitialized() in main()',
       );
+      return 1;
+    case DescribeVmNotResponding(:final pid):
+      stderr.writeln('ERROR: ${vmNotRespondingMessage(pid)}');
       return 1;
     case DescribeUnexpectedResponse():
       stderr.writeln('ERROR: Unexpected response from ext.fdb.describe');

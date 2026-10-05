@@ -1,4 +1,5 @@
 import 'package:fdb/core/commands/describe/describe_models.dart';
+import 'package:fdb/core/foreground_check.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/describe/describe_models.dart';
@@ -17,7 +18,12 @@ Future<DescribeResult> describeScreen(DescribeInput _) async {
 
     if (result.error != null) return DescribeRelayedError(result.error!);
 
-    return DescribeSuccess(result.snapshot!);
+    final snapshot = result.snapshot!;
+    final lifecycleState = snapshot['lifecycleState'];
+    final warning = foregroundWarning(lifecycleState is String ? lifecycleState : null);
+    return DescribeSuccess(snapshot, warnings: [if (warning != null) warning]);
+  } on VmNotRespondingException catch (e) {
+    return DescribeVmNotResponding(pid: e.pid);
   } on AppDiedException catch (e) {
     return DescribeAppDied(logLines: e.logLines, reason: e.reason);
   } catch (e) {
