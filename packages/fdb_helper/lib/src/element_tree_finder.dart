@@ -64,14 +64,16 @@ List<Map<String, dynamic>> findInteractiveElements() {
 /// Result of [findHittableElement].
 ///
 /// [element] is the element a gesture targets: the matched widget, or for a
-/// non-interactive match its nearest interactive ancestor. Null if nothing
-/// matched or the match is ambiguous. [matchCount] is the number of matches.
+/// non-interactive match its nearest interactive ancestor. [matched] is the
+/// matched widget itself. Both are null if nothing matched or the match is
+/// ambiguous. [matchCount] is the number of matches.
 ///
 /// [tapPoint] is a global point inside the matched widget at which a pointer
 /// reaches [element]. It is null when no such point exists, for example when
 /// the match is covered by a dialog or an overlay; [unreachable] says why.
 typedef HittableElementResult = ({
   Element? element,
+  Element? matched,
   int matchCount,
   Offset? tapPoint,
   Unreachable? unreachable,
@@ -101,7 +103,7 @@ typedef _Match = ({Element matched, Element countedAs, Element? gestureOwner, bo
 /// [HittableElementResult.element] is null and `matchCount` reflects the
 /// ambiguity.
 HittableElementResult findHittableElement(WidgetMatcher matcher) {
-  const none = (element: null, matchCount: 0, tapPoint: null, unreachable: null);
+  const none = (element: null, matched: null, matchCount: 0, tapPoint: null, unreachable: null);
   // Only Text, Key and Type matchers match elements in the tree.
   if (matcher is CoordinatesMatcher || matcher is FocusedMatcher) return none;
 
@@ -163,13 +165,14 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   // Ambiguous: multiple matches and no index specified — caller must disambiguate.
   final targetIndex = matcher.index ?? 0;
   if ((matcher.index == null && matches.length > 1) || targetIndex >= matches.length) {
-    return (element: null, matchCount: matches.length, tapPoint: null, unreachable: null);
+    return (element: null, matched: null, matchCount: matches.length, tapPoint: null, unreachable: null);
   }
 
   final match = matches[targetIndex];
   final tapPoint = _findTapPoint(match, interactiveRenderObjects);
   return (
     element: match.gestureOwner ?? match.matched,
+    matched: match.matched,
     matchCount: matches.length,
     tapPoint: tapPoint,
     unreachable: tapPoint == null ? _describeUnreachable(match.matched) : null,
@@ -186,7 +189,7 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   WidgetMatcher matcher, {
   bool allowScrolledOut = false,
 }) {
-  final (:element, :matchCount, :tapPoint, :unreachable) = findHittableElement(matcher);
+  final (:element, :matchCount, :tapPoint, :unreachable, matched: _) = findHittableElement(matcher);
   if (element == null) {
     final error = matchCount > 1
         ? 'Found $matchCount elements matching the selector. Use --index to specify which one (0-based).'
@@ -355,6 +358,9 @@ bool _isScrolledOutOfReachableView(Element element) {
   });
   return reachable;
 }
+
+/// True for widgets fdb treats as tap targets (buttons, fields, detectors).
+bool isInteractiveElement(Element element) => _isInteractiveWidget(element.widget.runtimeType);
 
 bool _hasInteractiveDescendant(Element element) {
   var found = false;
