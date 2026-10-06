@@ -15,7 +15,7 @@ import 'package:fdb/core/vm_not_responding.dart';
 ///   <blank line>                    (if screen or route was printed)
 ///   INTERACTIVE:                    (if interactive list non-empty)
 ///     [<Ancestor> ["text"] [> ...]] (breadcrumb — only if meaningful)
-///       @N <type>[(gestures)|(editable)] ["text"] [key=<key>]
+///       @N <type>[(gestures)|(editable)][(disabled)] ["text"] [key=<key>]
 ///   <blank line>
 ///   VISIBLE TEXT:                   (if non-duplicate texts exist)
 ///     "<text>"
@@ -111,6 +111,9 @@ void _printDescribeOutput(Map<String, dynamic> result) {
       } else if (gestures != null && gestures.isNotEmpty) {
         buffer.write('(${gestures.join(',')})');
       }
+      // Disabled widgets (null onPressed/onChanged, `enabled: false`) ignore
+      // taps; selector taps on them retry until --timeout.
+      if (entry['enabled'] == false) buffer.write('(disabled)');
       if (cleanText != null) buffer.write(' "$cleanText"');
       if (key != null) buffer.write(' key=$key');
       stdout.writeln(buffer.toString());

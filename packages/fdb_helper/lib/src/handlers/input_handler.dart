@@ -70,10 +70,10 @@ Future<developer.ServiceExtensionResponse> handleEnterText(
       reportedType = target.widgetType;
     } else {
       // No hit test needed: text is entered through the input client, so a
-      // field that is covered or scrolled out of view still works. The match
-      // is the field itself, never an unrelated ancestor.
-      final (:element, :matchCount, tapPoint: _, unreachable: _) = findHittableElement(matcher);
-      if (element == null) {
+      // field that is covered or scrolled out of view still works. The text
+      // input is resolved from the match, never from an unrelated ancestor.
+      final (:element, :matched, :matchCount, tapPoint: _, unreachable: _) = findHittableElement(matcher);
+      if (element == null || matched == null) {
         if (matchCount > 1) {
           return errorResponse(
             'Found $matchCount elements matching the selector. '
@@ -83,7 +83,7 @@ Future<developer.ServiceExtensionResponse> handleEnterText(
         return errorResponse('No hittable element found for matcher');
       }
       try {
-        target = resolveTextInputTarget(element);
+        target = resolveSelectorTextInput(matched, element);
       } on TextInputException catch (e) {
         return errorResponse('enterText failed: ${e.message}');
       }

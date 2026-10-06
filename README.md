@@ -135,7 +135,7 @@ fdb kill
 | `fdb syslog [--since <dur>] [--predicate <str>] [--last <n>] [--follow]` | Native system logs (Android logcat, iOS syslog, macOS log) |
 | `fdb crash-report [--app-id <id>] [--last <dur>] [--all]` | Fetch the most recent OS-level crash record (jetsam, LMK, native crashes) |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
-| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)*. Non-`EditableText` inputs (e.g. Quill) show as `@N QuillRawEditor(editable) "text"` |
+| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)*. Non-`EditableText` inputs (e.g. Quill) show as `@N QuillRawEditor(editable) "text"`; disabled widgets as `@N ElevatedButton(disabled) "Send"` |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
 
@@ -147,7 +147,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 |---------|-------------|
 | `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning, so it can't reach system dialogs such as the paste prompt, or the software keyboard; use `fdb input` for text). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
-| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N [--expect-text T] [--expect-type T]` | Tap a widget, coordinates, or describe ref. `@N` is the Nth entry of the current screen and is tapped like a selector (fails if off screen or covered); `--expect-text`/`--expect-type` fail without tapping if the entry changed |
+| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N [--expect-text T] [--expect-type T]` | Tap a widget, coordinates, or describe ref. `@N` is the Nth entry of the current screen and is tapped like a selector (fails if off screen or covered); `--expect-text`/`--expect-type` fail without tapping if the entry changed. A selector or `@N` tap on a disabled widget (e.g. `onPressed: null`) waits until it is enabled, up to `--timeout`, then fails with `ERROR: <Type> is disabled` |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
 | `fdb input [--text/--key/--type <selector>] [<text>] [--action <name>]` | Replace the text of the focused or selected field. Works with any text input (`TextField`, flutter_quill, custom `TextInputClient` editors), no keyboard needed. `--action send\|done\|next\|...` sends an IME action after the text, or alone |
 | `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |
@@ -363,7 +363,7 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **`fdb: command not found`** - Add `~/.pub-cache/bin` to your `PATH`.
 
-**`Can't load Kernel binary: Invalid kernel binary format version (expected X, found Y)`** - fdb was activated with one Dart SDK and `dart` on PATH is another (common with FVM). Pub's launcher in `~/.pub-cache/bin` hardcodes the activating SDK's snapshot, so the VM prints this before fdb starts. fdb repoints its `fdb` and `fdb-controller` launchers to the snapshot for the running SDK once and prints a `WARNING:`. Set `FDB_NO_BINSTUB_REPAIR=1` to turn that off; fdb then prints the manual fix — re-run `dart pub global activate ...` with the SDK you use on PATH.
+**`Can't load Kernel binary: Invalid kernel binary format version (expected X, found Y)`** - fdb was activated with one Dart SDK and `dart` on PATH is another (common with FVM). Pub's launcher in `~/.pub-cache/bin` hardcodes the activating SDK's snapshot, so the VM prints this before fdb starts. The first time fdb sees this, it replaces its `fdb` and `fdb-controller` launchers with ones that read the version of the `dart` on PATH from its SDK and run the matching snapshot (or `dart pub global run` when there is none yet), and prints a `WARNING:`. The new launchers work with every SDK, so fdb doesn't touch them again, and switching between SDKs (e.g. an FVM-pinned project and a global `dart`) no longer brings the line back. `dart pub global activate` restores pub's launchers. Set `FDB_NO_BINSTUB_REPAIR=1` to keep pub's launchers; the fix then is to re-run `dart pub global activate ...` with the SDK you use on PATH.
 
 **`WARNING: App is not in the foreground (lifecycle=paused)`** - `describe` and `screenshot` print this on stderr when the app isn't the visible app (e.g. another app is in front on the same simulator). Output reflects the app's last frame. Bring the app to the front and retry. Needs a current `fdb_helper`.
 
@@ -378,6 +378,14 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 **`RUNNING=false` when running from a subdirectory** - fdb walks up the directory tree to find the nearest `.fdb/` session automatically. If it still shows `RUNNING=false`, the app may not be running or the session has a stale PID. Use `fdb --session-dir <project>/.fdb status` to point directly at the session directory.
 
 **Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
+
+**Reaching for `simctl`, `idb`, or `adb` directly** - check fdb first: `fdb grant-permission`, `fdb simulator push|location|appearance|text-size|status-bar|defaults`, `fdb clean`, and `fdb deeplink` already wrap them.
+
+**Stuck on an iOS simulator system prompt** - fdb can't tap system UI on the simulator (taps are injected in-process). Pre-grant with `fdb grant-permission` before the app asks; notifications aren't covered because `simctl privacy` has no notifications service. Use `fdb input` instead of pasting, and add an app test hook for the system photo picker. Tapping system dialogs is planned.
+
+**No software keyboard on the iOS simulator** - Simulator connects the Mac keyboard as a hardware keyboard by default, so iOS shows no on-screen keyboard and `viewInsets.bottom` stays 0. `fdb input` doesn't need it. To show it: I/O > Keyboard > Toggle Software Keyboard (Cmd+K).
+
+**`tap @N` hits the wrong widget** - refs are positional for the current screen. Re-run `fdb describe` after scrolling or navigating, or tap by `--key`.
 
 **Agent setup fails mid-flow** - Run `fdb doctor` to check app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
 

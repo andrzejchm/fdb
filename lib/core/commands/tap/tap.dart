@@ -1,5 +1,6 @@
 import 'package:fdb/core/commands/describe/describe.dart';
 import 'package:fdb/core/commands/tap/tap_models.dart';
+import 'package:fdb/core/gesture_retry.dart';
 import 'package:fdb/src/controller/commands/fdb_describe.dart';
 import 'package:fdb/src/controller/commands/fdb_tap.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
@@ -50,11 +51,7 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input, FdbTapRunner 
     params,
     tapRunner,
     timeoutSeconds: input.timeoutSeconds,
-    isRetryable: (error) =>
-        error.contains('not found') ||
-        error.contains('No hittable element') ||
-        // Covered (dialog closing, sheet animating): retry until --timeout.
-        error.contains(' is not hittable: '),
+    isRetryable: isRetryableGestureError,
   );
   if (result is! TapSuccess) return result;
   return TapSuccess(
@@ -162,10 +159,10 @@ Future<TapResult> _tapByRef(
     params,
     tapRunner,
     timeoutSeconds: input.timeoutSeconds,
-    // Only a covered widget is worth waiting for. One that is no longer at the
-    // described position will not come back there; the agent has to describe
-    // again.
-    isRetryable: (error) => error.contains(' is not hittable: '),
+    // A covered or disabled widget is worth waiting for. One that is no longer
+    // at the described position will not come back there; the agent has to
+    // describe again.
+    isRetryable: (error) => isRetryableGestureError(error, waitForMatch: false),
   );
   return switch (result) {
     TapSuccess(:final x, :final y) => TapSuccess(widgetType: type, x: x ?? entryX, y: y ?? entryY, text: text),

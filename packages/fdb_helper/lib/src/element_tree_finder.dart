@@ -64,14 +64,16 @@ List<Map<String, dynamic>> findInteractiveElements() {
 /// Result of [findHittableElement].
 ///
 /// [element] is the element a gesture targets: the matched widget, or for a
-/// non-interactive match its nearest interactive ancestor. Null if nothing
-/// matched or the match is ambiguous. [matchCount] is the number of matches.
+/// non-interactive match its nearest interactive ancestor. [matched] is the
+/// matched widget itself. Both are null if nothing matched or the match is
+/// ambiguous. [matchCount] is the number of matches.
 ///
 /// [tapPoint] is a global point inside the matched widget at which a pointer
 /// reaches [element]. It is null when no such point exists, for example when
 /// the match is covered by a dialog or an overlay; [unreachable] says why.
 typedef HittableElementResult = ({
   Element? element,
+  Element? matched,
   int matchCount,
   Offset? tapPoint,
   Unreachable? unreachable,
@@ -101,7 +103,7 @@ typedef _Match = ({Element matched, Element countedAs, Element? gestureOwner, bo
 /// [HittableElementResult.element] is null and `matchCount` reflects the
 /// ambiguity.
 HittableElementResult findHittableElement(WidgetMatcher matcher) {
-  const none = (element: null, matchCount: 0, tapPoint: null, unreachable: null);
+  const none = (element: null, matched: null, matchCount: 0, tapPoint: null, unreachable: null);
   // Only Text, Key and Type matchers match elements in the tree.
   if (matcher is CoordinatesMatcher || matcher is FocusedMatcher) return none;
 
@@ -163,13 +165,14 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
   // Ambiguous: multiple matches and no index specified — caller must disambiguate.
   final targetIndex = matcher.index ?? 0;
   if ((matcher.index == null && matches.length > 1) || targetIndex >= matches.length) {
-    return (element: null, matchCount: matches.length, tapPoint: null, unreachable: null);
+    return (element: null, matched: null, matchCount: matches.length, tapPoint: null, unreachable: null);
   }
 
   final match = matches[targetIndex];
   final tapPoint = _findTapPoint(match, interactiveRenderObjects);
   return (
     element: match.gestureOwner ?? match.matched,
+    matched: match.matched,
     matchCount: matches.length,
     tapPoint: tapPoint,
     unreachable: tapPoint == null ? _describeUnreachable(match.matched) : null,
@@ -182,17 +185,23 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
 /// With [allowScrolledOut], a match that is only scrolled out of view is
 /// returned with its centre, for gestures that can invoke the callback
 /// directly instead of hit-testing.
+///
+/// With [rejectDisabled], a disabled target (see [disabledTargetType]) is an
+/// error, so taps never go to a button that would ignore them.
 ({({Element element, Offset point})? target, String? error}) findGestureTarget(
   WidgetMatcher matcher, {
   bool allowScrolledOut = false,
+  bool rejectDisabled = false,
 }) {
-  final (:element, :matchCount, :tapPoint, :unreachable) = findHittableElement(matcher);
+  final (:element, :matchCount, :tapPoint, :unreachable, matched: _) = findHittableElement(matcher);
   if (element == null) {
     final error = matchCount > 1
         ? 'Found $matchCount elements matching the selector. Use --index to specify which one (0-based).'
         : 'No hittable element found for matcher';
     return (target: null, error: error);
   }
+  final disabledType = rejectDisabled ? disabledTargetType(element) : null;
+  if (disabledType != null) return (target: null, error: '$disabledType is disabled');
   if (tapPoint != null) return (target: (element: element, point: tapPoint), error: null);
   final box = element.renderObject;
   if (allowScrolledOut && unreachable!.scrolledOut && box is RenderBox) {
@@ -356,6 +365,9 @@ bool _isScrolledOutOfReachableView(Element element) {
   return reachable;
 }
 
+/// True for widgets fdb treats as tap targets (buttons, fields, detectors).
+bool isInteractiveElement(Element element) => _isInteractiveWidget(element.widget.runtimeType);
+
 bool _hasInteractiveDescendant(Element element) {
   var found = false;
   void visit(Element child) {
@@ -370,6 +382,134 @@ bool _hasInteractiveDescendant(Element element) {
   element.visitChildren(visit);
   return found;
 }
+
+/// True when [widget] is an interactive widget fdb knows to be disabled: a
+/// Material or Cupertino button without callbacks, a ListTile with `enabled:
+/// false`, a Switch/Checkbox/Slider without `onChanged`, a disabled text
+/// field, or a GestureDetector/InkWell with no gesture callbacks at all.
+bool isWidgetDisabled(Widget widget) => _enabledState(widget) == false;
+
+/// The type name to report when a selector gesture on [target] would be
+/// ignored because the widget is disabled, or null when it is enabled or fdb
+/// cannot tell.
+///
+/// [target] is what [findHittableElement] resolves to:
+/// - a known widget type (ElevatedButton, Switch, ...) is judged by its own
+///   `onPressed` / `onChanged` / `enabled`;
+/// - a custom widget (a design-system button) is disabled when none of the
+///   interactive widgets it builds is enabled, e.g. its GestureDetector has
+///   no `onTap`;
+/// - a GestureDetector/InkWell without callbacks (often the inner InkWell of
+///   a button matched by its text) passes the tap on to the nearest ancestor
+///   that takes it (a known widget type or a detector with callbacks), so
+///   that ancestor decides. Without one, the detector itself is reported.
+///
+/// Errs towards enabled: a type fdb cannot judge never counts as disabled.
+String? disabledTargetType(Element target) {
+  final widget = target.widget;
+  final isDetector = widget is GestureDetector || widget is InkResponse;
+  final own = _enabledState(widget);
+  if (own == true) return null;
+  if (own == null && _isInteractiveWidget(widget.runtimeType)) return null;
+  final inner = _descendantEnabledState(target);
+  if (inner == true || (own == null && inner == null)) return null;
+
+  if (isDetector) {
+    // The first ancestor that would take the tap: an enabled detector, or a
+    // known widget type (one fdb can't judge counts as enabled).
+    Element? owner;
+    target.visitAncestorElements((ancestor) {
+      final ancestorWidget = ancestor.widget;
+      final isAncestorDetector = ancestorWidget is GestureDetector || ancestorWidget is InkResponse;
+      final isOwner = isAncestorDetector
+          ? hasGestureCallbacks(ancestorWidget)
+          : _isInteractiveWidget(ancestorWidget.runtimeType) || _enabledState(ancestorWidget) != null;
+      if (isOwner) owner = ancestor;
+      return !isOwner;
+    });
+    if (owner != null) return isWidgetDisabled(owner!.widget) ? owner!.widget.runtimeType.toString() : null;
+  }
+  return widget.runtimeType.toString();
+}
+
+/// Whether the interactive widgets inside [element] are enabled: true when
+/// any of them is, false when all found are disabled, null when there are
+/// none. Does not look inside a disabled known widget (its internals are
+/// framework detail).
+bool? _descendantEnabledState(Element element) {
+  bool? state;
+  void visit(Element child) {
+    if (state == true) return;
+    final childState = _enabledState(child.widget);
+    if (childState == true) {
+      state = true;
+      return;
+    }
+    if (childState == false) {
+      state = false;
+      if (child.widget is! GestureDetector && child.widget is! InkResponse) return;
+    }
+    child.visitChildren(visit);
+  }
+
+  element.visitChildren(visit);
+  return state;
+}
+
+/// Enabled state of the widget types fdb can judge, null for any other type.
+bool? _enabledState(Widget widget) => switch (widget) {
+      ButtonStyleButton() => widget.enabled,
+      IconButton() => widget.onPressed != null || widget.onLongPress != null,
+      FloatingActionButton() => widget.onPressed != null,
+      CupertinoButton() => widget.enabled,
+      CupertinoDialogAction() => widget.onPressed != null,
+      ListTile() => widget.enabled,
+      CheckboxListTile() => widget.enabled != false && widget.onChanged != null,
+      SwitchListTile() => widget.onChanged != null,
+      Switch() => widget.onChanged != null,
+      CupertinoSwitch() => widget.onChanged != null,
+      Checkbox() => widget.onChanged != null,
+      CupertinoCheckbox() => widget.onChanged != null,
+      Slider() => widget.onChanged != null,
+      TextField() => widget.enabled != false,
+      TextFormField() => widget.enabled,
+      CupertinoTextField() => widget.enabled != false,
+      GestureDetector() || InkResponse() => hasGestureCallbacks(widget),
+      _ => null,
+    };
+
+/// True unless [widget] is a [GestureDetector] or [InkResponse] (InkWell)
+/// with no gesture callbacks, i.e. a decoration wrapper that handles nothing.
+bool hasGestureCallbacks(Widget widget) => switch (widget) {
+      GestureDetector() => widget.onTap != null ||
+          widget.onTapDown != null ||
+          widget.onTapUp != null ||
+          widget.onSecondaryTap != null ||
+          widget.onDoubleTap != null ||
+          widget.onLongPress != null ||
+          widget.onLongPressStart != null ||
+          widget.onVerticalDragStart != null ||
+          widget.onVerticalDragUpdate != null ||
+          widget.onVerticalDragEnd != null ||
+          widget.onHorizontalDragStart != null ||
+          widget.onHorizontalDragUpdate != null ||
+          widget.onHorizontalDragEnd != null ||
+          widget.onPanStart != null ||
+          widget.onPanUpdate != null ||
+          widget.onPanEnd != null ||
+          widget.onScaleStart != null ||
+          widget.onScaleUpdate != null ||
+          widget.onScaleEnd != null ||
+          widget.onForcePressStart != null ||
+          widget.onForcePressPeak != null,
+      InkResponse() => widget.onTap != null ||
+          widget.onTapDown != null ||
+          widget.onTapUp != null ||
+          widget.onSecondaryTap != null ||
+          widget.onDoubleTap != null ||
+          widget.onLongPress != null,
+      _ => true,
+    };
 
 /// Returns true if [element] is a framework-internal widget that should not be
 /// used as a tap target (e.g. Overlay, Navigator, ModalBarrier).

@@ -17,6 +17,15 @@ void main() {
     expect(stopwatch.elapsed, greaterThanOrEqualTo(const Duration(seconds: 1)));
   });
 
+  test('a disabled target is retried until the app enables it, then tapped once', () async {
+    final tap = _FakeTap(error: 'ElevatedButton is disabled', failures: 2);
+
+    final result = await _tap(_input(key: 'send'), tap);
+
+    expect(result, isA<TapSuccess>().having((s) => s.widgetType, 'widgetType', 'ElevatedButton'));
+    expect(tap.calls.length, 3);
+  });
+
   group('tap @N', () {
     final screen = [
       {'ref': 1, 'type': 'ElevatedButton', 'key': 'save', 'text': 'Save', 'x': 100.0, 'y': 200.0},
@@ -85,6 +94,15 @@ void main() {
       });
     });
 
+    test('to a disabled widget is retried until --timeout, then fails with "is disabled"', () async {
+      final tap = _FakeTap(error: 'ElevatedButton is disabled');
+
+      final result = await _tap(_input(ref: 1, timeoutSeconds: 1), tap, screen: screen);
+
+      expect(result, isA<TapRelayedError>().having((e) => e.message, 'message', 'ElevatedButton is disabled'));
+      expect(tap.calls.length, greaterThan(1));
+    });
+
     test('whose widget moved before the tap fails without retrying', () async {
       final tap = _FakeTap(error: 'No hittable element found for matcher');
 
@@ -128,15 +146,18 @@ Future<TapResult> _tap(TapInput input, _FakeTap tap, {List<Map<String, Object?>>
       ),
     );
 
-/// Records ext.fdb.tap params; succeeds unless [error] is set.
+/// Records ext.fdb.tap params. Fails with [error] (when set) for the first
+/// [failures] calls, then succeeds.
 class _FakeTap {
-  _FakeTap({this.error});
+  _FakeTap({this.error, this.failures = 1 << 30});
 
   final String? error;
+  final int failures;
   final calls = <Map<String, dynamic>>[];
 
   Future<FdbTapCommandResponse> call(Map<String, dynamic> params) async {
     calls.add(params);
+    final error = calls.length <= failures ? this.error : null;
     return FdbTapCommandResponse(
       status: error == null ? 'Success' : null,
       error: error,

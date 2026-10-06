@@ -46,7 +46,7 @@ Future<developer.ServiceExtensionResponse> handleDoubleTap(
 
     // A target scrolled out of view still works: its onDoubleTap callback
     // is invoked directly. A covered one fails.
-    final (:target, :error) = findGestureTarget(matcher, allowScrolledOut: true);
+    final (:target, :error) = findGestureTarget(matcher, allowScrolledOut: true, rejectDisabled: true);
     if (target == null) return errorResponse(error!);
     final (:element, point: globalCenter) = target;
 

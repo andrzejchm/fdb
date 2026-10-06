@@ -137,6 +137,12 @@ VISIBLE TEXT:
 ```
 JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lines are unchanged. Target them with `fdb tap @N` + `fdb input`, or `fdb input --type QuillRawEditor`.
 
+**Disabled widgets** are flagged `(disabled)` (JSON: `enabled: false`): a button with no `onPressed`, a `Switch`/`Checkbox`/`Slider` with no `onChanged`, a `ListTile` or text field with `enabled: false`. Tapping one does nothing. Lines for enabled widgets are unchanged. A disabled custom button (its `GestureDetector` has no callbacks) is not listed at all; a selector tap on it still reports `is disabled`.
+```
+  @5 ElevatedButton(disabled) "Send" key=send_button
+```
+A send button often stays disabled until the app processes `fdb input`; tap it with `--key`/`--text` so fdb waits for it (see below).
+
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
 **Refs are positions, not IDs.** `@N` is the Nth entry of the screen as it is *when you run `fdb tap @N`*: fdb describes the screen again and taps whatever entry N is now. Navigation, `scroll-to`, scrolling, a list that loads more items, or a dialog opening shifts the numbers, and `@N` then means a different widget. Re-run `fdb describe` after anything that changes the screen, and pin the ref with `--expect-text` (or `--expect-type`) when a wrong tap would do damage (delete, submit, pay, create):
@@ -176,7 +182,7 @@ fdb tap --at 285,508           # tap at those coordinates
 fdb screenshot                 # verify dismissed
 ```
 
-For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`.
+For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`. The system photo picker, the notification prompt, and the software keyboard can't be driven either; see `fdb skill simulator` for workarounds.
 
 ## Tap a widget
 
@@ -200,7 +206,15 @@ ERROR: ElevatedButton is not hittable: it is covered by ModalBarrier at 200.0,41
 ERROR: ElevatedButton is scrolled out of view. Bring it into view first with fdb scroll-to
 ```
 
-`fdb tap @N` goes through the same checks: it re-finds the entry's widget (type, key, position) and taps it like a selector, never at raw coordinates. These errors exit 1 and tap nothing:
+A selector `tap`, `longpress` or `double-tap` on a disabled widget is never dispatched. fdb retries until the app enables it (up to `--timeout`), then fails with exit 1:
+
+```
+ERROR: ElevatedButton is disabled
+```
+
+For custom buttons, disabled means the button's own `GestureDetector`/`InkWell` has no callbacks. When fdb can't tell, it treats the widget as enabled. Coordinate taps (`--at`) don't check.
+
+`fdb tap @N` goes through the same checks: it re-finds the entry's widget (type, key, position) and taps it like a selector, never at raw coordinates. A disabled entry (`(disabled)` in describe) waits up to `--timeout` like a selector tap. These errors exit 1 and tap nothing:
 
 ```
 ERROR: @4 is now TextButton "Delete", not "Save". Nothing was tapped. Refs are positions in the current screen and shift when it changes. Run `fdb describe` again.
@@ -244,7 +258,7 @@ Requires `fdb_helper` in the app.
 
 ```bash
 fdb input --key "search_field" "flutter"   # type into field by key  ← prefer this
-fdb input --text "Search" "query text"     # type into field by label text
+fdb input --text "Search" "query text"     # type into field by its label/hint text
 fdb input "fallback text"                  # type into focused field
 fdb input "QA test" --action send          # type, then send the IME "send" action
 fdb input --action done                    # IME action only, no text
@@ -263,7 +277,7 @@ fdb tap --key "search_field"
 fdb input --key "search_field" "flutter"
 ```
 
-**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor.
+**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor. With a selector, fdb never searches other branches of an ancestor: a match that holds several fields fails with the count, and a standalone `Text` next to a field (not its `labelText`/`hintText`) fails instead of typing into whichever field comes first. Target the field with `--key`, or `--type` plus `--index`.
 
 **Mode is replace.** The field's content is replaced with `<text>`. Text goes through the client interface (`updateEditingValue`, or `updateEditingValueWithDeltas` for `DeltaTextInputClient`), so the widget's own controller and listeners run. No soft or hardware keyboard is needed. Rich-text editors keep their trailing document newline.
 
