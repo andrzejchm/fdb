@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'element_tree_finder.dart';
+
 /// A widget State that receives text from the platform IME.
 ///
 /// [client] is the State itself (EditableTextState, QuillRawEditorState, or any
@@ -47,39 +49,89 @@ class TextInputException implements Exception {
 /// Throws [TextInputException] naming [start]'s widget type when nothing is
 /// found.
 TextInputTarget resolveTextInputTarget(Element start) {
-  final self = _asTarget(start);
+  final found = _asTarget(start) ?? _descendantTargets(start).firstOrNull ?? _ancestorTarget(start);
+  if (found != null) return found;
+  throw TextInputException(_notATextInput(start));
+}
+
+/// Finds the text input a selector match refers to.
+///
+/// Searches [matched] itself, then its descendants, then its ancestors (a
+/// placeholder inside a custom editor). The descendants of an ancestor are
+/// never searched, so a label next to a field inside a screen-level
+/// `GestureDetector` does not resolve to whichever field comes first. Only
+/// when that finds nothing is [gestureTarget] (the nearest interactive
+/// ancestor of a non-interactive match, e.g. the `TextField` around a hint)
+/// used, and only if it is a text input itself or holds exactly one with no
+/// other interactive widget in between.
+///
+/// Throws [TextInputException] when [matched] holds several text inputs or
+/// none belongs to it.
+TextInputTarget resolveSelectorTextInput(Element matched, Element gestureTarget) {
+  final self = _asTarget(matched);
   if (self != null) return self;
 
-  TextInputTarget? firstEditable;
-  TextInputTarget? firstClient;
-  void visitDescendant(Element el) {
-    if (firstEditable != null) return;
-    final target = _asTarget(el);
-    if (target != null) {
-      if (target.isEditableText) {
-        firstEditable = target;
-        return;
-      }
-      firstClient ??= target;
-    }
-    el.visitChildren(visitDescendant);
+  final type = matched.widget.runtimeType;
+  final below = _descendantTargets(matched);
+  if (below.length > 1) {
+    throw TextInputException(
+      '$type contains ${below.length} text inputs. Target one field with --key, or with --type and --index',
+    );
+  }
+  final found = below.firstOrNull ?? _ancestorTarget(matched) ?? _ownedTarget(gestureTarget, matched);
+  if (found != null) return found;
+
+  if (gestureTarget == matched) throw TextInputException(_notATextInput(matched));
+  throw TextInputException(
+    '${_notATextInput(matched)}, and its nearest interactive ancestor ${gestureTarget.widget.runtimeType} '
+    'is not a single text field. Target the field with --key, or with --type and --index',
+  );
+}
+
+String _notATextInput(Element element) => '${element.widget.runtimeType} is not a text input: no EditableText and no '
+    'State implementing TextInputClient was found on it, below it, or above it';
+
+/// Text inputs below [element] in tree order: its [EditableTextState]s, or
+/// when there are none the States implementing [TextInputClient].
+List<TextInputTarget> _descendantTargets(Element element) {
+  final editables = <TextInputTarget>[];
+  final clients = <TextInputTarget>[];
+  void visit(Element child) {
+    final target = _asTarget(child);
+    if (target != null) (target.isEditableText ? editables : clients).add(target);
+    child.visitChildren(visit);
   }
 
-  start.visitChildren(visitDescendant);
-  final fromDescendants = firstEditable ?? firstClient;
-  if (fromDescendants != null) return fromDescendants;
+  element.visitChildren(visit);
+  return editables.isNotEmpty ? editables : clients;
+}
 
-  TextInputTarget? fromAncestors;
-  start.visitAncestorElements((ancestor) {
-    fromAncestors = _asTarget(ancestor);
-    return fromAncestors == null;
+/// The nearest ancestor of [element] that is a text input client.
+TextInputTarget? _ancestorTarget(Element element) {
+  TextInputTarget? found;
+  element.visitAncestorElements((ancestor) {
+    found = _asTarget(ancestor);
+    return found == null;
   });
-  if (fromAncestors != null) return fromAncestors!;
+  return found;
+}
 
-  throw TextInputException(
-    '${start.widget.runtimeType} is not a text input: no EditableText and no '
-    'State implementing TextInputClient was found on it, below it, or above it',
-  );
+/// The text input [owner] is or directly owns: the only one below it, with no
+/// other interactive widget in between. Null for [matched] itself (already
+/// searched) and for containers such as a screen-level `GestureDetector`.
+TextInputTarget? _ownedTarget(Element owner, Element matched) {
+  if (owner == matched) return null;
+  final self = _asTarget(owner);
+  if (self != null) return self;
+  final below = _descendantTargets(owner);
+  if (below.length != 1) return null;
+  var direct = true;
+  below.single.element.visitAncestorElements((ancestor) {
+    if (ancestor == owner) return false;
+    direct = !isInteractiveElement(ancestor);
+    return direct;
+  });
+  return direct ? below.single : null;
 }
 
 TextInputTarget? _asTarget(Element element) {

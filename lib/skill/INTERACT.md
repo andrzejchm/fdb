@@ -229,7 +229,7 @@ Requires `fdb_helper` in the app.
 
 ```bash
 fdb input --key "search_field" "flutter"   # type into field by key  ← prefer this
-fdb input --text "Search" "query text"     # type into field by label text
+fdb input --text "Search" "query text"     # type into field by its label/hint text
 fdb input "fallback text"                  # type into focused field
 fdb input "QA test" --action send          # type, then send the IME "send" action
 fdb input --action done                    # IME action only, no text
@@ -248,7 +248,7 @@ fdb tap --key "search_field"
 fdb input --key "search_field" "flutter"
 ```
 
-**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor.
+**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor. With a selector, fdb never searches other branches of an ancestor: a match that holds several fields fails with the count, and a standalone `Text` next to a field (not its `labelText`/`hintText`) fails instead of typing into whichever field comes first. Target the field with `--key`, or `--type` plus `--index`.
 
 **Mode is replace.** The field's content is replaced with `<text>`. Text goes through the client interface (`updateEditingValue`, or `updateEditingValueWithDeltas` for `DeltaTextInputClient`), so the widget's own controller and listeners run. No soft or hardware keyboard is needed. Rich-text editors keep their trailing document newline.
 

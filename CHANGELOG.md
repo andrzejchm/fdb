@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixes
+- Fixed `fdb input --text`/`--key`/`--type` on a widget that is not a text field (e.g. a standalone label `Text`) typing into the first field under the screen-level `GestureDetector` around it, which could be a different field. The text input is now resolved from the matched widget (itself, below it, or a custom editor above it); a field's own label or hint still resolves to that field. Otherwise the command fails, and a match holding several fields fails with the count. Needs the updated fdb_helper.
+
 ## 1.12.0
 
 ### Improvements
