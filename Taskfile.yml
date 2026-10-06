@@ -1672,6 +1672,45 @@ tasks:
           exit 1
         fi
 
+  test:input-label-scope:
+    desc: fdb input --text on a standalone label inside a screen-level GestureDetector must not type into another field
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() {
+          echo "FAIL: $1" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        }
+        echo "==> Navigating to Input Label Scope screen"
+        {{.FDB}} scroll-to --key "go_to_input_label_scope_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_input_label_scope_test" >/dev/null 2>&1 || fail "could not navigate to input label scope screen"
+        {{.FDB}} wait --key "label_scope_status" --present --timeout 5000 >/dev/null 2>&1 || fail "input label scope screen did not open"
+
+        echo "==> fdb input --text Notes (a label, not a field) must fail"
+        set +e
+        OUTPUT=$({{.FDB}} input --text "Notes" "x" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "fdb input --text Notes exited $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: enterText failed: Text is not a text input" \
+          || fail "expected 'ERROR: enterText failed: Text is not a text input'"
+        {{.FDB}} wait --text "first=[] second=[]" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "a field changed after fdb input --text Notes (expected 'first=[] second=[]')"
+
+        echo "==> fdb input --text 'Notes hint' must type into the second field"
+        OUTPUT=$({{.FDB}} input --text "Notes hint" "y" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "INPUT=TextField"; then
+          fail "fdb input --text 'Notes hint' (exit=$EXIT_CODE, expected INPUT=TextField)"
+        fi
+        {{.FDB}} wait --text "first=[] second=[y]" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "expected 'first=[] second=[y]' after fdb input --text 'Notes hint'"
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb input by selector resolves the field from the match"
+
   test:input-rich:
     desc: Enter text + IME actions into a non-EditableText TextInputClient (flutter_quill) and a plain TextField
     dir: '{{.TEST_APP}}'
@@ -4452,6 +4491,7 @@ tasks:
       - task: test:tap-custom-button
       - task: test:tap-covered-button
       - task: test:input
+      - task: test:input-label-scope
       - task: test:input-rich
       - task: test:scroll
       - task: test:scroll-to
