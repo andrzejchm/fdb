@@ -16,6 +16,7 @@ class FdbLongPressCommandRequest extends WidgetSelectorCommandRequest {
     super.key,
     super.type,
     super.index,
+    super.ref,
     super.x,
     super.y,
   });
@@ -27,6 +28,7 @@ class FdbLongPressCommandRequest extends WidgetSelectorCommandRequest {
         key: ControllerJson.optionalString(json, 'key'),
         type: ControllerJson.optionalString(json, 'type'),
         index: ControllerJson.optionalString(json, 'index'),
+        ref: ControllerJson.optionalString(json, 'ref'),
         x: ControllerJson.optionalString(json, 'x'),
         y: ControllerJson.optionalString(json, 'y'),
       );

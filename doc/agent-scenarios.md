@@ -186,13 +186,15 @@ widget. The contract is the negative one: `TAPPED=Text` is a regression
 of fdb-xdh.
 
 ```bash
-# Tap by ref — get ref from describe, tap @1
+# Tap by ref — get the TextField's ref from describe (e.g. @9), tap it
 dart run ../../bin/fdb.dart describe
-# Note the ref number of the TextField (e.g. @1)
-dart run ../../bin/fdb.dart tap @1
+dart run ../../bin/fdb.dart tap @9
+# Describe again: the TextField keeps the same ref
+dart run ../../bin/fdb.dart describe
 ```
 
-**After tap by ref:** exits 0, output contains `TAPPED=`.
+**After tap by ref:** exits 0, output contains `TAPPED=TextField`. The second
+describe shows the TextField with the same `@N` as the first.
 
 ---
 

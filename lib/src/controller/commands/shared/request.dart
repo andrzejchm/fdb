@@ -25,6 +25,7 @@ abstract class WidgetSelectorCommandRequest extends IsolateIdCommandRequest {
     this.index,
     this.x,
     this.y,
+    this.ref,
   });
 
   final String? text;
@@ -34,6 +35,10 @@ abstract class WidgetSelectorCommandRequest extends IsolateIdCommandRequest {
   final String? x;
   final String? y;
 
+  /// Id of an `fdb describe` ref (`@N`). fdb_helper resolves it to the widget
+  /// it names; an fdb_helper without refs rejects the request.
+  final String? ref;
+
   Map<String, dynamic> toVmParams() => {
         'isolateId': isolateId,
         if (text != null) 'text': text,
@@ -42,6 +47,7 @@ abstract class WidgetSelectorCommandRequest extends IsolateIdCommandRequest {
         if (index != null) 'index': index,
         if (x != null) 'x': x,
         if (y != null) 'y': y,
+        if (ref != null) 'ref': ref,
       };
 
   @override
@@ -53,6 +59,7 @@ abstract class WidgetSelectorCommandRequest extends IsolateIdCommandRequest {
         if (index != null) 'index': index,
         if (x != null) 'x': x,
         if (y != null) 'y': y,
+        if (ref != null) 'ref': ref,
       };
 }
 

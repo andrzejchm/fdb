@@ -6,6 +6,7 @@ typedef DoubleTapInput = ({
   String? key,
   String? type,
   int? index,
+  int? ref,
   double? x,
   double? y,
   int timeoutSeconds,

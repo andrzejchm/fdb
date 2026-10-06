@@ -16,9 +16,9 @@ import 'package:fdb/core/commands/tap/tap.dart';
 /// - `--y <n>`: Y coordinate
 /// - `--at <x,y>`: Coordinate shorthand (e.g. 200,400)
 /// - `--timeout <secs>`: Retry timeout in seconds (default: 5)
-/// - `@N`: Positional ref from `fdb describe`
-/// - `--expect-text <value>`: With `@N`, fail unless the entry shows this text
-/// - `--expect-type <value>`: With `@N`, fail unless the entry has this type
+/// - `@N`: Ref from `fdb describe`; names one widget while it stays mounted
+/// - `--expect-text <value>`: With `@N`, fail unless the widget shows this text
+/// - `--expect-type <value>`: With `@N`, fail unless the widget has this type
 Future<int> runTapCli(List<String> args) async {
   final parser = ArgParser()
     ..addOption('text')
@@ -29,8 +29,8 @@ Future<int> runTapCli(List<String> args) async {
     ..addOption('y')
     ..addOption('at')
     ..addOption('timeout', defaultsTo: '5')
-    ..addOption('expect-text', help: 'With @N: fail unless the entry shows this text (or a " · " part of it).')
-    ..addOption('expect-type', help: 'With @N: fail unless the entry has this widget type.');
+    ..addOption('expect-text', help: 'With @N: fail unless the widget shows this text (or a " · " part of it).')
+    ..addOption('expect-type', help: 'With @N: fail unless the widget has this type.');
 
   return runCliAdapter(parser, args, _execute);
 }
@@ -94,16 +94,10 @@ Future<int> _execute(ArgResults results) async {
   }
 
   // Parse @N positional ref
-  int? describeRef;
-  for (final arg in results.rest) {
-    if (arg.startsWith('@')) {
-      final refNum = int.tryParse(arg.substring(1));
-      if (refNum == null || refNum < 1) {
-        stderr.writeln('ERROR: Invalid ref: $arg. Expected @N where N >= 1');
-        return 1;
-      }
-      describeRef = refNum;
-    }
+  int? ref;
+  for (final arg in results.rest.where(isRefArg)) {
+    ref = parseRefArg(arg);
+    if (ref == null) return 1;
   }
 
   final String? text = results['text'] as String?;
@@ -126,12 +120,14 @@ Future<int> _execute(ArgResults results) async {
     return 1;
   }
 
-  if ((expectText != null || expectType != null) && describeRef == null) {
+  if (rejectRefWithOtherTarget(ref: ref, hasOtherTarget: hasSelector || hasCoords)) return 1;
+
+  if ((expectText != null || expectType != null) && ref == null) {
     stderr.writeln('ERROR: --expect-text and --expect-type only apply to an @N ref');
     return 1;
   }
 
-  if (!hasSelector && !hasCoords && describeRef == null) {
+  if (!hasSelector && !hasCoords && ref == null) {
     stderr.writeln('ERROR: Provide --text, --key, --type, --at, --x/--y, or @N ref');
     return 1;
   }
@@ -144,7 +140,7 @@ Future<int> _execute(ArgResults results) async {
     x: x,
     y: y,
     usedAt: usedAt,
-    describeRef: describeRef,
+    ref: ref,
     expectText: expectText,
     expectType: expectType,
     timeoutSeconds: timeoutSeconds,
@@ -172,40 +168,6 @@ int formatTapResult(TapResult result) {
         'FdbBinding.ensureInitialized() in main()',
       );
       return 1;
-    case TapUnexpectedDescribeResponse():
-      stderr.writeln('ERROR: Unexpected response from ext.fdb.describe');
-      return 1;
-    case TapRelayedDescribeError(:final message):
-      stderr.writeln('ERROR: $message');
-      return 1;
-    case TapRefNotFound(:final ref):
-      stderr.writeln(
-        'ERROR: No interactive element with ref @$ref. '
-        'Run `fdb describe` to see available refs.',
-      );
-      return 1;
-    case TapRefMismatch(:final ref, :final type, :final text, :final expectedText, :final expectedType):
-      final expected = [
-        if (expectedType != null) expectedType,
-        if (expectedText != null) '"$expectedText"',
-      ].join(' ');
-      stderr.writeln(
-        'ERROR: @$ref is now ${_entryLabel(type, text)}, not $expected. Nothing was tapped. '
-        'Refs are positions in the current screen and shift when it changes. Run `fdb describe` again.',
-      );
-      return 1;
-    case TapRefOffScreen(:final ref, :final type, :final text):
-      stderr.writeln(
-        'ERROR: @$ref ${_entryLabel(type, text)} is not on screen. Nothing was tapped. '
-        'Scroll it into view (fdb scroll-to), then run `fdb describe` again for its new ref.',
-      );
-      return 1;
-    case TapRefMoved(:final ref, :final type, :final text):
-      stderr.writeln(
-        'ERROR: @$ref ${_entryLabel(type, text)} moved or disappeared before it could be tapped. Nothing was tapped. '
-        'Wait for the screen to settle and run `fdb describe` again.',
-      );
-      return 1;
     case TapRelayedError(:final message):
       stderr.writeln('ERROR: $message');
       return 1;
@@ -219,5 +181,3 @@ int formatTapResult(TapResult result) {
       return 1;
   }
 }
-
-String _entryLabel(String type, String? text) => text != null ? '$type "$text"' : type;

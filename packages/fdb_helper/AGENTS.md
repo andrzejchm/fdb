@@ -30,6 +30,7 @@ lib/
     hit_test_utils.dart        # isElementHittable
     text_input_simulator.dart  # enterText
     widget_matcher.dart        # WidgetMatcher and subtypes
+    widget_refs.dart           # Stable `@N` describe refs: Element/Widget -> id registry
 test/
   fdb_binding_test.dart                   # Tests for FdbBinding
   fdb_service_extensions_mixin_test.dart  # Tests for FdbServiceExtensionsMixin
@@ -84,11 +85,12 @@ Logic reused across handlers belongs in the existing `src/` helpers:
 | File | What it provides |
 |------|-----------------|
 | `handler_utils.dart` | `errorResponse(String)` — standard error response |
-| `element_tree_finder.dart` | `findHittableElement`, `findGestureTarget` (element + point for selector gestures, or the error), `disabledTargetType`, `isWidgetDisabled`, `hasGestureCallbacks`, `findScrollTargetElement`, `findInteractiveElements`, `extractWidgetText` |
+| `element_tree_finder.dart` | `findHittableElement`, `findGestureTarget` (element + point for selector gestures, or the error), `noMatchError`, `describeElementText`, `disabledTargetType`, `isWidgetDisabled`, `hasGestureCallbacks`, `findScrollTargetElement`, `findInteractiveElements`, `extractWidgetText` |
 | `gesture_dispatcher.dart` | `dispatchTap`, `dispatchNativeTap`, `dispatchScroll` — all gesture dispatch helpers, including the Pigeon-bridged native tap path |
 | `hit_test_utils.dart` | `isElementHittable`, `findHittablePoint`, `tapCandidatePoints`, `visibleGlobalRect`, `hitTestAt` |
 | `text_input_simulator.dart` | `enterText` |
-| `widget_matcher.dart` | `WidgetMatcher` and all subtypes |
+| `widget_matcher.dart` | `WidgetMatcher` and all subtypes, including `RefMatcher` for `ref=<id>` |
+| `widget_refs.dart` | `refForElement`, `refForUnbuiltWidget`, `resolveRef`, `takeRemovedRefs`, `staleRefMessage` — ids are never reused while the isolate lives |
 
 Add new shared helpers to the appropriate existing file. Only create a new shared file if it serves ≥ 2 handlers and clearly doesn't belong in any existing file.
 

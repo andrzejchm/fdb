@@ -19,6 +19,7 @@ Future<int> runDoubleTapCli(List<String> args) async {
   int? index;
   double? x;
   double? y;
+  int? ref;
   var timeoutSeconds = 5;
 
   for (var i = 0; i < args.length; i++) {
@@ -27,7 +28,7 @@ Future<int> runDoubleTapCli(List<String> args) async {
       case '-h':
         stdout.writeln(
           'Usage: fdb double-tap [--text <text>] [--key <key>] [--type <type>] '
-          '[--index <n>] [--x <x> --y <y>] [--at x,y] [--timeout <seconds>]',
+          '[--index <n>] [--x <x> --y <y>] [--at x,y] [@N] [--timeout <seconds>]',
         );
         return 0;
       case '--text':
@@ -74,6 +75,9 @@ Future<int> runDoubleTapCli(List<String> args) async {
           return 1;
         }
         timeoutSeconds = parsed;
+      case final arg when isRefArg(arg):
+        ref = parseRefArg(arg);
+        if (ref == null) return 1;
       default:
         stderr.writeln('ERROR: Unknown flag: ${args[i]}');
         return 1;
@@ -90,9 +94,10 @@ Future<int> runDoubleTapCli(List<String> args) async {
   final hasSelector = text != null || key != null || type != null;
   final selectorCount = [text, key, type].where((v) => v != null).length;
 
-  if (selectorCount > 1 || hasSelector == hasCoords) {
+  if (rejectRefWithOtherTarget(ref: ref, hasOtherTarget: hasSelector || hasCoords)) return 1;
+  if (ref == null && (selectorCount > 1 || hasSelector == hasCoords)) {
     stderr.writeln(
-      'ERROR: Provide exactly one target: --text, --key, --type, --x/--y, or --at',
+      'ERROR: Provide exactly one target: --text, --key, --type, --x/--y, --at, or @N ref',
     );
     return 1;
   }
@@ -102,6 +107,7 @@ Future<int> runDoubleTapCli(List<String> args) async {
     key: key,
     type: type,
     index: index,
+    ref: ref,
     x: x,
     y: y,
     timeoutSeconds: timeoutSeconds,

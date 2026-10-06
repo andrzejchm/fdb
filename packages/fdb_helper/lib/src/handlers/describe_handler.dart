@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../element_tree_finder.dart';
 import '../hit_test_utils.dart';
 import '../version.dart';
+import '../widget_refs.dart';
 import 'handler_utils.dart';
 
 const _interestingGestures = {
@@ -58,9 +59,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
     // with thousands of items). Callers should paginate or scroll if they need
     // elements beyond this limit.
     const maxInteractive = 200;
-
-    // Tracks the nearest enclosing Tooltip message while walking the tree.
-    String? currentTooltip;
 
     // The route that was "current" the last time we saw a ModalRoute boundary
     // while descending. Used to detect when we enter a non-current route's
@@ -145,18 +143,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         element.visitChildren(findAppBarTitle);
       }
 
-      // Track Tooltip context so inner interactive widgets can inherit it.
-      String? previousTooltip;
-      if (typeName == 'Tooltip') {
-        previousTooltip = currentTooltip;
-        try {
-          final msg = (widget as dynamic).message as String?;
-          if (msg != null && msg.trim().isNotEmpty) {
-            currentTooltip = msg.trim();
-          }
-        } catch (_) {}
-      }
-
       final renderObject = element.renderObject;
       if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
         final offset = renderObject.localToGlobal(Offset.zero);
@@ -165,7 +151,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         // Skip zero-size widgets entirely.
         if (size.isEmpty) {
           element.visitChildren(visit);
-          if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           if (pushed) ancestors.removeLast();
           return;
         }
@@ -200,6 +185,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
           final breadcrumb = _collectBreadcrumb(ancestors, element);
           interactive.add({
+            '_source': element,
             'type': typeName,
             'key': key,
             'text': _textInputClientText(inputClient),
@@ -227,7 +213,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           // children so that nested interactive widgets are found.
           if (_isGestureTransparent(typeName) && !_hasActiveCallbacks(widget, typeName)) {
             element.visitChildren(visit);
-            if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             if (pushed) ancestors.removeLast();
             return;
           }
@@ -237,7 +222,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           // test always fails (the point is outside the viewport), so we skip
           // it and include the element unconditionally.
           if (isOnScreen && !isElementHittable(element)) {
-            if (typeName == 'Tooltip') currentTooltip = previousTooltip;
             // Still recurse: an unhittable ancestor may have hittable children
             // (e.g. Opacity(opacity:0) around individual buttons).
             element.visitChildren(visit);
@@ -246,10 +230,11 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
           }
 
           final key = widget.key is ValueKey<String> ? (widget.key as ValueKey<String>).value : null;
-          final visibleText = _extractDescribeText(element, tooltipHint: currentTooltip);
+          final visibleText = describeElementText(element);
           final gestures = _extractGestures(widget, typeName);
           final breadcrumb = _collectBreadcrumb(ancestors, element);
           interactive.add({
+            '_source': element,
             'type': typeName,
             'key': key,
             'text': visibleText,
@@ -294,7 +279,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             element.visitChildren(collectText);
           }
 
-          if (typeName == 'Tooltip') currentTooltip = previousTooltip;
           if (pushed) ancestors.removeLast();
           return;
         }
@@ -316,7 +300,6 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         _collectUnbuiltDelegateWidgets(element, interactive, maxInteractive);
       }
 
-      if (typeName == 'Tooltip') currentTooltip = previousTooltip;
       if (pushed) ancestors.removeLast();
     }
 
@@ -340,9 +323,18 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
       return (a['x'] as double).compareTo(b['x'] as double);
     });
 
-    for (var i = 0; i < interactive.length; i++) {
-      interactive[i]['ref'] = i + 1;
+    // Refs are assigned after filtering and sorting so that new widgets get
+    // ids in screen order and filtered-out widgets don't use any up.
+    for (final entry in interactive) {
+      final source = entry.remove('_source');
+      entry['ref'] = switch (source) {
+        Element() => refForElement(source),
+        (widget: final Widget widget, listing: (child: final Widget child, sliver: final Element sliver)) =>
+          refForUnbuiltWidget(widget, child: child, sliver: sliver),
+        _ => throw StateError('describe entry without a source: $entry'),
+      };
     }
+    final removedRefs = takeRemovedRefs(interactive.map((entry) => entry['ref'] as int));
 
     return developer.ServiceExtensionResponse.result(
       jsonEncode({
@@ -350,6 +342,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         'screen': screenName,
         'route': routeName,
         'interactive': interactive,
+        'removedRefs': removedRefs,
         'texts': texts.toList(),
         'lifecycleState': WidgetsBinding.instance.lifecycleState?.name,
         'fdbHelperVersion': fdbHelperVersion,
@@ -425,7 +418,8 @@ void _collectUnbuiltDelegateWidgets(
       if (childKey != null && existingKeys.contains(childKey)) continue;
     }
     // Widget has not been built into an element yet — inspect at widget level.
-    _collectInteractiveFromWidget(allChildren[i], interactive, maxInteractive);
+    final child = allChildren[i];
+    _collectInteractiveFromWidget(child, interactive, maxInteractive, (child: child, sliver: sliverElement));
   }
 }
 
@@ -435,6 +429,7 @@ void _collectInteractiveFromWidget(
   Widget widget,
   List<Map<String, dynamic>> interactive,
   int maxInteractive,
+  _Listing listing,
 ) {
   if (interactive.length >= maxInteractive) return;
   final typeName = widget.runtimeType.toString();
@@ -453,6 +448,7 @@ void _collectInteractiveFromWidget(
     final hasInterestingGesture = gestures != null && gestures.any((g) => _interestingGestures.contains(g));
     if (!hasText && !hasKey && !hasInterestingGesture) return;
     interactive.add({
+      '_source': (widget: widget, listing: listing),
       'type': typeName,
       'key': key,
       'text': text,
@@ -470,20 +466,24 @@ void _collectInteractiveFromWidget(
   }
 
   // Recurse into common single-child and multi-child widget shapes.
-  _visitWidgetChildren(widget, interactive, maxInteractive);
+  _visitWidgetChildren(widget, interactive, maxInteractive, listing);
 }
+
+/// The delegate [child] of the [sliver] element that an un-built widget is in.
+typedef _Listing = ({Widget child, Element sliver});
 
 void _visitWidgetChildren(
   Widget widget,
   List<Map<String, dynamic>> interactive,
   int maxInteractive,
+  _Listing listing,
 ) {
   if (interactive.length >= maxInteractive) return;
   // Single child.
   try {
     final child = (widget as dynamic).child;
     if (child is Widget) {
-      _collectInteractiveFromWidget(child, interactive, maxInteractive);
+      _collectInteractiveFromWidget(child, interactive, maxInteractive, listing);
       return;
     }
   } catch (_) {}
@@ -493,7 +493,7 @@ void _visitWidgetChildren(
     if (children is List) {
       for (final c in children) {
         if (interactive.length >= maxInteractive) return;
-        if (c is Widget) _collectInteractiveFromWidget(c, interactive, maxInteractive);
+        if (c is Widget) _collectInteractiveFromWidget(c, interactive, maxInteractive, listing);
       }
     }
   } catch (_) {}
@@ -699,73 +699,6 @@ bool _hasActiveCallbacks(Widget widget, String typeName) {
     return true;
   }
   return true;
-}
-
-String? _extractDescribeText(
-  Element element, {
-  String? tooltipHint,
-}) {
-  final widget = element.widget;
-  if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
-  if (widget is RichText) return widget.text.toPlainText();
-  if (widget is EditableText) return widget.controller.text;
-
-  final fragments = <String>[];
-
-  bool hasVisibleText(String s) => s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
-
-  void findTextAndIcons(Element el) {
-    final w = el.widget;
-
-    if (w is Text) {
-      final t = w.data ?? w.textSpan?.toPlainText();
-      if (t != null && hasVisibleText(t)) fragments.add(t.trim());
-      return;
-    }
-    if (w is RichText) {
-      final t = w.text.toPlainText().trim();
-      if (hasVisibleText(t)) fragments.add(t);
-      return;
-    }
-    if (w is EditableText) {
-      final t = w.controller.text.trim();
-      if (hasVisibleText(t)) fragments.add(t);
-      return;
-    }
-
-    final wType = w.runtimeType.toString();
-
-    if (wType == 'Tooltip') {
-      try {
-        final message = (w as dynamic).message as String?;
-        if (message != null && message.trim().isNotEmpty) {
-          fragments.add('[${message.trim()}]');
-        }
-      } catch (_) {}
-    }
-
-    if (wType == 'Icon') {
-      try {
-        final label = (w as dynamic).semanticLabel as String?;
-        if (label != null && label.trim().isNotEmpty) {
-          fragments.add('[icon: ${label.trim()}]');
-        }
-      } catch (_) {}
-    }
-
-    el.visitChildren(findTextAndIcons);
-  }
-
-  element.visitChildren(findTextAndIcons);
-
-  if (fragments.isEmpty && tooltipHint != null) {
-    return '[${tooltipHint.trim()}]';
-  }
-
-  if (fragments.isEmpty) return null;
-  final cleaned = fragments.where((f) => f.trim().isNotEmpty).toList();
-  if (cleaned.isEmpty) return null;
-  return cleaned.join(' · ');
 }
 
 List<String>? _extractGestures(Widget widget, String typeName) {

@@ -6,7 +6,8 @@ import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/longpress/longpress.dart';
 
 /// CLI adapter for `fdb longpress`. Accepts widget selector flags, coordinate
-/// flags, and an optional `--duration` flag (default 500 ms).
+/// flags, an `@N` ref from `fdb describe`, and an optional `--duration` flag
+/// (default 500 ms).
 ///
 /// Emits one of:
 ///   `LONG_PRESSED=type X=x Y=y`                                  (success)
@@ -110,9 +111,17 @@ Future<int> _execute(ArgResults results) async {
     timeoutSeconds = parsed;
   }
 
+  // Parse @N positional ref
+  int? ref;
+  for (final arg in results.rest.where(isRefArg)) {
+    ref = parseRefArg(arg);
+    if (ref == null) return 1;
+  }
+
   // Cross-flag validation
   final hasCoords = x != null && y != null;
   final hasSelector = text != null || key != null || type != null;
+  if (rejectRefWithOtherTarget(ref: ref, hasOtherTarget: hasSelector || hasCoords)) return 1;
 
   if ((x == null) != (y == null)) {
     stderr.writeln('ERROR: Both --x and --y are required together');
@@ -124,8 +133,8 @@ Future<int> _execute(ArgResults results) async {
     return 1;
   }
 
-  if (!hasSelector && !hasCoords) {
-    stderr.writeln('ERROR: Provide --text, --key, --type, --at, or --x/--y');
+  if (!hasSelector && !hasCoords && ref == null) {
+    stderr.writeln('ERROR: Provide --text, --key, --type, --at, --x/--y, or @N ref');
     return 1;
   }
 
@@ -134,6 +143,7 @@ Future<int> _execute(ArgResults results) async {
     key: key,
     type: type,
     index: index,
+    ref: ref,
     x: x,
     y: y,
     usedAt: usedAt,

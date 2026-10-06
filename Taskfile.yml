@@ -1697,7 +1697,7 @@ tasks:
         echo "PASS: fdb tap waits for a disabled button to be enabled and taps it once"
 
   test:tap-ref:
-    desc: Tap a describe ref; --expect-text guards against shifted refs, off-screen refs fail without tapping
+    desc: Describe refs name one widget; a ref never taps another widget after scrolling, --expect-text guards changed widgets
     dir: '{{.TEST_APP}}'
     cmds:
       - |
@@ -1709,6 +1709,15 @@ tasks:
         ref_for_key() {
           echo "$DESCRIBE" | grep -E "key=$1\$" | sed -E 's/.*@([0-9]+).*/\1/' | head -1
         }
+        # Runs fdb with the remaining args, expecting exit 1. Sets OUTPUT.
+        expect_failure() {
+          set +e
+          OUTPUT=$({{.FDB}} "$@" 2>&1)
+          EXIT_CODE=$?
+          set -e
+          echo "$OUTPUT"
+          [ $EXIT_CODE -eq 1 ] || fail "fdb $* exited with $EXIT_CODE, expected 1"
+        }
 
         echo "==> Navigating to Grid Describe Test screen"
         {{.FDB}} scroll-to --key "go_to_grid_describe_test" >/dev/null 2>&1 || true
@@ -1717,16 +1726,13 @@ tasks:
 
         DESCRIBE=$({{.FDB}} describe 2>&1)
         ON_SCREEN=$(ref_for_key grid_item_0)
+        SECOND_ROW=$(ref_for_key grid_item_4)
         NOT_BUILT=$(ref_for_key list_item_149)
-        [ -n "$ON_SCREEN" ] && [ -n "$NOT_BUILT" ] || fail "describe did not list grid_item_0 and list_item_149"
+        [ -n "$ON_SCREEN" ] && [ -n "$SECOND_ROW" ] && [ -n "$NOT_BUILT" ] \
+          || fail "describe did not list grid_item_0, grid_item_4 and list_item_149"
 
         echo "==> tap @$ON_SCREEN --expect-text 'Item 1' (wrong text, must fail)"
-        set +e
-        OUTPUT=$({{.FDB}} tap "@$ON_SCREEN" --expect-text "Item 1" 2>&1)
-        EXIT_CODE=$?
-        set -e
-        echo "$OUTPUT"
-        [ $EXIT_CODE -eq 1 ] || fail "tap with a wrong --expect-text exited with $EXIT_CODE, expected 1"
+        expect_failure tap "@$ON_SCREEN" --expect-text "Item 1"
         echo "$OUTPUT" | grep -q "ERROR: @$ON_SCREEN is now ElevatedButton \"Item 0\", not \"Item 1\". Nothing was tapped." \
           || fail "expected the ref mismatch error"
 
@@ -1736,16 +1742,39 @@ tasks:
         echo "$OUTPUT" | grep -Eq 'TAPPED=ElevatedButton X=[0-9.]+ Y=[0-9.]+ TEXT="Item 0"$' \
           || fail "expected TAPPED=ElevatedButton X=.. Y=.. TEXT=\"Item 0\""
 
-        echo "==> tap @$NOT_BUILT (not built on screen, must fail)"
+        echo "==> tap @$NOT_BUILT (list item not built yet, must fail)"
+        expect_failure tap "@$NOT_BUILT"
+        echo "$OUTPUT" | grep -q "ERROR: @$NOT_BUILT is not built on screen." || fail "expected the not-built error"
+
+        echo "==> scroll-to grid_item_20, then tap the earlier @$SECOND_ROW (Item 4)"
+        {{.FDB}} scroll-to --key grid_item_20 >/dev/null 2>&1 || fail "could not scroll to grid_item_20"
         set +e
-        OUTPUT=$({{.FDB}} tap "@$NOT_BUILT" 2>&1)
+        OUTPUT=$({{.FDB}} tap "@$SECOND_ROW" 2>&1)
         EXIT_CODE=$?
         set -e
         echo "$OUTPUT"
-        [ $EXIT_CODE -eq 1 ] || fail "tap on an off-screen ref exited with $EXIT_CODE, expected 1"
-        echo "$OUTPUT" | grep -q "is not on screen. Nothing was tapped." || fail "expected the not-on-screen error"
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "$OUTPUT" | grep -q 'TEXT="Item 4"$' || fail "@$SECOND_ROW tapped another widget than Item 4"
+        else
+          echo "$OUTPUT" | grep -Eq "ERROR: (@$SECOND_ROW is stale|@$SECOND_ROW is not built on screen|ElevatedButton is scrolled out of view)" \
+            || fail "@$SECOND_ROW failed with an unexpected error"
+        fi
 
-        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "==> scroll-to @$NOT_BUILT, then tap it: the ref survives being built"
+        OUTPUT=$({{.FDB}} scroll-to "@$NOT_BUILT" 2>&1) || fail "scroll-to @$NOT_BUILT failed: $OUTPUT"
+        echo "$OUTPUT"
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        [ "$(ref_for_key list_item_149)" = "$NOT_BUILT" ] || fail "list_item_149 changed its ref after it was built"
+        OUTPUT=$({{.FDB}} tap "@$NOT_BUILT" 2>&1) || fail "tap @$NOT_BUILT failed: $OUTPUT"
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -q 'TEXT="List Item 149"$' || fail "expected TEXT=\"List Item 149\""
+
+        echo "==> back, then tap @$NOT_BUILT from the popped screen (must be stale)"
+        {{.FDB}} back >/dev/null 2>&1 || fail "could not go back"
+        {{.FDB}} wait --key "go_to_grid_describe_test" --present --timeout 5000 >/dev/null 2>&1 || true
+        expect_failure tap "@$NOT_BUILT"
+        echo "$OUTPUT" | grep -q "ERROR: @$NOT_BUILT is stale: the widget was removed or rebuilt. Run fdb describe again." \
+          || fail "expected the stale ref error"
 
         echo "==> Navigating to PageView Ref Test screen"
         {{.FDB}} scroll-to --key "go_to_page_view_ref_test" >/dev/null 2>&1 || true
@@ -1768,7 +1797,7 @@ tasks:
           || fail "the off-screen tap reached a page button"
 
         {{.FDB}} back >/dev/null 2>&1 || true
-        echo "PASS: fdb tap @N checks --expect-text and refuses off-screen refs"
+        echo "PASS: fdb tap @N taps only the widget the ref names"
 
   test:input:
     desc: Enter text into a field
@@ -3693,6 +3722,13 @@ tasks:
           exit 1
         fi
 
+        # Refs are ids, not positions: read a real one from describe.
+        REF=$({{.FDB}} --session-dir "$(pwd)/.fdb" describe 2>/dev/null | grep -Eo '@[0-9]+' | head -1)
+        if [ -z "$REF" ]; then
+          echo "FAIL: describe listed no @N ref" >&2
+          exit 1
+        fi
+
         # Kill the app process using the appropriate mechanism per platform.
         # On macOS desktop: fdb.app_pid holds the real macOS app binary PID — kill it
         #   directly with kill -9, then also kill flutter-tools to prevent auto-restart.
@@ -3784,13 +3820,13 @@ tasks:
 
         sleep 2
 
-        echo "==> [app-died] Running fdb tap @1 — should exit non-zero with APP_DIED"
+        echo "==> [app-died] Running fdb tap $REF — should exit non-zero with APP_DIED"
         # Pin the session dir explicitly. After the kill, this worktree's .fdb/fdb.pid
         # points to a dead process; without --session-dir, fdb auto-resolves by walking
         # up the directory tree and may attach to an unrelated live .fdb/ session in a
         # parent directory, masking the dead-app condition.
         set +e
-        OUTPUT=$({{.FDB}} --session-dir "$(pwd)/.fdb" tap @1 2>&1)
+        OUTPUT=$({{.FDB}} --session-dir "$(pwd)/.fdb" tap "$REF" 2>&1)
         EXIT_CODE=$?
         set -e
         echo "$OUTPUT"

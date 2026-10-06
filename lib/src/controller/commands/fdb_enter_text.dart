@@ -20,6 +20,7 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
     super.key,
     super.type,
     super.index,
+    super.ref,
   });
   factory FdbEnterTextCommandRequest.fromJson(Map<String, Object?> json) => FdbEnterTextCommandRequest(
         token: ControllerJson.token(json),
@@ -31,6 +32,7 @@ class FdbEnterTextCommandRequest extends WidgetSelectorCommandRequest {
         key: ControllerJson.optionalString(json, 'key'),
         type: ControllerJson.optionalString(json, 'type'),
         index: ControllerJson.optionalString(json, 'index'),
+        ref: ControllerJson.optionalString(json, 'ref'),
       );
 
   /// Text to enter; null when only [action] is sent.

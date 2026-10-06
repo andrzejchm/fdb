@@ -135,7 +135,7 @@ fdb kill
 | `fdb syslog [--since <dur>] [--predicate <str>] [--last <n>] [--follow]` | Native system logs (Android logcat, iOS syslog, macOS log) |
 | `fdb crash-report [--app-id <id>] [--last <dur>] [--all]` | Fetch the most recent OS-level crash record (jetsam, LMK, native crashes) |
 | `fdb tree --depth <n> [--user-only]` | Widget tree |
-| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)*. Non-`EditableText` inputs (e.g. Quill) show as `@N QuillRawEditor(editable) "text"`; disabled widgets as `@N ElevatedButton(disabled) "Send"` |
+| `fdb describe` | Compact screen snapshot: interactive elements + visible text *(requires `fdb_helper`)*. Each element has an `@N` ref that names that widget while it stays mounted (refs survive scrolling and rebuilds and are never reused). Non-`EditableText` inputs (e.g. Quill) show as `@N QuillRawEditor(editable) "text"`; disabled widgets as `@N ElevatedButton(disabled) "Send"` |
 | `fdb select on/off` | Widget selection mode |
 | `fdb selected` | Get selected widget info |
 
@@ -145,14 +145,14 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 
 | Command | Description |
 |---------|-------------|
-| `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
+| `fdb double-tap --text/--key/--type <selector> [--index N]` \| `@N` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning, so it can't reach system dialogs such as the paste prompt, or the software keyboard; use `fdb input` for text). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
-| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N [--expect-text T] [--expect-type T]` | Tap a widget, coordinates, or describe ref. `@N` is the Nth entry of the current screen and is tapped like a selector (fails if off screen or covered); `--expect-text`/`--expect-type` fail without tapping if the entry changed. A selector or `@N` tap on a disabled widget (e.g. `onPressed: null`) waits until it is enabled, up to `--timeout`, then fails with `ERROR: <Type> is disabled` |
-| `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
-| `fdb input [--text/--key/--type <selector>] [<text>] [--action <name>]` | Replace the text of the focused or selected field. Works with any text input (`TextField`, flutter_quill, custom `TextInputClient` editors), no keyboard needed. `--action send\|done\|next\|...` sends an IME action after the text, or alone |
+| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N [--expect-text T] [--expect-type T]` | Tap a widget, coordinates, or describe ref. `@N` taps the widget the ref names, like a selector (fails if off screen or covered); a ref whose widget was removed fails with `ERROR: @N is stale: ...`. `--expect-text`/`--expect-type` fail without tapping if the widget's text or type changed. A selector or `@N` tap on a disabled widget (e.g. `onPressed: null`) waits until it is enabled, up to `--timeout`, then fails with `ERROR: <Type> is disabled` |
+| `fdb longpress --text/--key/--type <selector> [--duration <ms>]`, `@N`, or `--at x,y` | Long-press a widget or coordinates |
+| `fdb input [--text/--key/--type <selector> \| @N] [<text>] [--action <name>]` | Replace the text of the focused or selected field. Works with any text input (`TextField`, flutter_quill, custom `TextInputClient` editors), no keyboard needed. `--action send\|done\|next\|...` sends an IME action after the text, or alone |
 | `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |
 | `fdb scroll --from x,y --to x,y` | Drag gesture between two points |
-| `fdb scroll-to --text/--key/--type <selector> [--index N]` | Scroll until widget is visible |
+| `fdb scroll-to --text/--key/--type <selector> [--index N]` or `@N` | Scroll until widget is visible |
 | `fdb wait --key/--text/--type/--route <selector> --present\|--absent [--timeout <ms>]` | Wait for a widget or route condition without shell polling |
 | `fdb swipe <direction> [--key/--text/--type <selector>] [--precision px]` | Swipe widget (PageView, Dismissible) |
 | `fdb swipe-path --points "x1,y1;x2,y2;..." [--precision px]` | Dispatch a freeform multi-point gesture as a single continuous stroke (drawing/handwriting/signature) |
@@ -391,7 +391,7 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **No software keyboard on the iOS simulator** - Simulator connects the Mac keyboard as a hardware keyboard by default, so iOS shows no on-screen keyboard and `viewInsets.bottom` stays 0. `fdb input` doesn't need it. To show it: I/O > Keyboard > Toggle Software Keyboard (Cmd+K).
 
-**`tap @N` hits the wrong widget** - refs are positional for the current screen. Re-run `fdb describe` after scrolling or navigating, or tap by `--key`.
+**`ERROR: @N is stale`** - the widget behind the ref was removed or replaced (navigation, a rebuilt list). Refs never move to another widget; run `fdb describe` again for current refs.
 
 **Agent setup fails mid-flow** - Run `fdb doctor` to check app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
 

@@ -17,19 +17,16 @@ class FdbTapCommandRequest extends WidgetSelectorCommandRequest {
     super.key,
     super.type,
     super.index,
+    super.ref,
     super.x,
     super.y,
-    this.refType,
-    this.refKey,
-    this.refX,
-    this.refY,
+    this.expectText,
+    this.expectType,
   });
 
-  /// Identity of an `fdb describe` entry for `fdb tap @N`: type, key and centre.
-  final String? refType;
-  final String? refKey;
-  final String? refX;
-  final String? refY;
+  /// With [ref]: fail unless the widget still shows this text / has this type.
+  final String? expectText;
+  final String? expectType;
 
   factory FdbTapCommandRequest.fromJson(Map<String, Object?> json) => FdbTapCommandRequest(
         token: ControllerJson.token(json),
@@ -38,26 +35,23 @@ class FdbTapCommandRequest extends WidgetSelectorCommandRequest {
         key: ControllerJson.optionalString(json, 'key'),
         type: ControllerJson.optionalString(json, 'type'),
         index: ControllerJson.optionalString(json, 'index'),
+        ref: ControllerJson.optionalString(json, 'ref'),
         x: ControllerJson.optionalString(json, 'x'),
         y: ControllerJson.optionalString(json, 'y'),
-        refType: ControllerJson.optionalString(json, 'refType'),
-        refKey: ControllerJson.optionalString(json, 'refKey'),
-        refX: ControllerJson.optionalString(json, 'refX'),
-        refY: ControllerJson.optionalString(json, 'refY'),
+        expectText: ControllerJson.optionalString(json, 'expectText'),
+        expectType: ControllerJson.optionalString(json, 'expectType'),
       );
 
-  Map<String, String> get _refParams => {
-        if (refType != null) 'refType': refType!,
-        if (refKey != null) 'refKey': refKey!,
-        if (refX != null) 'refX': refX!,
-        if (refY != null) 'refY': refY!,
+  Map<String, String> get _expectParams => {
+        if (expectText != null) 'expectText': expectText!,
+        if (expectType != null) 'expectType': expectType!,
       };
 
   @override
-  Map<String, dynamic> toVmParams() => {...super.toVmParams(), ..._refParams};
+  Map<String, dynamic> toVmParams() => {...super.toVmParams(), ..._expectParams};
 
   @override
-  Map<String, Object?> toJson() => {...super.toJson(), ..._refParams};
+  Map<String, Object?> toJson() => {...super.toJson(), ..._expectParams};
 
   @override
   ControllerCommand get command => ControllerCommand.fdbTap;
@@ -75,10 +69,29 @@ class FdbTapCommandResponse extends FdbWidgetActionCommandResponse {
     required super.x,
     required super.y,
     required super.warning,
+    this.text,
   });
 
-  factory FdbTapCommandResponse.fromResponse(Map<String, dynamic> response) =>
-      widgetActionResult(response, FdbTapCommandResponse.new);
+  /// For a ref tap: the text `fdb describe` shows for the tapped widget.
+  final String? text;
+
+  factory FdbTapCommandResponse.fromResponse(Map<String, dynamic> response) {
+    final base = widgetActionResult(response, FdbTapCommandResponse.new);
+    final text = extensionResultAsMap(response)?['text'];
+    return FdbTapCommandResponse(
+      status: base.status,
+      error: base.error,
+      unexpected: base.unexpected,
+      widgetType: base.widgetType,
+      x: base.x,
+      y: base.y,
+      warning: base.warning,
+      text: text is String ? text : null,
+    );
+  }
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), if (text != null) 'text': text};
 }
 
 class FdbTapCommandRunner extends VmServiceCommand<FdbTapCommandRequest> {

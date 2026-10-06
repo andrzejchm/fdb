@@ -6,6 +6,8 @@ typedef InputInput = ({
   String? key,
   String? type,
   int? index,
+  // Ref from fdb describe (`@N`).
+  int? ref,
   // Text to enter (replaces the field content). Null when only [action] is sent.
   String? textToEnter,
   // IME action to send after the text: send, done, newline, go, search, next, ...

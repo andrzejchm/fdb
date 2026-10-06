@@ -165,6 +165,7 @@ Future<FdbDoubleTapCommandResponse> fdbDoubleTap(Map<String, dynamic> params) as
       key: _optionalString(params, 'key'),
       type: _optionalString(params, 'type'),
       index: _optionalString(params, 'index'),
+      ref: _optionalString(params, 'ref'),
       x: _optionalString(params, 'x'),
       y: _optionalString(params, 'y'),
     ),
@@ -184,6 +185,7 @@ Future<FdbEnterTextCommandResponse> fdbEnterText(Map<String, dynamic> params) as
       key: _optionalString(params, 'key'),
       type: _optionalString(params, 'type'),
       index: _optionalString(params, 'index'),
+      ref: _optionalString(params, 'ref'),
     ),
   );
   return FdbEnterTextCommandResponse.fromResponse(_responseFields(response));
@@ -199,6 +201,7 @@ Future<FdbLongPressCommandResponse> fdbLongPress(Map<String, dynamic> params) as
       key: _optionalString(params, 'key'),
       type: _optionalString(params, 'type'),
       index: _optionalString(params, 'index'),
+      ref: _optionalString(params, 'ref'),
       x: _optionalString(params, 'x'),
       y: _optionalString(params, 'y'),
     ),
@@ -232,6 +235,7 @@ Future<FdbScrollToCommandResponse> fdbScrollTo(Map<String, String> params) async
       key: _optionalString(params, 'key'),
       type: _optionalString(params, 'type'),
       index: _optionalString(params, 'index'),
+      ref: _optionalString(params, 'ref'),
     ),
   );
   return FdbScrollToCommandResponse.fromResponse(_responseFields(response));
@@ -275,12 +279,11 @@ Future<FdbTapCommandResponse> fdbTap(Map<String, dynamic> params) async {
       key: _optionalString(params, 'key'),
       type: _optionalString(params, 'type'),
       index: _optionalString(params, 'index'),
+      ref: _optionalString(params, 'ref'),
+      expectText: _optionalString(params, 'expectText'),
+      expectType: _optionalString(params, 'expectType'),
       x: _optionalString(params, 'x'),
       y: _optionalString(params, 'y'),
-      refType: _optionalString(params, 'refType'),
-      refKey: _optionalString(params, 'refKey'),
-      refX: _optionalString(params, 'refX'),
-      refY: _optionalString(params, 'refY'),
     ),
   );
   return FdbTapCommandResponse.fromResponse(_responseFields(response));

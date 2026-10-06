@@ -195,10 +195,7 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
 }) {
   final (:element, :matchCount, :tapPoint, :unreachable, matched: _) = findHittableElement(matcher);
   if (element == null) {
-    final error = matchCount > 1
-        ? 'Found $matchCount elements matching the selector. Use --index to specify which one (0-based).'
-        : 'No hittable element found for matcher';
-    return (target: null, error: error);
+    return (target: null, error: noMatchError(matcher, matchCount));
   }
   final disabledType = rejectDisabled ? disabledTargetType(element) : null;
   if (disabledType != null) return (target: null, error: '$disabledType is disabled');
@@ -208,6 +205,14 @@ HittableElementResult findHittableElement(WidgetMatcher matcher) {
     return (target: (element: element, point: box.localToGlobal(box.size.center(Offset.zero))), error: null);
   }
   return (target: null, error: unreachable!.message);
+}
+
+/// The error when [findHittableElement] returns no element for [matcher].
+String noMatchError(WidgetMatcher matcher, int matchCount) {
+  if (matchCount > 1) {
+    return 'Found $matchCount elements matching the selector. Use --index to specify which one (0-based).';
+  }
+  return matcher is RefMatcher ? matcher.notFoundMessage : 'No hittable element found for matcher';
 }
 
 /// The element a match is counted and de-duplicated by. Unchanged from the
@@ -677,6 +682,85 @@ Element? findScrollTargetElement(WidgetMatcher matcher) {
   final targetIndex = matcher.index ?? 0;
   if (targetIndex >= matches.length) return null;
   return matches[targetIndex];
+}
+
+/// The text `fdb describe` shows for the interactive widget of [element]:
+/// its own text, or the texts, tooltips and labelled icons below it joined
+/// with ` · `. Falls back to the message of the nearest enclosing [Tooltip]
+/// in brackets. Null when there is none.
+String? describeElementText(Element element) {
+  final widget = element.widget;
+  if (widget is Text) return widget.data ?? widget.textSpan?.toPlainText();
+  if (widget is RichText) return widget.text.toPlainText();
+  if (widget is EditableText) return widget.controller.text;
+
+  final fragments = <String>[];
+
+  bool hasVisibleText(String s) => s.trim().isNotEmpty && s.runes.any((r) => r < 0xE000 || r > 0xF8FF);
+
+  void findTextAndIcons(Element el) {
+    final w = el.widget;
+
+    if (w is Text) {
+      final t = w.data ?? w.textSpan?.toPlainText();
+      if (t != null && hasVisibleText(t)) fragments.add(t.trim());
+      return;
+    }
+    if (w is RichText) {
+      final t = w.text.toPlainText().trim();
+      if (hasVisibleText(t)) fragments.add(t);
+      return;
+    }
+    if (w is EditableText) {
+      final t = w.controller.text.trim();
+      if (hasVisibleText(t)) fragments.add(t);
+      return;
+    }
+
+    final wType = w.runtimeType.toString();
+
+    if (wType == 'Tooltip') {
+      try {
+        final message = (w as dynamic).message as String?;
+        if (message != null && message.trim().isNotEmpty) {
+          fragments.add('[${message.trim()}]');
+        }
+      } catch (_) {}
+    }
+
+    if (wType == 'Icon') {
+      try {
+        final label = (w as dynamic).semanticLabel as String?;
+        if (label != null && label.trim().isNotEmpty) {
+          fragments.add('[icon: ${label.trim()}]');
+        }
+      } catch (_) {}
+    }
+
+    el.visitChildren(findTextAndIcons);
+  }
+
+  element.visitChildren(findTextAndIcons);
+
+  if (fragments.isEmpty) {
+    final tooltip = _enclosingTooltipMessage(element);
+    if (tooltip != null) return '[$tooltip]';
+  }
+
+  if (fragments.isEmpty) return null;
+  final cleaned = fragments.where((f) => f.trim().isNotEmpty).toList();
+  if (cleaned.isEmpty) return null;
+  return cleaned.join(' · ');
+}
+
+String? _enclosingTooltipMessage(Element element) {
+  String? message;
+  element.visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Tooltip) message = widget.message?.trim();
+    return message == null || message!.isEmpty;
+  });
+  return message == null || message!.isEmpty ? null : message;
 }
 
 /// Extracts the plain-text content from a widget, or null if the widget
