@@ -1,3 +1,8 @@
+## Unreleased
+
+### Improvements
+- `ext.fdb.lifecycle` and `ext.fdb.describe` report the package version as `fdbHelperVersion`, so fdb can warn when the running app was built with a different fdb_helper than the project resolves.
+
 ## 1.12.0
 
 ### Improvements

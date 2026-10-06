@@ -367,6 +367,8 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **`WARNING: App is not in the foreground (lifecycle=paused)`** - `describe` and `screenshot` print this on stderr when the app isn't the visible app (e.g. another app is in front on the same simulator). Output reflects the app's last frame. Bring the app to the front and retry. Needs a current `fdb_helper`.
 
+**`WARNING: The app runs fdb_helper X but the project resolves Y`** - `describe` (stderr) and `doctor` (`DOCTOR_CHECK=fdb_helper_version STATUS=warn`) print this when the app was built with a different `fdb_helper` than `.dart_tool/package_config.json` now resolves, usually after changing `fdb_helper` in `pubspec.yaml`. Hot reload and hot restart do not reload it (its native code comes from the last build), so commands may fail with errors from the old helper. Run `fdb kill`, then `fdb launch`. `WARNING: fdb X with fdb_helper Y` means the helper is older than the CLI: update `fdb_helper` to `^X` and rebuild. Helpers older than 1.13 do not report their version.
+
 **Launch hangs** - Check the device ID (`fdb devices`) and the project path.
 
 **`LAUNCH_TIMEOUT` on a first build** - Large apps can take longer than the default 600 seconds to build in debug mode the first time. Pass a longer wait, e.g. `fdb launch ... --timeout 1200`.

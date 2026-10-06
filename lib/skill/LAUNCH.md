@@ -132,6 +132,14 @@ DOCTOR_CHECK=device STATUS=pass DEVICE_ID=macos PLATFORM=darwin-x64
 DOCTOR_SUMMARY=pass CHECKS=5 FAILED=0
 ```
 
+When the running app's `fdb_helper` does not match the version the project resolves (`.dart_tool/package_config.json`), or is older than the fdb CLI's major.minor, doctor adds a sixth line, always `warn`, after `device`:
+
+```
+DOCTOR_CHECK=fdb_helper_version STATUS=warn RUNNING=1.13.0 RESOLVED=1.14.0 FDB=1.14.0 HINT=The app runs fdb_helper 1.13.0 but the project resolves 1.14.0. Hot reload/restart does not reload it; stop and rebuild the app (fdb kill, then fdb launch).
+```
+
+`RUNNING=unreported` means the helper is older than 1.13 and does not report its version. The line is absent when the versions match or cannot be read. Changing `fdb_helper` in `pubspec.yaml` needs a full rebuild: `fdb kill`, then `fdb launch`. `reload`/`restart` keep the old build.
+
 Warnings do not make the summary fail. Failed checks include `HINT=...` remediation text. The command always exits `0` — parse the summary token instead of the exit code.
 
 `doctor` takes no options. It reads the device from the session; `fdb doctor --device X` fails with `ERROR: Could not find an option named "--device".`

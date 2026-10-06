@@ -23,6 +23,7 @@ export 'session.dart'
         logFile,
         pidFile,
         platformFile,
+        projectPathFile,
         resolveSessionDir,
         sessionDirName,
         sessionDirPath,

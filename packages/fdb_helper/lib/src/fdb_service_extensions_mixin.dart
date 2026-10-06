@@ -43,6 +43,7 @@ import 'vm_uri_broadcaster.dart';
 /// - `ext.fdb.sharedPrefs` — read/write shared preferences
 /// - `ext.fdb.screenshot` — capture the Flutter rendering surface as base64 PNG
 /// - `ext.fdb.lifecycle` — report the current [AppLifecycleState] (foreground check)
+///   and the fdb_helper version
 ///
 /// On initialisation (debug/profile only) this mixin also emits the Dart VM
 /// service URI to the platform log via [broadcastVmUri], enabling

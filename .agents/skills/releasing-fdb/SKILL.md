@@ -29,7 +29,7 @@ Copy and track progress:
 ```
 - [ ] Pre-release verification (analyze, unit tests, smoke tests)
 - [ ] Determine version bump type (major / minor / patch)
-- [ ] Update version in all 10 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, lib/skill/SKILL.md (2 changes: fdb version + fdb_helper version in setup snippet), CHANGELOG.md, fdb_helper/CHANGELOG.md, README.md, example/example.md, doc/README.agents.md (fdb_helper version in snippets)
+- [ ] Update version in all 11 files (lockstep): constants.dart, pubspec.yaml, fdb_helper/pubspec.yaml, fdb_helper/lib/src/version.dart, lib/skill/SKILL.md (2 changes: fdb version + fdb_helper version in setup snippet), CHANGELOG.md, fdb_helper/CHANGELOG.md, README.md, example/example.md, doc/README.agents.md (fdb_helper version in snippets)
 - [ ] Verify no stale OLD_VERSION references remain (grep check)
 - [ ] Commit: `chore: bump version to X.Y.Z`
 - [ ] Tag: `git tag vX.Y.Z`
@@ -60,7 +60,7 @@ git pull origin main          # up to date with remote
 
 fdb and fdb_helper are versioned in **lockstep** — always bump both to the same version.
 
-**Every release MUST include a version bump.** Update the version string in all 10 files:
+**Every release MUST include a version bump.** Update the version string in all 11 files:
 
 | # | File | What to change |
 |---|------|----------------|
@@ -74,6 +74,7 @@ fdb and fdb_helper are versioned in **lockstep** — always bump both to the sam
 | 8 | `example/example.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
 | 9 | `doc/README.agents.md` | `fdb_helper: ^X.Y.Z` in the dev_dependencies snippet |
 | 10 | `lib/skill/SKILL.md` | `fdb_helper: ^X.Y.Z` in the setup snippet (same file as #4, two separate changes) |
+| 11 | `packages/fdb_helper/lib/src/version.dart` | `const fdbHelperVersion = 'X.Y.Z';` (`test/version_test.dart` fails if it differs from `packages/fdb_helper/pubspec.yaml`) |
 
 ### CHANGELOG.md format
 
@@ -96,7 +97,7 @@ Use conventional commit messages from `git log` to build the changelog. Group by
 
 After editing, confirm all files show the same version and no stale references remain:
 ```bash
-grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml lib/skill/SKILL.md CHANGELOG.md packages/fdb_helper/CHANGELOG.md README.md example/example.md doc/README.agents.md
+grep -r "OLD_VERSION" lib/constants.dart pubspec.yaml packages/fdb_helper/pubspec.yaml packages/fdb_helper/lib/src/version.dart lib/skill/SKILL.md CHANGELOG.md packages/fdb_helper/CHANGELOG.md README.md example/example.md doc/README.agents.md
 ```
 Replace `OLD_VERSION` with the **previous** version — the command should match ONLY the `CHANGELOG.md` entry for the old release, nowhere else.
 

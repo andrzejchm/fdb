@@ -6,7 +6,8 @@ import 'package:fdb/core/commands/doctor/doctor.dart';
 
 /// CLI adapter for `fdb doctor`.
 ///
-/// Runs all 5 diagnostic checks in order, emitting one `DOCTOR_CHECK=...`
+/// Runs all 5 diagnostic checks in order (plus a `fdb_helper_version` warn
+/// check when the helper version is off), emitting one `DOCTOR_CHECK=...`
 /// line per check followed by a `DOCTOR_SUMMARY=...` line. Exit code is
 /// always 0.
 Future<int> runDoctorCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
@@ -22,7 +23,7 @@ void _format(DoctorResult result) {
     _printCheck(check.name, check.status.name, values: check.values, hint: check.hint);
   }
   final summary = result.failedCount == 0 ? 'pass' : 'fail';
-  stdout.writeln('DOCTOR_SUMMARY=$summary CHECKS=5 FAILED=${result.failedCount}');
+  stdout.writeln('DOCTOR_SUMMARY=$summary CHECKS=${result.checks.length} FAILED=${result.failedCount}');
 }
 
 void _printCheck(

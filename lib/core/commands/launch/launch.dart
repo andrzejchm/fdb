@@ -54,6 +54,7 @@ Future<LaunchResult> launchApp(
     ensureSessionDir();
     ensureGitignored(project);
     File(deviceFile).writeAsStringSync(device);
+    writeProjectPath(project);
 
     // Resolve the flutter binary: explicit --flutter-sdk, FVM auto-detect, or PATH.
     final flutter = resolveFlutterBinary(
@@ -250,6 +251,7 @@ void cleanupLaunchSessionFiles() {
     deviceFile,
     platformFile,
     appIdFile,
+    projectPathFile,
   ]) {
     final file = File(path);
     if (file.existsSync()) {

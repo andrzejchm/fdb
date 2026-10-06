@@ -266,6 +266,27 @@ void writeAppId(String appId) {
   File(appIdFile).writeAsStringSync(appId);
 }
 
+/// Persists the absolute Flutter project path to `.fdb/project_path.txt` so
+/// later commands can read the project's resolved dependencies.
+void writeProjectPath(String projectPath) {
+  final normalized = Directory(projectPath).absolute.uri.normalizePath().toFilePath();
+  final trimmed = normalized.length > 1 && normalized.endsWith(Platform.pathSeparator)
+      ? normalized.substring(0, normalized.length - 1)
+      : normalized;
+  File(projectPathFile).writeAsStringSync(trimmed);
+}
+
+/// Returns the session's Flutter project path: the path stored at launch, or
+/// the session directory's parent for sessions created by older fdb versions.
+String readProjectPath() {
+  final file = File(projectPathFile);
+  if (file.existsSync()) {
+    final content = file.readAsStringSync().trim();
+    if (content.isNotEmpty) return content;
+  }
+  return Directory(sessionDirPath).parent.path;
+}
+
 void cleanupTempFiles() {
   for (final path in [
     pidFile,
@@ -281,6 +302,7 @@ void cleanupTempFiles() {
     deviceFile,
     platformFile,
     appIdFile,
+    projectPathFile,
   ]) {
     final file = File(path);
     if (file.existsSync()) {
@@ -304,6 +326,7 @@ bool hasMeaningfulSessionFiles() {
     deviceFile,
     platformFile,
     appIdFile,
+    projectPathFile,
   ]) {
     if (File(path).existsSync()) {
       return true;

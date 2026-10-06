@@ -1,5 +1,6 @@
 import 'package:fdb/core/commands/describe/describe_models.dart';
 import 'package:fdb/core/foreground_check.dart';
+import 'package:fdb/core/helper_version_check.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/describe/describe_models.dart';
@@ -34,7 +35,11 @@ Future<DescribeResult> describeScreen(DescribeInput _) async {
     final snapshot = result.snapshot!;
     final lifecycleState = snapshot['lifecycleState'];
     final warning = foregroundWarning(lifecycleState is String ? lifecycleState : null);
-    return DescribeSuccess(snapshot, warnings: [if (warning != null) warning]);
+    final versionWarnings = helperVersionWarnings(
+      running: RunningHelperVersion.fromPayload(snapshot),
+      resolved: readSessionResolvedHelperVersion(),
+    );
+    return DescribeSuccess(snapshot, warnings: [if (warning != null) warning, ...versionWarnings]);
   } on VmNotRespondingException catch (e) {
     return DescribeVmNotResponding(pid: e.pid);
   } on AppDiedException catch (e) {

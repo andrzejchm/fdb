@@ -35,11 +35,13 @@ void main() {
 
       File(appIdFile).writeAsStringSync('com.example.stale');
       File(platformFile).writeAsStringSync('macos false');
+      File(projectPathFile).writeAsStringSync('/stale/project');
 
       cleanupLaunchSessionFiles();
 
       expect(File(appIdFile).existsSync(), isFalse);
       expect(File(platformFile).existsSync(), isFalse);
+      expect(File(projectPathFile).existsSync(), isFalse);
     });
 
     test('log readers tolerate invalid UTF-8 in logs.txt', () async {

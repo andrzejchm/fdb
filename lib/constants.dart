@@ -30,6 +30,7 @@ String get launcherScript => controller.launcherScript;
 String get deviceFile => controller.deviceFile;
 String get platformFile => controller.platformFile;
 String get appIdFile => controller.appIdFile;
+String get projectPathFile => controller.projectPathFile;
 String get defaultScreenshotPath => controller.defaultScreenshotPath;
 
 /// Default `fdb launch --timeout`. First debug builds of large apps (CocoaPods,
