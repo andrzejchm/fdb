@@ -1650,6 +1650,46 @@ tasks:
         {{.FDB}} back >/dev/null 2>&1 || true
         echo "PASS: fdb tap on a covered button fails without tapping, and works once uncovered"
 
+  test:tap-disabled-button:
+    desc: Tap a button that the app enables ~1s later; fdb must wait for it instead of tapping it while disabled
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() {
+          echo "FAIL: $1" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        }
+
+        echo "==> Navigating to Custom Button screen"
+        {{.FDB}} scroll-to --key "go_to_custom_button_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_custom_button_test" >/dev/null 2>&1 || fail "could not navigate to custom button screen"
+        {{.FDB}} wait --key "delayed_send_button" --present --timeout 5000 >/dev/null
+
+        echo "==> Tapping a still-disabled button by key (must fail and tap nothing)"
+        set +e
+        OUTPUT=$({{.FDB}} tap --key "delayed_send_button" --timeout 1 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "fdb tap on a disabled button exited with $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: CustomSendButton is disabled" || fail "expected 'CustomSendButton is disabled'"
+        {{.FDB}} wait --text "delayed=0" --present --timeout 2000 >/dev/null 2>&1 \
+          || fail "the disabled tap reached the button"
+
+        echo "==> Tapping Prepare, then the button right away (must wait until it is enabled)"
+        {{.FDB}} tap --key "prepare_send" >/dev/null 2>&1 || fail "could not tap prepare_send"
+        OUTPUT=$({{.FDB}} tap --key "delayed_send_button" --timeout 5 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "TAPPED=CustomSendButton"; then
+          fail "fdb tap --key delayed_send_button (exit=$EXIT_CODE, expected TAPPED=CustomSendButton)"
+        fi
+        {{.FDB}} wait --text "delayed=1" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "expected counter 'delayed=1' after the button was enabled"
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb tap waits for a disabled button to be enabled and taps it once"
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -4451,6 +4491,7 @@ tasks:
           DEVICE: '{{.DEVICE}}'
       - task: test:tap-custom-button
       - task: test:tap-covered-button
+      - task: test:tap-disabled-button
       - task: test:input
       - task: test:input-rich
       - task: test:scroll

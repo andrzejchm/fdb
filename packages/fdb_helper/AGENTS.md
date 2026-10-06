@@ -82,7 +82,7 @@ Logic reused across handlers belongs in the existing `src/` helpers:
 | File | What it provides |
 |------|-----------------|
 | `handler_utils.dart` | `errorResponse(String)` — standard error response |
-| `element_tree_finder.dart` | `findHittableElement`, `findGestureTarget` (element + point for selector gestures, or the error), `findScrollTargetElement`, `findInteractiveElements`, `extractWidgetText` |
+| `element_tree_finder.dart` | `findHittableElement`, `findGestureTarget` (element + point for selector gestures, or the error), `disabledTargetType`, `isWidgetDisabled`, `hasGestureCallbacks`, `findScrollTargetElement`, `findInteractiveElements`, `extractWidgetText` |
 | `gesture_dispatcher.dart` | `dispatchTap`, `dispatchNativeTap`, `dispatchScroll` — all gesture dispatch helpers, including the Pigeon-bridged native tap path |
 | `hit_test_utils.dart` | `isElementHittable`, `findHittablePoint`, `tapCandidatePoints`, `visibleGlobalRect`, `hitTestAt` |
 | `text_input_simulator.dart` | `enterText` |

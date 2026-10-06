@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 const customButtonRoute = '/custom-button-test';
@@ -10,6 +12,10 @@ const customButtonRoute = '/custom-button-test';
 /// Also for `task test:tap-covered-button`: the "Cover" action shows an opaque
 /// overlay over the body. While it is shown, tapping the button must fail and
 /// deliver no tap anywhere.
+///
+/// Also for `task test:tap-disabled-button`: "Prepare" enables the delayed
+/// send button about a second later, like a send button that waits for the
+/// draft state to update. A tap right after "Prepare" must wait for it.
 class CustomButtonTestScreen extends StatefulWidget {
   const CustomButtonTestScreen({super.key});
 
@@ -22,6 +28,20 @@ class _CustomButtonTestScreenState extends State<CustomButtonTestScreen> {
   int _screenTaps = 0;
   int _overlayTaps = 0;
   bool _covered = false;
+  int _delayedTaps = 0;
+  bool _delayedReady = false;
+  Timer? _prepareTimer;
+
+  @override
+  void dispose() {
+    _prepareTimer?.cancel();
+    super.dispose();
+  }
+
+  void _prepare() {
+    _prepareTimer?.cancel();
+    _prepareTimer = Timer(const Duration(seconds: 1), () => setState(() => _delayedReady = true));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,21 +65,34 @@ class _CustomButtonTestScreenState extends State<CustomButtonTestScreen> {
               children: [
                 Expanded(
                   child: Center(
-                    child: Text(
-                      'button=$_buttonTaps screen=$_screenTaps',
-                      key: const Key('custom_button_counter'),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'button=$_buttonTaps screen=$_screenTaps',
+                          key: const Key('custom_button_counter'),
+                        ),
+                        Text('delayed=$_delayedTaps', key: const Key('delayed_send_counter')),
+                      ],
                     ),
                   ),
                 ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: CustomSendButton(
-                      key: const Key('custom_send_button'),
-                      onPressed: () => setState(() => _buttonTaps++),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(key: const Key('prepare_send'), onPressed: _prepare, child: const Text('Prepare')),
+                    CustomSendButton(
+                      key: const Key('delayed_send_button'),
+                      onPressed: _delayedReady ? () => setState(() => _delayedTaps++) : null,
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: CustomSendButton(
+                        key: const Key('custom_send_button'),
+                        onPressed: () => setState(() => _buttonTaps++),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -90,7 +123,8 @@ class _CustomButtonTestScreenState extends State<CustomButtonTestScreen> {
 class CustomSendButton extends StatefulWidget {
   const CustomSendButton({super.key, required this.onPressed});
 
-  final VoidCallback onPressed;
+  /// Null disables the button.
+  final VoidCallback? onPressed;
 
   @override
   State<CustomSendButton> createState() => _CustomSendButtonState();

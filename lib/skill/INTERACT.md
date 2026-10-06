@@ -137,6 +137,12 @@ VISIBLE TEXT:
 ```
 JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lines are unchanged. Target them with `fdb tap @N` + `fdb input`, or `fdb input --type QuillRawEditor`.
 
+**Disabled widgets** are flagged `(disabled)` (JSON: `enabled: false`): a button with no `onPressed`, a `Switch`/`Checkbox`/`Slider` with no `onChanged`, a `ListTile` or text field with `enabled: false`. Tapping one does nothing. Lines for enabled widgets are unchanged.
+```
+  @5 ElevatedButton(disabled) "Send" key=send_button
+```
+A send button often stays disabled until the app processes `fdb input`; tap it with `--key`/`--text` so fdb waits for it (see below).
+
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
 **Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
@@ -194,6 +200,14 @@ A selector tap (and `longpress`, `double-tap`, `swipe --key/--text/--type`) only
 ERROR: ElevatedButton is not hittable: it is covered by ModalBarrier at 200.0,410.0. Dismiss what covers it or use --index/another selector
 ERROR: ElevatedButton is scrolled out of view. Bring it into view first with fdb scroll-to
 ```
+
+A selector `tap`, `longpress` or `double-tap` on a disabled widget is never dispatched. fdb retries until the app enables it (up to `--timeout`), then fails with exit 1:
+
+```
+ERROR: ElevatedButton is disabled
+```
+
+For custom buttons, disabled means the button's own `GestureDetector`/`InkWell` has no callbacks. When fdb can't tell, it treats the widget as enabled. Coordinate taps (`--at`) don't check.
 
 ## Long-press a widget
 

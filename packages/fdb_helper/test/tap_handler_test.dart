@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fdb_helper/src/handlers/double_tap_handler.dart';
 import 'package:fdb_helper/src/handlers/tap_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 class CustomButton extends StatefulWidget {
   const CustomButton({super.key, required this.onPressed});
 
-  final VoidCallback onPressed;
+  /// Null disables the button, like most design-system buttons.
+  final VoidCallback? onPressed;
 
   @override
   State<CustomButton> createState() => _CustomButtonState();
@@ -128,6 +130,67 @@ void main() {
     expect(tester.getRect(find.text('Submit')).contains(point), isTrue);
     expect(taps.all, (button: 1, screen: 0, overlay: 0));
   });
+
+  group('a disabled target', () {
+    for (final (name, handler) in [
+      ('tap', (Map<String, String> p) => handleTap('ext.fdb.tap', p)),
+      ('long-press', (Map<String, String> p) => handleTap('ext.fdb.longPress', {...p, 'duration': '600'})),
+      ('double-tap', (Map<String, String> p) => handleDoubleTap('ext.fdb.doubleTap', p)),
+    ]) {
+      testWidgets('ElevatedButton fails without tapping ($name)', (tester) async {
+        final taps = _Taps();
+        await tester.pumpWidget(_screen(taps, enabled: false));
+
+        final response = await tester.runAsync(() => handler({'text': 'Submit'}));
+        final result = jsonDecode(response!.result ?? response.errorDetail!) as Map<String, dynamic>;
+
+        expect(result['error'], 'ElevatedButton is disabled', reason: '$result');
+        expect(taps.all, (button: 0, screen: 0, overlay: 0));
+      });
+    }
+
+    testWidgets('custom button whose detector has no onTap fails without tapping', (tester) async {
+      var screenTaps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GestureDetector(
+            onTap: () => screenTaps++,
+            child: const Center(child: CustomButton(key: ValueKey('send_button'), onPressed: null)),
+          ),
+        ),
+      );
+
+      expect(await _tapError(tester, {'key': 'send_button'}), 'CustomButton is disabled');
+      expect(screenTaps, 0);
+    });
+
+    testWidgets('is tapped exactly once after it becomes enabled', (tester) async {
+      final enabled = ValueNotifier(false);
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: ValueListenableBuilder(
+              valueListenable: enabled,
+              builder: (_, isEnabled, __) => ElevatedButton(
+                key: const ValueKey('send'),
+                onPressed: isEnabled ? () => taps++ : null,
+                child: const Text('Send'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(await _tapError(tester, {'key': 'send'}), 'ElevatedButton is disabled');
+      enabled.value = true;
+      await tester.pump();
+      final (:type, point: _) = await _tapKey(tester, 'send');
+
+      expect(type, 'ElevatedButton');
+      expect(taps, 1);
+    });
+  });
 }
 
 class _Taps {
@@ -140,7 +203,7 @@ class _Taps {
 
 /// A keyed "Submit" button inside a screen-level GestureDetector (a keyboard
 /// dismisser), optionally covered by a full-screen opaque GestureDetector.
-Widget _screen(_Taps taps, {bool coverWithDetector = false}) => MaterialApp(
+Widget _screen(_Taps taps, {bool coverWithDetector = false, bool enabled = true}) => MaterialApp(
       home: Scaffold(
         body: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -150,7 +213,7 @@ Widget _screen(_Taps taps, {bool coverWithDetector = false}) => MaterialApp(
               Center(
                 child: ElevatedButton(
                   key: const ValueKey('submit'),
-                  onPressed: () => taps.button++,
+                  onPressed: enabled ? () => taps.button++ : null,
                   child: const Text('Submit'),
                 ),
               ),

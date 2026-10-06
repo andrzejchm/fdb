@@ -48,7 +48,7 @@ Future<developer.ServiceExtensionResponse> handleTap(
       return developer.ServiceExtensionResponse.result(jsonEncode(response));
     }
 
-    final (:target, :error) = findGestureTarget(matcher);
+    final (:target, :error) = findGestureTarget(matcher, rejectDisabled: true);
     if (target == null) return errorResponse(error!);
     final (:element, point: globalCenter) = target;
 

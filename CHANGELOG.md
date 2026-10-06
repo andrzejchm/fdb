@@ -1,3 +1,11 @@
+## Unreleased
+
+### Fixes
+- Fixed `fdb tap`, `longpress` and `double-tap` by `--key`/`--text`/`--type` reporting success on a disabled widget, for example a send button that the app enables only after `fdb input` updates its state. The tap did nothing. fdb now never dispatches a selector tap to a disabled widget: it retries until the app enables it, up to `--timeout`, then exits 1 with `ERROR: <Type> is disabled`. Disabled means a Material/Cupertino button without `onPressed`, a `Switch`/`Checkbox`/`Slider` without `onChanged`, a `ListTile` or text field with `enabled: false`, or a custom button whose own `GestureDetector`/`InkWell` has no callbacks. When fdb can't tell, the widget counts as enabled. Needs the updated fdb_helper.
+
+### Improvements
+- `fdb describe` marks disabled widgets: `@N ElevatedButton(disabled) "Send"` (JSON: `enabled: false`). Lines for enabled widgets are unchanged.
+
 ## 1.12.0
 
 ### Improvements
