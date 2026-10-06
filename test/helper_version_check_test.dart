@@ -109,7 +109,7 @@ void main() {
 
     expect(readProjectPath(), Directory(root.path).absolute.path);
 
-    writeProjectPath('${root.path}/elsewhere');
+    writeProjectPath('${root.path}/elsewhere/.');
     expect(readProjectPath(), Directory('${root.path}/elsewhere').absolute.path);
   });
 }

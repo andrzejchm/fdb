@@ -269,7 +269,11 @@ void writeAppId(String appId) {
 /// Persists the absolute Flutter project path to `.fdb/project_path.txt` so
 /// later commands can read the project's resolved dependencies.
 void writeProjectPath(String projectPath) {
-  File(projectPathFile).writeAsStringSync(Directory(projectPath).absolute.path);
+  final normalized = Directory(projectPath).absolute.uri.normalizePath().toFilePath();
+  final trimmed = normalized.length > 1 && normalized.endsWith(Platform.pathSeparator)
+      ? normalized.substring(0, normalized.length - 1)
+      : normalized;
+  File(projectPathFile).writeAsStringSync(trimmed);
 }
 
 /// Returns the session's Flutter project path: the path stored at launch, or
