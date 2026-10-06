@@ -12,8 +12,12 @@ class LogCollectorManager {
   final ControllerLogSink _logWarning;
   String? _vmUri;
 
+  /// PID of the collector this manager started. Tracked in memory so [stop]
+  /// still finds it if the PID file was removed or overwritten.
+  int? _pid;
+
   Future<void> start(String wsUri) async {
-    final existingCollectorPid = readLogCollectorPid();
+    final existingCollectorPid = _pid;
     if (_vmUri == wsUri && existingCollectorPid != null && isProcessAlive(existingCollectorPid)) {
       return;
     }
@@ -26,9 +30,9 @@ class LogCollectorManager {
       return;
     }
 
-    stop();
+    await stop();
     try {
-      await Process.start(
+      final process = await Process.start(
         Platform.resolvedExecutable,
         [
           collectorEntrypoint,
@@ -38,17 +42,33 @@ class LogCollectorManager {
         ],
         mode: ProcessStartMode.detached,
       );
+      _pid = process.pid;
+      // Written here as well as by the collector itself, so `fdb kill` can
+      // find it even before the collector has booted.
+      File(logCollectorPidFile).writeAsStringSync('${process.pid}');
       _vmUri = wsUri;
     } catch (e) {
       _logWarning('WARNING: Log collector failed to start: $e');
     }
   }
 
-  void stop() {
-    final collectorPid = readLogCollectorPid();
-    if (collectorPid == null || !isProcessAlive(collectorPid)) return;
-    if (!Process.killPid(collectorPid, ProcessSignal.sigterm)) {
-      _logWarning('WARNING: Failed to stop old log collector process with PID $collectorPid');
+  /// Stops the collector this manager started and waits for it to exit.
+  ///
+  /// Uses the in-memory PID rather than the PID file: by the time a replaced
+  /// controller shuts down, the file may already belong to a newer session.
+  Future<void> stop() async {
+    final collectorPid = _pid;
+    _pid = null;
+    _vmUri = null;
+    if (collectorPid == null) return;
+
+    if (!await terminateProcess(collectorPid, timeout: const Duration(seconds: 3))) {
+      _logWarning('WARNING: Failed to stop log collector process with PID $collectorPid');
+    }
+    try {
+      if (readLogCollectorPid() == collectorPid) File(logCollectorPidFile).deleteSync();
+    } on FileSystemException catch (_) {
+      // The collector removed its own PID file in the meantime.
     }
   }
 

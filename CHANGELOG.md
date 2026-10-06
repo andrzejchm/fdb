@@ -2,9 +2,11 @@
 
 ### Improvements
 - `fdb launch --timeout <seconds>` sets how long launch waits for the app to start. The default is now 600 seconds (was 300), because first debug builds of large apps often take longer. `fdb attach --timeout` works the same way (default stays 300). Invalid values print `ERROR: Invalid value for --timeout: <value>`.
+- `fdb launch` and `fdb attach` clean up a dead previous session on their own. If the previous app is gone or its controller does not answer, they stop the leftover controller, flutter tool and log collector processes, remove the stale session files and print `WARNING: Cleaned up a stale session ...`. You no longer need `fdb kill` or to delete `.fdb/` first.
 
 ### Fixes
 - `fdb launch`, `attach`, `logs` and the app-died log tail no longer fail with a `FileSystemException` when `logs.txt` contains invalid UTF-8. Malformed bytes are replaced with U+FFFD. `fdb logs --follow` also decodes new output as UTF-8 instead of Latin-1.
+- The log collector no longer outlives `fdb kill`. It used to stay running after the app's VM service went away (for example after a relaunch) with its PID file already deleted, so nothing could find it. It now exits when the connection closes, only removes its PID file while that file still names it, and the controller stops it on shutdown.
 
 ## 1.12.0
 

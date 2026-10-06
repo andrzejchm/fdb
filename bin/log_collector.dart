@@ -11,9 +11,12 @@ Future<void> main(List<String> args) async {
 
   File(pidPath).writeAsStringSync('$pid');
 
+  // Only remove the PID file while it still names this process: a newer
+  // collector may already have written its own PID there.
   void cleanup() {
     try {
-      File(pidPath).deleteSync();
+      final file = File(pidPath);
+      if (file.readAsStringSync().trim() == '$pid') file.deleteSync();
     } catch (_) {}
     exit(0);
   }
@@ -30,9 +33,9 @@ Future<void> main(List<String> args) async {
     await _collect(wsUri, logPath);
   } catch (_) {
   } finally {
-    try {
-      File(pidPath).deleteSync();
-    } catch (_) {}
+    // Exit explicitly: the signal subscriptions above keep the VM alive, so
+    // returning from main would leave this process running with no PID file.
+    cleanup();
   }
 }
 

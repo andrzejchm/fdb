@@ -6,6 +6,8 @@ import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/launch/launch_models.dart';
 import 'package:fdb/core/flutter_binary.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/src/controller/fdb_controller.dart'
+    show AppDiedException, ControllerCommand, ControllerCommandFailed, ControllerUnavailable, sendControllerCommand;
 
 export 'package:fdb/core/commands/launch/launch_models.dart';
 
@@ -46,25 +48,7 @@ Future<LaunchResult> launchApp(
     onProgress('launch: preparing session');
 
     initLaunchSession(project: project, sessionDir: input.sessionDir);
-
-    // Kill any previous controller.
-    final oldControllerPid = readControllerPid();
-    if (oldControllerPid != null && isProcessAlive(oldControllerPid)) {
-      try {
-        Process.killPid(oldControllerPid, ProcessSignal.sigterm);
-      } catch (_) {}
-    }
-
-    // Kill any previous log collector.
-    final oldCollectorPid = readLogCollectorPid();
-    if (oldCollectorPid != null && isProcessAlive(oldCollectorPid)) {
-      try {
-        Process.killPid(oldCollectorPid, ProcessSignal.sigterm);
-      } catch (_) {}
-    }
-
-    // Clean up previous state.
-    cleanupLaunchSessionFiles();
+    await replacePreviousSession(onProgress: onProgress);
 
     // Create .fdb/ session directory and persist device ID.
     ensureSessionDir();
@@ -278,6 +262,70 @@ void cleanupLaunchSessionFiles() {
 List<String> readLogTail({int count = 10}) {
   final lines = readLinesTolerant(logFile);
   return lines.length > count ? lines.sublist(lines.length - count) : lines;
+}
+
+/// Stops what the previous session in the current session dir left behind and
+/// removes its files, so a new `launch` / `attach` can start cleanly.
+///
+/// A dead session (see [isPreviousSessionStale]) has its leftover controller,
+/// flutter tool and log collector processes terminated and waited for, and a
+/// single `WARNING:` line is reported through [onProgress]. A live session is
+/// replaced as before: its controller and log collector receive SIGTERM.
+Future<void> replacePreviousSession({void Function(String) onProgress = _noop}) async {
+  if (await isPreviousSessionStale()) {
+    final pids = {readControllerPid(), readPid(), readLogCollectorPid()}.whereType<int>();
+    for (final pid in pids) {
+      await terminateProcess(pid, timeout: const Duration(seconds: 3));
+    }
+    cleanupLaunchSessionFiles();
+    onProgress('WARNING: Cleaned up a stale session (previous app or controller was no longer running)');
+    return;
+  }
+
+  for (final pid in [readControllerPid(), readLogCollectorPid()].whereType<int>()) {
+    if (!isProcessAlive(pid)) continue;
+    try {
+      Process.killPid(pid, ProcessSignal.sigterm);
+    } catch (_) {}
+  }
+  cleanupLaunchSessionFiles();
+}
+
+/// True when the session dir records a previous run whose app PID is no
+/// longer alive or whose controller does not answer a status request.
+///
+/// A session dir without PID / port / VM URI files is not considered stale:
+/// there is nothing left running to clean up.
+Future<bool> isPreviousSessionStale({
+  Duration controllerTimeout = const Duration(seconds: 3),
+}) async {
+  final hasRuntimeState = [
+    controllerPidFile,
+    controllerPortFile,
+    controllerTokenFile,
+    pidFile,
+    appPidFile,
+    logCollectorPidFile,
+    vmUriFile,
+  ].any((path) => File(path).existsSync());
+  if (!hasRuntimeState) return false;
+
+  final appPid = readAppPid();
+  if (appPid != null && !isAppPidAlive(appPid)) return true;
+
+  try {
+    await sendControllerCommand(ControllerCommand.status, timeout: controllerTimeout);
+    return false;
+  } on ControllerCommandFailed {
+    // The controller answered, just not with success: it is alive.
+    return false;
+  } on ControllerUnavailable {
+    return true;
+  } on AppDiedException {
+    return true;
+  } on SocketException {
+    return true;
+  }
 }
 
 class ControllerLaunchCommand {

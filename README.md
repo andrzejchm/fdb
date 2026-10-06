@@ -371,6 +371,8 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **`LAUNCH_TIMEOUT` on a first build** - Large apps can take longer than the default 600 seconds to build in debug mode the first time. Pass a longer wait, e.g. `fdb launch ... --timeout 1200`.
 
+**`WARNING: Cleaned up a stale session`** - The previous app or its controller was no longer running (for example the app was killed outside fdb or the simulator was shut down). `fdb launch` stopped the leftover fdb processes and removed the old session files before starting. No action needed.
+
 **Screenshot fails** - check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool` + `import` (Linux X11). Physical iOS, Windows, and Linux Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.
 
 **Empty widget tree** - App may still be starting. Retry, or use `fdb describe` instead.

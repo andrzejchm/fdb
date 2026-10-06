@@ -116,6 +116,30 @@ String readTextTolerant(String path) {
 /// Line-split variant of [readTextTolerant], with `readAsLinesSync` semantics.
 List<String> readLinesTolerant(String path) => const LineSplitter().convert(readTextTolerant(path));
 
+/// Sends SIGTERM to [pid], waits up to [timeout] for it to exit, then sends
+/// SIGKILL and waits again. Returns true when the process is gone.
+Future<bool> terminateProcess(
+  int pid, {
+  Duration timeout = const Duration(seconds: 10),
+}) async {
+  if (!isProcessAlive(pid)) return true;
+
+  for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
+    try {
+      Process.killPid(pid, signal);
+    } catch (_) {
+      return !isProcessAlive(pid);
+    }
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (!isProcessAlive(pid)) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  }
+
+  return !isProcessAlive(pid);
+}
+
 /// Extracts the JSON array from `flutter devices --machine` output.
 ///
 /// Flutter may prepend non-JSON text (download progress, upgrade banners)

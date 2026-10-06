@@ -188,6 +188,38 @@ void main() {
       allowClose.complete();
     });
 
+    test('exits when the VM service closes and keeps a PID file it does not own', () async {
+      // Regression: the collector used to delete its PID file and then stay
+      // alive forever (signal watchers keep the VM running), so `fdb kill`
+      // could no longer find it.
+      final tempDir = await Directory.systemTemp.createTemp('fdb_log_collector_test');
+      addTearDown(() async => tempDir.delete(recursive: true));
+      final pidPath = '${tempDir.path}/collector.pid';
+
+      final allowClose = Completer<void>();
+      final server = await _startServer((socket) async {
+        await allowClose.future;
+        await socket.close();
+      });
+      addTearDown(() async => server.close(force: true));
+
+      final process = await Process.start('dart', [
+        _collectorEntrypointPath(),
+        _wsUri(server),
+        '${tempDir.path}/logs.txt',
+        pidPath,
+      ]);
+      addTearDown(() => process.kill(ProcessSignal.sigkill));
+
+      await _waitForFile(pidPath);
+      // A newer collector has taken over the PID file.
+      File(pidPath).writeAsStringSync('424242');
+      allowClose.complete();
+
+      expect(await process.exitCode.timeout(const Duration(seconds: 10)), 0);
+      expect(File(pidPath).readAsStringSync(), '424242');
+    });
+
     test('resolves the detached collector entrypoint from a package URI', () async {
       final tempDir = await Directory.systemTemp.createTemp('fdb_log_collector_test');
       addTearDown(() async {
@@ -253,7 +285,7 @@ Future<void> main(List<String> args) async {
     await Future<void>.delayed(const Duration(milliseconds: 20));
   }
   stdout.writeln('STARTED=' + File(logCollectorPidFile).existsSync().toString());
-  manager.stop();
+  await manager.stop();
 }
 ''';
 

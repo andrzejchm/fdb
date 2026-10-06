@@ -31,8 +31,7 @@ Future<AttachResult> attachApp(
     onProgress('attach: preparing session');
 
     initLaunchSession(project: project, sessionDir: input.sessionDir);
-    _stopPreviousSessionProcesses();
-    cleanupLaunchSessionFiles();
+    await replacePreviousSession(onProgress: onProgress);
 
     ensureSessionDir();
     ensureGitignored(project);
@@ -226,14 +225,6 @@ String normalizeAttachDebugUrl(String debugUrl) {
     return normalized.substring(0, normalized.length - 2);
   }
   return normalized;
-}
-
-void _stopPreviousSessionProcesses() {
-  for (final pid in [readControllerPid(), readLogCollectorPid()].whereType<int>()) {
-    if (isProcessAlive(pid)) {
-      _killPid(pid);
-    }
-  }
 }
 
 void _killPid(int pid) {

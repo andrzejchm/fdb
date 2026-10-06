@@ -119,39 +119,4 @@ bool _forceStopAndroidApp() {
   }
 }
 
-Future<bool> _terminateProcess(int pid) async {
-  if (!isProcessAlive(pid)) {
-    return true;
-  }
-
-  try {
-    Process.killPid(pid, ProcessSignal.sigterm);
-  } catch (_) {
-    return !isProcessAlive(pid);
-  }
-
-  if (await _waitForExit(pid)) {
-    return true;
-  }
-
-  try {
-    Process.killPid(pid, ProcessSignal.sigkill);
-  } catch (_) {
-    return !isProcessAlive(pid);
-  }
-
-  return _waitForExit(pid);
-}
-
-Future<bool> _waitForExit(int pid) async {
-  final deadline = DateTime.now().add(const Duration(seconds: killTimeoutSeconds));
-  while (DateTime.now().isBefore(deadline)) {
-    if (!isProcessAlive(pid)) {
-      return true;
-    }
-
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-  }
-
-  return !isProcessAlive(pid);
-}
+Future<bool> _terminateProcess(int pid) => terminateProcess(pid, timeout: const Duration(seconds: killTimeoutSeconds));
