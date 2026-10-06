@@ -4,7 +4,7 @@ import 'package:fdb/cli/binstub_sdk_check_cli.dart';
 import 'package:fdb/core/binstub_sdk_check.dart';
 import 'package:test/test.dart';
 
-/// Header and snapshot fast path shared by both binstub formats pub writes.
+/// Header and snapshot fast path shared by both launcher formats pub writes.
 String _head(String pubCache, String script, String version, String package) {
   final snapshot = '$pubCache/global_packages/$package/bin/$script.dart-$version.snapshot';
   return '''
@@ -35,139 +35,180 @@ String _shapeIfElse(String pubCache, String script, String version) => '${_head(
 
 void main() {
   late Directory tmp;
+  late String root;
   late String pubCache;
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('fdb_binstub_test_');
-    pubCache = tmp.resolveSymbolicLinksSync();
+    root = tmp.resolveSymbolicLinksSync();
+    pubCache = '$root/pub cache';
     Directory('$pubCache/bin').createSync(recursive: true);
     Directory('$pubCache/global_packages/fdb/bin').createSync(recursive: true);
   });
 
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  void writeSnapshot(String script, String version) =>
-      File('$pubCache/global_packages/fdb/bin/$script.dart-$version.snapshot').writeAsStringSync('kernel');
-
-  File writeBinstub(String name, String content) {
-    final f = File('$pubCache/bin/$name')..writeAsStringSync(content);
+  File writeExecutable(String path, String content) {
+    final f = File(path)
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(content);
     if (!Platform.isWindows) Process.runSync('chmod', ['755', f.path]);
     return f;
   }
 
-  BinstubSdkCheckInput input({String? script, bool repairEnabled = true, bool isWindows = false}) => (
+  File writeBinstub(String name, String content) => writeExecutable('$pubCache/bin/$name', content);
+
+  BinstubSdkCheckResult check(String running, {String? script, bool repairEnabled = true, bool isWindows = false}) =>
+      checkBinstubSdk((
         pubCacheDir: pubCache,
-        runningDartVersion: '3.12.2',
-        scriptPath: script ?? '$pubCache/global_packages/fdb/bin/fdb.dart-3.12.2.snapshot',
+        runningDartVersion: running,
+        scriptPath: script ?? '$pubCache/global_packages/fdb/bin/fdb.dart-$running.snapshot',
         repairEnabled: repairEnabled,
         isWindows: isWindows,
-      );
+      ));
 
-  test('no mismatch → no-op, file untouched', () {
-    writeSnapshot('fdb', '3.12.2');
-    final content = _shapeIfFi(pubCache, 'fdb', '3.12.2');
-    final f = writeBinstub('fdb', content);
+  test('mismatch → both launcher shapes replaced once, then stable across SDK switches', () {
+    final fdb = writeBinstub('fdb', _shapeIfFi(pubCache, 'fdb', '3.13.4'));
+    final controller = writeBinstub('fdb-controller', _shapeIfElse(pubCache, 'controller', '3.13.4'));
 
-    expect(checkBinstubSdk(input()), isA<BinstubSdkCheckNoOp>());
-    expect(f.readAsStringSync(), content);
-  });
+    final result = check('3.12.2') as BinstubSdkCheckRepaired;
 
-  test('mismatch + matching snapshot → both binstub shapes repaired and kept executable', () {
-    writeSnapshot('fdb', '3.12.2');
-    writeSnapshot('controller', '3.12.2');
-    final fdb = writeBinstub('fdb', _shapeIfFi(pubCache, 'fdb', '3.13.5'));
-    final controller = writeBinstub('fdb-controller', _shapeIfElse(pubCache, 'controller', '3.11.5'));
-
-    final repaired = checkBinstubSdk(input()) as BinstubSdkCheckRepaired;
-
-    expect(repaired.unrepaired, isEmpty);
-    expect(repaired.repairs, [
-      (binstub: fdb.path, from: '3.13.5', to: '3.12.2'),
-      (binstub: controller.path, from: '3.11.5', to: '3.12.2'),
+    expect(result.failed, isEmpty);
+    expect(result.repairs, [
+      (binstub: fdb.path, from: '3.13.4', to: '3.12.2'),
+      (binstub: controller.path, from: '3.13.4', to: '3.12.2'),
     ]);
-
-    // Only snapshot references change; the "created by pub" header is kept.
-    expect(fdb.readAsStringSync(), _shapeIfFi(pubCache, 'fdb', '3.12.2').replaceFirst('pub v3.12.2', 'pub v3.13.5'));
-    expect(
-      controller.readAsStringSync(),
-      _shapeIfElse(pubCache, 'controller', '3.12.2').replaceFirst('pub v3.12.2', 'pub v3.11.5'),
-    );
+    final fdbAfter = fdb.readAsStringSync();
+    final controllerAfter = controller.readAsStringSync();
+    for (final (content, script) in [(fdbAfter, 'fdb'), (controllerAfter, 'controller')]) {
+      expect(content, startsWith(_head(pubCache, script, '3.13.4', 'fdb').split('\nif ').first));
+      expect(content, contains(launcherMarker));
+      expect(content, contains('dart pub global run fdb:$script "\$@"'));
+      expect(content, isNot(contains('.dart-3.')), reason: 'no hardcoded SDK version');
+    }
     expect(Directory('$pubCache/bin').listSync().where((e) => e.path.contains('fdb-tmp')), isEmpty);
     if (!Platform.isWindows) {
       for (final f in [fdb, controller]) {
         expect(f.statSync().mode & 0x1ff, 0x1ed, reason: '${f.path} must stay 0755');
       }
     }
+    expect(formatBinstubSdkCheckResult(result).single, contains("Dart 3.13.4 but 'dart' on PATH is 3.12.2"));
 
-    // Second run is a no-op.
-    expect(checkBinstubSdk(input()), isA<BinstubSdkCheckNoOp>());
-    final lines = formatBinstubSdkCheckResult(repaired);
-    expect(lines, hasLength(2));
-    expect(lines, everyElement(contains('Repointed it to the 3.12.2 snapshot')));
-    expect(lines.first, startsWith('WARNING: fdb launcher ${fdb.path} referenced a Dart 3.13.5 snapshot'));
-  });
-
-  test('mismatch + missing snapshot → silent no-op, file untouched', () {
-    writeSnapshot('fdb', '3.12.2');
-    final content = _shapeIfElse(pubCache, 'controller', '3.11.5');
-    final f = writeBinstub('fdb-controller', content);
-
-    expect(checkBinstubSdk(input()), isA<BinstubSdkCheckNoOp>());
-    expect(f.readAsStringSync(), content);
-  });
-
-  test('opt-out → detected but not written', () {
-    writeSnapshot('fdb', '3.12.2');
-    final content = _shapeIfFi(pubCache, 'fdb', '3.13.5');
-    final f = writeBinstub('fdb', content);
-
-    final result = checkBinstubSdk(input(repairEnabled: false)) as BinstubSdkCheckUnrepaired;
-
-    final m = result.mismatches.single;
-    expect((m.binstub, m.from, m.to, m.reason), (f.path, '3.13.5', '3.12.2', BinstubUnrepairedReason.optedOut));
-    expect(f.readAsStringSync(), content);
-    final line = formatBinstubSdkCheckResult(result).single;
-    expect(line, allOf(contains('fdb was activated with Dart 3.13.5'), contains('FDB_NO_BINSTUB_REPAIR=1')));
-  });
-
-  test('script not under global_packages/fdb → no-op', () {
-    writeSnapshot('fdb', '3.12.2');
-    final content = _shapeIfFi(pubCache, 'fdb', '3.13.5');
-    final f = writeBinstub('fdb', content);
-
-    for (final script in [
-      '/some/repo/.dart_tool/pub/bin/fdb/fdb.dart-3.12.2.snapshot',
-      '/some/repo/bin/fdb.dart',
-      '$pubCache/global_packages/fdbx/bin/fdb.dart-3.12.2.snapshot',
-      '',
-    ]) {
-      expect(checkBinstubSdk(input(script: script)), isA<BinstubSdkCheckNoOp>(), reason: script);
+    for (final running in ['3.13.4', '3.12.2', '3.13.4', '3.11.5']) {
+      expect(check(running), isA<BinstubSdkCheckNoOp>(), reason: running);
+      expect(fdb.readAsStringSync(), fdbAfter);
+      expect(controller.readAsStringSync(), controllerAfter);
     }
-    expect(f.readAsStringSync(), content);
   });
 
-  test('Windows → no-op', () {
-    writeSnapshot('fdb', '3.12.2');
-    writeBinstub('fdb', _shapeIfFi(pubCache, 'fdb', '3.13.5'));
-    expect(checkBinstubSdk(input(isWindows: true)), isA<BinstubSdkCheckNoOp>());
+  test('launcher left untouched when there is nothing to fix or fdb must not touch it', () {
+    final cases = <String, (String, BinstubSdkCheckResult Function())>{
+      'matching SDK': (_shapeIfFi(pubCache, 'fdb', '3.12.2'), () => check('3.12.2')),
+      'other package': (_shapeIfFi(pubCache, 'fdb', '3.13.4', package: 'other'), () => check('3.12.2')),
+      'opted out': (_shapeIfFi(pubCache, 'fdb', '3.13.4'), () => check('3.12.2', repairEnabled: false)),
+      'Windows': (_shapeIfFi(pubCache, 'fdb', '3.13.4'), () => check('3.12.2', isWindows: true)),
+      'path activation': (
+        _shapeIfFi(pubCache, 'fdb', '3.13.4'),
+        () => check('3.12.2', script: '/repo/.dart_tool/pub/bin/fdb/fdb.dart-3.12.2.snapshot'),
+      ),
+      'other global package': (
+        _shapeIfFi(pubCache, 'fdb', '3.13.4'),
+        () => check('3.12.2', script: '$pubCache/global_packages/fdbx/bin/fdb.dart-3.12.2.snapshot'),
+      ),
+    };
+    for (final MapEntry(key: name, value: (content, run)) in cases.entries) {
+      final f = writeBinstub('fdb', content);
+      expect(run(), isA<BinstubSdkCheckNoOp>(), reason: name);
+      expect(f.readAsStringSync(), content, reason: name);
+    }
   });
 
-  test('binstub not belonging to fdb is left untouched', () {
-    writeSnapshot('fdb', '3.12.2');
-    final content = _shapeIfFi(pubCache, 'fdb', '3.13.5', package: 'other');
-    final f = writeBinstub('fdb', content);
-
-    expect(checkBinstubSdk(input()), isA<BinstubSdkCheckNoOp>());
-    expect(f.readAsStringSync(), content);
-  });
-
-  test('symlinked binstub → target rewritten, link kept', () {
-    writeSnapshot('fdb', '3.12.2');
-    final real = File('${tmp.path}/real_fdb')..writeAsStringSync(_shapeIfFi(pubCache, 'fdb', '3.13.5'));
+  test('symlinked launcher → target replaced, link kept', () {
+    final real = writeExecutable('$root/real_fdb', _shapeIfFi(pubCache, 'fdb', '3.13.4'));
     final link = Link('$pubCache/bin/fdb')..createSync(real.path);
 
-    expect(checkBinstubSdk(input()), isA<BinstubSdkCheckRepaired>());
+    expect(check('3.12.2'), isA<BinstubSdkCheckRepaired>());
     expect(FileSystemEntity.isLinkSync(link.path), isTrue);
-    expect(real.readAsStringSync(), contains('fdb.dart-3.12.2.snapshot'));
+    expect(real.readAsStringSync(), contains(launcherMarker));
+  }, testOn: '!windows');
+
+  test('unwritable launcher dir → failure reported, launcher untouched', () {
+    final content = _shapeIfFi(pubCache, 'fdb', '3.13.4');
+    final f = writeBinstub('fdb', content);
+    Process.runSync('chmod', ['555', '$pubCache/bin']);
+    addTearDown(() => Process.runSync('chmod', ['755', '$pubCache/bin']));
+
+    final result = check('3.12.2') as BinstubSdkCheckUnrepaired;
+
+    expect(f.readAsStringSync(), content);
+    expect(formatBinstubSdkCheckResult(result).single, allOf(contains('Could not replace'), contains(f.path)));
+  }, testOn: '!windows');
+
+  group('runtime launcher', () {
+    late String launcher;
+
+    setUp(() {
+      writeBinstub('fdb', _shapeIfFi(pubCache, 'fdb', '3.13.4'));
+      check('3.12.2');
+      launcher = '$pubCache/bin/fdb';
+    });
+
+    /// Fake `dart`: runs a "snapshot" by exiting with the code stored in it,
+    /// and echoes every invocation.
+    const fakeDart = '#!/bin/sh\necho "dart \$*"\ncase \$1 in *.snapshot) exit "\$(cat "\$1")";; esac\n';
+
+    void writeSnapshot(String version, int exitCode) =>
+        File('$pubCache/global_packages/fdb/bin/fdb.dart-$version.snapshot').writeAsStringSync('$exitCode');
+
+    /// Runs the launcher with only [binDir] (plus system dirs) on PATH.
+    ProcessResult run(String binDir) => Process.runSync(
+          'sh',
+          [launcher, 'status', 'a b'],
+          environment: {'PATH': '$binDir:/usr/bin:/bin'},
+          includeParentEnvironment: false,
+        );
+
+    String snapshot(String version) => '$pubCache/global_packages/fdb/bin/fdb.dart-$version.snapshot';
+
+    test('picks the snapshot for the SDK on PATH, for each SDK layout', () {
+      // Dart SDK: bin/dart + version.
+      writeExecutable('$root/dart-sdk/bin/dart', fakeDart);
+      File('$root/dart-sdk/version').writeAsStringSync('3.11.5\n');
+      // Flutter SDK: bin/dart wrapper + bin/cache/dart-sdk/version (root version file is Flutter's).
+      writeExecutable('$root/flutter/bin/dart', fakeDart);
+      File('$root/flutter/version').writeAsStringSync('3.47.5\n');
+      File('$root/flutter/bin/cache/dart-sdk/version')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('3.13.4');
+      // Relative symlink chain into the Dart SDK, as Homebrew installs it.
+      Directory('$root/brew/bin').createSync(recursive: true);
+      Link('$root/brew/bin/dart').createSync('../../dart-sdk/bin/dart');
+      for (final v in ['3.11.5', '3.13.4']) {
+        writeSnapshot(v, 7);
+      }
+
+      for (final (bin, version) in [
+        ('$root/dart-sdk/bin', '3.11.5'),
+        ('$root/flutter/bin', '3.13.4'),
+        ('$root/brew/bin', '3.11.5'),
+      ]) {
+        final r = run(bin);
+        expect(r.stdout, 'dart ${snapshot(version)} status a b\n', reason: bin);
+        expect(r.exitCode, 7, reason: bin);
+      }
+    });
+
+    test('falls back to pub global run when the version or snapshot is unknown, or the VM rejects it', () {
+      writeExecutable('$root/shim/dart', fakeDart); // Version-manager shim: no version file.
+      writeExecutable('$root/dart-sdk/bin/dart', fakeDart);
+      File('$root/dart-sdk/version').writeAsStringSync('3.12.2\n');
+
+      const pub = 'dart pub global run fdb:fdb status a b\n';
+      expect(run('$root/shim').stdout, pub);
+      expect(run('$root/dart-sdk/bin').stdout, pub, reason: 'no snapshot yet');
+
+      writeSnapshot('3.12.2', 253);
+      expect(run('$root/dart-sdk/bin').stdout, 'dart ${snapshot('3.12.2')} status a b\n$pub');
+    });
   }, testOn: '!windows');
 }
