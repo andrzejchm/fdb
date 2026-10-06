@@ -1776,6 +1776,44 @@ tasks:
         echo "$OUTPUT" | grep -q "ERROR: @$NOT_BUILT is stale: the widget was removed or rebuilt. Run fdb describe again." \
           || fail "expected the stale ref error"
 
+        echo "==> Navigating to Ref List Test screen"
+        {{.FDB}} scroll-to --key "go_to_ref_list_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_ref_list_test" >/dev/null 2>&1 || fail "could not navigate to ref list screen"
+        {{.FDB}} wait --key "ref_row_0" --present --timeout 5000 >/dev/null
+        # Centre Y of the widget with key $1, from the describe JSON.
+        y_for_key() {
+          {{.FDB}} ext call ext.fdb.describe 2>/dev/null | grep -A4 "\"key\": \"$1\"" | sed -nE 's/.*"y": ([0-9.]+).*/\1/p' | head -1
+        }
+
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        echo "$DESCRIBE" | grep -E "key=ref_row_(6|7|8|9)$"
+        ROW=$(ref_for_key ref_row_8)
+        Y_BEFORE=$(y_for_key ref_row_8)
+        [ -n "$ROW" ] && [ -n "$Y_BEFORE" ] || fail "describe did not list ref_row_8"
+        echo "  Row 8 is @$ROW at y=$Y_BEFORE"
+
+        # scroll-to on a visible row aligns it with the top of the list, so the
+        # list scrolls by a fixed amount (fdb scroll flings a device-dependent
+        # distance). Row 8 moves up and stays mounted and on screen.
+        echo "==> scroll-to Row 6: the list scrolls a little, Row 8 moves up but stays mounted"
+        {{.FDB}} scroll-to --key ref_row_6 || fail "fdb scroll-to ref_row_6 failed"
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        echo "$DESCRIBE" | grep -E "key=ref_row_(6|7|8|9)$"
+        Y_AFTER=$(y_for_key ref_row_8)
+        echo "  Row 8 is @$(ref_for_key ref_row_8) at y=$Y_AFTER"
+        [ "$(ref_for_key ref_row_8)" = "$ROW" ] || fail "Row 8 changed its ref after a small scroll"
+        awk -v a="$Y_AFTER" -v b="$Y_BEFORE" 'BEGIN { exit !(b - a > 20 && a > 0) }' \
+          || fail "Row 8 did not move up and stay on screen (y $Y_BEFORE -> $Y_AFTER)"
+
+        echo "==> tap @$ROW (must tap Row 8 at its new position)"
+        OUTPUT=$({{.FDB}} tap "@$ROW" 2>&1) || fail "tap @$ROW failed: $OUTPUT"
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -q 'TEXT="Row 8"$' || fail "expected TEXT=\"Row 8\""
+        {{.FDB}} wait --text "taps: row8=1" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "the on-screen counter does not read 'taps: row8=1'"
+        {{.FDB}} describe 2>&1 | grep -F '"taps: row8=1"'
+        {{.FDB}} back >/dev/null 2>&1 || true
+
         echo "==> Navigating to PageView Ref Test screen"
         {{.FDB}} scroll-to --key "go_to_page_view_ref_test" >/dev/null 2>&1 || true
         {{.FDB}} tap --key "go_to_page_view_ref_test" >/dev/null 2>&1 || fail "could not navigate to PageView ref screen"
