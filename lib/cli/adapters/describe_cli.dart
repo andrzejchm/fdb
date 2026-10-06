@@ -78,19 +78,7 @@ void _printDescribeOutput(Map<String, dynamic> result) {
       final ref = entry['ref'] as int;
       final type = entry['type'] as String;
       final key = entry['key'] as String?;
-      final text = entry['text'] as String?;
-
-      // Clean up text: filter empty fragments and icon-only fragments
-      // (Flutter Icon codepoints are Unicode PUA chars U+E000-U+F8FF)
-      var cleanText = text;
-      if (cleanText != null) {
-        final parts = cleanText
-            .split(' · ')
-            .map((p) => p.trim())
-            .where((p) => p.isNotEmpty && p.runes.any((r) => r < 0xE000 || r > 0xF8FF))
-            .toList();
-        cleanText = parts.isEmpty ? null : parts.join(' · ');
-      }
+      final cleanText = describeEntryText(entry['text'] as String?);
 
       final gestures = (entry['gestures'] as List<dynamic>?)?.cast<String>();
       final rawBreadcrumb = entry['breadcrumb'] as List<dynamic>?;

@@ -64,7 +64,7 @@ ALWAYS run `fdb describe` before any tap, input, or scroll. It shows every inter
 
 After `fdb describe`, choose a selector in this order:
 
-1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs reset on navigation.
+1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs shift whenever the screen changes, so add `--expect-text` for anything destructive.
 2. `--key` — stable across navigation changes; prefer for repeated or scripted taps. Keys are shown in `fdb describe` output.
 3. `--text` — brittle if text is localised or changes. Use only when neither a ref nor a key is available.
 4. `--type` — most brittle; breaks on widget type refactors. Last resort before coordinates.
@@ -101,7 +101,7 @@ Requires `fdb_helper` in the app.
 fdb describe
 ```
 
-Returns a compact, text-based snapshot: interactive elements with stable `@N` refs, ancestor breadcrumbs for context, and all visible text including TextField values. Prefer this over screenshot when you need to understand the UI and interact with it.
+Returns a compact, text-based snapshot: interactive elements with `@N` refs, ancestor breadcrumbs for context, and all visible text including TextField values. Prefer this over screenshot when you need to understand the UI and interact with it.
 
 Example output:
 ```
@@ -139,7 +139,11 @@ JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lin
 
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
-**Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
+**Refs are positions, not IDs.** `@N` is the Nth entry of the screen as it is *when you run `fdb tap @N`*: fdb describes the screen again and taps whatever entry N is now. Navigation, `scroll-to`, scrolling, a list that loads more items, or a dialog opening shifts the numbers, and `@N` then means a different widget. Re-run `fdb describe` after anything that changes the screen, and pin the ref with `--expect-text` (or `--expect-type`) when a wrong tap would do damage (delete, submit, pay, create):
+
+```bash
+fdb tap @4 --expect-text "Save"     # fails, tapping nothing, if @4 is no longer "Save"
+```
 
 ## Widget selection
 
@@ -180,13 +184,14 @@ Requires `fdb_helper` in the app.
 
 ```bash
 fdb tap @3                            # tap by describe ref  ← use after fdb describe
+fdb tap @3 --expect-text "Save"       # ...and fail unless @3 still shows "Save"
 fdb tap --key "increment_button"      # tap by widget key    ← stable across navigation
 fdb tap --text "Submit"               # tap by visible text  (only if no key)
 fdb tap --type "FloatingActionButton" # tap by widget type   (last resort before coordinates)
 fdb tap --at 200,400                  # tap absolute coordinates — LAST RESORT ONLY
 ```
 
-Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`
+Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`. For `@N` the entry's text is appended: `TAPPED=ElevatedButton X=196.0 Y=410.0 TEXT="Save"`.
 
 A selector tap (and `longpress`, `double-tap`, `swipe --key/--text/--type`) only lands on a point inside the matched widget that actually reaches it. If something is on top, it retries until `--timeout` (default 5s), then fails with exit 1 and taps nothing:
 
@@ -194,6 +199,16 @@ A selector tap (and `longpress`, `double-tap`, `swipe --key/--text/--type`) only
 ERROR: ElevatedButton is not hittable: it is covered by ModalBarrier at 200.0,410.0. Dismiss what covers it or use --index/another selector
 ERROR: ElevatedButton is scrolled out of view. Bring it into view first with fdb scroll-to
 ```
+
+`fdb tap @N` goes through the same checks: it re-finds the entry's widget (type, key, position) and taps it like a selector, never at raw coordinates. These errors exit 1 and tap nothing:
+
+```
+ERROR: @4 is now TextButton "Delete", not "Save". Nothing was tapped. Refs are positions in the current screen and shift when it changes. Run `fdb describe` again.
+ERROR: @9 ElevatedButton "Item 40" is not on screen. Nothing was tapped. Scroll it into view (fdb scroll-to), then run `fdb describe` again for its new ref.
+ERROR: @4 ElevatedButton "Save" moved or disappeared before it could be tapped. Nothing was tapped. Wait for the screen to settle and run `fdb describe` again.
+```
+
+An entry on an off-screen page of a `PageView`, or scrolled out of its list, gets the `scrolled out of view` error above. Only `fdb tap` accepts `@N`.
 
 ## Long-press a widget
 
@@ -359,7 +374,7 @@ fdb screenshot                             # visual verification
 fdb describe                               # ALWAYS run first — gives @N refs, keys, visible text
 fdb tap @2                                 # tap by @N ref from describe output
 fdb tap --key perm_request_camera          # or tap by key (stable across navigation)
-fdb describe                               # re-run after every navigation — refs reset on route change
+fdb describe                               # re-run after anything that changes the screen — refs shift
 # NEVER tap by --text, --type, or --at without first running fdb describe
 # NEVER guess coordinates
 

@@ -51,6 +51,7 @@ task test:tap-disappearing-widget
 task test:tap-ignore-pointer-wrapper
 task test:tap-cupertino-button
 task test:tap-custom-button
+task test:tap-ref
 task test:input
 task test:scroll
 task test:scroll-to

@@ -147,7 +147,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 |---------|-------------|
 | `fdb double-tap --text/--key/--type <selector> [--index N]` \| `--x X --y Y` \| `--at X,Y` | Double-tap a widget or screen coordinates |
 | `fdb native-tap --at x,y` | Tap native (non-Flutter) UI — system dialogs, permission sheets (Android: `adb shell input tap`; iOS sim: falls back to in-process tap with a warning, so it can't reach system dialogs such as the paste prompt, or the software keyboard; use `fdb input` for text). **Physical iOS and macOS not supported** — use `fdb tap --at` instead. |
-| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N` | Tap a widget, coordinates, or describe ref |
+| `fdb tap --text/--key/--type <selector>`, `--at x,y`, or `@N [--expect-text T] [--expect-type T]` | Tap a widget, coordinates, or describe ref. `@N` is the Nth entry of the current screen and is tapped like a selector (fails if off screen or covered); `--expect-text`/`--expect-type` fail without tapping if the entry changed |
 | `fdb longpress --text/--key/--type <selector> [--duration <ms>]` or `--at x,y` | Long-press a widget or coordinates |
 | `fdb input [--text/--key/--type <selector>] [<text>] [--action <name>]` | Replace the text of the focused or selected field. Works with any text input (`TextField`, flutter_quill, custom `TextInputClient` editors), no keyboard needed. `--action send\|done\|next\|...` sends an IME action after the text, or alone |
 | `fdb scroll <direction> [--at x,y] [--distance px]` | Scroll in a direction |

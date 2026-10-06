@@ -4,6 +4,19 @@ import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/describe/describe_models.dart';
 
+/// The text `fdb describe` shows for an interactive entry: its ` · `-separated
+/// parts without empty and icon-only ones (Flutter icon codepoints are in the
+/// Unicode private use area U+E000-U+F8FF). Null when nothing is left.
+String? describeEntryText(String? text) {
+  if (text == null) return null;
+  final parts = text
+      .split(' · ')
+      .map((p) => p.trim())
+      .where((p) => p.isNotEmpty && p.runes.any((r) => r < 0xE000 || r > 0xF8FF))
+      .toList();
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
 /// Returns a compact snapshot of the current screen via ext.fdb.describe.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.

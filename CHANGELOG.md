@@ -1,3 +1,12 @@
+## Unreleased
+
+### Fixes
+- Fixed `fdb tap @N` tapping the wrong widget or a point outside the screen. It used to describe the screen again and tap entry N's stored coordinates, with no check that the widget there was the one the agent saw or that it was on screen. After a `scroll-to` the refs had shifted and the tap hit a different button; an entry on an off-screen `PageView` page was "tapped" at `X=-553`. Now `tap @N` re-finds the entry's widget (type, key and position) and taps it through the same checks as `--key`/`--text`: a covered, scrolled-out or off-screen widget fails with exit 1 and nothing is tapped. An entry that is not built yet fails with `ERROR: @N <type> "<text>" is not on screen. Nothing was tapped. ...`; one that moved before the tap fails with `... moved or disappeared before it could be tapped`. Needs the updated fdb_helper; an older one makes `tap @N` fail instead of tapping.
+
+### Improvements
+- New `fdb tap @N --expect-text <text>` and `--expect-type <type>`. `@N` is the Nth entry of the screen at tap time, so it shifts when the screen changes. With these flags fdb checks entry N first and fails without tapping if it changed: `ERROR: @4 is now TextButton "Delete", not "Save". Nothing was tapped. ...`. `--expect-text` matches the entry's text or one of its ` · `-separated parts.
+- `fdb tap @N` appends the entry's text to the success line: `TAPPED=ElevatedButton X=196.0 Y=410.0 TEXT="Save"`.
+
 ## 1.12.0
 
 ### Improvements
