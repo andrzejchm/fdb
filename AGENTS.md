@@ -74,6 +74,12 @@ Before developing or refactoring fdb code, read [`CODE-STYLE.md`](CODE-STYLE.md)
 
 **Full details**: [TESTING.md](TESTING.md)
 
+### Work in progress (quick reference)
+
+- **One ticket at a time.** Implement, test on devices, merge, and only then start the next ticket. Do not open several implementation PRs in parallel, even in separate worktrees or with parallel subagents: each merge forces the others to re-merge `main`, resolve conflicts and re-run device tests on the new base.
+- Parallel subagents are fine for research, reviews and checks on the one ticket in progress.
+- A ticket may produce at most one open implementation PR. Bugs found along the way become new `bd` issues, not extra PRs.
+
 ### Code style (quick reference)
 
 - **Layered architecture**: `lib/core/` is interface-agnostic (no `package:args`, no stdio writes); `lib/cli/` is the CLI adapter.

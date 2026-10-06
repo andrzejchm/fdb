@@ -358,6 +358,7 @@ mcp_Git-worktree action=remove name=<feature-name>
 
 ## Key invariants
 
+- One ticket at a time: finish (device-tested and merged) before starting the next one; never run several implementation PRs in parallel
 - `fdb_binding.dart` is registration-only — no handler logic
 - Each handler = one file, one public `handleXxx` function, no classes
 - CLI adapters use `package:args` via `runCliAdapter` — no manual for-loop parsing
