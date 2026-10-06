@@ -102,8 +102,11 @@ void main() {
     File('$pubCache/global_packages/fdb/bin/fdb.dart-3.13.4.snapshot').writeAsStringSync('');
     final f = writeBinstub('fdb', _shapeIfFi(pubCache, 'fdb', '3.12.2'));
 
-    expect((check('3.12.2') as BinstubSdkCheckRepaired).binstubs, [f.path]);
+    final result = check('3.12.2') as BinstubSdkCheckRepaired;
+
+    expect(result.binstubs, [f.path]);
     expect(f.readAsStringSync(), contains(launcherMarker));
+    expect(formatBinstubSdkCheckResult(result), isEmpty, reason: 'no kernel error was printed, so no warning');
   });
 
   test('launcher left untouched when there is nothing to fix or fdb must not touch it', () {

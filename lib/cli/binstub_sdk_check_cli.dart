@@ -19,10 +19,11 @@ void runBinstubSdkCheckCli() {
 /// Maps a [BinstubSdkCheckResult] to stderr lines.
 List<String> formatBinstubSdkCheckResult(BinstubSdkCheckResult result) => switch (result) {
       BinstubSdkCheckNoOp() => const <String>[],
-      BinstubSdkCheckRepaired(:final binstubs, :final failed) => [
-          'WARNING: fdb runs with more than one Dart SDK. Replaced ${binstubs.join(' and ')} with launchers that '
-              "run the snapshot for whichever Dart is on PATH, so the \"Can't load Kernel binary\" line won't come "
-              "back when you switch SDKs. 'dart pub global activate' restores pub's launchers.",
+      BinstubSdkCheckRepaired(:final binstubs, :final failed, :final fixedMismatch) => [
+          if (fixedMismatch)
+            'WARNING: fdb runs with more than one Dart SDK. Replaced ${binstubs.join(' and ')} with launchers that '
+                "run the snapshot for whichever Dart is on PATH, so the \"Can't load Kernel binary\" line won't come "
+                "back when you switch SDKs. 'dart pub global activate' restores pub's launchers.",
           ...failed.map(_failedLine),
         ],
       BinstubSdkCheckUnrepaired(:final failed) => failed.map(_failedLine).toList(),

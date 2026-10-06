@@ -77,10 +77,15 @@ class BinstubSdkCheckNoOp extends BinstubSdkCheckResult {
 /// At least one launcher was replaced. [failed] lists any that could not be
 /// written (usually empty).
 class BinstubSdkCheckRepaired extends BinstubSdkCheckResult {
-  const BinstubSdkCheckRepaired(this.binstubs, {this.failed = const []});
+  const BinstubSdkCheckRepaired(this.binstubs, {required this.fixedMismatch, this.failed = const []});
 
   /// Paths of the replaced launchers.
   final List<String> binstubs;
+
+  /// True when a replaced launcher hardcoded another SDK's snapshot (so the
+  /// user saw, or would see, the kernel error). False when pub had just
+  /// rewritten it for the running SDK.
+  final bool fixedMismatch;
   final List<BinstubWriteFailure> failed;
 }
 
@@ -139,6 +144,7 @@ BinstubSdkCheckResult checkBinstubSdk(BinstubSdkCheckInput input) {
     }
 
     final repaired = <String>[];
+    var fixedMismatch = false;
     final failed = <BinstubWriteFailure>[];
     for (final name in binstubNames) {
       Object? outcome;
@@ -148,14 +154,15 @@ BinstubSdkCheckResult checkBinstubSdk(BinstubSdkCheckInput input) {
         outcome = null; // One bad launcher must not hide the other's result.
       }
       switch (outcome) {
-        case final String path:
+        case (:final String path, :final bool mismatch):
           repaired.add(path);
+          fixedMismatch |= mismatch;
         case final BinstubWriteFailure f:
           failed.add(f);
       }
     }
 
-    if (repaired.isNotEmpty) return BinstubSdkCheckRepaired(repaired, failed: failed);
+    if (repaired.isNotEmpty) return BinstubSdkCheckRepaired(repaired, fixedMismatch: fixedMismatch, failed: failed);
     if (failed.isNotEmpty) return BinstubSdkCheckUnrepaired(failed);
     return const BinstubSdkCheckNoOp();
   } catch (_) {
@@ -186,7 +193,7 @@ String? _tryResolve(String path) {
   }
 }
 
-/// Returns the replaced launcher's path, a [BinstubWriteFailure], or null
+/// Returns `(path, mismatch)` for a replaced launcher, a [BinstubWriteFailure], or null
 /// when the launcher is absent, not ours, already fdb's runtime-resolving
 /// launcher, or only one SDK is in use.
 Object? _checkOne({required String binstubPath, required String running}) {
@@ -223,7 +230,7 @@ Object? _checkOne({required String binstubPath, required String running}) {
     final detail = e is FileSystemException ? _fsMessage(e) : '$e';
     return (binstub: binstubPath, from: from, to: running, detail: detail);
   }
-  return binstubPath;
+  return (path: binstubPath, mismatch: mismatch);
 }
 
 final _anySnapshot = RegExp(r'^[A-Za-z0-9_]+\.dart-(.+)\.snapshot$');
