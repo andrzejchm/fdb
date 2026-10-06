@@ -9,9 +9,20 @@ sealed class WidgetMatcher {
 
   /// Creates a [WidgetMatcher] from VM service extension params.
   ///
-  /// Priority: key → text → type → coordinates → throws.
+  /// Priority: describe ref → key → text → type → coordinates → throws.
   factory WidgetMatcher.fromParams(Map<String, String> params) {
     final index = params['index'] != null ? int.tryParse(params['index']!) : null;
+
+    // `fdb tap @N`: the widget a describe entry stands for. Separate param
+    // names so an older fdb_helper rejects them instead of tapping by type.
+    if (params.containsKey('refType')) {
+      final x = double.tryParse(params['refX'] ?? '');
+      final y = double.tryParse(params['refY'] ?? '');
+      if (x == null || y == null) {
+        throw ArgumentError('refX and refY must be valid numbers');
+      }
+      return DescribedWidgetMatcher(params['refType']!, keyValue: params['refKey'], center: Offset(x, y), index: index);
+    }
 
     if (params.containsKey('key')) {
       return KeyMatcher(params['key']!, index: index);
@@ -78,6 +89,35 @@ class TypeMatcher extends WidgetMatcher {
   @override
   bool matches(Element element, {String? Function(Widget)? extractText}) {
     return element.widget.runtimeType.toString() == typeName;
+  }
+}
+
+/// Matches the widget an `fdb describe` entry stands for: the same runtime
+/// type, the same `ValueKey<String>` (when the entry has one) and the same box
+/// centre, computed the way describe reports it.
+///
+/// Lets `fdb tap @N` go through the same hittability checks as a selector tap
+/// instead of tapping the entry's raw coordinates.
+class DescribedWidgetMatcher extends WidgetMatcher {
+  final String typeName;
+  final String? keyValue;
+  final Offset center;
+
+  const DescribedWidgetMatcher(this.typeName, {required this.center, this.keyValue, super.index});
+
+  /// Describe sends doubles that round-trip through JSON; allow for rounding.
+  static const _tolerance = 0.5;
+
+  @override
+  bool matches(Element element, {String? Function(Widget)? extractText}) {
+    final widget = element.widget;
+    if (widget.runtimeType.toString() != typeName) return false;
+    final key = widget.key;
+    if (keyValue != null && !(key is ValueKey<String> && key.value == keyValue)) return false;
+    final box = element.renderObject;
+    if (box is! RenderBox || !box.hasSize || !box.attached) return false;
+    final boxCenter = box.localToGlobal(Offset.zero) + box.size.center(Offset.zero);
+    return (boxCenter - center).distance <= _tolerance;
   }
 }
 

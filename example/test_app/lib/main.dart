@@ -17,6 +17,7 @@ import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
 import 'notification_test_screen.dart';
+import 'page_view_ref_screen.dart';
 import 'permission_test_screen.dart';
 import 'rich_editor_screen.dart';
 import 'scroll_to_test_screen.dart';
@@ -70,6 +71,7 @@ class FdbTestApp extends StatelessWidget {
         richEditorRoute: (_) => const RichEditorScreen(),
         customButtonRoute: (_) => const CustomButtonTestScreen(),
         inputLabelScopeRoute: (_) => const InputLabelScopeScreen(),
+        pageViewRefRoute: (_) => const PageViewRefScreen(),
       },
     );
   }
@@ -528,6 +530,12 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, inputLabelScopeRoute),
                 child: const Text('Input Label Scope Test'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                key: const Key('go_to_page_view_ref_test'),
+                onPressed: () => Navigator.pushNamed(context, pageViewRefRoute),
+                child: const Text('PageView Ref Test'),
               ),
               const SizedBox(height: 16),
             ],

@@ -73,6 +73,7 @@ task test:tap-cupertino-button
 task test:tap-custom-button
 task test:tap-covered-button
 task test:tap-disabled-button
+task test:tap-ref
 task test:input
 task test:input-rich
 task test:scroll
