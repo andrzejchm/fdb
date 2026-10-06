@@ -64,7 +64,7 @@ ALWAYS run `fdb describe` before any tap, input, or scroll. It shows every inter
 
 After `fdb describe`, choose a selector in this order:
 
-1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs reset on navigation.
+1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs are positional and shift after scroll or navigation.
 2. `--key` — stable across navigation changes; prefer for repeated or scripted taps. Keys are shown in `fdb describe` output.
 3. `--text` — brittle if text is localised or changes. Use only when neither a ref nor a key is available.
 4. `--type` — most brittle; breaks on widget type refactors. Last resort before coordinates.
@@ -145,7 +145,7 @@ A send button often stays disabled until the app processes `fdb input`; tap it w
 
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
-**Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
+**Refs are positional.** `fdb tap @N` re-runs describe at tap time and taps the centre of the Nth interactive entry on the current screen. After `scroll`, `scroll-to`, or navigation, @N can point at a different widget. Re-run `fdb describe` before tapping by ref, or use `--key`.
 
 ## Widget selection
 
@@ -178,7 +178,7 @@ fdb tap --at 285,508           # tap at those coordinates
 fdb screenshot                 # verify dismissed
 ```
 
-For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`.
+For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`. The system photo picker, the notification prompt, and the software keyboard can't be driven either; see `fdb skill simulator` for workarounds.
 
 ## Tap a widget
 
@@ -243,7 +243,7 @@ Requires `fdb_helper` in the app.
 
 ```bash
 fdb input --key "search_field" "flutter"   # type into field by key  ← prefer this
-fdb input --text "Search" "query text"     # type into field by label text
+fdb input --text "Search" "query text"     # type into field by its label/hint text
 fdb input "fallback text"                  # type into focused field
 fdb input "QA test" --action send          # type, then send the IME "send" action
 fdb input --action done                    # IME action only, no text
@@ -262,7 +262,7 @@ fdb tap --key "search_field"
 fdb input --key "search_field" "flutter"
 ```
 
-**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor.
+**Which widgets work:** any text input, not just `TextField`/`EditableText`. fdb_helper resolves the target (focused element by default, or the `--text`/`--key`/`--type`/`--index` match), then looks for a text input client on that element, then below it (`EditableText` first, then any `State` implementing `TextInputClient`), then above it. That covers flutter_quill (`QuillEditor` → `QuillRawEditorState`) and custom editors implementing `TextInputClient`/`DeltaTextInputClient`. `--text` on a Quill placeholder and `--type QuillEditor`/`--type QuillRawEditor` both resolve to the editor. With a selector, fdb never searches other branches of an ancestor: a match that holds several fields fails with the count, and a standalone `Text` next to a field (not its `labelText`/`hintText`) fails instead of typing into whichever field comes first. Target the field with `--key`, or `--type` plus `--index`.
 
 **Mode is replace.** The field's content is replaced with `<text>`. Text goes through the client interface (`updateEditingValue`, or `updateEditingValueWithDeltas` for `DeltaTextInputClient`), so the widget's own controller and listeners run. No soft or hardware keyboard is needed. Rich-text editors keep their trailing document newline.
 

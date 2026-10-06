@@ -300,6 +300,59 @@ void main() {
     });
   }
 
+  group('selector under a screen-level GestureDetector', () {
+    late TextEditingController first;
+    late TextEditingController second;
+
+    // A keyboard dismisser wrapping the whole screen: the nearest interactive
+    // ancestor of any plain Text on it, and an ancestor of both fields.
+    Future<void> pumpScreen(WidgetTester tester) async {
+      first = TextEditingController();
+      second = TextEditingController();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: GestureDetector(
+            onTap: () {},
+            child: Column(
+              children: [
+                TextField(controller: first),
+                const Text('Notes'),
+                TextField(controller: second, decoration: const InputDecoration(hintText: 'Notes hint')),
+              ],
+            ),
+          ),
+        ),
+      ));
+    }
+
+    testWidgets('--text on a standalone label fails instead of typing into the first field', (tester) async {
+      await pumpScreen(tester);
+
+      final result = await _enterText({'input': 'x', 'text': 'Notes'});
+
+      expect(result['error'], startsWith('enterText failed: Text is not a text input'), reason: '$result');
+      expect((first.text, second.text), ('', ''));
+    });
+
+    testWidgets('--text on a field hint types into that field', (tester) async {
+      await pumpScreen(tester);
+
+      final result = await _enterText({'input': 'x', 'text': 'Notes hint'});
+
+      expect(result['widgetType'], 'TextField', reason: '$result');
+      expect((first.text, second.text), ('', 'x'));
+    });
+
+    testWidgets('a match containing several fields fails with the count', (tester) async {
+      await pumpScreen(tester);
+
+      final result = await _enterText({'input': 'x', 'type': 'Column'});
+
+      expect(result['error'], contains('contains 2 text inputs'), reason: '$result');
+      expect((first.text, second.text), ('', ''));
+    });
+  });
+
   group('rejections', () {
     testWidgets('nothing focused: refuses instead of typing into the first field', (tester) async {
       final controller = TextEditingController();

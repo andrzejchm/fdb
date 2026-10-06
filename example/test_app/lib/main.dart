@@ -12,6 +12,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'benchmark_screens.dart';
 import 'custom_button_screen.dart';
 import 'grid_describe_screen.dart';
+import 'input_label_scope_screen.dart';
 import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
@@ -68,6 +69,7 @@ class FdbTestApp extends StatelessWidget {
         '/drawing-path-test': (_) => const DrawingPathTestScreen(),
         richEditorRoute: (_) => const RichEditorScreen(),
         customButtonRoute: (_) => const CustomButtonTestScreen(),
+        inputLabelScopeRoute: (_) => const InputLabelScopeScreen(),
       },
     );
   }
@@ -519,6 +521,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, customButtonRoute),
                 child: const Text('Custom Button Test'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                key: const Key('go_to_input_label_scope_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, inputLabelScopeRoute),
+                child: const Text('Input Label Scope Test'),
               ),
               const SizedBox(height: 16),
             ],
