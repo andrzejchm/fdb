@@ -102,4 +102,5 @@ String get launcherScript => '$_sessionDir/launcher.sh';
 String get deviceFile => '$_sessionDir/device.txt';
 String get platformFile => '$_sessionDir/platform.txt';
 String get appIdFile => '$_sessionDir/app_id.txt';
+String get projectPathFile => '$_sessionDir/project_path.txt';
 String get defaultScreenshotPath => '$_sessionDir/screenshot.png';

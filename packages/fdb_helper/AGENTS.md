@@ -11,6 +11,7 @@ lib/
     fdb_binding.dart           # Default singleton binding
     fdb_service_extensions_mixin.dart # Composable extension registration
     vm_uri_broadcaster.dart    # broadcastVmUri() — emits [FDB_VM_URI] to device log at startup
+    version.dart               # fdbHelperVersion — must equal pubspec.yaml version (test/version_test.dart)
     handlers/
       handler_utils.dart       # Shared: errorResponse()
       back_handler.dart        # ext.fdb.back
@@ -33,6 +34,7 @@ test/
   fdb_binding_test.dart                   # Tests for FdbBinding
   fdb_service_extensions_mixin_test.dart  # Tests for FdbServiceExtensionsMixin
   lifecycle_handler_test.dart             # Tests for handleLifecycle
+  version_test.dart                       # fdbHelperVersion == pubspec.yaml version
 ```
 
 ## Architecture rules

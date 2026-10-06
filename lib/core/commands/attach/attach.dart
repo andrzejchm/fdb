@@ -37,6 +37,7 @@ Future<AttachResult> attachApp(
     ensureSessionDir();
     ensureGitignored(project);
     File(deviceFile).writeAsStringSync(device);
+    writeProjectPath(project);
 
     final flutter = resolveFlutterBinary(
       project,

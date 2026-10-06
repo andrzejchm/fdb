@@ -139,6 +139,8 @@ JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lin
 
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
+**Helper version check.** `describe` prints `WARNING: The app runs fdb_helper X but the project resolves Y. Hot reload/restart does not reload it; stop and rebuild the app (fdb kill, then fdb launch).` on stderr when the running helper differs from the project's resolved `fdb_helper`, and `WARNING: fdb X with fdb_helper Y; update fdb_helper to ^X and rebuild.` when the helper is older than the CLI's major.minor. Stdout and exit code are unchanged. A helper older than 1.13 does not report its version; the warnings then say so instead of naming one. After changing `fdb_helper` in `pubspec.yaml`, run `fdb kill` and `fdb launch`. Hot reload/restart keeps the old helper.
+
 **Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
 
 ## Widget selection

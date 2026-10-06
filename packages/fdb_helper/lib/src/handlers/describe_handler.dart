@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 
 import '../element_tree_finder.dart';
 import '../hit_test_utils.dart';
+import '../version.dart';
 import 'handler_utils.dart';
 
 const _interestingGestures = {
@@ -350,6 +351,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
         'interactive': interactive,
         'texts': texts.toList(),
         'lifecycleState': WidgetsBinding.instance.lifecycleState?.name,
+        'fdbHelperVersion': fdbHelperVersion,
       }),
     );
   } catch (e) {

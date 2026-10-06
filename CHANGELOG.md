@@ -1,3 +1,11 @@
+## Unreleased
+
+### Improvements
+- `fdb describe` warns on stderr when the running app's `fdb_helper` differs from the version the project resolves (`.dart_tool/package_config.json`): `WARNING: The app runs fdb_helper X but the project resolves Y. Hot reload/restart does not reload it; stop and rebuild the app (fdb kill, then fdb launch).` It also warns when the helper is older than the fdb CLI's major.minor: `WARNING: fdb X with fdb_helper Y; update fdb_helper to ^X and rebuild.` Stdout and exit codes are unchanged.
+- `fdb doctor` reports the same problems as a `DOCTOR_CHECK=fdb_helper_version STATUS=warn RUNNING=... RESOLVED=... FDB=... HINT=...` line after `device`. The line only appears when something is off, so a healthy run still prints 5 checks.
+- `fdb launch` and `fdb attach` store the project path in `.fdb/project_path.txt`. Older sessions fall back to the session directory's parent.
+- Needs the updated fdb_helper, which reports its version. Older helpers are flagged as "does not report its version (older than 1.13)".
+
 ## 1.12.0
 
 ### Improvements

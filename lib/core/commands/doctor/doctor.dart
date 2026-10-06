@@ -1,6 +1,8 @@
+import 'package:fdb/constants.dart' as constants;
 import 'package:fdb/core/commands/doctor/doctor_models.dart';
 import 'package:fdb/core/commands/status/status.dart';
 import 'package:fdb/core/foreground_check.dart';
+import 'package:fdb/core/helper_version_check.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:fdb/core/process_utils.dart';
 
@@ -10,6 +12,9 @@ export 'package:fdb/core/commands/doctor/doctor_models.dart';
 ///
 /// Check order is part of the contract:
 /// `app_running` → `vm_service` → `fdb_helper` → `platform_tools` → `device`
+///
+/// A sixth `fdb_helper_version` check (always `warn`) is appended only when
+/// the running fdb_helper does not match the project or the fdb CLI.
 Future<DoctorResult> runDoctor(List<String> args) async {
   final checks = <CheckResult>[];
   var failed = 0;
@@ -52,8 +57,10 @@ Future<DoctorResult> runDoctor(List<String> args) async {
   }
 
   // 3. fdb_helper
+  CheckResult? helperVersionCheck;
   if (vmServiceUri != null && await _checkFdbHelper()) {
     checks.add(const CheckResult(name: 'fdb_helper', status: CheckStatus.pass));
+    helperVersionCheck = await _checkHelperVersion();
   } else {
     failed++;
     checks.add(CheckResult(
@@ -106,7 +113,32 @@ Future<DoctorResult> runDoctor(List<String> args) async {
     ));
   }
 
+  // 6. fdb_helper_version — only reported when something is off.
+  if (helperVersionCheck != null) checks.add(helperVersionCheck);
+
   return DoctorResult(checks: checks, failedCount: failed);
+}
+
+/// Returns a `warn` check when the running helper's version does not line up
+/// with the project's resolved fdb_helper or the fdb CLI, null otherwise.
+Future<CheckResult?> _checkHelperVersion() async {
+  final running = await queryRunningHelperVersion();
+  final resolved = readSessionResolvedHelperVersion();
+  final warnings = helperVersionWarnings(running: running, resolved: resolved);
+  if (warnings.isEmpty) return null;
+  return CheckResult(
+    name: 'fdb_helper_version',
+    status: CheckStatus.warn,
+    values: {
+      'RUNNING': switch (running) {
+        HelperVersionReported(:final version) => version,
+        _ => 'unreported',
+      },
+      'RESOLVED': resolved ?? 'unknown',
+      'FDB': constants.version,
+    },
+    hint: warnings.map((w) => w.replaceFirst('WARNING: ', '')).join(' '),
+  );
 }
 
 Future<String?> _checkVmService(String? statusVmServiceUri) async {

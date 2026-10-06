@@ -20,7 +20,8 @@ class CheckResult {
 
 /// Result of the full doctor diagnostic run.
 ///
-/// [checks] is ordered: app_running, vm_service, fdb_helper, platform_tools, device.
+/// [checks] is ordered: app_running, vm_service, fdb_helper, platform_tools, device,
+/// plus fdb_helper_version (warn only) when the helper version is off.
 /// [failedCount] is the number of checks with [CheckStatus.fail].
 class DoctorResult extends CommandResult {
   final List<CheckResult> checks;

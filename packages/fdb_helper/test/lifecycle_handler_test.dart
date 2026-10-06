@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fdb_helper/src/handlers/lifecycle_handler.dart';
+import 'package:fdb_helper/src/version.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,13 +14,15 @@ void main() {
   testWidgets('reports resumed when the app is in the foreground', (tester) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 
-    expect(await _callHandler(), {'status': 'Success', 'lifecycleState': 'resumed'});
+    expect(
+        await _callHandler(), {'status': 'Success', 'lifecycleState': 'resumed', 'fdbHelperVersion': fdbHelperVersion});
   });
 
   testWidgets('reports paused when another app covers this one', (tester) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     addTearDown(() => tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed));
 
-    expect(await _callHandler(), {'status': 'Success', 'lifecycleState': 'paused'});
+    expect(
+        await _callHandler(), {'status': 'Success', 'lifecycleState': 'paused', 'fdbHelperVersion': fdbHelperVersion});
   });
 }

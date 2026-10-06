@@ -30,6 +30,7 @@ String get launcherScript => controller.launcherScript;
 String get deviceFile => controller.deviceFile;
 String get platformFile => controller.platformFile;
 String get appIdFile => controller.appIdFile;
+String get projectPathFile => controller.projectPathFile;
 String get defaultScreenshotPath => controller.defaultScreenshotPath;
 
 const launchTimeoutSeconds = 300; // 5 minutes
