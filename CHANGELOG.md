@@ -6,6 +6,7 @@
 
 ### Fixes
 - `fdb launch`, `attach`, `logs` and the app-died log tail no longer fail with a `FileSystemException` when `logs.txt` contains invalid UTF-8. Malformed bytes are replaced with U+FFFD. `fdb logs --follow` also decodes new output as UTF-8 instead of Latin-1.
+- `fdb syslog` no longer dies with `FormatException: Invalid UTF-8 byte` when device logs contain bytes that aren't valid UTF-8 (seen with raw 0xFF in Android logcat). Output from `adb logcat`, `log` and `idevicesyslog`, and from `flutter run`, `flutter devices`, `crash-report`, `mem native` and attach's VM service discovery, is now decoded as UTF-8 with malformed bytes replaced by U+FFFD.
 - The log collector no longer outlives `fdb kill`. It used to stay running after the app's VM service went away (for example after a relaunch) with its PID file already deleted, so nothing could find it. It now exits when the connection closes, only removes its PID file while that file still names it, and the controller stops it on shutdown.
 
 ## 1.12.0

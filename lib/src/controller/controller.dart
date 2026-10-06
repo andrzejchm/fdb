@@ -213,9 +213,12 @@ class _FdbController implements ControllerContext {
       workingDirectory: config.project,
     );
 
-    _stdoutSub =
-        _flutterProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(_handleStdoutLine);
-    _stderrSub = _flutterProcess!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(_appendLogLine);
+    _stdoutSub = _flutterProcess!.stdout
+        .transform(tolerantUtf8.decoder)
+        .transform(const LineSplitter())
+        .listen(_handleStdoutLine);
+    _stderrSub =
+        _flutterProcess!.stderr.transform(tolerantUtf8.decoder).transform(const LineSplitter()).listen(_appendLogLine);
 
     // A SIGTERM (e.g. from `fdb launch` replacing this session) would otherwise
     // kill the controller without stopping its log collector.

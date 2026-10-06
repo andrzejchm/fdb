@@ -421,7 +421,7 @@ String? _findLocalControllerEntrypoint() {
 Future<String?> writePlatformInfoForLaunch(
   String device,
   String flutter, {
-  ProcessRunner processRunner = Process.run,
+  ProcessRunner processRunner = runProcessTolerant,
 }) async {
   try {
     final result = await processRunner(flutter, ['devices', '--machine']);

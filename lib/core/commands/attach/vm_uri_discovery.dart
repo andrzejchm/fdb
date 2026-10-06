@@ -66,6 +66,8 @@ Future<String?> _discoverAndroid({
     final result = await Process.run(
       'adb',
       ['-s', device, 'logcat', '-d', '-s', 'flutter'],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8,
     ).timeout(timeout, onTimeout: () => ProcessResult(0, 1, '', ''));
 
     if (result.exitCode != 0) return null;
@@ -106,6 +108,8 @@ Future<String?> _discoverIosSimulator({
     final result = await Process.run(
       'xcrun',
       ['simctl', 'spawn', device, 'log', 'show', '--last', '5m', '--predicate', predicate],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8,
     ).timeout(timeout, onTimeout: () => ProcessResult(0, 1, '', ''));
 
     final output = result.exitCode == 0 ? result.stdout as String : '';
@@ -116,6 +120,8 @@ Future<String?> _discoverIosSimulator({
     final fallback = await Process.run(
       'xcrun',
       ['simctl', 'spawn', device, 'log', 'show', '--last', '2m'],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8,
     ).timeout(timeout, onTimeout: () => ProcessResult(0, 1, '', ''));
 
     return _normalizeUri(_extractVmUri(fallback.stdout as String) ?? '');
@@ -172,6 +178,8 @@ Future<String?> _discoverIosPhysical({
     final showResult = await Process.run(
       '/usr/bin/log',
       ['show', '--archive', archivePath, '--predicate', predicate],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8,
     ).timeout(const Duration(seconds: 30), onTimeout: () => ProcessResult(0, 1, '', ''));
 
     final uri = _extractVmUri(showResult.stdout as String);

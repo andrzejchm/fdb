@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/core/commands/logs/logs_models.dart';
@@ -74,7 +73,7 @@ LogsResult _followStream({required File file, required String? tag}) {
   () async {
     // Emit existing content first.
     final existingBytes = file.readAsBytesSync();
-    final existing = utf8.decode(existingBytes, allowMalformed: true);
+    final existing = tolerantUtf8.decode(existingBytes);
     if (existing.isNotEmpty) {
       final existingLines = existing.split('\n');
       for (final line in existingLines) {
@@ -98,7 +97,7 @@ LogsResult _followStream({required File file, required String? tag}) {
         final newBytes = raf.readSync(currentSize - offset);
         raf.closeSync();
 
-        final newContent = utf8.decode(newBytes, allowMalformed: true);
+        final newContent = tolerantUtf8.decode(newBytes);
         final newLines = newContent.split('\n');
         for (final line in newLines) {
           if (cancelled) break;

@@ -103,17 +103,21 @@ Future<String?> _lookupIosSimulatorReason() async {
   final device = readDevice();
   if (device == null) return null;
 
-  final result = await Process.run('xcrun', [
-    'simctl',
-    'spawn',
-    device,
-    'log',
-    'show',
-    '--last',
-    '30s',
-    '--predicate',
-    'eventMessage CONTAINS "jetsam"',
-  ]);
+  final result = await Process.run(
+      'xcrun',
+      [
+        'simctl',
+        'spawn',
+        device,
+        'log',
+        'show',
+        '--last',
+        '30s',
+        '--predicate',
+        'eventMessage CONTAINS "jetsam"',
+      ],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8);
 
   if (result.exitCode != 0) return null;
 
@@ -137,16 +141,20 @@ Future<String?> _lookupAndroidReason() async {
   final device = readDevice();
   if (device == null) return null;
 
-  final result = await Process.run('adb', [
-    '-s',
-    device,
-    'logcat',
-    '-b',
-    'crash',
-    '-d',
-    '-t',
-    '50',
-  ]);
+  final result = await Process.run(
+      'adb',
+      [
+        '-s',
+        device,
+        'logcat',
+        '-b',
+        'crash',
+        '-d',
+        '-t',
+        '50',
+      ],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8);
 
   if (result.exitCode != 0) return null;
 
@@ -194,7 +202,7 @@ Future<String?> _lookupMacOsReason({int? pid}) async {
     'eventMessage CONTAINS "crash" OR eventMessage CONTAINS "killed"',
   ];
 
-  final result = await Process.run('log', args);
+  final result = await Process.run('log', args, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   if (result.exitCode != 0) return null;
 
   final output = result.stdout as String;

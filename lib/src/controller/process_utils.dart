@@ -104,13 +104,25 @@ int? readLogCollectorPid() {
   return int.tryParse(content);
 }
 
+/// UTF-8 codec that replaces malformed bytes with U+FFFD instead of throwing.
+///
+/// Use it for anything that can carry raw device or app output: `logs.txt`,
+/// `flutter run` output, `adb logcat`, `log show`, `idevicesyslog`. Pass it as
+/// `stdoutEncoding`/`stderrEncoding` to `Process.run`, or use
+/// `tolerantUtf8.decoder` on a process stream.
+const tolerantUtf8 = Utf8Codec(allowMalformed: true);
+
+/// `Process.run` that decodes stdout/stderr with [tolerantUtf8].
+Future<ProcessResult> runProcessTolerant(String executable, List<String> arguments) =>
+    Process.run(executable, arguments, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
+
 /// Reads a text file that may contain invalid UTF-8 (e.g. `logs.txt`, which
 /// carries raw app and tool output). Malformed sequences become U+FFFD instead
 /// of throwing. Returns an empty string when the file does not exist.
 String readTextTolerant(String path) {
   final file = File(path);
   if (!file.existsSync()) return '';
-  return utf8.decode(file.readAsBytesSync(), allowMalformed: true);
+  return tolerantUtf8.decode(file.readAsBytesSync());
 }
 
 /// Line-split variant of [readTextTolerant], with `readAsLinesSync` semantics.
