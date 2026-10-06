@@ -1,7 +1,7 @@
 ## Unreleased
 
 ### Fixes
-- Fixed the `Can't load Kernel binary` line coming back every time you switch between two Dart SDKs (e.g. an FVM-pinned project and a different global `dart`). fdb 1.12.0 repointed its launchers in `~/.pub-cache/bin` at the running SDK's snapshot on every mismatch, so each switch rewrote them again. fdb now replaces pub's `fdb` and `fdb-controller` launchers once, the first time it sees a mismatch, with launchers that read the version of the `dart` on PATH from its SDK's `version` file and run the matching snapshot, falling back to `dart pub global run`. fdb never rewrites them after that; `dart pub global activate` restores pub's launchers. `FDB_NO_BINSTUB_REPAIR=1` now skips the replacement silently.
+- Fixed the `Can't load Kernel binary` line coming back every time you switch between two Dart SDKs (e.g. an FVM-pinned project and a different global `dart`). fdb 1.12.0 repointed its launchers in `~/.pub-cache/bin` at the running SDK's snapshot on every mismatch, so each switch rewrote them again. fdb now replaces pub's `fdb` and `fdb-controller` launchers, once it sees a mismatch or snapshots for more than one SDK, with launchers that read the version of the `dart` on PATH from its SDK's `version` file and run the matching snapshot, falling back to `dart pub global run`. fdb never rewrites its own launchers. Pub still rewrites a launcher when it builds a snapshot for an SDK it hasn't seen, and fdb replaces it again on its next run (for `fdb`, the same run), so with SDKs that already have snapshots the launchers stay byte-identical. `dart pub global activate` restores pub's launchers. `FDB_NO_BINSTUB_REPAIR=1` now skips the replacement silently.
 
 ## 1.12.0
 

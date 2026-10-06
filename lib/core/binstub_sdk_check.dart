@@ -13,12 +13,20 @@
 /// Repointing the launcher at the running SDK's snapshot does not work when
 /// two SDKs are in use (e.g. a project pinned via FVM and a different global
 /// `dart`): every switch would rewrite it again and the error line would come
-/// back each time. Instead, the first time a mismatch is seen, fdb writes
-/// [runtimeLauncher]: it reads the running SDK's version from its `version`
-/// file (no extra process), runs that snapshot if it exists, and otherwise
-/// uses `dart pub global run`. That launcher works for every SDK, so fdb never
-/// writes it again (it carries [launcherMarker]). Pub overwrites it on the
-/// next `dart pub global activate`, which is fine.
+/// back each time. Instead fdb writes [runtimeLauncher] over pub's launcher:
+/// it reads the running SDK's version from its `version` file (no extra
+/// process), runs that snapshot if it exists, and otherwise uses
+/// `dart pub global run`. That launcher works for every SDK, so fdb never
+/// writes over it (it carries [launcherMarker]).
+///
+/// fdb replaces pub's launcher when it hardcodes another SDK's snapshot, or
+/// when `global_packages/fdb/bin/` holds a snapshot for another SDK. The
+/// second case matters because `dart pub global run` rewrites the launcher of
+/// the executable it runs whenever it builds a snapshot for a new SDK, and
+/// activation clears that directory, so another SDK's snapshot means more
+/// than one SDK has run fdb since activation. Pub's own rewrites are bounded:
+/// once every SDK in use has its snapshot, pub isn't called and the launcher
+/// stays byte-identical.
 ///
 /// Detection signal: in both the direct and the fallback path,
 /// `Platform.script` is `PUB_CACHE/global_packages/fdb/bin/<script>.dart-<running>.snapshot`.
@@ -60,8 +68,8 @@ sealed class BinstubSdkCheckResult {
   const BinstubSdkCheckResult();
 }
 
-/// Nothing to do: not a global activation, Windows, opted out, no mismatch,
-/// or the launchers are already fdb's runtime-resolving ones.
+/// Nothing to do: not a global activation, Windows, opted out, a single SDK
+/// in use, or the launchers are already fdb's runtime-resolving ones.
 class BinstubSdkCheckNoOp extends BinstubSdkCheckResult {
   const BinstubSdkCheckNoOp();
 }
@@ -69,13 +77,14 @@ class BinstubSdkCheckNoOp extends BinstubSdkCheckResult {
 /// At least one launcher was replaced. [failed] lists any that could not be
 /// written (usually empty).
 class BinstubSdkCheckRepaired extends BinstubSdkCheckResult {
-  const BinstubSdkCheckRepaired(this.repairs, {this.failed = const []});
+  const BinstubSdkCheckRepaired(this.binstubs, {this.failed = const []});
 
-  final List<BinstubRepair> repairs;
+  /// Paths of the replaced launchers.
+  final List<String> binstubs;
   final List<BinstubWriteFailure> failed;
 }
 
-/// Mismatched launchers were found but none could be written.
+/// A launcher that hardcodes another SDK's snapshot could not be replaced.
 class BinstubSdkCheckUnrepaired extends BinstubSdkCheckResult {
   const BinstubSdkCheckUnrepaired(this.failed);
 
@@ -83,8 +92,6 @@ class BinstubSdkCheckUnrepaired extends BinstubSdkCheckResult {
 }
 
 /// [from] is the SDK version pub's launcher hardcoded, [to] the running one.
-typedef BinstubRepair = ({String binstub, String from, String to});
-
 typedef BinstubWriteFailure = ({String binstub, String from, String to, String detail});
 
 /// Builds a [BinstubSdkCheckInput] from the real process environment.
@@ -118,7 +125,8 @@ final _snapshotRef = RegExp(r'"([^"]*global_packages/fdb/bin)/([A-Za-z0-9_]+)\.d
 
 /// Replaces pub's fdb launchers in `PUB_CACHE/bin/` with [runtimeLauncher]
 /// when they hardcode a snapshot from a different SDK than
-/// [BinstubSdkCheckInput.runningDartVersion]. Launchers that already carry
+/// [BinstubSdkCheckInput.runningDartVersion], or when another SDK's fdb
+/// snapshot exists. Launchers that already carry
 /// [launcherMarker] are never touched. File I/O only; never throws.
 BinstubSdkCheckResult checkBinstubSdk(BinstubSdkCheckInput input) {
   try {
@@ -130,7 +138,7 @@ BinstubSdkCheckResult checkBinstubSdk(BinstubSdkCheckInput input) {
       return const BinstubSdkCheckNoOp();
     }
 
-    final repairs = <BinstubRepair>[];
+    final repaired = <String>[];
     final failed = <BinstubWriteFailure>[];
     for (final name in binstubNames) {
       Object? outcome;
@@ -140,14 +148,14 @@ BinstubSdkCheckResult checkBinstubSdk(BinstubSdkCheckInput input) {
         outcome = null; // One bad launcher must not hide the other's result.
       }
       switch (outcome) {
-        case final BinstubRepair r:
-          repairs.add(r);
+        case final String path:
+          repaired.add(path);
         case final BinstubWriteFailure f:
           failed.add(f);
       }
     }
 
-    if (repairs.isNotEmpty) return BinstubSdkCheckRepaired(repairs, failed: failed);
+    if (repaired.isNotEmpty) return BinstubSdkCheckRepaired(repaired, failed: failed);
     if (failed.isNotEmpty) return BinstubSdkCheckUnrepaired(failed);
     return const BinstubSdkCheckNoOp();
   } catch (_) {
@@ -178,8 +186,9 @@ String? _tryResolve(String path) {
   }
 }
 
-/// Returns null when the launcher is absent, not ours, already fdb's
-/// runtime-resolving launcher, or pub's launcher for the running SDK.
+/// Returns the replaced launcher's path, a [BinstubWriteFailure], or null
+/// when the launcher is absent, not ours, already fdb's runtime-resolving
+/// launcher, or only one SDK is in use.
 Object? _checkOne({required String binstubPath, required String running}) {
   // Resolve symlinks so the rename replaces the real file, not the link.
   final path = _tryResolve(binstubPath);
@@ -197,20 +206,37 @@ Object? _checkOne({required String binstubPath, required String running}) {
   if (lines.any((l) => l.trim() == launcherMarker)) return null;
 
   final ref = _snapshotRef.firstMatch(content);
-  if (ref == null || ref.group(3) == running) return null;
+  if (ref == null) return null;
+  final snapshotDir = ref.group(1)!;
   final from = ref.group(3)!;
+  final mismatch = from != running;
+  if (!mismatch && !_hasOtherSdkSnapshot(snapshotDir, running)) return null;
 
   // Keep pub's header (shebang + `# Package:` etc.) so pub still recognises
   // the file as fdb's on `activate` / `deactivate`.
   final header = lines.takeWhile((l) => l.startsWith('#')).join('\n');
-  final launcher = runtimeLauncher(header: header, snapshotDir: ref.group(1)!, script: ref.group(2)!);
   try {
-    _atomicRewrite(file, launcher);
+    _atomicRewrite(file, runtimeLauncher(header: header, snapshotDir: snapshotDir, script: ref.group(2)!));
   } catch (e) {
+    // Only worth a warning when this launcher is the one printing the error.
+    if (!mismatch) return null;
     final detail = e is FileSystemException ? _fsMessage(e) : '$e';
     return (binstub: binstubPath, from: from, to: running, detail: detail);
   }
-  return (binstub: binstubPath, from: from, to: running);
+  return binstubPath;
+}
+
+final _anySnapshot = RegExp(r'^[A-Za-z0-9_]+\.dart-(.+)\.snapshot$');
+
+bool _hasOtherSdkSnapshot(String snapshotDir, String running) {
+  try {
+    return Directory(snapshotDir).listSync().any((e) {
+      final v = _anySnapshot.firstMatch(e.uri.pathSegments.last)?.group(1);
+      return v != null && v != running;
+    });
+  } catch (_) {
+    return false; // Missing dir — nothing to compare against.
+  }
 }
 
 /// POSIX sh launcher that runs `snapshotDir/script.dart-VERSION.snapshot`,

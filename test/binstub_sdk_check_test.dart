@@ -74,10 +74,7 @@ void main() {
     final result = check('3.12.2') as BinstubSdkCheckRepaired;
 
     expect(result.failed, isEmpty);
-    expect(result.repairs, [
-      (binstub: fdb.path, from: '3.13.4', to: '3.12.2'),
-      (binstub: controller.path, from: '3.13.4', to: '3.12.2'),
-    ]);
+    expect(result.binstubs, [fdb.path, controller.path]);
     final fdbAfter = fdb.readAsStringSync();
     final controllerAfter = controller.readAsStringSync();
     for (final (content, script) in [(fdbAfter, 'fdb'), (controllerAfter, 'controller')]) {
@@ -92,13 +89,21 @@ void main() {
         expect(f.statSync().mode & 0x1ff, 0x1ed, reason: '${f.path} must stay 0755');
       }
     }
-    expect(formatBinstubSdkCheckResult(result).single, contains("Dart 3.13.4 but 'dart' on PATH is 3.12.2"));
+    expect(formatBinstubSdkCheckResult(result).single, contains('Replaced ${fdb.path} and ${controller.path}'));
 
     for (final running in ['3.13.4', '3.12.2', '3.13.4', '3.11.5']) {
       expect(check(running), isA<BinstubSdkCheckNoOp>(), reason: running);
       expect(fdb.readAsStringSync(), fdbAfter);
       expect(controller.readAsStringSync(), controllerAfter);
     }
+  });
+
+  test('matching launcher replaced when another SDK already built a snapshot (pub rewrote it)', () {
+    File('$pubCache/global_packages/fdb/bin/fdb.dart-3.13.4.snapshot').writeAsStringSync('');
+    final f = writeBinstub('fdb', _shapeIfFi(pubCache, 'fdb', '3.12.2'));
+
+    expect((check('3.12.2') as BinstubSdkCheckRepaired).binstubs, [f.path]);
+    expect(f.readAsStringSync(), contains(launcherMarker));
   });
 
   test('launcher left untouched when there is nothing to fix or fdb must not touch it', () {
