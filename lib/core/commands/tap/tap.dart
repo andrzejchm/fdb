@@ -1,4 +1,5 @@
 import 'package:fdb/core/commands/tap/tap_models.dart';
+import 'package:fdb/core/gesture_retry.dart';
 import 'package:fdb/src/controller/commands/fdb_tap.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
@@ -61,11 +62,7 @@ Future<TapResult> _tapWithParams(String isolateId, TapInput input, FdbTapRunner 
 
     final error = result.error;
     if (error != null) {
-      final isRetryable = error.contains('not found') ||
-          error.contains('No hittable element') ||
-          // Covered (dialog closing, sheet animating): retry until --timeout.
-          error.contains(' is not hittable: ');
-      if (isRetryable && DateTime.now().isBefore(deadline)) {
+      if (isRetryableGestureError(error) && DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 500));
         continue;
       }
