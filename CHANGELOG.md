@@ -1,4 +1,4 @@
-## Unreleased
+## 1.13.0
 
 ### Improvements
 - `fdb launch --timeout <seconds>` sets how long launch waits for the app to start. The default is now 600 seconds (was 300), because first debug builds of large apps often take longer. `fdb attach --timeout` works the same way (default stays 300). Invalid values print `ERROR: Invalid value for --timeout: <value>`.

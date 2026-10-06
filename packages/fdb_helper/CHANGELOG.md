@@ -1,7 +1,13 @@
-## Unreleased
+## 1.13.0
 
 ### Improvements
 - `ext.fdb.lifecycle` and `ext.fdb.describe` report the package version as `fdbHelperVersion`, so fdb can warn when the running app was built with a different fdb_helper than the project resolves.
+- `ext.fdb.describe` refs are stable IDs: a ref names one widget instance while it stays mounted and is never reused within an app run. Every selector extension accepts `ref`; a stale ref fails without acting. Describe also returns `removedRefs`.
+- `ext.fdb.describe` marks disabled interactive widgets with `enabled: false`.
+
+### Fixes
+- Selector `tap`, `longPress` and `doubleTap` on a disabled widget fail with `<Type> is disabled` instead of tapping it.
+- `enterText` by selector resolves the field from the matched widget, never from the subtree of a screen-level `GestureDetector`, so it no longer types into an unrelated field.
 
 ## 1.12.0
 
