@@ -33,7 +33,15 @@ String get appIdFile => controller.appIdFile;
 String get projectPathFile => controller.projectPathFile;
 String get defaultScreenshotPath => controller.defaultScreenshotPath;
 
-const launchTimeoutSeconds = 300; // 5 minutes
+/// Default `fdb launch --timeout`. First debug builds of large apps (CocoaPods,
+/// Gradle, Xcode from a cold cache) routinely take longer than 5 minutes, and
+/// the wait already ends early when the build fails, so a longer ceiling only
+/// costs time when a build is genuinely still running.
+const launchTimeoutSeconds = 600; // 10 minutes
+
+/// Default `fdb attach --timeout`. Attach does not build, so it keeps the
+/// previous 5 minute ceiling.
+const attachTimeoutSeconds = 300; // 5 minutes
 const reloadTimeoutSeconds = 10;
 const restartTimeoutSeconds = 10;
 const killTimeoutSeconds = 10;

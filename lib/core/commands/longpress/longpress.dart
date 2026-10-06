@@ -1,12 +1,13 @@
 import 'package:fdb/core/commands/longpress/longpress_models.dart';
+import 'package:fdb/core/gesture_retry.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/longpress/longpress_models.dart';
 
 /// Long-presses a widget or coordinates in the running Flutter app.
 ///
-/// Includes a retry loop (500 ms poll until deadline) for "not found" /
-/// "No hittable element" errors. Never throws; all error conditions are
+/// Includes a retry loop (500 ms poll until deadline) for missing, covered and
+/// disabled targets. Never throws; all error conditions are
 /// represented as sealed result cases.
 Future<LongpressResult> longpressWidget(LongpressInput input) async {
   try {
@@ -38,11 +39,7 @@ Future<LongpressResult> longpressWidget(LongpressInput input) async {
 
       final error = result.error;
       if (error != null) {
-        final isRetryable = error.contains('not found') ||
-            error.contains('No hittable element') ||
-            // Covered (dialog closing, sheet animating): retry until --timeout.
-            error.contains(' is not hittable: ');
-        if (isRetryable && DateTime.now().isBefore(deadline)) {
+        if (isRetryableGestureError(error) && DateTime.now().isBefore(deadline)) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
           continue;
         }

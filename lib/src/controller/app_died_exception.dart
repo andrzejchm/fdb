@@ -35,9 +35,7 @@ const _reasonTimeoutSeconds = 3;
 /// Reads the last [_logTailLines] lines from `.fdb/logs.txt`.
 List<String> readLastLogLines() {
   try {
-    final file = File(logFile);
-    if (!file.existsSync()) return [];
-    final lines = file.readAsLinesSync();
+    final lines = readLinesTolerant(logFile);
     if (lines.length <= _logTailLines) return lines;
     return lines.sublist(lines.length - _logTailLines);
   } catch (_) {
@@ -105,17 +103,21 @@ Future<String?> _lookupIosSimulatorReason() async {
   final device = readDevice();
   if (device == null) return null;
 
-  final result = await Process.run('xcrun', [
-    'simctl',
-    'spawn',
-    device,
-    'log',
-    'show',
-    '--last',
-    '30s',
-    '--predicate',
-    'eventMessage CONTAINS "jetsam"',
-  ]);
+  final result = await Process.run(
+      'xcrun',
+      [
+        'simctl',
+        'spawn',
+        device,
+        'log',
+        'show',
+        '--last',
+        '30s',
+        '--predicate',
+        'eventMessage CONTAINS "jetsam"',
+      ],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8);
 
   if (result.exitCode != 0) return null;
 
@@ -139,16 +141,20 @@ Future<String?> _lookupAndroidReason() async {
   final device = readDevice();
   if (device == null) return null;
 
-  final result = await Process.run('adb', [
-    '-s',
-    device,
-    'logcat',
-    '-b',
-    'crash',
-    '-d',
-    '-t',
-    '50',
-  ]);
+  final result = await Process.run(
+      'adb',
+      [
+        '-s',
+        device,
+        'logcat',
+        '-b',
+        'crash',
+        '-d',
+        '-t',
+        '50',
+      ],
+      stdoutEncoding: tolerantUtf8,
+      stderrEncoding: tolerantUtf8);
 
   if (result.exitCode != 0) return null;
 
@@ -196,7 +202,7 @@ Future<String?> _lookupMacOsReason({int? pid}) async {
     'eventMessage CONTAINS "crash" OR eventMessage CONTAINS "killed"',
   ];
 
-  final result = await Process.run('log', args);
+  final result = await Process.run('log', args, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   if (result.exitCode != 0) return null;
 
   final output = result.stdout as String;

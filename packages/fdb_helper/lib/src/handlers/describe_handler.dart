@@ -256,6 +256,7 @@ Future<developer.ServiceExtensionResponse> handleDescribe(
             'x': offset.dx + size.width / 2,
             'y': offset.dy + size.height / 2,
             if (gestures != null) 'gestures': gestures,
+            if (isWidgetDisabled(widget)) 'enabled': false,
             if (breadcrumb != null) 'breadcrumb': breadcrumb,
           });
 
@@ -463,6 +464,7 @@ void _collectInteractiveFromWidget(
       'y': 9999999.0,
       'built': false,
       if (gestures != null) 'gestures': gestures,
+      if (isWidgetDisabled(widget)) 'enabled': false,
     });
     return;
   }
@@ -682,30 +684,9 @@ bool _isDescribeInteractiveWidget(String typeName) => const {
 /// user-facing callbacks. A tile without these is a display element, not an
 /// interactive target (even if it has text and a key).
 bool _hasActiveCallbacks(Widget widget, String typeName) {
+  if (typeName == 'GestureDetector' || typeName == 'InkWell') return hasGestureCallbacks(widget);
   try {
     final w = widget as dynamic;
-    if (typeName == 'GestureDetector') {
-      return w.onTap != null ||
-          w.onDoubleTap != null ||
-          w.onLongPress != null ||
-          w.onVerticalDragStart != null ||
-          w.onVerticalDragUpdate != null ||
-          w.onVerticalDragEnd != null ||
-          w.onHorizontalDragStart != null ||
-          w.onHorizontalDragUpdate != null ||
-          w.onHorizontalDragEnd != null ||
-          w.onPanStart != null ||
-          w.onPanUpdate != null ||
-          w.onPanEnd != null ||
-          w.onScaleStart != null ||
-          w.onScaleUpdate != null ||
-          w.onScaleEnd != null ||
-          w.onForcePressStart != null ||
-          w.onForcePressPeak != null;
-    }
-    if (typeName == 'InkWell') {
-      return w.onTap != null || w.onDoubleTap != null || w.onLongPress != null;
-    }
     // ListTile variants — check onTap / onLongPress.
     if (typeName == 'ListTile' ||
         typeName == 'CheckboxListTile' ||

@@ -240,6 +240,20 @@ Future<SyslogResult> _spawnAndStream({
     return SyslogError('Failed to start $executable: $e');
   }
 
+  return streamSyslogProcess(process, predicate: predicate, last: last, follow: follow);
+}
+
+/// Turns a started log process (`adb logcat`, `log`, `idevicesyslog`) into a
+/// [SyslogStream]. Output is decoded as UTF-8 with malformed bytes replaced,
+/// because device logs can contain arbitrary bytes.
+///
+/// Split out from [_spawnAndStream] so tests can pass in a fake process.
+Future<SyslogResult> streamSyslogProcess(
+  Process process, {
+  required String? predicate,
+  required int? last,
+  required bool follow,
+}) async {
   if (follow) {
     return _followStream(process: process, predicate: predicate);
   } else {
@@ -265,11 +279,11 @@ SyslogResult _followStream({
   final exitCodeFuture = process.exitCode.then((code) => killed ? 0 : code);
 
   // Pipe stderr to our stderr.
-  process.stderr.transform(const SystemEncoding().decoder).listen(stderr.write);
+  process.stderr.transform(tolerantUtf8.decoder).listen(stderr.write);
 
   // Feed filtered stdout lines into the controller.
   process.stdout
-      .transform(const SystemEncoding().decoder)
+      .transform(tolerantUtf8.decoder)
       .transform(const LineSplitter())
       .where((line) => predicate == null || line.contains(predicate))
       .listen(
@@ -306,10 +320,10 @@ Future<SyslogResult> _snapshotStream({
   required String? predicate,
   required int? last,
 }) async {
-  final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).forEach(stderr.write);
+  final stderrFuture = process.stderr.transform(tolerantUtf8.decoder).forEach(stderr.write);
 
   final buffer = <String>[];
-  await for (final line in process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter())) {
+  await for (final line in process.stdout.transform(tolerantUtf8.decoder).transform(const LineSplitter())) {
     if (predicate == null || line.contains(predicate)) {
       buffer.add(line);
     }

@@ -109,7 +109,7 @@ Future<developer.ServiceExtensionResponse> handleScrollTo(
 
     while (attempt < maxAttempts) {
       // Check if target is now in tree and hittable.
-      final (:element, :matchCount, tapPoint: _, unreachable: _) = findHittableElement(matcher);
+      final (:element, :matchCount, tapPoint: _, unreachable: _, matched: _) = findHittableElement(matcher);
       if (element != null) {
         final renderObject = element.renderObject;
         if (renderObject is RenderBox) {
@@ -197,7 +197,7 @@ Future<developer.ServiceExtensionResponse> handleScrollTo(
     }
 
     // Final check after loop exhaustion.
-    final (:element, :matchCount, tapPoint: _, unreachable: _) = findHittableElement(matcher);
+    final (:element, :matchCount, tapPoint: _, unreachable: _, matched: _) = findHittableElement(matcher);
     if (element != null) {
       final renderObject = element.renderObject;
       if (renderObject is RenderBox) {

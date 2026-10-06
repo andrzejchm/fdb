@@ -17,6 +17,8 @@ import 'package:fdb/core/commands/tap/tap.dart';
 /// - `--at <x,y>`: Coordinate shorthand (e.g. 200,400)
 /// - `--timeout <secs>`: Retry timeout in seconds (default: 5)
 /// - `@N`: Positional ref from `fdb describe`
+/// - `--expect-text <value>`: With `@N`, fail unless the entry shows this text
+/// - `--expect-type <value>`: With `@N`, fail unless the entry has this type
 Future<int> runTapCli(List<String> args) async {
   final parser = ArgParser()
     ..addOption('text')
@@ -26,7 +28,9 @@ Future<int> runTapCli(List<String> args) async {
     ..addOption('x')
     ..addOption('y')
     ..addOption('at')
-    ..addOption('timeout', defaultsTo: '5');
+    ..addOption('timeout', defaultsTo: '5')
+    ..addOption('expect-text', help: 'With @N: fail unless the entry shows this text (or a " · " part of it).')
+    ..addOption('expect-type', help: 'With @N: fail unless the entry has this widget type.');
 
   return runCliAdapter(parser, args, _execute);
 }
@@ -105,6 +109,8 @@ Future<int> _execute(ArgResults results) async {
   final String? text = results['text'] as String?;
   final String? key = results['key'] as String?;
   final String? type = results['type'] as String?;
+  final expectText = results.option('expect-text');
+  final expectType = results.option('expect-type');
 
   // Validation
   if ((x == null) != (y == null)) {
@@ -117,6 +123,11 @@ Future<int> _execute(ArgResults results) async {
 
   if (usedAt && hasSelector) {
     stderr.writeln('ERROR: --at cannot be combined with --key, --text, or --type.');
+    return 1;
+  }
+
+  if ((expectText != null || expectType != null) && describeRef == null) {
+    stderr.writeln('ERROR: --expect-text and --expect-type only apply to an @N ref');
     return 1;
   }
 
@@ -134,6 +145,8 @@ Future<int> _execute(ArgResults results) async {
     y: y,
     usedAt: usedAt,
     describeRef: describeRef,
+    expectText: expectText,
+    expectType: expectType,
     timeoutSeconds: timeoutSeconds,
   );
 
@@ -147,9 +160,10 @@ Future<int> _execute(ArgResults results) async {
 /// same result formatting without duplicating the switch.
 int formatTapResult(TapResult result) {
   switch (result) {
-    case TapSuccess(:final widgetType, :final x, :final y, :final warning):
+    case TapSuccess(:final widgetType, :final x, :final y, :final warning, :final text):
+      final textSuffix = text != null ? ' TEXT="$text"' : '';
       final warningSuffix = warning != null ? ' WARNING=$warning' : '';
-      stdout.writeln('TAPPED=$widgetType X=$x Y=$y$warningSuffix');
+      stdout.writeln('TAPPED=$widgetType X=$x Y=$y$textSuffix$warningSuffix');
       return 0;
     case TapNoFdbHelper():
       stderr.writeln(
@@ -170,6 +184,28 @@ int formatTapResult(TapResult result) {
         'Run `fdb describe` to see available refs.',
       );
       return 1;
+    case TapRefMismatch(:final ref, :final type, :final text, :final expectedText, :final expectedType):
+      final expected = [
+        if (expectedType != null) expectedType,
+        if (expectedText != null) '"$expectedText"',
+      ].join(' ');
+      stderr.writeln(
+        'ERROR: @$ref is now ${_entryLabel(type, text)}, not $expected. Nothing was tapped. '
+        'Refs are positions in the current screen and shift when it changes. Run `fdb describe` again.',
+      );
+      return 1;
+    case TapRefOffScreen(:final ref, :final type, :final text):
+      stderr.writeln(
+        'ERROR: @$ref ${_entryLabel(type, text)} is not on screen. Nothing was tapped. '
+        'Scroll it into view (fdb scroll-to), then run `fdb describe` again for its new ref.',
+      );
+      return 1;
+    case TapRefMoved(:final ref, :final type, :final text):
+      stderr.writeln(
+        'ERROR: @$ref ${_entryLabel(type, text)} moved or disappeared before it could be tapped. Nothing was tapped. '
+        'Wait for the screen to settle and run `fdb describe` again.',
+      );
+      return 1;
     case TapRelayedError(:final message):
       stderr.writeln('ERROR: $message');
       return 1;
@@ -183,3 +219,5 @@ int formatTapResult(TapResult result) {
       return 1;
   }
 }
+
+String _entryLabel(String type, String? text) => text != null ? '$type "$text"' : type;

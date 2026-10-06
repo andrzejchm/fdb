@@ -12,6 +12,10 @@ typedef AttachInput = ({
   String? debugUrl,
   bool verbose,
   bool interactive,
+
+  /// Seconds to wait for the VM service URI before giving up
+  /// (`attachTimeoutSeconds` by default).
+  int timeoutSeconds,
 });
 
 /// Result of an [attachApp] invocation.

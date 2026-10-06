@@ -1650,6 +1650,126 @@ tasks:
         {{.FDB}} back >/dev/null 2>&1 || true
         echo "PASS: fdb tap on a covered button fails without tapping, and works once uncovered"
 
+  test:tap-disabled-button:
+    desc: Tap a button that the app enables ~1s later; fdb must wait for it instead of tapping it while disabled
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() {
+          echo "FAIL: $1" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        }
+
+        echo "==> Navigating to Custom Button screen"
+        {{.FDB}} scroll-to --key "go_to_custom_button_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_custom_button_test" >/dev/null 2>&1 || fail "could not navigate to custom button screen"
+        {{.FDB}} wait --key "delayed_send_button" --present --timeout 5000 >/dev/null
+
+        echo "==> describe marks the not-yet-enabled button (disabled)"
+        {{.FDB}} describe 2>&1 | grep -q 'ElevatedButton(disabled) "Send" key=delayed_material_button' \
+          || fail "expected describe line 'ElevatedButton(disabled) \"Send\" key=delayed_material_button'"
+
+        echo "==> Tapping a still-disabled button by key (must fail and tap nothing)"
+        set +e
+        OUTPUT=$({{.FDB}} tap --key "delayed_send_button" --timeout 1 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "fdb tap on a disabled button exited with $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: CustomSendButton is disabled" || fail "expected 'CustomSendButton is disabled'"
+        {{.FDB}} wait --text "delayed=0" --present --timeout 2000 >/dev/null 2>&1 \
+          || fail "the disabled tap reached the button"
+
+        echo "==> Tapping Prepare, then the button right away (must wait until it is enabled)"
+        {{.FDB}} tap --key "prepare_send" >/dev/null 2>&1 || fail "could not tap prepare_send"
+        OUTPUT=$({{.FDB}} tap --key "delayed_send_button" --timeout 5 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "TAPPED=CustomSendButton"; then
+          fail "fdb tap --key delayed_send_button (exit=$EXIT_CODE, expected TAPPED=CustomSendButton)"
+        fi
+        {{.FDB}} wait --text "delayed=1" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "expected counter 'delayed=1' after the button was enabled"
+        {{.FDB}} describe 2>&1 | grep -q 'ElevatedButton "Send" key=delayed_material_button' \
+          || fail "expected describe line 'ElevatedButton \"Send\" key=delayed_material_button' once enabled"
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb tap waits for a disabled button to be enabled and taps it once"
+
+  test:tap-ref:
+    desc: Tap a describe ref; --expect-text guards against shifted refs, off-screen refs fail without tapping
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() {
+          echo "FAIL: $1" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        }
+        ref_for_key() {
+          echo "$DESCRIBE" | grep -E "key=$1\$" | sed -E 's/.*@([0-9]+).*/\1/' | head -1
+        }
+
+        echo "==> Navigating to Grid Describe Test screen"
+        {{.FDB}} scroll-to --key "go_to_grid_describe_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_grid_describe_test" >/dev/null 2>&1 || fail "could not navigate to grid describe screen"
+        {{.FDB}} wait --key "grid_item_0" --present --timeout 5000 >/dev/null
+
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        ON_SCREEN=$(ref_for_key grid_item_0)
+        NOT_BUILT=$(ref_for_key list_item_149)
+        [ -n "$ON_SCREEN" ] && [ -n "$NOT_BUILT" ] || fail "describe did not list grid_item_0 and list_item_149"
+
+        echo "==> tap @$ON_SCREEN --expect-text 'Item 1' (wrong text, must fail)"
+        set +e
+        OUTPUT=$({{.FDB}} tap "@$ON_SCREEN" --expect-text "Item 1" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "tap with a wrong --expect-text exited with $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: @$ON_SCREEN is now ElevatedButton \"Item 0\", not \"Item 1\". Nothing was tapped." \
+          || fail "expected the ref mismatch error"
+
+        echo "==> tap @$ON_SCREEN --expect-text 'Item 0'"
+        OUTPUT=$({{.FDB}} tap "@$ON_SCREEN" --expect-text "Item 0" 2>&1) || fail "tap @$ON_SCREEN failed: $OUTPUT"
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -Eq 'TAPPED=ElevatedButton X=[0-9.]+ Y=[0-9.]+ TEXT="Item 0"$' \
+          || fail "expected TAPPED=ElevatedButton X=.. Y=.. TEXT=\"Item 0\""
+
+        echo "==> tap @$NOT_BUILT (not built on screen, must fail)"
+        set +e
+        OUTPUT=$({{.FDB}} tap "@$NOT_BUILT" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "tap on an off-screen ref exited with $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "is not on screen. Nothing was tapped." || fail "expected the not-on-screen error"
+
+        {{.FDB}} back >/dev/null 2>&1 || true
+
+        echo "==> Navigating to PageView Ref Test screen"
+        {{.FDB}} scroll-to --key "go_to_page_view_ref_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_page_view_ref_test" >/dev/null 2>&1 || fail "could not navigate to PageView ref screen"
+        {{.FDB}} wait --key "page_button_0" --present --timeout 5000 >/dev/null
+
+        DESCRIBE=$({{.FDB}} describe 2>&1)
+        NEXT_PAGE=$(ref_for_key page_button_1)
+        [ -n "$NEXT_PAGE" ] || fail "describe did not list page_button_1 on the off-screen page"
+
+        echo "==> tap @$NEXT_PAGE (button on the off-screen page, must fail)"
+        set +e
+        OUTPUT=$({{.FDB}} tap "@$NEXT_PAGE" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "tap on an off-screen page's button exited with $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: ElevatedButton is scrolled out of view" || fail "expected 'scrolled out of view'"
+        {{.FDB}} wait --text "page0=0 page1=0" --present --timeout 2000 >/dev/null 2>&1 \
+          || fail "the off-screen tap reached a page button"
+
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb tap @N checks --expect-text and refuses off-screen refs"
+
   test:input:
     desc: Enter text into a field
     dir: '{{.TEST_APP}}'
@@ -1671,6 +1791,45 @@ tasks:
           echo "FAIL: fdb input - INPUT=TextField not found in output" >&2
           exit 1
         fi
+
+  test:input-label-scope:
+    desc: fdb input --text on a standalone label inside a screen-level GestureDetector must not type into another field
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() {
+          echo "FAIL: $1" >&2
+          {{.FDB}} back >/dev/null 2>&1 || true
+          exit 1
+        }
+        echo "==> Navigating to Input Label Scope screen"
+        {{.FDB}} scroll-to --key "go_to_input_label_scope_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_input_label_scope_test" >/dev/null 2>&1 || fail "could not navigate to input label scope screen"
+        {{.FDB}} wait --key "label_scope_status" --present --timeout 5000 >/dev/null 2>&1 || fail "input label scope screen did not open"
+
+        echo "==> fdb input --text Notes (a label, not a field) must fail"
+        set +e
+        OUTPUT=$({{.FDB}} input --text "Notes" "x" 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        [ $EXIT_CODE -eq 1 ] || fail "fdb input --text Notes exited $EXIT_CODE, expected 1"
+        echo "$OUTPUT" | grep -q "ERROR: enterText failed: Text is not a text input" \
+          || fail "expected 'ERROR: enterText failed: Text is not a text input'"
+        {{.FDB}} wait --text "first=[] second=[]" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "a field changed after fdb input --text Notes (expected 'first=[] second=[]')"
+
+        echo "==> fdb input --text 'Notes hint' must type into the second field"
+        OUTPUT=$({{.FDB}} input --text "Notes hint" "y" 2>&1)
+        EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -q "INPUT=TextField"; then
+          fail "fdb input --text 'Notes hint' (exit=$EXIT_CODE, expected INPUT=TextField)"
+        fi
+        {{.FDB}} wait --text "first=[] second=[y]" --present --timeout 3000 >/dev/null 2>&1 \
+          || fail "expected 'first=[] second=[y]' after fdb input --text 'Notes hint'"
+        {{.FDB}} back >/dev/null 2>&1 || true
+        echo "PASS: fdb input by selector resolves the field from the match"
 
   test:input-rich:
     desc: Enter text + IME actions into a non-EditableText TextInputClient (flutter_quill) and a plain TextField
@@ -4451,7 +4610,10 @@ tasks:
           DEVICE: '{{.DEVICE}}'
       - task: test:tap-custom-button
       - task: test:tap-covered-button
+      - task: test:tap-disabled-button
+      - task: test:tap-ref
       - task: test:input
+      - task: test:input-label-scope
       - task: test:input-rich
       - task: test:scroll
       - task: test:scroll-to
