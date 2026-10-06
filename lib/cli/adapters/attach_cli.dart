@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/cli/interactive_repl.dart';
+import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/attach/attach.dart';
 
 /// CLI adapter for `fdb attach`.
@@ -15,6 +16,10 @@ ArgParser buildAttachArgParser() => ArgParser()
     help: 'Entry-point file used by flutter attach when needed',
   )
   ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
+  ..addOption(
+    'timeout',
+    help: 'Seconds to wait for the app to attach (default: $attachTimeoutSeconds)',
+  )
   ..addOption(
     'app-id',
     help: 'Android package name or iOS/macOS bundle id for attach discovery',
@@ -49,6 +54,9 @@ Future<int> _execute(ArgResults results, {String? sessionDir}) async {
     return 1;
   }
 
+  final timeoutSeconds = readTimeoutSecondsOption(results, defaultSeconds: attachTimeoutSeconds);
+  if (timeoutSeconds == null) return 1;
+
   final input = (
     device: device,
     project: results['project'] as String?,
@@ -60,6 +68,7 @@ Future<int> _execute(ArgResults results, {String? sessionDir}) async {
     debugUrl: results['debug-url'] as String?,
     verbose: results['verbose'] as bool,
     interactive: results['interactive'] as bool,
+    timeoutSeconds: timeoutSeconds,
   );
 
   final result = await attachApp(

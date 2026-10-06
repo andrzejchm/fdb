@@ -128,7 +128,7 @@ Future<AttachResult> attachApp(
     onProgress('attach: waiting for Flutter app on ${deviceLabel ?? 'device $device'}');
 
     try {
-      while (stopwatch.elapsed.inSeconds < launchTimeoutSeconds) {
+      while (stopwatch.elapsed.inSeconds < input.timeoutSeconds) {
         await Future<void>.delayed(const Duration(milliseconds: pollIntervalMs));
 
         final elapsedSeconds = stopwatch.elapsed.inSeconds;
@@ -142,14 +142,13 @@ Future<AttachResult> attachApp(
         if (!isProcessAlive(controllerProcess.pid)) {
           final logExists = File(logFile).existsSync();
           if (logExists) {
-            final logContent = File(logFile).readAsStringSync();
-            return AttachProcessDied(fullLog: logContent);
+            return AttachProcessDied(fullLog: readTextTolerant(logFile));
           }
           return const AttachProcessDied(noLogFile: true);
         }
 
         if (File(logFile).existsSync()) {
-          final lines = File(logFile).readAsLinesSync();
+          final lines = readLinesTolerant(logFile);
           if (lines.length > reportedLogLines) {
             for (final line in lines.skip(reportedLogLines)) {
               final progress = _progressFromLogLine(line);
@@ -166,14 +165,7 @@ Future<AttachResult> attachApp(
       }
 
       if (vmUri == null) {
-        final tailLogLines = <String>[];
-        if (File(logFile).existsSync()) {
-          final lines = File(logFile).readAsLinesSync();
-          tailLogLines.addAll(
-            lines.length > 10 ? lines.sublist(lines.length - 10) : lines,
-          );
-        }
-        return AttachTimeout(tailLogLines: tailLogLines);
+        return AttachTimeout(tailLogLines: readLogTail());
       }
 
       return AttachSuccess(

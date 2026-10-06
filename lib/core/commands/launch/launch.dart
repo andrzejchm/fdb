@@ -143,7 +143,7 @@ Future<LaunchResult> launchApp(
     onProgress('launch: starting Flutter on ${deviceLabel ?? 'device $device'}');
 
     try {
-      while (stopwatch.elapsed.inSeconds < launchTimeoutSeconds) {
+      while (stopwatch.elapsed.inSeconds < input.timeoutSeconds) {
         await Future<void>.delayed(const Duration(milliseconds: pollIntervalMs));
 
         // Heartbeat so the caller knows we're not stuck.
@@ -159,8 +159,7 @@ Future<LaunchResult> launchApp(
         if (!isProcessAlive(controllerProcess.pid)) {
           final logExists = File(logFile).existsSync();
           if (logExists) {
-            final logContent = File(logFile).readAsStringSync();
-            return LaunchProcessDied(fullLog: logContent);
+            return LaunchProcessDied(fullLog: readTextTolerant(logFile));
           } else {
             return const LaunchProcessDied(noLogFile: true);
           }
@@ -168,7 +167,7 @@ Future<LaunchResult> launchApp(
 
         if (!File(logFile).existsSync()) continue;
 
-        final lines = File(logFile).readAsLinesSync();
+        final lines = readLinesTolerant(logFile);
         if (lines.length > reportedLogLines) {
           for (final line in lines.skip(reportedLogLines)) {
             final progress = _progressFromLogLine(line);
@@ -184,14 +183,7 @@ Future<LaunchResult> launchApp(
       }
 
       if (vmUri == null) {
-        final tailLogLines = <String>[];
-        if (File(logFile).existsSync()) {
-          final lines = File(logFile).readAsLinesSync();
-          tailLogLines.addAll(
-            lines.length > 10 ? lines.sublist(lines.length - 10) : lines,
-          );
-        }
-        return LaunchTimeout(tailLogLines: tailLogLines);
+        return LaunchTimeout(tailLogLines: readLogTail());
       }
 
       final pid = readLaunchPid();
@@ -280,6 +272,12 @@ void cleanupLaunchSessionFiles() {
       file.deleteSync();
     }
   }
+}
+
+/// Returns the last [count] lines of the session log, decoded tolerantly.
+List<String> readLogTail({int count = 10}) {
+  final lines = readLinesTolerant(logFile);
+  return lines.length > count ? lines.sublist(lines.length - count) : lines;
 }
 
 class ControllerLaunchCommand {

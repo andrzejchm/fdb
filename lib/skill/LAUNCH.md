@@ -38,8 +38,10 @@ Lists all devices Flutter can target: physical phones, emulators, simulators, de
 ## Launch app
 
 ```bash
-fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>]
+fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>] [--timeout <seconds>]
 ```
+
+`--timeout` is how long to wait for the VM service (default 600 seconds). Raise it for first debug builds of large apps that print `LAUNCH_TIMEOUT` while the build is still running. An invalid value prints `ERROR: Invalid value for --timeout: <value>`. `fdb attach` takes the same flag (default 300 seconds).
 
 Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 

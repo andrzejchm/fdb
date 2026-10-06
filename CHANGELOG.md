@@ -1,3 +1,11 @@
+## Unreleased
+
+### Improvements
+- `fdb launch --timeout <seconds>` sets how long launch waits for the app to start. The default is now 600 seconds (was 300), because first debug builds of large apps often take longer. `fdb attach --timeout` works the same way (default stays 300). Invalid values print `ERROR: Invalid value for --timeout: <value>`.
+
+### Fixes
+- `fdb launch`, `attach`, `logs` and the app-died log tail no longer fail with a `FileSystemException` when `logs.txt` contains invalid UTF-8. Malformed bytes are replaced with U+FFFD. `fdb logs --follow` also decodes new output as UTF-8 instead of Latin-1.
+
 ## 1.12.0
 
 ### Improvements

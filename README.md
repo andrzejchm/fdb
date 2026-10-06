@@ -118,8 +118,8 @@ fdb kill
 | Command | Description |
 |---------|-------------|
 | `fdb devices` | List connected devices |
-| `fdb attach --device <id> --project <path> [--app-id <id>] [--debug-url <url>] [-i] [--verbose]` | Attach fdb to an already-running debug/profile Flutter app launched from Xcode, Android Studio, `simctl`, `adb`, or another native workflow |
-| `fdb launch --device <id> --project <path> [--dart-define <k=v>] [--dart-define-from-file <path>] [-i] [--verbose]` | Launch app, wait for start; use repeatable define flags to pass compile-time config through to `flutter run`, and `-i`/`--interactive` to stay in an fdb REPL |
+| `fdb attach --device <id> --project <path> [--app-id <id>] [--debug-url <url>] [--timeout <seconds>] [-i] [--verbose]` | Attach fdb to an already-running debug/profile Flutter app launched from Xcode, Android Studio, `simctl`, `adb`, or another native workflow |
+| `fdb launch --device <id> --project <path> [--timeout <seconds>] [--dart-define <k=v>] [--dart-define-from-file <path>] [-i] [--verbose]` | Launch app, wait for start (`--timeout`, default 600s); use repeatable define flags to pass compile-time config through to `flutter run`, and `-i`/`--interactive` to stay in an fdb REPL |
 | `fdb reload` | Hot reload |
 | `fdb restart` | Hot restart |
 | `fdb doctor` | Pre-flight check for app, VM service, fdb_helper, platform tools, and device state. Takes no options (no `--device`); reads the device from the session |
@@ -368,6 +368,8 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 **`WARNING: App is not in the foreground (lifecycle=paused)`** - `describe` and `screenshot` print this on stderr when the app isn't the visible app (e.g. another app is in front on the same simulator). Output reflects the app's last frame. Bring the app to the front and retry. Needs a current `fdb_helper`.
 
 **Launch hangs** - Check the device ID (`fdb devices`) and the project path.
+
+**`LAUNCH_TIMEOUT` on a first build** - Large apps can take longer than the default 600 seconds to build in debug mode the first time. Pass a longer wait, e.g. `fdb launch ... --timeout 1200`.
 
 **Screenshot fails** - check the tool for your platform is on PATH: `adb` (Android), `xcrun` (iOS simulator), `screencapture` (macOS), `xdotool` + `import` (Linux X11). Physical iOS, Windows, and Linux Wayland use `fdb_helper` — add it to your app and call `FdbBinding.ensureInitialized()`.
 

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/src/controller/pid_liveness.dart';
@@ -102,6 +103,18 @@ int? readLogCollectorPid() {
   final content = file.readAsStringSync().trim();
   return int.tryParse(content);
 }
+
+/// Reads a text file that may contain invalid UTF-8 (e.g. `logs.txt`, which
+/// carries raw app and tool output). Malformed sequences become U+FFFD instead
+/// of throwing. Returns an empty string when the file does not exist.
+String readTextTolerant(String path) {
+  final file = File(path);
+  if (!file.existsSync()) return '';
+  return utf8.decode(file.readAsBytesSync(), allowMalformed: true);
+}
+
+/// Line-split variant of [readTextTolerant], with `readAsLinesSync` semantics.
+List<String> readLinesTolerant(String path) => const LineSplitter().convert(readTextTolerant(path));
 
 /// Extracts the JSON array from `flutter devices --machine` output.
 ///

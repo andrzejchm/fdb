@@ -35,9 +35,7 @@ const _reasonTimeoutSeconds = 3;
 /// Reads the last [_logTailLines] lines from `.fdb/logs.txt`.
 List<String> readLastLogLines() {
   try {
-    final file = File(logFile);
-    if (!file.existsSync()) return [];
-    final lines = file.readAsLinesSync();
+    final lines = readLinesTolerant(logFile);
     if (lines.length <= _logTailLines) return lines;
     return lines.sublist(lines.length - _logTailLines);
   } catch (_) {

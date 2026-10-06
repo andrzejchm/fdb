@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/launch/launch.dart';
+import 'package:fdb/core/commands/logs/logs.dart';
 import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/src/controller/session.dart';
 import 'package:test/test.dart';
@@ -37,6 +40,29 @@ void main() {
 
       expect(File(appIdFile).existsSync(), isFalse);
       expect(File(platformFile).existsSync(), isFalse);
+    });
+
+    test('log readers tolerate invalid UTF-8 in logs.txt', () async {
+      final root = await _createTempSessionRoot();
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      // 0xFF / 0xFE never occur in valid UTF-8; 0xC3 is a truncated sequence.
+      File(logFile).writeAsBytesSync([
+        ...utf8.encode('first line\n'),
+        0xFF,
+        0xFE,
+        0xC3,
+        ...utf8.encode(' binary noise\nVM service ready\n'),
+      ]);
+      const expected = ['first line', '\uFFFD\uFFFD\uFFFD binary noise', 'VM service ready'];
+
+      expect(readLinesTolerant(logFile), expected);
+      expect(readLogTail(count: 2), expected.sublist(1));
+      expect(readLastLogLines(), expected);
+      final logs = await runLogs((tag: null, last: 10, follow: false, logFilePath: logFile));
+      expect(await (logs as LogsStream).lines.toList(), expected);
     });
 
     test('readLaunchPid ignores controller pid file fallback', () async {
