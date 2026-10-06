@@ -64,7 +64,7 @@ ALWAYS run `fdb describe` before any tap, input, or scroll. It shows every inter
 
 After `fdb describe`, choose a selector in this order:
 
-1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs reset on navigation.
+1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs are positional and shift after scroll or navigation.
 2. `--key` — stable across navigation changes; prefer for repeated or scripted taps. Keys are shown in `fdb describe` output.
 3. `--text` — brittle if text is localised or changes. Use only when neither a ref nor a key is available.
 4. `--type` — most brittle; breaks on widget type refactors. Last resort before coordinates.
@@ -139,7 +139,7 @@ JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lin
 
 **Foreground check.** If the app's lifecycle state isn't `resumed` (e.g. another app on the same simulator is in front), `describe` and `screenshot` print `WARNING: App is not in the foreground (lifecycle=paused). ...` (or `WARNING: App is inactive (lifecycle=inactive). ...`) on stderr. Stdout and exit code are unchanged — the output reflects the app's last frame, not what's on screen. Bring the app to the front before trusting it. Needs an fdb_helper with `ext.fdb.lifecycle`; describe JSON also carries `lifecycleState`.
 
-**Refs reset on navigation.** Always re-run `fdb describe` after navigating to get fresh refs.
+**Refs are positional.** `fdb tap @N` re-runs describe at tap time and taps the centre of the Nth interactive entry on the current screen. After `scroll`, `scroll-to`, or navigation, @N can point at a different widget. Re-run `fdb describe` before tapping by ref, or use `--key`.
 
 ## Widget selection
 
@@ -172,7 +172,7 @@ fdb tap --at 285,508           # tap at those coordinates
 fdb screenshot                 # verify dismissed
 ```
 
-For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`.
+For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`. The system photo picker, the notification prompt, and the software keyboard can't be driven either; see `fdb skill simulator` for workarounds.
 
 ## Tap a widget
 

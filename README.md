@@ -379,6 +379,14 @@ Release builds compile a safe `fdb_helper` stub on Android, iOS, and macOS, so A
 
 **Widget interaction fails** - `fdb_helper` missing from `pubspec.yaml`, or `FdbBinding.ensureInitialized()` not called.
 
+**Reaching for `simctl`, `idb`, or `adb` directly** - check fdb first: `fdb grant-permission`, `fdb simulator push|location|appearance|text-size|status-bar|defaults`, `fdb clean`, and `fdb deeplink` already wrap them.
+
+**Stuck on an iOS simulator system prompt** - fdb can't tap system UI on the simulator (taps are injected in-process). Pre-grant with `fdb grant-permission` before the app asks; notifications aren't covered because `simctl privacy` has no notifications service. Use `fdb input` instead of pasting, and add an app test hook for the system photo picker. Tapping system dialogs is planned.
+
+**No software keyboard on the iOS simulator** - Simulator connects the Mac keyboard as a hardware keyboard by default, so iOS shows no on-screen keyboard and `viewInsets.bottom` stays 0. `fdb input` doesn't need it. To show it: I/O > Keyboard > Toggle Software Keyboard (Cmd+K).
+
+**`tap @N` hits the wrong widget** - refs are positional for the current screen. Re-run `fdb describe` after scrolling or navigating, or tap by `--key`.
+
 **Agent setup fails mid-flow** - Run `fdb doctor` to check app process, VM service reachability, `fdb_helper`, platform tools, and stored device state before continuing.
 
 **Running fdb itself on Windows** - fdb resolves platform tools (`adb`, `xcrun`, etc.) via `where` instead of `which`, and probes process liveness via `tasklist` instead of `kill -0`. `Ctrl-C` (SIGINT) is handled during `fdb launch`/`fdb attach`; graceful SIGTERM shutdown is not available on Windows (Dart itself doesn't support watching it there) — `fdb kill`/`fdb launch`'s cleanup falls back to a forceful terminate. This is newer, less-tested territory than macOS/Linux; please file an issue with the exact command and error if something doesn't work.
