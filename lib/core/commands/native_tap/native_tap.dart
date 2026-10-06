@@ -90,6 +90,8 @@ Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async 
     index: null,
     usedAt: true,
     describeRef: null,
+    expectText: null,
+    expectType: null,
     timeoutSeconds: 10,
   ));
   return NativeTapIosSimulator(x: x.toInt(), y: y.toInt(), tapResult: tapResult);

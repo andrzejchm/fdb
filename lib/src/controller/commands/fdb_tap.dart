@@ -19,7 +19,18 @@ class FdbTapCommandRequest extends WidgetSelectorCommandRequest {
     super.index,
     super.x,
     super.y,
+    this.refType,
+    this.refKey,
+    this.refX,
+    this.refY,
   });
+
+  /// Identity of an `fdb describe` entry for `fdb tap @N`: type, key and centre.
+  final String? refType;
+  final String? refKey;
+  final String? refX;
+  final String? refY;
+
   factory FdbTapCommandRequest.fromJson(Map<String, Object?> json) => FdbTapCommandRequest(
         token: ControllerJson.token(json),
         isolateId: ControllerJson.requiredString(json, 'isolateId'),
@@ -29,7 +40,25 @@ class FdbTapCommandRequest extends WidgetSelectorCommandRequest {
         index: ControllerJson.optionalString(json, 'index'),
         x: ControllerJson.optionalString(json, 'x'),
         y: ControllerJson.optionalString(json, 'y'),
+        refType: ControllerJson.optionalString(json, 'refType'),
+        refKey: ControllerJson.optionalString(json, 'refKey'),
+        refX: ControllerJson.optionalString(json, 'refX'),
+        refY: ControllerJson.optionalString(json, 'refY'),
       );
+
+  Map<String, String> get _refParams => {
+        if (refType != null) 'refType': refType!,
+        if (refKey != null) 'refKey': refKey!,
+        if (refX != null) 'refX': refX!,
+        if (refY != null) 'refY': refY!,
+      };
+
+  @override
+  Map<String, dynamic> toVmParams() => {...super.toVmParams(), ..._refParams};
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), ..._refParams};
+
   @override
   ControllerCommand get command => ControllerCommand.fdbTap;
 

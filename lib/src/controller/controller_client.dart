@@ -277,6 +277,10 @@ Future<FdbTapCommandResponse> fdbTap(Map<String, dynamic> params) async {
       index: _optionalString(params, 'index'),
       x: _optionalString(params, 'x'),
       y: _optionalString(params, 'y'),
+      refType: _optionalString(params, 'refType'),
+      refKey: _optionalString(params, 'refKey'),
+      refX: _optionalString(params, 'refX'),
+      refY: _optionalString(params, 'refY'),
     ),
   );
   return FdbTapCommandResponse.fromResponse(_responseFields(response));
