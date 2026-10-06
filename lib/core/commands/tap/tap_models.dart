@@ -9,7 +9,7 @@ typedef TapInput = ({
   double? x,
   double? y,
   bool usedAt,
-  int? describeRef,
+  int? ref,
   String? expectText,
   String? expectType,
   int timeoutSeconds,
@@ -26,7 +26,7 @@ class TapSuccess extends TapResult {
   final dynamic y;
   final String? warning;
 
-  /// Text of the tapped describe entry, for `@N` taps.
+  /// For `@N` taps: the text `fdb describe` shows for the tapped widget.
   final String? text;
   const TapSuccess({
     required this.widgetType,
@@ -39,53 +39,6 @@ class TapSuccess extends TapResult {
 
 class TapNoFdbHelper extends TapResult {
   const TapNoFdbHelper();
-}
-
-class TapRefNotFound extends TapResult {
-  final int ref;
-  const TapRefNotFound(this.ref);
-}
-
-/// The describe entry at `@N` is not the expected one (`--expect-text`,
-/// `--expect-type`): the screen changed since the agent read its refs.
-class TapRefMismatch extends TapResult {
-  final int ref;
-  final String type;
-  final String? text;
-  final String? expectedText;
-  final String? expectedType;
-  const TapRefMismatch({
-    required this.ref,
-    required this.type,
-    required this.text,
-    required this.expectedText,
-    required this.expectedType,
-  });
-}
-
-/// The describe entry at `@N` is not built on screen (an un-built list item).
-class TapRefOffScreen extends TapResult {
-  final int ref;
-  final String type;
-  final String? text;
-  const TapRefOffScreen({required this.ref, required this.type, required this.text});
-}
-
-/// The widget at `@N` moved or disappeared between describe and the tap.
-class TapRefMoved extends TapResult {
-  final int ref;
-  final String type;
-  final String? text;
-  const TapRefMoved({required this.ref, required this.type, required this.text});
-}
-
-class TapUnexpectedDescribeResponse extends TapResult {
-  const TapUnexpectedDescribeResponse();
-}
-
-class TapRelayedDescribeError extends TapResult {
-  final String message;
-  const TapRelayedDescribeError(this.message);
 }
 
 class TapRelayedError extends TapResult {

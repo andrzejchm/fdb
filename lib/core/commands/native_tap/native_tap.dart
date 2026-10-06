@@ -89,7 +89,7 @@ Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async 
     type: null,
     index: null,
     usedAt: true,
-    describeRef: null,
+    ref: null,
     expectText: null,
     expectType: null,
     timeoutSeconds: 10,

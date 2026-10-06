@@ -1,5 +1,4 @@
 import 'package:fdb/core/commands/tap/tap.dart';
-import 'package:fdb/src/controller/commands/fdb_describe.dart';
 import 'package:fdb/src/controller/commands/fdb_tap.dart';
 import 'package:test/test.dart';
 
@@ -27,88 +26,49 @@ void main() {
   });
 
   group('tap @N', () {
-    final screen = [
-      {'ref': 1, 'type': 'ElevatedButton', 'key': 'save', 'text': 'Save', 'x': 100.0, 'y': 200.0},
-      {'ref': 2, 'type': 'TextButton', 'key': null, 'text': '\uE000 · Delete', 'x': 300.0, 'y': 200.0},
-      {'ref': 3, 'type': 'ElevatedButton', 'key': null, 'text': 'Later', 'x': 0.0, 'y': 9999999.0, 'built': false},
-    ];
+    test('sends the ref and no coordinates or selector', () async {
+      final tap = _FakeTap(text: '\uE000 · Delete');
 
-    test('taps the described widget by its identity, not by raw coordinates', () async {
-      final tap = _FakeTap();
+      final result = await _tap(_input(ref: 7, expectText: 'Delete'), tap);
 
-      final result = await _tap(_input(ref: 2), tap, screen: screen);
-
-      expect(tap.calls.single, {'isolateId': 'isolates/1', 'refType': 'TextButton', 'refX': '300.0', 'refY': '200.0'});
+      expect(tap.calls.single, {'isolateId': 'isolates/1', 'ref': '7', 'expectText': 'Delete'});
       expect(
-        result,
-        isA<TapSuccess>().having((s) => (s.widgetType, s.text), 'type, text', ('TextButton', 'Delete')),
-      );
+          result, isA<TapSuccess>().having((s) => (s.widgetType, s.text), 'type, text', ('ElevatedButton', 'Delete')));
     });
 
-    test('with --expect-text matching a part of the entry text taps it', () async {
-      final tap = _FakeTap();
-
-      final result = await _tap(_input(ref: 2, expectText: 'Delete', expectType: 'TextButton'), tap, screen: screen);
-
-      expect(result, isA<TapSuccess>());
-    });
-
-    test('whose entry no longer has the expected text or type fails and taps nothing', () async {
-      for (final input in [_input(ref: 1, expectText: 'Delete'), _input(ref: 1, expectType: 'TextButton')]) {
-        final tap = _FakeTap();
-
-        final result = await _tap(input, tap, screen: screen);
-
-        expect(result, isA<TapRefMismatch>().having((m) => (m.type, m.text), 'actual', ('ElevatedButton', 'Save')));
-        expect(tap.calls, isEmpty);
-      }
-    });
-
-    test('on an entry that is not built on screen fails and taps nothing', () async {
-      final tap = _FakeTap();
-
-      final result = await _tap(_input(ref: 3), tap, screen: screen);
-
-      expect(result, isA<TapRefOffScreen>());
-      expect(tap.calls, isEmpty);
-    });
-
-    test('identity reaches ext.fdb.tap through the controller process', () {
-      const request = FdbTapCommandRequest(
-        token: 't',
-        isolateId: 'isolates/1',
-        refType: 'ElevatedButton',
-        refKey: 'save',
-        refX: '100.0',
-        refY: '200.0',
-      );
+    test('reaches ext.fdb.tap through the controller process', () {
+      const request = FdbTapCommandRequest(token: 't', isolateId: 'isolates/1', ref: '7', expectType: 'TextButton');
 
       final params = FdbTapCommandRequest.fromJson(request.toJson()).toVmParams();
 
-      expect(params, {
-        'isolateId': 'isolates/1',
-        'refType': 'ElevatedButton',
-        'refKey': 'save',
-        'refX': '100.0',
-        'refY': '200.0',
-      });
+      expect(params, {'isolateId': 'isolates/1', 'ref': '7', 'expectType': 'TextButton'});
+    });
+
+    test('to a stale widget fails at once', () async {
+      const stale = '@7 is stale: the widget was removed or rebuilt. Run fdb describe again.';
+      final tap = _FakeTap(error: stale);
+
+      final result = await _tap(_input(ref: 7), tap);
+
+      expect(result, isA<TapRelayedError>().having((e) => e.message, 'message', stale));
+      expect(tap.calls.length, 1);
     });
 
     test('to a disabled widget is retried until --timeout, then fails with "is disabled"', () async {
       final tap = _FakeTap(error: 'ElevatedButton is disabled');
 
-      final result = await _tap(_input(ref: 1, timeoutSeconds: 1), tap, screen: screen);
+      final result = await _tap(_input(ref: 1, timeoutSeconds: 1), tap);
 
       expect(result, isA<TapRelayedError>().having((e) => e.message, 'message', 'ElevatedButton is disabled'));
       expect(tap.calls.length, greaterThan(1));
     });
 
-    test('whose widget moved before the tap fails without retrying', () async {
-      final tap = _FakeTap(error: 'No hittable element found for matcher');
+    test('with an fdb_helper that has no refs fails and says to update it', () async {
+      final tap = _FakeTap(error: 'params must contain at least one of: key, text, type, or both x and y');
 
-      final result = await _tap(_input(ref: 1), tap, screen: screen);
+      final result = await _tap(_input(ref: 1), tap);
 
-      expect(result, isA<TapRefMoved>());
+      expect(result, isA<TapRelayedError>().having((e) => e.message, 'message', contains('too old for @N refs')));
       expect(tap.calls.length, 1);
     });
   });
@@ -129,29 +89,25 @@ TapInput _input({
       x: null,
       y: null,
       usedAt: false,
-      describeRef: ref,
+      ref: ref,
       expectText: expectText,
       expectType: expectType,
       timeoutSeconds: timeoutSeconds,
     );
 
-Future<TapResult> _tap(TapInput input, _FakeTap tap, {List<Map<String, Object?>> screen = const []}) => tapWidget(
+Future<TapResult> _tap(TapInput input, _FakeTap tap) => tapWidget(
       input,
       checkFdbHelperFn: () async => 'isolates/1',
       fdbTapFn: tap.call,
-      fdbDescribeFn: (_) async => FdbDescribeCommandResponse(
-        error: null,
-        snapshot: {'interactive': screen},
-        unexpected: null,
-      ),
     );
 
 /// Records ext.fdb.tap params. Fails with [error] (when set) for the first
-/// [failures] calls, then succeeds.
+/// [failures] calls, then succeeds, reporting [text] for the tapped widget.
 class _FakeTap {
-  _FakeTap({this.error, this.failures = 1 << 30});
+  _FakeTap({this.error, this.failures = 1 << 30, this.text});
 
   final String? error;
+  final String? text;
   final int failures;
   final calls = <Map<String, dynamic>>[];
 
@@ -166,6 +122,7 @@ class _FakeTap {
       x: null,
       y: null,
       warning: null,
+      text: text,
     );
   }
 }

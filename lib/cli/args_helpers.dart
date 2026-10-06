@@ -63,6 +63,30 @@ int? readTimeoutSecondsOption(ArgResults results, {required int defaultSeconds})
   return parsed;
 }
 
+/// True for an argument that looks like an `fdb describe` ref (`@...`).
+bool isRefArg(String arg) => arg.startsWith('@');
+
+/// Parses an `fdb describe` ref (`@N`, N >= 1) into N.
+///
+/// Writes `ERROR: Invalid ref: <arg>. Expected @N where N >= 1` to stderr and
+/// returns null when [arg] is malformed.
+int? parseRefArg(String arg) {
+  final ref = arg.startsWith('@') ? int.tryParse(arg.substring(1)) : null;
+  if (ref == null || ref < 1) {
+    stderr.writeln('ERROR: Invalid ref: $arg. Expected @N where N >= 1');
+    return null;
+  }
+  return ref;
+}
+
+/// Writes an error and returns true when a ref is combined with another
+/// target (a selector or coordinates).
+bool rejectRefWithOtherTarget({required int? ref, required bool hasOtherTarget}) {
+  if (ref == null || !hasOtherTarget) return false;
+  stderr.writeln('ERROR: @$ref cannot be combined with --text, --key, --type or coordinates');
+  return true;
+}
+
 /// Parses an `"x,y"` coordinate string into a `(double, double)` tuple, or
 /// returns `null` if the input is malformed.
 ///

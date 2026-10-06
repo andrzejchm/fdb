@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'widget_refs.dart';
+
 /// Sealed class hierarchy for matching widgets in the element tree.
 sealed class WidgetMatcher {
   /// Optional 0-based index for disambiguation when multiple widgets match.
@@ -10,18 +12,20 @@ sealed class WidgetMatcher {
   /// Creates a [WidgetMatcher] from VM service extension params.
   ///
   /// Priority: describe ref → key → text → type → coordinates → throws.
+  ///
+  /// Throws [ArgumentError] with [staleRefMessage] for a stale `ref`.
   factory WidgetMatcher.fromParams(Map<String, String> params) {
     final index = params['index'] != null ? int.tryParse(params['index']!) : null;
 
-    // `fdb tap @N`: the widget a describe entry stands for. Separate param
-    // names so an older fdb_helper rejects them instead of tapping by type.
-    if (params.containsKey('refType')) {
-      final x = double.tryParse(params['refX'] ?? '');
-      final y = double.tryParse(params['refY'] ?? '');
-      if (x == null || y == null) {
-        throw ArgumentError('refX and refY must be valid numbers');
-      }
-      return DescribedWidgetMatcher(params['refType']!, keyValue: params['refKey'], center: Offset(x, y), index: index);
+    // `@N` from fdb describe. An fdb_helper without refs rejects the param
+    // set ("params must contain ...") instead of matching something else.
+    final rawRef = params['ref'];
+    if (rawRef != null) {
+      final ref = int.tryParse(rawRef);
+      if (ref == null) throw ArgumentError('ref must be a number, got "$rawRef"');
+      final resolved = resolveRef(ref);
+      if (resolved == null) throw ArgumentError(staleRefMessage(ref));
+      return RefMatcher(ref, element: resolved.element, widget: resolved.widget);
     }
 
     if (params.containsKey('key')) {
@@ -92,33 +96,29 @@ class TypeMatcher extends WidgetMatcher {
   }
 }
 
-/// Matches the widget an `fdb describe` entry stands for: the same runtime
-/// type, the same `ValueKey<String>` (when the entry has one) and the same box
-/// centre, computed the way describe reports it.
+/// Matches the widget an `fdb describe` ref names (see `widget_refs.dart`):
+/// its [element] while mounted, or for a list child that was not built at
+/// describe time, the element built from its [widget] instance.
 ///
-/// Lets `fdb tap @N` go through the same hittability checks as a selector tap
-/// instead of tapping the entry's raw coordinates.
-class DescribedWidgetMatcher extends WidgetMatcher {
-  final String typeName;
-  final String? keyValue;
-  final Offset center;
+/// Goes through the same hittability checks as a selector, so a covered,
+/// disabled or scrolled-out widget fails instead of being tapped blindly.
+class RefMatcher extends WidgetMatcher {
+  final int ref;
+  final Element? element;
+  final Widget? widget;
 
-  const DescribedWidgetMatcher(this.typeName, {required this.center, this.keyValue, super.index});
-
-  /// Describe sends doubles that round-trip through JSON; allow for rounding.
-  static const _tolerance = 0.5;
+  const RefMatcher(this.ref, {this.element, this.widget});
 
   @override
   bool matches(Element element, {String? Function(Widget)? extractText}) {
-    final widget = element.widget;
-    if (widget.runtimeType.toString() != typeName) return false;
-    final key = widget.key;
-    if (keyValue != null && !(key is ValueKey<String> && key.value == keyValue)) return false;
-    final box = element.renderObject;
-    if (box is! RenderBox || !box.hasSize || !box.attached) return false;
-    final boxCenter = box.localToGlobal(Offset.zero) + box.size.center(Offset.zero);
-    return (boxCenter - center).distance <= _tolerance;
+    final target = this.element;
+    return target != null ? identical(element, target) : identical(element.widget, widget);
   }
+
+  /// The error when no hittable element matches.
+  String get notFoundMessage => element != null
+      ? 'No hittable element found for @$ref'
+      : '@$ref is not built on screen. Bring it into view with fdb scroll-to @$ref first';
 }
 
 /// Matches the currently focused element (no selector needed).

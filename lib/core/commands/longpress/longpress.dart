@@ -1,4 +1,5 @@
 import 'package:fdb/core/commands/longpress/longpress_models.dart';
+import 'package:fdb/core/describe_ref.dart';
 import 'package:fdb/core/gesture_retry.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
@@ -27,6 +28,7 @@ Future<LongpressResult> longpressWidget(LongpressInput input) async {
       if (input.index != null) params['index'] = input.index.toString();
       if (input.x != null) params['x'] = input.x.toString();
       if (input.y != null) params['y'] = input.y.toString();
+      if (input.ref != null) params['ref'] = input.ref.toString();
 
       final result = await fdbLongPress(params);
 
@@ -43,7 +45,7 @@ Future<LongpressResult> longpressWidget(LongpressInput input) async {
           await Future<void>.delayed(const Duration(milliseconds: 500));
           continue;
         }
-        return LongpressRelayedError(error);
+        return LongpressRelayedError(refAwareError(error, input.ref));
       }
 
       return LongpressUnexpectedResponse(result.unexpected.toString());

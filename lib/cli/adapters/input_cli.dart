@@ -5,8 +5,9 @@ import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/input/input.dart';
 
-/// CLI adapter for `fdb input`. Accepts optional selector flags and a
-/// positional text argument; emits one of:
+/// CLI adapter for `fdb input`. Accepts optional selector flags, an optional
+/// `@N` ref from `fdb describe` (`fdb input @N "text"`) and a positional text
+/// argument; emits one of:
 ///
 ///   `INPUT=<fieldType> VALUE=<textToEnter>`                        (text entered)
 ///   `IME_ACTION=<action> TARGET=<fieldType>`                       (--action sent)
@@ -50,8 +51,20 @@ Future<int> _execute(ArgResults results) async {
     return 1;
   }
 
-  // First positional argument is the text to enter. Optional with --action.
-  final textToEnter = results.rest.isNotEmpty ? results.rest.first : null;
+  // Positional args: [@N] [text]. A leading @N is a ref when text or --action
+  // follows it; on its own it is the text to enter.
+  var positional = results.rest;
+  int? ref;
+  if (positional.isNotEmpty && isRefArg(positional.first) && (positional.length > 1 || action != null)) {
+    ref = parseRefArg(positional.first);
+    if (ref == null) return 1;
+    positional = positional.sublist(1);
+  }
+  final hasSelector = results['text'] != null || results['key'] != null || results['type'] != null;
+  if (rejectRefWithOtherTarget(ref: ref, hasOtherTarget: hasSelector)) return 1;
+
+  // The text to enter. Optional with --action.
+  final textToEnter = positional.isNotEmpty ? positional.first : null;
   if (textToEnter == null && action == null) {
     stderr.writeln('ERROR: No input text provided');
     return 1;
@@ -62,6 +75,7 @@ Future<int> _execute(ArgResults results) async {
     key: results['key'] as String?,
     type: results['type'] as String?,
     index: index,
+    ref: ref,
     textToEnter: textToEnter,
     action: action,
   ));

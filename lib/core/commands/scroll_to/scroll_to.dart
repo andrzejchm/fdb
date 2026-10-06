@@ -1,4 +1,5 @@
 import 'package:fdb/core/commands/scroll_to/scroll_to_models.dart';
+import 'package:fdb/core/describe_ref.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/scroll_to/scroll_to_models.dart';
@@ -16,6 +17,7 @@ Future<ScrollToResult> scrollTo(ScrollToInput input) async {
     if (input.key != null) params['key'] = input.key!;
     if (input.type != null) params['type'] = input.type!;
     if (input.index != null) params['index'] = input.index.toString();
+    if (input.ref != null) params['ref'] = input.ref.toString();
 
     final result = await fdbScrollTo(params);
 
@@ -27,7 +29,7 @@ Future<ScrollToResult> scrollTo(ScrollToInput input) async {
       return ScrollToSuccess(widgetType: widgetType, x: x, y: y);
     }
 
-    if (result.error != null) return ScrollToRelayedError(result.error!);
+    if (result.error != null) return ScrollToRelayedError(refAwareError(result.error!, input.ref));
 
     return ScrollToUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {

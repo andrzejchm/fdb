@@ -1,7 +1,7 @@
 import 'package:fdb/core/models/command_result.dart';
 
 /// Input parameters for [scrollTo].
-typedef ScrollToInput = ({String? text, String? key, String? type, int? index});
+typedef ScrollToInput = ({String? text, String? key, String? type, int? index, int? ref});
 
 /// Result of a [scrollTo] invocation.
 ///

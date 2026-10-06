@@ -1,4 +1,5 @@
 import 'package:fdb/core/commands/input/input_models.dart';
+import 'package:fdb/core/describe_ref.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/input/input_models.dart';
@@ -21,7 +22,7 @@ Future<InputResult> enterText(InputInput input) async {
       if (input.action != null) 'action': input.action,
     };
 
-    final hasSelector = input.text != null || input.key != null || input.type != null;
+    final hasSelector = input.text != null || input.key != null || input.type != null || input.ref != null;
     if (!hasSelector) {
       params['focused'] = 'true';
     }
@@ -29,6 +30,7 @@ Future<InputResult> enterText(InputInput input) async {
     if (input.key != null) params['key'] = input.key;
     if (input.type != null) params['type'] = input.type;
     if (input.index != null) params['index'] = input.index.toString();
+    if (input.ref != null) params['ref'] = input.ref.toString();
 
     final result = await fdbEnterText(params);
 
@@ -51,7 +53,7 @@ Future<InputResult> enterText(InputInput input) async {
       );
     }
 
-    if (result.error != null) return InputRelayedError(result.error!);
+    if (result.error != null) return InputRelayedError(refAwareError(result.error!, input.ref));
 
     return InputUnexpectedResponse(result.unexpected);
   } on AppDiedException catch (e) {

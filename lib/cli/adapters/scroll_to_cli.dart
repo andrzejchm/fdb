@@ -5,12 +5,13 @@ import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/app_died_exception.dart';
 import 'package:fdb/core/commands/scroll_to/scroll_to.dart';
 
-/// CLI adapter for `fdb scroll-to`. Accepts --text, --key, --type, --index.
+/// CLI adapter for `fdb scroll-to`. Accepts --text, --key, --type, --index, or
+/// an `@N` ref from `fdb describe`.
 ///
 /// Output contract:
 ///
 ///   SCROLLED_TO=widgetType X=x Y=y        (success)
-///   ERROR: Provide --text, --key, or --type  (no selector)
+///   ERROR: Provide --text, --key, --type, or @N ref  (no selector)
 ///   ERROR: fdb_helper not detected in running app. ...  (no helper)
 ///   ERROR: Unexpected response from ext.fdb.scrollTo: missing x or y  (missing coords)
 ///   ERROR: message                          (relayed error / generic)
@@ -40,12 +41,20 @@ Future<int> _execute(ArgResults results) async {
   final key = results['key'] as String?;
   final type = results['type'] as String?;
 
-  if (text == null && key == null && type == null) {
-    stderr.writeln('ERROR: Provide --text, --key, or --type');
+  int? ref;
+  for (final arg in results.rest.where(isRefArg)) {
+    ref = parseRefArg(arg);
+    if (ref == null) return 1;
+  }
+
+  final hasSelector = text != null || key != null || type != null;
+  if (rejectRefWithOtherTarget(ref: ref, hasOtherTarget: hasSelector)) return 1;
+  if (!hasSelector && ref == null) {
+    stderr.writeln('ERROR: Provide --text, --key, --type, or @N ref');
     return 1;
   }
 
-  final result = await scrollTo((text: text, key: key, type: type, index: index));
+  final result = await scrollTo((text: text, key: key, type: type, index: index, ref: ref));
   return _format(result);
 }
 

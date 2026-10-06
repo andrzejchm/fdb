@@ -64,7 +64,7 @@ ALWAYS run `fdb describe` before any tap, input, or scroll. It shows every inter
 
 After `fdb describe`, choose a selector in this order:
 
-1. `@N` ref — use immediately from the current `fdb describe` output. Fastest path; refs shift whenever the screen changes, so add `--expect-text` for anything destructive.
+1. `@N` ref — from `fdb describe`. Fastest path. A ref names one widget and keeps naming it while that widget stays on screen; it never jumps to another widget.
 2. `--key` — stable across navigation changes; prefer for repeated or scripted taps. Keys are shown in `fdb describe` output.
 3. `--text` — brittle if text is localised or changes. Use only when neither a ref nor a key is available.
 4. `--type` — most brittle; breaks on widget type refactors. Last resort before coordinates.
@@ -147,10 +147,23 @@ A send button often stays disabled until the app processes `fdb input`; tap it w
 
 **Helper version check.** `describe` prints `WARNING: The app runs fdb_helper X but the project resolves Y. Hot reload/restart does not reload it; stop and rebuild the app (fdb kill, then fdb launch).` on stderr when the running helper differs from the project's resolved `fdb_helper`, and `WARNING: fdb X with fdb_helper Y; update fdb_helper to ^X and rebuild.` when the helper is older than the CLI's major.minor. Stdout and exit code are unchanged. A helper older than 1.13 does not report its version; the warnings then say so instead of naming one. After changing `fdb_helper` in `pubspec.yaml`, run `fdb kill` and `fdb launch`. Hot reload/restart keeps the old helper.
 
-**Refs are positions, not IDs.** `@N` is the Nth entry of the screen as it is *when you run `fdb tap @N`*: fdb describes the screen again and taps whatever entry N is now. Navigation, `scroll-to`, scrolling, a list that loads more items, or a dialog opening shifts the numbers, and `@N` then means a different widget. Re-run `fdb describe` after anything that changes the screen, and pin the ref with `--expect-text` (or `--expect-type`) when a wrong tap would do damage (delete, submit, pay, create):
+**Refs are IDs, not positions.** `@N` names one widget instance in the running app, like agent-browser's `@eN` refs. Lines stay in top-to-bottom order, so the numbers are not 1..n and have gaps:
+
+- A widget keeps its ref across describes while it stays mounted: rebuilds, state changes, scrolling within a list that keeps it built, a dialog on top.
+- A widget that is removed or replaced (its route popped, the list rebuilt with new items, a different key or type) gets a new ref, and its old ref goes stale. Stale refs fail and never reach another widget:
+  ```
+  ERROR: @12 is stale: the widget was removed or rebuilt. Run fdb describe again.
+  ```
+- Refs are never reused while the app runs. Hot reload keeps them; hot restart starts again at `@1`.
+- A list child that is not built yet (listed by describe but off screen, JSON `built: false`) also has a ref. `fdb scroll-to @N` brings it into view and it keeps the same ref once built. Tapping it before that fails with `ERROR: @N is not built on screen. Bring it into view with fdb scroll-to @N first`. Its ref goes stale when the list is rebuilt with new widgets.
+- `tap`, `longpress`, `double-tap`, `input` and `scroll-to` accept `@N`. `swipe` and `wait` don't.
+
+Run `fdb describe` again after navigation, and whenever a ref is stale. The describe JSON lists the refs from the previous describe that went stale in `removedRefs`.
+
+A ref still names the same widget when that widget changes its label (a "Follow" button that now reads "Unfollow"). Add `--expect-text` (or `--expect-type`) to taps that would do damage (delete, submit, pay, create):
 
 ```bash
-fdb tap @4 --expect-text "Save"     # fails, tapping nothing, if @4 is no longer "Save"
+fdb tap @4 --expect-text "Save"     # fails, tapping nothing, if @4 no longer shows "Save"
 ```
 
 ## Widget selection
@@ -199,7 +212,7 @@ fdb tap --type "FloatingActionButton" # tap by widget type   (last resort before
 fdb tap --at 200,400                  # tap absolute coordinates — LAST RESORT ONLY
 ```
 
-Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`. For `@N` the entry's text is appended: `TAPPED=ElevatedButton X=196.0 Y=410.0 TEXT="Save"`.
+Output: `TAPPED=<type|coordinates> X=<x> Y=<y>`. For `@N` the widget's describe text is appended: `TAPPED=ElevatedButton X=196.0 Y=410.0 TEXT="Save"`.
 
 A selector tap (and `longpress`, `double-tap`, `swipe --key/--text/--type`) only lands on a point inside the matched widget that actually reaches it. If something is on top, it retries until `--timeout` (default 5s), then fails with exit 1 and taps nothing:
 
@@ -216,21 +229,21 @@ ERROR: ElevatedButton is disabled
 
 For custom buttons, disabled means the button's own `GestureDetector`/`InkWell` has no callbacks. When fdb can't tell, it treats the widget as enabled. Coordinate taps (`--at`) don't check.
 
-`fdb tap @N` goes through the same checks: it re-finds the entry's widget (type, key, position) and taps it like a selector, never at raw coordinates. A disabled entry (`(disabled)` in describe) waits up to `--timeout` like a selector tap. These errors exit 1 and tap nothing:
+`@N` goes through the same checks: the ref's widget is tapped like a selector match, never at raw coordinates. A covered or disabled one waits up to `--timeout`; one on an off-screen `PageView` page or scrolled out of its list gets the `scrolled out of view` error above. A stale or not-built ref fails at once. A ref can't be combined with `--key`/`--text`/`--type`/`--at`. These errors exit 1 and tap nothing:
 
 ```
-ERROR: @4 is now TextButton "Delete", not "Save". Nothing was tapped. Refs are positions in the current screen and shift when it changes. Run `fdb describe` again.
-ERROR: @9 ElevatedButton "Item 40" is not on screen. Nothing was tapped. Scroll it into view (fdb scroll-to), then run `fdb describe` again for its new ref.
-ERROR: @4 ElevatedButton "Save" moved or disappeared before it could be tapped. Nothing was tapped. Wait for the screen to settle and run `fdb describe` again.
+ERROR: @12 is stale: the widget was removed or rebuilt. Run fdb describe again.
+ERROR: @40 is not built on screen. Bring it into view with fdb scroll-to @40 first
+ERROR: @4 is now TextButton "Delete", not "Save". Nothing was tapped. Run fdb describe again.
+ERROR: fdb_helper in the app is too old for @N refs. Update fdb_helper to the version of fdb and rebuild the app.
 ```
-
-An entry on an off-screen page of a `PageView`, or scrolled out of its list, gets the `scrolled out of view` error above. Only `fdb tap` accepts `@N`.
 
 ## Long-press a widget
 
 Requires `fdb_helper` in the app.
 
 ```bash
+fdb longpress @5                             # long-press a describe ref
 fdb longpress --key "photo_card"             # long-press by key (default 500ms)
 fdb longpress --text "Hold me"              # long-press by text
 fdb longpress --type "GestureDetector"      # long-press by type
@@ -245,6 +258,7 @@ Output: `LONG_PRESSED=<type|coordinates> X=<x> Y=<y>`
 Requires `fdb_helper` in the app.
 
 ```bash
+fdb double-tap @5
 fdb double-tap --key "map_widget"
 fdb double-tap --text "Zoom here"
 fdb double-tap --type "InteractiveViewer"
@@ -259,12 +273,15 @@ Output: `DOUBLE_TAPPED=<type> X=<x> Y=<y>`
 Requires `fdb_helper` in the app.
 
 ```bash
+fdb input @3 "flutter"                     # type into the field behind a describe ref
 fdb input --key "search_field" "flutter"   # type into field by key  ← prefer this
 fdb input --text "Search" "query text"     # type into field by its label/hint text
 fdb input "fallback text"                  # type into focused field
 fdb input "QA test" --action send          # type, then send the IME "send" action
 fdb input --action done                    # IME action only, no text
 ```
+
+`@N` must come first and be followed by the text or `--action`; a lone `@3` is typed as text into the focused field.
 
 Output:
 ```
@@ -326,6 +343,7 @@ Requires `fdb_helper` in the app.
 Scrolls the nearest `Scrollable` until the target widget becomes visible. Works for lazy lists (`ListView.builder`) where off-screen widgets don't exist in the element tree yet — `fdb describe` won't show them until after `scroll-to`.
 
 ```bash
+fdb scroll-to @42                          # scroll a describe ref into view (also a not-built list child)
 fdb scroll-to --key "list_item_42"         # scroll until widget with key is visible  ← prefer
 fdb scroll-to --text "Item 42"             # scroll until widget with text is visible
 fdb scroll-to --type "MyListItemWidget"    # scroll until widget of type is visible
@@ -390,7 +408,7 @@ fdb screenshot                             # visual verification
 fdb describe                               # ALWAYS run first — gives @N refs, keys, visible text
 fdb tap @2                                 # tap by @N ref from describe output
 fdb tap --key perm_request_camera          # or tap by key (stable across navigation)
-fdb describe                               # re-run after anything that changes the screen — refs shift
+fdb describe                               # re-run after navigation or a stale-ref error
 # NEVER tap by --text, --type, or --at without first running fdb describe
 # NEVER guess coordinates
 

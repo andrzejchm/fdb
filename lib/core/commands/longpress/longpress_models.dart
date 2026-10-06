@@ -6,6 +6,7 @@ typedef LongpressInput = ({
   String? key,
   String? type,
   int? index,
+  int? ref,
   double? x,
   double? y,
   bool usedAt,

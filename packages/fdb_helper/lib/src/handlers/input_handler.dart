@@ -73,15 +73,7 @@ Future<developer.ServiceExtensionResponse> handleEnterText(
       // field that is covered or scrolled out of view still works. The text
       // input is resolved from the match, never from an unrelated ancestor.
       final (:element, :matched, :matchCount, tapPoint: _, unreachable: _) = findHittableElement(matcher);
-      if (element == null || matched == null) {
-        if (matchCount > 1) {
-          return errorResponse(
-            'Found $matchCount elements matching the selector. '
-            'Use --index to specify which one (0-based).',
-          );
-        }
-        return errorResponse('No hittable element found for matcher');
-      }
+      if (element == null || matched == null) return errorResponse(noMatchError(matcher, matchCount));
       try {
         target = resolveSelectorTextInput(matched, element);
       } on TextInputException catch (e) {
