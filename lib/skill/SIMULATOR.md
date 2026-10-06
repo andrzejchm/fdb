@@ -12,6 +12,7 @@ iOS simulator control — appearance, text size, status bar, location, push noti
 - Location simulation
 - Push notifications
 - NSUserDefaults
+- System prompts and the software keyboard
 - Output tokens
 
 ## Best practices
@@ -102,11 +103,27 @@ fdb simulator push --bundle-id com.example.app /tmp/push.apns  # explicit bundle
 Read/write/delete app settings without rebuilding. Useful for toggling feature flags and overriding configuration during development.
 
 ```bash
-fdb simulator defaults write --bundle-id com.example.app featureFlag "true"
+fdb simulator defaults write --bundle-id com.example.app featureFlag "true"              # string (default)
+fdb simulator defaults write --bundle-id com.example.app featureFlag true --type bool    # string|int|float|bool
 fdb simulator defaults read  --bundle-id com.example.app featureFlag   # → true
 fdb simulator defaults read  --bundle-id com.example.app               # → all defaults as JSON
 fdb simulator defaults delete --bundle-id com.example.app featureFlag
 ```
+
+## System prompts and the software keyboard
+
+fdb can't tap system UI on the iOS simulator: `fdb native-tap` and `fdb tap` inject touches inside the app process, and SpringBoard prompts run outside it. Support for tapping system dialogs is planned. Until then, keep prompts from appearing:
+
+- **Permission prompts:** run `fdb grant-permission <perm>` BEFORE the app requests it (pass `--bundle` and `--device` to do it before launch). Covers what `xcrun simctl privacy` covers: location, location-always, photos, photos-add, camera, contacts, contacts-read, microphone, calendar, reminders, motion, media-library, siri. A grant can terminate the running app; relaunch afterwards. See `fdb skill data`.
+- **Notification prompt:** NOT covered. `simctl privacy` has no notifications service, so `fdb grant-permission notifications` fails on the iOS simulator with `ERROR: 'notifications' on ios-simulator requires an external tool`. Skip the prompt in the app's debug build, or grant it with the external tool the error names.
+- **Paste prompt** ("would like to paste from CoreSimulator-Bridge"): don't paste. `fdb input` sets the field text directly.
+- **System photo picker:** fdb can't drive it. Add a debug-only test hook in the app (e.g. a VM extension called with `fdb ext call`) that injects a picked file.
+- **Photos grant:** `fdb grant-permission photos` prints `WARNING: Photos permission via simctl is unreliable on iOS simulator.` The app may still prompt or report denied.
+
+**Software keyboard.** Simulator connects the Mac keyboard as a hardware keyboard by default (I/O > Keyboard > Connect Hardware Keyboard, Shift+Cmd+K). With it on, iOS shows no on-screen keyboard, so `MediaQuery.viewInsets.bottom` stays 0 and layouts that react to keyboard insets (bottom-pinned inputs, padding, scroll-into-view) don't change. Don't treat that as a device-accurate result.
+
+- `fdb input` and `fdb input --action <name>` need no keyboard.
+- To show the keyboard, use I/O > Keyboard > Toggle Software Keyboard (Cmd+K) in Simulator. fdb has no command for this, and `native-tap` can't type on the keyboard.
 
 ## Output tokens
 
