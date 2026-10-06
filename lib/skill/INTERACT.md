@@ -137,7 +137,7 @@ VISIBLE TEXT:
 ```
 JSON fields: `editable: true`, `inputClient: <StateType>`. Plain `TextField` lines are unchanged. Target them with `fdb tap @N` + `fdb input`, or `fdb input --type QuillRawEditor`.
 
-**Disabled widgets** are flagged `(disabled)` (JSON: `enabled: false`): a button with no `onPressed`, a `Switch`/`Checkbox`/`Slider` with no `onChanged`, a `ListTile` or text field with `enabled: false`. Tapping one does nothing. Lines for enabled widgets are unchanged.
+**Disabled widgets** are flagged `(disabled)` (JSON: `enabled: false`): a button with no `onPressed`, a `Switch`/`Checkbox`/`Slider` with no `onChanged`, a `ListTile` or text field with `enabled: false`. Tapping one does nothing. Lines for enabled widgets are unchanged. A disabled custom button (its `GestureDetector` has no callbacks) is not listed at all; a selector tap on it still reports `is disabled`.
 ```
   @5 ElevatedButton(disabled) "Send" key=send_button
 ```

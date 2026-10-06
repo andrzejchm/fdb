@@ -1666,6 +1666,10 @@ tasks:
         {{.FDB}} tap --key "go_to_custom_button_test" >/dev/null 2>&1 || fail "could not navigate to custom button screen"
         {{.FDB}} wait --key "delayed_send_button" --present --timeout 5000 >/dev/null
 
+        echo "==> describe marks the not-yet-enabled button (disabled)"
+        {{.FDB}} describe 2>&1 | grep -q 'ElevatedButton(disabled) "Send" key=delayed_material_button' \
+          || fail "expected describe line 'ElevatedButton(disabled) \"Send\" key=delayed_material_button'"
+
         echo "==> Tapping a still-disabled button by key (must fail and tap nothing)"
         set +e
         OUTPUT=$({{.FDB}} tap --key "delayed_send_button" --timeout 1 2>&1)
@@ -1687,6 +1691,8 @@ tasks:
         fi
         {{.FDB}} wait --text "delayed=1" --present --timeout 3000 >/dev/null 2>&1 \
           || fail "expected counter 'delayed=1' after the button was enabled"
+        {{.FDB}} describe 2>&1 | grep -q 'ElevatedButton "Send" key=delayed_material_button' \
+          || fail "expected describe line 'ElevatedButton \"Send\" key=delayed_material_button' once enabled"
         {{.FDB}} back >/dev/null 2>&1 || true
         echo "PASS: fdb tap waits for a disabled button to be enabled and taps it once"
 

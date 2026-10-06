@@ -81,6 +81,13 @@ class _CustomButtonTestScreenState extends State<CustomButtonTestScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(key: const Key('prepare_send'), onPressed: _prepare, child: const Text('Prepare')),
+                    // Enabled together with the custom one, so `fdb describe`
+                    // shows a Material button going from (disabled) to enabled.
+                    ElevatedButton(
+                      key: const Key('delayed_material_button'),
+                      onPressed: _delayedReady ? () {} : null,
+                      child: const Text('Send'),
+                    ),
                     CustomSendButton(
                       key: const Key('delayed_send_button'),
                       onPressed: _delayedReady ? () => setState(() => _delayedTaps++) : null,
