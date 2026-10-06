@@ -47,6 +47,22 @@ Future<int> runSimpleCliAdapter(
   return execute(args);
 }
 
+/// Reads the `--timeout` option as a positive whole number of seconds,
+/// falling back to [defaultSeconds] when the flag is absent.
+///
+/// Writes `ERROR: Invalid value for --timeout: <raw>` to stderr and returns
+/// null when the value is not a positive integer.
+int? readTimeoutSecondsOption(ArgResults results, {required int defaultSeconds}) {
+  final raw = results.option('timeout');
+  if (raw == null) return defaultSeconds;
+  final parsed = int.tryParse(raw.trim());
+  if (parsed == null || parsed <= 0) {
+    stderr.writeln('ERROR: Invalid value for --timeout: $raw');
+    return null;
+  }
+  return parsed;
+}
+
 /// Parses an `"x,y"` coordinate string into a `(double, double)` tuple, or
 /// returns `null` if the input is malformed.
 ///

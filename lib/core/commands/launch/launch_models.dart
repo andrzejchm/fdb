@@ -16,6 +16,10 @@ typedef LaunchInput = ({
   bool interactive,
   List<String> dartDefines,
   List<String> dartDefineFromFiles,
+
+  /// Seconds to wait for the VM service URI before giving up
+  /// (`launchTimeoutSeconds` by default).
+  int timeoutSeconds,
 });
 
 /// Result of a [launchApp] invocation.
@@ -71,7 +75,7 @@ class LaunchProcessDied extends LaunchResult {
   });
 }
 
-/// The VM service URI did not appear within [launchTimeoutSeconds].
+/// The VM service URI did not appear within the launch timeout.
 /// [tailLogLines] contains the last 10 lines of the log (may be empty).
 class LaunchTimeout extends LaunchResult {
   final List<String> tailLogLines;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fdb/core/commands/logs/logs_models.dart';
+import 'package:fdb/core/process_utils.dart';
 
 export 'package:fdb/core/commands/logs/logs_models.dart';
 
@@ -39,7 +40,7 @@ Future<LogsResult> _snapshotStream({
   required String? tag,
   required int last,
 }) async {
-  final lines = file.readAsLinesSync();
+  final lines = readLinesTolerant(file.path);
   var filtered = tag != null ? lines.where((l) => l.contains(tag)).toList() : lines;
   if (filtered.length > last) {
     filtered = filtered.sublist(filtered.length - last);
@@ -71,7 +72,8 @@ LogsResult _followStream({required File file, required String? tag}) {
   // Start the polling loop asynchronously.
   () async {
     // Emit existing content first.
-    final existing = file.readAsStringSync();
+    final existingBytes = file.readAsBytesSync();
+    final existing = tolerantUtf8.decode(existingBytes);
     if (existing.isNotEmpty) {
       final existingLines = existing.split('\n');
       for (final line in existingLines) {
@@ -82,7 +84,7 @@ LogsResult _followStream({required File file, required String? tag}) {
       }
     }
 
-    var offset = file.lengthSync();
+    var offset = existingBytes.length;
 
     while (!cancelled) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -95,7 +97,7 @@ LogsResult _followStream({required File file, required String? tag}) {
         final newBytes = raf.readSync(currentSize - offset);
         raf.closeSync();
 
-        final newContent = String.fromCharCodes(newBytes);
+        final newContent = tolerantUtf8.decode(newBytes);
         final newLines = newContent.split('\n');
         for (final line in newLines) {
           if (cancelled) break;

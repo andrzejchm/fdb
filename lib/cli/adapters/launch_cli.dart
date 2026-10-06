@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/cli/interactive_repl.dart';
+import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/launch/launch.dart';
 import 'package:fdb/core/launch_failure_analyzer.dart';
 
@@ -14,6 +15,7 @@ import 'package:fdb/core/launch_failure_analyzer.dart';
 ///   --flavor       Build flavor
 ///   --target       Entry-point file (default: lib/main.dart)
 ///   --flutter-sdk  Path to Flutter SDK root
+///   --timeout      Seconds to wait for the VM service (default: 600)
 ///   --dart-define  Pass a --dart-define to flutter run (repeatable)
 ///   --dart-define-from-file
 ///                  Pass a --dart-define-from-file to flutter run (repeatable)
@@ -28,6 +30,10 @@ ArgParser buildLaunchArgParser() => ArgParser()
     help: 'Entry-point file (default: lib/main.dart)',
   )
   ..addOption('flutter-sdk', help: 'Path to Flutter SDK root')
+  ..addOption(
+    'timeout',
+    help: 'Seconds to wait for the app to start (default: $launchTimeoutSeconds)',
+  )
   ..addMultiOption(
     'dart-define',
     help: 'Pass a --dart-define=KEY=VALUE to flutter run (repeatable)',
@@ -64,6 +70,9 @@ Future<int> _execute(ArgResults results, {String? sessionDir}) async {
     return 1;
   }
 
+  final timeoutSeconds = readTimeoutSecondsOption(results, defaultSeconds: launchTimeoutSeconds);
+  if (timeoutSeconds == null) return 1;
+
   final input = (
     device: device,
     project: results['project'] as String?,
@@ -73,6 +82,7 @@ Future<int> _execute(ArgResults results, {String? sessionDir}) async {
     sessionDir: sessionDir,
     verbose: results['verbose'] as bool,
     interactive: results['interactive'] as bool,
+    timeoutSeconds: timeoutSeconds,
     dartDefines: results['dart-define'] as List<String>,
     dartDefineFromFiles: results['dart-define-from-file'] as List<String>,
   );

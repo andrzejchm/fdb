@@ -419,10 +419,10 @@ Future<MemNativeResult> _captureOutput({
   }
 
   // Pipe stderr through so the user can see tool errors/warnings.
-  process.stderr.transform(const SystemEncoding().decoder).listen(stderr.write);
+  process.stderr.transform(tolerantUtf8.decoder).listen(stderr.write);
 
   final buffer = StringBuffer();
-  await for (final chunk in process.stdout.transform(const SystemEncoding().decoder)) {
+  await for (final chunk in process.stdout.transform(tolerantUtf8.decoder)) {
     buffer.write(chunk);
   }
 

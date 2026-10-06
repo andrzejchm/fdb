@@ -17,7 +17,7 @@ Session lifecycle commands — devices, launch, attach, doctor, reload, status, 
 ## Best practices
 
 - Always run `fdb doctor` at the start of an interaction session to confirm the app is alive, the VM service is reachable, and `fdb_helper` is registered.
-- `fdb kill` before re-launching to avoid stale PID / URI files from a previous session.
+- `fdb kill` when you are done with a session. `fdb launch` replaces a running session on its own, and if the previous app or controller is already gone (app killed outside fdb, simulator shut down) it stops the leftover fdb processes, removes the stale files and prints `WARNING: Cleaned up a stale session ...` on stderr before launching.
 - Use `fdb attach` (not `fdb launch`) whenever the app must be started by native tooling (Xcode, Android Studio, Firebase DebugView, `simctl`, `adb shell am start`). Launching from fdb in those cases fights the native tooling.
 - Add `fdb_helper` to the app for reliable `fdb attach` auto-discovery — without it, fdb must parse Flutter's raw log output, whose format has changed across SDK versions.
 - Use a custom URL scheme (not Universal Links) for `fdb deeplink` tests — `https://` links may open Safari on the iOS simulator.
@@ -38,8 +38,10 @@ Lists all devices Flutter can target: physical phones, emulators, simulators, de
 ## Launch app
 
 ```bash
-fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>]
+fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <target>] [--timeout <seconds>]
 ```
+
+`--timeout` is how long to wait for the VM service (default 600 seconds). Raise it for first debug builds of large apps that print `LAUNCH_TIMEOUT` while the build is still running. An invalid value prints `ERROR: Invalid value for --timeout: <value>`. `fdb attach` takes the same flag (default 300 seconds).
 
 Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
 

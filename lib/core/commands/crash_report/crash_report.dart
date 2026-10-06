@@ -70,7 +70,7 @@ Future<CrashReportResult> _runAndroid({
 
   // --- logcat crash buffer ---
   final logcatArgs = [...adbPrefix, 'logcat', '-b', 'crash', '-d'];
-  final logcatResult = Process.runSync('adb', logcatArgs);
+  final logcatResult = Process.runSync('adb', logcatArgs, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   final logcatText = (logcatResult.stdout as String).trim();
   if (logcatText.isNotEmpty) {
     final filtered = appId != null ? _filterLines(logcatText, appId) : logcatText;
@@ -81,7 +81,7 @@ Future<CrashReportResult> _runAndroid({
 
   // --- logcat LMK (low memory killer) events ---
   final lmkArgs = [...adbPrefix, 'logcat', '-b', 'system', '-d', '-s', 'lowmemorykiller'];
-  final lmkResult = Process.runSync('adb', lmkArgs);
+  final lmkResult = Process.runSync('adb', lmkArgs, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   final lmkText = (lmkResult.stdout as String).trim();
   if (lmkText.isNotEmpty) {
     final filtered = appId != null ? _filterLines(lmkText, appId) : lmkText;
@@ -92,7 +92,7 @@ Future<CrashReportResult> _runAndroid({
 
   // --- dropbox ---
   final dropboxArgs = [...adbPrefix, 'shell', 'dumpsys', 'dropbox', '--print'];
-  final dropboxResult = Process.runSync('adb', dropboxArgs);
+  final dropboxResult = Process.runSync('adb', dropboxArgs, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   final dropboxText = (dropboxResult.stdout as String).trim();
   if (dropboxText.isNotEmpty && appId != null) {
     final filtered = _filterLines(dropboxText, appId);
@@ -154,7 +154,7 @@ Future<CrashReportResult> _runIosSimulator({
     predicate,
   ];
 
-  final logResult = Process.runSync('xcrun', logArgs);
+  final logResult = Process.runSync('xcrun', logArgs, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   final logText = (logResult.stdout as String).trim();
   if (logText.isNotEmpty) {
     entries.add(CrashReportEntry(label: '[iOS sim log]', text: logText));
@@ -203,7 +203,8 @@ Future<CrashReportResult> _runIosPhysical({
   // Each invocation creates a fresh temp dir so they do not accumulate
   // unboundedly; the OS will eventually reclaim them.
   final tmpDir = Directory.systemTemp.createTempSync('fdb_crash_');
-  final result = Process.runSync('idevicecrashreport', ['-e', '-k', '-f', appId, tmpDir.path]);
+  final result = Process.runSync('idevicecrashreport', ['-e', '-k', '-f', appId, tmpDir.path],
+      stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   if (result.exitCode != 0) {
     final err = (result.stderr as String).trim();
     return CrashReportError('idevicecrashreport failed: $err');
@@ -261,7 +262,7 @@ Future<CrashReportResult> _runMacos({
     if (appId != null) ...['--predicate', 'process == "$appId"'],
   ];
 
-  final logResult = Process.runSync('log', logArgs);
+  final logResult = Process.runSync('log', logArgs, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
   final logText = (logResult.stdout as String).trim();
   if (logText.isNotEmpty) {
     entries.add(CrashReportEntry(label: '[macOS log]', text: logText));

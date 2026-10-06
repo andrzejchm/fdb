@@ -20,6 +20,7 @@ Commands:
                --debug-url <url>   Dart VM service URL from Xcode/logs
                --target <file>     Entry-point file used by flutter attach
                --flutter-sdk <path> Path to Flutter SDK root
+               --timeout <seconds> Wait for the app to attach (default: 300)
                --verbose           Pass --verbose to flutter attach
                -i, --interactive   Start an fdb REPL after attaching
   devices     List connected devices
@@ -30,6 +31,7 @@ Commands:
                --flavor <name>     Build flavor
                --target <file>     Entry-point file (default: lib/main.dart)
                --flutter-sdk <path> Path to Flutter SDK root
+               --timeout <seconds> Wait for the app to start (default: 600)
                --dart-define <k=v> Pass through to flutter run (repeatable)
                --dart-define-from-file <path>
                                    Pass through to flutter run (repeatable)

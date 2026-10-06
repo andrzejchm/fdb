@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fdb/src/controller/pid_liveness.dart';
@@ -101,6 +102,54 @@ int? readLogCollectorPid() {
   if (!file.existsSync()) return null;
   final content = file.readAsStringSync().trim();
   return int.tryParse(content);
+}
+
+/// UTF-8 codec that replaces malformed bytes with U+FFFD instead of throwing.
+///
+/// Use it for anything that can carry raw device or app output: `logs.txt`,
+/// `flutter run` output, `adb logcat`, `log show`, `idevicesyslog`. Pass it as
+/// `stdoutEncoding`/`stderrEncoding` to `Process.run`, or use
+/// `tolerantUtf8.decoder` on a process stream.
+const tolerantUtf8 = Utf8Codec(allowMalformed: true);
+
+/// `Process.run` that decodes stdout/stderr with [tolerantUtf8].
+Future<ProcessResult> runProcessTolerant(String executable, List<String> arguments) =>
+    Process.run(executable, arguments, stdoutEncoding: tolerantUtf8, stderrEncoding: tolerantUtf8);
+
+/// Reads a text file that may contain invalid UTF-8 (e.g. `logs.txt`, which
+/// carries raw app and tool output). Malformed sequences become U+FFFD instead
+/// of throwing. Returns an empty string when the file does not exist.
+String readTextTolerant(String path) {
+  final file = File(path);
+  if (!file.existsSync()) return '';
+  return tolerantUtf8.decode(file.readAsBytesSync());
+}
+
+/// Line-split variant of [readTextTolerant], with `readAsLinesSync` semantics.
+List<String> readLinesTolerant(String path) => const LineSplitter().convert(readTextTolerant(path));
+
+/// Sends SIGTERM to [pid], waits up to [timeout] for it to exit, then sends
+/// SIGKILL and waits again. Returns true when the process is gone.
+Future<bool> terminateProcess(
+  int pid, {
+  Duration timeout = const Duration(seconds: 10),
+}) async {
+  if (!isProcessAlive(pid)) return true;
+
+  for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
+    try {
+      Process.killPid(pid, signal);
+    } catch (_) {
+      return !isProcessAlive(pid);
+    }
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (!isProcessAlive(pid)) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  }
+
+  return !isProcessAlive(pid);
 }
 
 /// Extracts the JSON array from `flutter devices --machine` output.

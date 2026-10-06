@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:fdb/cli/args_helpers.dart';
 import 'package:fdb/core/commands/devices/devices.dart';
+import 'package:fdb/core/process_utils.dart';
 
 /// CLI adapter for `fdb devices`. Accepts no flags; emits one line per
 /// device:
@@ -16,7 +17,7 @@ Future<int> runDevicesCli(List<String> args) => runCliAdapter(ArgParser(), args,
 
 Future<int> _execute(ArgResults _) async {
   final result = await listDevices(
-    (projectPath: Directory.current.path, processRunner: Process.run),
+    (projectPath: Directory.current.path, processRunner: runProcessTolerant),
   );
   return _format(result);
 }

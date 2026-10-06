@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:fdb/cli/adapters/launch_cli.dart';
+import 'package:fdb/cli/args_helpers.dart';
+import 'package:fdb/constants.dart';
 import 'package:fdb/core/commands/launch/launch.dart';
 import 'package:test/test.dart';
 
@@ -36,6 +40,26 @@ void main() {
         results['dart-define'],
         ['API_BASE_URL=https://example.com/v1,canary'],
       );
+    });
+
+    test('--timeout accepts positive seconds and defaults when absent', () {
+      int? parse(List<String> extra) => readTimeoutSecondsOption(
+            buildLaunchArgParser().parse(['--device', 'macos', ...extra]),
+            defaultSeconds: launchTimeoutSeconds,
+          );
+
+      expect(parse([]), launchTimeoutSeconds);
+      expect(parse(['--timeout', '900']), 900);
+      for (final invalid in ['abc', '0', '-5', '1.5']) {
+        expect(parse(['--timeout=$invalid']), isNull, reason: invalid);
+      }
+    });
+
+    test('rejects an invalid --timeout with the standard error line', () async {
+      final result = await Process.run('dart', ['bin/fdb.dart', 'launch', '--device', 'macos', '--timeout', 'abc']);
+
+      expect(result.exitCode, 1);
+      expect((result.stderr as String).trim(), 'ERROR: Invalid value for --timeout: abc');
     });
 
     test('advertises passthrough launch flags in help', () {

@@ -213,11 +213,26 @@ class _FdbController implements ControllerContext {
       workingDirectory: config.project,
     );
 
-    _stdoutSub =
-        _flutterProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(_handleStdoutLine);
-    _stderrSub = _flutterProcess!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(_appendLogLine);
+    _stdoutSub = _flutterProcess!.stdout
+        .transform(tolerantUtf8.decoder)
+        .transform(const LineSplitter())
+        .listen(_handleStdoutLine);
+    _stderrSub =
+        _flutterProcess!.stderr.transform(tolerantUtf8.decoder).transform(const LineSplitter()).listen(_appendLogLine);
+
+    // A SIGTERM (e.g. from `fdb launch` replacing this session) would otherwise
+    // kill the controller without stopping its log collector.
+    // ProcessSignal.sigterm.watch() is not supported on Windows.
+    if (!Platform.isWindows) {
+      ProcessSignal.sigterm.watch().listen((_) async {
+        await _logCollector.stop();
+        _cleanupControllerFiles();
+        exit(143);
+      });
+    }
 
     final exitCodeValue = await _flutterProcess!.exitCode;
+    await _logCollector.stop();
     await _stdoutSub?.cancel();
     await _stderrSub?.cancel();
     await _logSink.flush();
