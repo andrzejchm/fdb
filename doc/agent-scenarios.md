@@ -1111,6 +1111,32 @@ dart run ../../bin/fdb.dart back
 
 ---
 
+## S42 · back — screen inside a nested navigator
+
+**Purpose:** `fdb back` pops the innermost visible navigator, not the root one.
+
+```bash
+dart run ../../bin/fdb.dart scroll-to --key go_to_nested_navigator_test
+dart run ../../bin/fdb.dart tap --key go_to_nested_navigator_test
+dart run ../../bin/fdb.dart tap --key nested_open_details
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+dart run ../../bin/fdb.dart describe
+dart run ../../bin/fdb.dart back
+dart run ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+
+- The first `describe` shows `Nested Details Content`
+- The first `back` exits 0 with `POPPED`; the next `describe` shows
+  `Nested List Content` and the `Nested Navigator Test` app bar (the hosting
+  screen was not popped)
+- The second `back` exits 0 with `POPPED`; the last `describe` shows the home
+  screen (`SCREEN: fdb test app`)
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

@@ -392,7 +392,7 @@ Requires `fdb_helper` in the app.
 fdb back
 ```
 
-Calls `Navigator.maybePop()` on the root navigator. Returns `POPPED` on success, or an error if already at the root route.
+Calls `Navigator.maybePop()` on the innermost visible navigator (a nested `AutoRouter`/tab navigator first, then outwards), so it pops what the on-screen back arrow would. Returns `POPPED` on success, or an error if already at the root route.
 
 ## Agent workflow patterns
 

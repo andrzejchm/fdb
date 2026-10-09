@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixes
+- `ext.fdb.back` pops the innermost visible navigator instead of the first one found from the root, so screens in a nested navigator (`AutoRouter`, tab shells) are popped. When that navigator has nothing to pop it moves out to the enclosing one. `popped` is `true` only when a route was popped or a `PopScope` intercepted the back, `false` at the root.
+
 ## 1.13.0
 
 ### Improvements

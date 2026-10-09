@@ -34,6 +34,7 @@ lib/
 test/
   fdb_binding_test.dart                   # Tests for FdbBinding
   fdb_service_extensions_mixin_test.dart  # Tests for FdbServiceExtensionsMixin
+  back_handler_test.dart                  # Tests for handleBack (plain, nested and router navigators)
   lifecycle_handler_test.dart             # Tests for handleLifecycle
   version_test.dart                       # fdbHelperVersion == pubspec.yaml version
 ```

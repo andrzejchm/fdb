@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixes
+- Fixed `fdb back` doing nothing on a screen inside a nested navigator (an `AutoRouter`, a tab shell or any `Navigator` below the app's root one) while still printing `POPPED`. It popped the root navigator, which had nothing to pop for that screen. It now pops the innermost visible navigator and only moves out to the enclosing one when that has nothing left to pop. Navigators in a hidden tab (`IndexedStack`, `Offstage`, `Visibility`) are skipped, and a dialog or sheet on an outer navigator is dismissed before the screen below it. Needs the updated fdb_helper.
+
 ## 1.13.0
 
 ### Improvements

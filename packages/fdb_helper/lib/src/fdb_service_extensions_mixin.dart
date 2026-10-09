@@ -38,7 +38,7 @@ import 'vm_uri_broadcaster.dart';
 /// - `ext.fdb.waitFor` — wait until a widget or route is present or absent
 /// - `ext.fdb.swipe` — swipe in a direction
 /// - `ext.fdb.swipePath` — swipe along a multi-point path of screen coordinates
-/// - `ext.fdb.back` — trigger Navigator.maybePop()
+/// - `ext.fdb.back` — pop the innermost visible Navigator (maybePop)
 /// - `ext.fdb.clean` — delete app storage directories
 /// - `ext.fdb.sharedPrefs` — read/write shared preferences
 /// - `ext.fdb.screenshot` — capture the Flutter rendering surface as base64 PNG
