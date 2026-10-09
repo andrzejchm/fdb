@@ -16,13 +16,13 @@ App is running and `fdb_helper` is wired up:
 
 ```bash
 cd example/test_app
-dart run ../../bin/fdb.dart status   # must print RUNNING=true
+dart ../../bin/fdb.dart status   # must print RUNNING=true
 ```
 
 If not running:
 
 ```bash
-dart run ../../bin/fdb.dart launch --device <device_id>
+dart ../../bin/fdb.dart launch --device <device_id>
 ```
 
 All commands below are run from `example/test_app/` unless stated otherwise.
@@ -36,8 +36,8 @@ regressions and verifies all expected elements are present.
 
 ```bash
 # Ensure we are on the home screen (back to root if needed)
-dart run ../../bin/fdb.dart back 2>/dev/null || true
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back 2>/dev/null || true
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -66,11 +66,11 @@ and does not leak elements from the underlying home screen. This was a
 confirmed bug — regression guard.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_details
-dart run ../../bin/fdb.dart tap --key go_to_details
+dart ../../bin/fdb.dart scroll-to --key go_to_details
+dart ../../bin/fdb.dart tap --key go_to_details
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -90,14 +90,14 @@ dart run ../../bin/fdb.dart back
 (home → benchmarks → a benchmark sub-screen).
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_benchmarks
-dart run ../../bin/fdb.dart tap --key go_to_benchmarks
+dart ../../bin/fdb.dart scroll-to --key go_to_benchmarks
+dart ../../bin/fdb.dart tap --key go_to_benchmarks
 sleep 1
-dart run ../../bin/fdb.dart tap --key bench_baseline
+dart ../../bin/fdb.dart tap --key bench_baseline
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -115,11 +115,11 @@ dart run ../../bin/fdb.dart back
 **Purpose:** GestureDetectors nested inside Positioned widgets are found.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_nested_gesture_describe_test
-dart run ../../bin/fdb.dart tap --key go_to_nested_gesture_describe_test
+dart ../../bin/fdb.dart scroll-to --key go_to_nested_gesture_describe_test
+dart ../../bin/fdb.dart tap --key go_to_nested_gesture_describe_test
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -138,11 +138,11 @@ dart run ../../bin/fdb.dart back
 are still listed in describe output.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_grid_describe_test
-dart run ../../bin/fdb.dart tap --key go_to_grid_describe_test
+dart ../../bin/fdb.dart scroll-to --key go_to_grid_describe_test
+dart ../../bin/fdb.dart tap --key go_to_grid_describe_test
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -161,12 +161,12 @@ dart run ../../bin/fdb.dart back
 
 ```bash
 # Tap by key — increments counter
-dart run ../../bin/fdb.dart back 2>/dev/null || true
-dart run ../../bin/fdb.dart scroll up
-dart run ../../bin/fdb.dart scroll up
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart tap --key increment_button
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back 2>/dev/null || true
+dart ../../bin/fdb.dart scroll up
+dart ../../bin/fdb.dart scroll up
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart tap --key increment_button
+dart ../../bin/fdb.dart describe
 ```
 
 **After tap by key:** `VISIBLE TEXT:` shows a `Counter:` value that increased
@@ -174,7 +174,7 @@ by 1 from the value shown in the first `describe` output.
 
 ```bash
 # Tap by text — submit button
-dart run ../../bin/fdb.dart tap --text "Submit"
+dart ../../bin/fdb.dart tap --text "Submit"
 ```
 
 **After tap by text:** exits 0. The `TAPPED=` token MUST NOT be `Text` (the
@@ -187,10 +187,10 @@ of fdb-xdh.
 
 ```bash
 # Tap by ref — get the TextField's ref from describe (e.g. @9), tap it
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart tap @9
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart tap @9
 # Describe again: the TextField keeps the same ref
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 ```
 
 **After tap by ref:** exits 0, output contains `TAPPED=TextField`. The second
@@ -207,11 +207,11 @@ wrappers must not leak into the `TAPPED=` token.
 
 ```bash
 # Restart to ensure disappearing_button is present (it only exists once per session)
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key disappearing_button
-dart run ../../bin/fdb.dart tap --key disappearing_button
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll-to --key disappearing_button
+dart ../../bin/fdb.dart tap --key disappearing_button
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -226,8 +226,8 @@ dart run ../../bin/fdb.dart describe
 **Purpose:** text input lands in the right field and is readable back.
 
 ```bash
-dart run ../../bin/fdb.dart input --key test_input "hello fdb"
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart input --key test_input "hello fdb"
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -239,7 +239,7 @@ dart run ../../bin/fdb.dart describe
 Clean up:
 
 ```bash
-dart run ../../bin/fdb.dart input --key test_input ""
+dart ../../bin/fdb.dart input --key test_input ""
 ```
 
 ---
@@ -251,18 +251,18 @@ reflects the scroll position.
 
 ```bash
 # Scroll all the way to the top first
-dart run ../../bin/fdb.dart scroll up
-dart run ../../bin/fdb.dart scroll up
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll up
+dart ../../bin/fdb.dart scroll up
+dart ../../bin/fdb.dart describe
 ```
 
 **After scrolling to top:** `VISIBLE TEXT:` should contain `"fdb integration test
 target"` and `"Counter: 0"` (elements near the top of the page).
 
 ```bash
-dart run ../../bin/fdb.dart scroll down
-dart run ../../bin/fdb.dart scroll down
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll down
+dart ../../bin/fdb.dart scroll down
+dart ../../bin/fdb.dart describe
 ```
 
 **After scrolling down:** top-of-page text may drop out of `VISIBLE TEXT:`;
@@ -276,16 +276,16 @@ pages) should appear.
 **Purpose:** scroll-to reveals a lazy-built item and brings it into the viewport.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_scroll_to_test
-dart run ../../bin/fdb.dart tap --key go_to_scroll_to_test
+dart ../../bin/fdb.dart scroll-to --key go_to_scroll_to_test
+dart ../../bin/fdb.dart tap --key go_to_scroll_to_test
 sleep 1
-dart run ../../bin/fdb.dart tap --key go_to_lazy_list
+dart ../../bin/fdb.dart tap --key go_to_lazy_list
 sleep 1
 # Item 80 is well below the initial viewport on any device
-dart run ../../bin/fdb.dart scroll-to --key lazy_item_80
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart scroll-to --key lazy_item_80
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -301,12 +301,12 @@ dart run ../../bin/fdb.dart back
 screen.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_details
-dart run ../../bin/fdb.dart tap --key go_to_details
+dart ../../bin/fdb.dart scroll-to --key go_to_details
+dart ../../bin/fdb.dart tap --key go_to_details
 sleep 1
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart back
 sleep 1
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -322,11 +322,11 @@ dart run ../../bin/fdb.dart describe
 **Purpose:** double-tap fires on a GestureDetector with `onDoubleTap`.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key double_tap_target
-dart run ../../bin/fdb.dart double-tap --key double_tap_target
+dart ../../bin/fdb.dart scroll-to --key double_tap_target
+dart ../../bin/fdb.dart double-tap --key double_tap_target
 sleep 0.5
-dart run ../../bin/fdb.dart scroll-to --key double_tap_summary
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll-to --key double_tap_summary
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -342,8 +342,8 @@ dart run ../../bin/fdb.dart describe
 **Purpose:** long-press gesture reaches a GestureDetector with `onLongPress`.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key longpress_target
-dart run ../../bin/fdb.dart longpress --key longpress_target
+dart ../../bin/fdb.dart scroll-to --key longpress_target
+dart ../../bin/fdb.dart longpress --key longpress_target
 ```
 
 **What to verify:**
@@ -358,12 +358,12 @@ dart run ../../bin/fdb.dart longpress --key longpress_target
 **Purpose:** `fdb wait` blocks until an element appears, rather than sleeping.
 
 ```bash
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key show_delayed
-dart run ../../bin/fdb.dart tap --key show_delayed
-dart run ../../bin/fdb.dart wait --key delayed_button --present --timeout 5000
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll-to --key show_delayed
+dart ../../bin/fdb.dart tap --key show_delayed
+dart ../../bin/fdb.dart wait --key delayed_button --present --timeout 5000
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -379,11 +379,11 @@ dart run ../../bin/fdb.dart describe
 
 ```bash
 # Restart to ensure disappearing_button is present
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key disappearing_button
-dart run ../../bin/fdb.dart tap --key disappearing_button &
-dart run ../../bin/fdb.dart wait --key disappearing_button --absent --timeout 3000
+dart ../../bin/fdb.dart scroll-to --key disappearing_button
+dart ../../bin/fdb.dart tap --key disappearing_button &
+dart ../../bin/fdb.dart wait --key disappearing_button --absent --timeout 3000
 ```
 
 **What to verify:**
@@ -397,11 +397,11 @@ dart run ../../bin/fdb.dart wait --key disappearing_button --absent --timeout 30
 **Purpose:** swipe advances the PageView on the home screen.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key page_view
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll-to --key page_view
+dart ../../bin/fdb.dart describe
 # Note which page is visible (should be "Page 1")
-dart run ../../bin/fdb.dart swipe left --key page_view
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart swipe left --key page_view
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -416,7 +416,7 @@ dart run ../../bin/fdb.dart describe
 **Purpose:** status correctly reports the app as running.
 
 ```bash
-dart run ../../bin/fdb.dart status
+dart ../../bin/fdb.dart status
 ```
 
 **What to verify:** `RUNNING=true`, `PID=` and `VM_SERVICE_URI=` are present.
@@ -428,13 +428,13 @@ dart run ../../bin/fdb.dart status
 **Purpose:** hot reload and restart complete without error.
 
 ```bash
-dart run ../../bin/fdb.dart reload
+dart ../../bin/fdb.dart reload
 ```
 
 **What to verify:** exits 0, output contains `RELOADED`.
 
 ```bash
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 ```
 
 **What to verify:** exits 0, output contains `RESTARTED`.
@@ -447,9 +447,9 @@ dart run ../../bin/fdb.dart restart
 
 ```bash
 # Tap increment to emit a log line
-dart run ../../bin/fdb.dart tap --key increment_button
+dart ../../bin/fdb.dart tap --key increment_button
 sleep 0.5
-dart run ../../bin/fdb.dart logs --tag fdb_test --last 10
+dart ../../bin/fdb.dart logs --tag fdb_test --last 10
 ```
 
 **What to verify:**
@@ -464,7 +464,7 @@ dart run ../../bin/fdb.dart logs --tag fdb_test --last 10
 **Purpose:** `fdb tree` returns a non-empty indented widget tree.
 
 ```bash
-dart run ../../bin/fdb.dart tree --depth 4 --user-only
+dart ../../bin/fdb.dart tree --depth 4 --user-only
 ```
 
 **What to verify:**
@@ -481,10 +481,10 @@ dart run ../../bin/fdb.dart tree --depth 4 --user-only
 **Purpose:** shared-prefs round-trip works.
 
 ```bash
-dart run ../../bin/fdb.dart shared-prefs set test_key "hello"
-dart run ../../bin/fdb.dart shared-prefs get test_key
-dart run ../../bin/fdb.dart shared-prefs remove test_key
-dart run ../../bin/fdb.dart shared-prefs get test_key
+dart ../../bin/fdb.dart shared-prefs set test_key "hello"
+dart ../../bin/fdb.dart shared-prefs get test_key
+dart ../../bin/fdb.dart shared-prefs remove test_key
+dart ../../bin/fdb.dart shared-prefs get test_key
 ```
 
 **What to verify:**
@@ -501,8 +501,8 @@ dart run ../../bin/fdb.dart shared-prefs get test_key
 **Purpose:** heap inspection and forced GC work without errors.
 
 ```bash
-dart run ../../bin/fdb.dart mem
-dart run ../../bin/fdb.dart gc
+dart ../../bin/fdb.dart mem
+dart ../../bin/fdb.dart gc
 ```
 
 **What to verify:**
@@ -521,8 +521,8 @@ dart run ../../bin/fdb.dart gc
 session used by all preceding scenarios.
 
 ```bash
-dart run ../../bin/fdb.dart kill
-dart run ../../bin/fdb.dart status
+dart ../../bin/fdb.dart kill
+dart ../../bin/fdb.dart status
 ```
 
 **What to verify:**
@@ -542,17 +542,17 @@ seeing `granted` status without any system dialog appearing.
 ```bash
 # Reset all permissions and kill the app
 xcrun simctl privacy <UDID> reset all <bundle-id>
-dart run ../../bin/fdb.dart kill 2>/dev/null || true
+dart ../../bin/fdb.dart kill 2>/dev/null || true
 
 # Pre-grant camera
-dart run ../../bin/fdb.dart grant-permission camera --bundle <bundle-id> --device <device-id>
+dart ../../bin/fdb.dart grant-permission camera --bundle <bundle-id> --device <device-id>
 
 # Launch and navigate to permission screen
-dart run ../../bin/fdb.dart launch --device <device-id>
-dart run ../../bin/fdb.dart scroll-to --key go_to_permission_test
-dart run ../../bin/fdb.dart tap --key go_to_permission_test
+dart ../../bin/fdb.dart launch --device <device-id>
+dart ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart ../../bin/fdb.dart tap --key go_to_permission_test
 sleep 1
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -574,14 +574,14 @@ the app seeing `permanentlyDenied` status.
 
 ```bash
 # Revoke camera (app will be terminated by simctl)
-dart run ../../bin/fdb.dart grant-permission camera --revoke --bundle <bundle-id>
+dart ../../bin/fdb.dart grant-permission camera --revoke --bundle <bundle-id>
 
 # Relaunch and navigate to permission screen
-dart run ../../bin/fdb.dart launch --device <device-id>
-dart run ../../bin/fdb.dart scroll-to --key go_to_permission_test
-dart run ../../bin/fdb.dart tap --key go_to_permission_test
+dart ../../bin/fdb.dart launch --device <device-id>
+dart ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart ../../bin/fdb.dart tap --key go_to_permission_test
 sleep 1
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -600,24 +600,24 @@ contacts on Android results in all showing `granted` live without app restart.
 
 ```bash
 # Navigate to permission screen first
-dart run ../../bin/fdb.dart scroll-to --key go_to_permission_test
-dart run ../../bin/fdb.dart tap --key go_to_permission_test
+dart ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart ../../bin/fdb.dart tap --key go_to_permission_test
 sleep 1
 
 # Confirm all start as denied
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 
 # Grant all 5
-dart run ../../bin/fdb.dart grant-permission camera
-dart run ../../bin/fdb.dart grant-permission microphone
-dart run ../../bin/fdb.dart grant-permission location
-dart run ../../bin/fdb.dart grant-permission photos
-dart run ../../bin/fdb.dart grant-permission contacts
+dart ../../bin/fdb.dart grant-permission camera
+dart ../../bin/fdb.dart grant-permission microphone
+dart ../../bin/fdb.dart grant-permission location
+dart ../../bin/fdb.dart grant-permission photos
+dart ../../bin/fdb.dart grant-permission contacts
 
 # Refresh and check
-dart run ../../bin/fdb.dart tap --key refresh_permissions
+dart ../../bin/fdb.dart tap --key refresh_permissions
 sleep 1
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -637,7 +637,7 @@ photos warning, and that the permission may not take effect.
 **Platform:** iOS simulator only.
 
 ```bash
-dart run ../../bin/fdb.dart grant-permission photos --bundle <bundle-id>
+dart ../../bin/fdb.dart grant-permission photos --bundle <bundle-id>
 ```
 
 **What to verify:**
@@ -656,16 +656,16 @@ dart run ../../bin/fdb.dart grant-permission photos --bundle <bundle-id>
 
 ```bash
 # On macOS:
-dart run ../../bin/fdb.dart grant-permission camera
+dart ../../bin/fdb.dart grant-permission camera
 
 # On physical iOS:
-dart run ../../bin/fdb.dart grant-permission camera
+dart ../../bin/fdb.dart grant-permission camera
 ```
 
 **What to verify:**
 
 - macOS grant: prints `WARNING:` about Apple requiring user approval, suggests `--reset`
-- macOS reset: `dart run ../../bin/fdb.dart grant-permission camera --reset --bundle <bundle-id>` prints `PERMISSION_RESET=camera`
+- macOS reset: `dart ../../bin/fdb.dart grant-permission camera --reset --bundle <bundle-id>` prints `PERMISSION_RESET=camera`
 - Physical iOS: prints `ERROR:` about not being supported, suggests using iOS simulator
 
 ---
@@ -675,9 +675,9 @@ dart run ../../bin/fdb.dart grant-permission camera
 **Purpose:** verify input validation produces clear errors.
 
 ```bash
-dart run ../../bin/fdb.dart grant-permission totally_fake_permission
-dart run ../../bin/fdb.dart grant-permission
-dart run ../../bin/fdb.dart grant-permission camera --revoke --reset
+dart ../../bin/fdb.dart grant-permission totally_fake_permission
+dart ../../bin/fdb.dart grant-permission
+dart ../../bin/fdb.dart grant-permission camera --revoke --reset
 ```
 
 **What to verify:**
@@ -695,11 +695,11 @@ in its `trailing` slot, only the button should appear in `INTERACTIVE:`. The
 tile body is not itself tappable and must not produce a spurious entry.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
-dart run ../../bin/fdb.dart tap --key go_to_listtile_describe_test
+dart ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
+dart ../../bin/fdb.dart tap --key go_to_listtile_describe_test
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -721,11 +721,11 @@ dart run ../../bin/fdb.dart back
 a single interactive entry. Regression guard for the structural rewrite.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
-dart run ../../bin/fdb.dart tap --key go_to_listtile_describe_test
+dart ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
+dart ../../bin/fdb.dart tap --key go_to_listtile_describe_test
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -742,11 +742,11 @@ dart run ../../bin/fdb.dart back
 appear in `INTERACTIVE:` at all - it is a display element.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
-dart run ../../bin/fdb.dart tap --key go_to_listtile_describe_test
+dart ../../bin/fdb.dart scroll-to --key go_to_listtile_describe_test
+dart ../../bin/fdb.dart tap --key go_to_listtile_describe_test
 sleep 1
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -770,34 +770,34 @@ subcommands, but push delivery verification uses the Notification Test screen.
 xcrun simctl list devices booted
 
 # --- appearance ---
-dart run ../../bin/fdb.dart simulator appearance get
-dart run ../../bin/fdb.dart simulator appearance dark
-dart run ../../bin/fdb.dart simulator appearance get
-dart run ../../bin/fdb.dart simulator appearance light
+dart ../../bin/fdb.dart simulator appearance get
+dart ../../bin/fdb.dart simulator appearance dark
+dart ../../bin/fdb.dart simulator appearance get
+dart ../../bin/fdb.dart simulator appearance light
 
 # --- text-size ---
-dart run ../../bin/fdb.dart simulator text-size get
-dart run ../../bin/fdb.dart simulator text-size accessibility-extra-extra-large
-dart run ../../bin/fdb.dart simulator text-size get
-dart run ../../bin/fdb.dart simulator text-size large
+dart ../../bin/fdb.dart simulator text-size get
+dart ../../bin/fdb.dart simulator text-size accessibility-extra-extra-large
+dart ../../bin/fdb.dart simulator text-size get
+dart ../../bin/fdb.dart simulator text-size large
 
 # --- status-bar ---
-dart run ../../bin/fdb.dart simulator status-bar override --time "9:41" --battery-state charged --battery-level 100 --wifi-bars 3 --cellular-bars 4 --operator "fdb"
-dart run ../../bin/fdb.dart simulator status-bar clear
+dart ../../bin/fdb.dart simulator status-bar override --time "9:41" --battery-state charged --battery-level 100 --wifi-bars 3 --cellular-bars 4 --operator "fdb"
+dart ../../bin/fdb.dart simulator status-bar clear
 
 # --- location ---
-dart run ../../bin/fdb.dart simulator location set 48.8584,2.2945
-dart run ../../bin/fdb.dart simulator location route "City Run"
-dart run ../../bin/fdb.dart simulator location clear
+dart ../../bin/fdb.dart simulator location set 48.8584,2.2945
+dart ../../bin/fdb.dart simulator location route "City Run"
+dart ../../bin/fdb.dart simulator location clear
 
 # --- defaults (use the real app bundle ID) ---
-dart run ../../bin/fdb.dart simulator defaults write --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key "hello_fdb"
-dart run ../../bin/fdb.dart simulator defaults read --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
-dart run ../../bin/fdb.dart simulator defaults delete --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
+dart ../../bin/fdb.dart simulator defaults write --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key "hello_fdb"
+dart ../../bin/fdb.dart simulator defaults read --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
+dart ../../bin/fdb.dart simulator defaults delete --bundle-id dev.andrzejchm.fdb.testApp fdb_scenario_key
 
 # --- push (app must be running, navigate to Notification Test screen first) ---
-dart run ../../bin/fdb.dart scroll-to --key go_to_notification_test_top
-dart run ../../bin/fdb.dart tap --key go_to_notification_test_top
+dart ../../bin/fdb.dart scroll-to --key go_to_notification_test_top
+dart ../../bin/fdb.dart tap --key go_to_notification_test_top
 cat > /tmp/s33_push.apns <<'EOF'
 {
   "aps": { "alert": { "title": "S33 push", "body": "fdb simulator push scenario" }, "sound": "default" },
@@ -805,10 +805,10 @@ cat > /tmp/s33_push.apns <<'EOF'
   "case": "s33"
 }
 EOF
-dart run ../../bin/fdb.dart simulator push --bundle-id dev.andrzejchm.fdb.testApp /tmp/s33_push.apns
+dart ../../bin/fdb.dart simulator push --bundle-id dev.andrzejchm.fdb.testApp /tmp/s33_push.apns
 sleep 2
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -853,16 +853,16 @@ The test app exposes `key=ignore_pointer_wrapped_button` on a button wrapped
 in an explicit `IgnorePointer(ignoring: false, ...)`.
 
 ```bash
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key ignore_pointer_wrapped_button
+dart ../../bin/fdb.dart scroll-to --key ignore_pointer_wrapped_button
 # Path A
-dart run ../../bin/fdb.dart tap --key ignore_pointer_wrapped_button
+dart ../../bin/fdb.dart tap --key ignore_pointer_wrapped_button
 # Path B
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key ignore_pointer_wrapped_button
-dart run ../../bin/fdb.dart tap --text "IgnorePointer Wrapped"
+dart ../../bin/fdb.dart scroll-to --key ignore_pointer_wrapped_button
+dart ../../bin/fdb.dart tap --text "IgnorePointer Wrapped"
 ```
 
 **What to verify:**
@@ -887,14 +887,14 @@ The test app exposes `key=cupertino_button_test` on a `CupertinoButton` with
 text label `"Cupertino Button"`.
 
 ```bash
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key cupertino_button_test
-dart run ../../bin/fdb.dart tap --key cupertino_button_test
-dart run ../../bin/fdb.dart restart
+dart ../../bin/fdb.dart scroll-to --key cupertino_button_test
+dart ../../bin/fdb.dart tap --key cupertino_button_test
+dart ../../bin/fdb.dart restart
 sleep 1
-dart run ../../bin/fdb.dart scroll-to --key cupertino_button_test
-dart run ../../bin/fdb.dart tap --text "Cupertino Button"
+dart ../../bin/fdb.dart scroll-to --key cupertino_button_test
+dart ../../bin/fdb.dart tap --text "Cupertino Button"
 ```
 
 **What to verify:**
@@ -917,18 +917,18 @@ native platforms (iOS, Android, macOS).
 
 ```bash
 # Ensure home screen is showing
-dart run ../../bin/fdb.dart back 2>/dev/null || true
+dart ../../bin/fdb.dart back 2>/dev/null || true
 
 # Resolve the coordinates of the long-press target via --key
-dart run ../../bin/fdb.dart scroll-to --key longpress_target
-dart run ../../bin/fdb.dart longpress --key longpress_target
+dart ../../bin/fdb.dart scroll-to --key longpress_target
+dart ../../bin/fdb.dart longpress --key longpress_target
 # Note the X= and Y= values in the output
 
 # Now long-press the same widget by coordinate with a 500 ms hold
-dart run ../../bin/fdb.dart longpress --at <X>,<Y> --duration 500
+dart ../../bin/fdb.dart longpress --at <X>,<Y> --duration 500
 
 # Confirm the handler fired
-dart run ../../bin/fdb.dart logs --tag fdb_test --last 10
+dart ../../bin/fdb.dart logs --tag fdb_test --last 10
 ```
 
 **What to verify:**
@@ -953,17 +953,17 @@ platforms that have a native implementation (iOS, Android, macOS). On Linux,
 Windows, and web the fallback is expected and acceptable.
 
 ```bash
-dart run ../../bin/fdb.dart back 2>/dev/null || true
-dart run ../../bin/fdb.dart scroll-to --key longpress_target
+dart ../../bin/fdb.dart back 2>/dev/null || true
+dart ../../bin/fdb.dart scroll-to --key longpress_target
 
 # Tap --key to get the widget center coordinates
-COORDS_OUTPUT=$(dart run ../../bin/fdb.dart longpress --key longpress_target 2>&1)
+COORDS_OUTPUT=$(dart ../../bin/fdb.dart longpress --key longpress_target 2>&1)
 echo "$COORDS_OUTPUT"
 X=$(echo "$COORDS_OUTPUT" | sed -n 's/.* X=\([^ ]*\).*/\1/p')
 Y=$(echo "$COORDS_OUTPUT" | sed -n 's/.* Y=\([^ ]*\).*/\1/p')
 
 # Long-press by coordinate; inspect output for warning tokens
-dart run ../../bin/fdb.dart longpress --at "$X,$Y" --duration 800
+dart ../../bin/fdb.dart longpress --at "$X,$Y" --duration 800
 ```
 
 **What to verify:**
@@ -987,9 +987,9 @@ attach-created controller while keeping normal follow-up commands usable. This
 approximates attaching to an app started by Xcode or Android Studio.
 
 ```bash
-dart run ../../bin/fdb.dart attach --device <device_id>
-dart run ../../bin/fdb.dart status
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart attach --device <device_id>
+dart ../../bin/fdb.dart status
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**
@@ -1000,7 +1000,7 @@ dart run ../../bin/fdb.dart describe
 - `describe` still describes the current app screen, proving the attached
   controller can serve normal fdb commands after attach
 - If attach cannot discover the app, retry with the app's bundle/package id:
-  `dart run ../../bin/fdb.dart attach --device <device_id> --app-id <id>`
+  `dart ../../bin/fdb.dart attach --device <device_id> --app-id <id>`
 
 ---
 
@@ -1013,12 +1013,12 @@ handwriting/gesture recognizers that swipe's straight-line model can't
 express.
 
 ```bash
-dart run ../../bin/fdb.dart tap --key go_to_drawing_path_test
-dart run ../../bin/fdb.dart wait --key drawing_path_canvas --present --timeout 5000
-dart run ../../bin/fdb.dart swipe-path --points "100,300;150,350;200,300;250,350;300,300"
-dart run ../../bin/fdb.dart wait --text "drawing=false" --present --timeout 5000
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart tap --key go_to_drawing_path_test
+dart ../../bin/fdb.dart wait --key drawing_path_canvas --present --timeout 5000
+dart ../../bin/fdb.dart swipe-path --points "100,300;150,350;200,300;250,350;300,300"
+dart ../../bin/fdb.dart wait --text "drawing=false" --present --timeout 5000
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -1047,19 +1047,19 @@ editor's `onPerformAction`. The test app's Rich Editor screen shows
 `"Sent: <text>"` after a send.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key rich_editor_button
-dart run ../../bin/fdb.dart tap --key rich_editor_button
-dart run ../../bin/fdb.dart wait --key quill_editor --present --timeout 5000
-dart run ../../bin/fdb.dart tap --key quill_editor   # focus the editor
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart input "QA test" --action send
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll-to --key rich_editor_button
+dart ../../bin/fdb.dart tap --key rich_editor_button
+dart ../../bin/fdb.dart wait --key quill_editor --present --timeout 5000
+dart ../../bin/fdb.dart tap --key quill_editor   # focus the editor
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart input "QA test" --action send
+dart ../../bin/fdb.dart describe
 # Selector path, no focus needed
-dart run ../../bin/fdb.dart input --type QuillEditor "second"
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart input --type QuillEditor "second"
+dart ../../bin/fdb.dart describe
 # Bad action name
-dart run ../../bin/fdb.dart input --action bogus
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart input --action bogus
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -1089,15 +1089,15 @@ The Custom Button screen's "Cover" action shows an opaque `GestureDetector`
 overlay (with its own `overlay=N` counter) inside the screen-level detector.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_custom_button_test
-dart run ../../bin/fdb.dart tap --key go_to_custom_button_test
-dart run ../../bin/fdb.dart tap --key cover_toggle
-dart run ../../bin/fdb.dart tap --key custom_send_button
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart tap --key cover_toggle
-dart run ../../bin/fdb.dart tap --key custom_send_button
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
+dart ../../bin/fdb.dart scroll-to --key go_to_custom_button_test
+dart ../../bin/fdb.dart tap --key go_to_custom_button_test
+dart ../../bin/fdb.dart tap --key cover_toggle
+dart ../../bin/fdb.dart tap --key custom_send_button
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart tap --key cover_toggle
+dart ../../bin/fdb.dart tap --key custom_send_button
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
 ```
 
 **What to verify:**
@@ -1118,14 +1118,14 @@ back to its nested navigator (`NavigatorPopHandler`), so the nested screen
 closes first, not the screen hosting it.
 
 ```bash
-dart run ../../bin/fdb.dart scroll-to --key go_to_nested_navigator_test
-dart run ../../bin/fdb.dart tap --key go_to_nested_navigator_test
-dart run ../../bin/fdb.dart tap --key nested_open_details
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
-dart run ../../bin/fdb.dart describe
-dart run ../../bin/fdb.dart back
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart scroll-to --key go_to_nested_navigator_test
+dart ../../bin/fdb.dart tap --key go_to_nested_navigator_test
+dart ../../bin/fdb.dart tap --key nested_open_details
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
+dart ../../bin/fdb.dart describe
 ```
 
 **What to verify:**

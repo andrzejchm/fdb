@@ -49,7 +49,8 @@ packages/
 
 ```bash
 dart pub get                          # Install dependencies
-dart run bin/fdb.dart <command>       # Run locally
+dart run bin/fdb.dart <command>       # Run locally (from the repo root)
+dart <repo>/bin/fdb.dart <command>    # Run from a Flutter app dir; `dart run` there runs the app's build hooks and prints "Running build hooks..."
 dart pub global activate --source path .  # Install globally (local)
 dart analyze                          # Static analysis
 dart format .                         # Format

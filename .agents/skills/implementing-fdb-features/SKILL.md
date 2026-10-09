@@ -294,8 +294,8 @@ Devices:
 For each platform:
 ```bash
 cd .worktrees/<feature-name>/example/test_app
-dart run ../../bin/fdb.dart kill 2>/dev/null || true
-dart run ../../bin/fdb.dart launch --device <DEVICE_ID>
+dart ../../bin/fdb.dart kill 2>/dev/null || true
+dart ../../bin/fdb.dart launch --device <DEVICE_ID>
 # from worktree root:
 task test:<command>
 dart run bin/fdb.dart kill

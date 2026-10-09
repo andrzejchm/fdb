@@ -133,7 +133,7 @@ cat doc/agent-scenarios.md
 
 # Run a scenario — example for S1 (home screen baseline)
 cd example/test_app
-dart run ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart describe
 # then evaluate output against the S1 What to verify list
 ```
 
