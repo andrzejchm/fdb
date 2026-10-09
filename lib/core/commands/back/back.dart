@@ -3,7 +3,8 @@ import 'package:fdb/src/controller/fdb_controller.dart';
 
 export 'package:fdb/core/commands/back/back_models.dart';
 
-/// Triggers Navigator.maybePop() in the running Flutter app.
+/// Presses the system back button in the running Flutter app, the same way the
+/// Android back button does (fdb_helper injects the engine's `popRoute`).
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<BackResult> navigateBack(BackInput _) async {
@@ -14,7 +15,7 @@ Future<BackResult> navigateBack(BackInput _) async {
     final result = await fdbBack(isolateId);
 
     if (result.isSuccess) {
-      return (result.popped ?? false) ? const BackPopped() : const BackAtRoot();
+      return (result.popped ?? false) ? const BackPopped() : BackAtRoot(passedToOs: result.passedToOs);
     }
 
     if (result.error != null) return BackVmError(result.error!);

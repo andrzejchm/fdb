@@ -2,12 +2,166 @@ import 'dart:convert';
 
 import 'package:fdb_helper/src/handlers/back_handler.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Future<Map<String, dynamic>> _back(WidgetTester tester) async {
-  final response = (await tester.runAsync(() => handleBack('ext.fdb.back', const {})))!;
-  await tester.pumpAndSettle();
-  return jsonDecode(response.result!) as Map<String, dynamic>;
+/// `fdb back` must do what the Android back button does. These tests assert the
+/// outcome a real back press has in each kind of app, including the cases where
+/// the app itself does not route back to a nested navigator.
+void main() {
+  late List<String> systemNavigatorCalls;
+
+  setUp(() => systemNavigatorCalls = []);
+
+  Future<Map<String, dynamic>> back(WidgetTester tester) async {
+    final response = (await tester.runAsync(() => handleBack('ext.fdb.back', const {})))!;
+    await tester.pumpAndSettle();
+    expect(response.errorDetail, isNull);
+    return jsonDecode(response.result!) as Map<String, dynamic>;
+  }
+
+  Future<void> pumpApp(WidgetTester tester, Widget app) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method.startsWith('SystemNavigator.pop')) systemNavigatorCalls.add(call.method);
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+  }
+
+  NavigatorState rootNavigatorOf(WidgetTester tester, String text) =>
+      Navigator.of(tester.element(find.text(text)), rootNavigator: true);
+
+  group('plain MaterialApp', () {
+    testWidgets('pops the pushed screen', (tester) async {
+      await pumpApp(tester, MaterialApp(home: _screen('Home')));
+      rootNavigatorOf(tester, 'Home').push(_route('Pushed'));
+      await tester.pumpAndSettle();
+
+      expect(await back(tester), {'status': 'Success', 'popped': true, 'passedToOs': false});
+      expect(find.text('Pushed'), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+      expect(systemNavigatorCalls, isEmpty);
+    });
+
+    testWidgets('at the root screen nothing handles back; off Android the app is left alone', (tester) async {
+      await pumpApp(tester, MaterialApp(home: _screen('Home')));
+
+      // Tests run on the host (not Android), which has no system back button.
+      expect(await back(tester), {'status': 'Success', 'popped': false, 'passedToOs': false});
+      expect(systemNavigatorCalls, isEmpty, reason: 'SystemNavigator.pop quits a macOS app');
+      expect(find.text('Home'), findsOneWidget);
+    });
+
+    testWidgets('leaves no observer behind', (tester) async {
+      await pumpApp(tester, MaterialApp(home: _screen('Home')));
+      await back(tester);
+
+      // With the temporary observer gone, an unhandled pop reaches SystemNavigator.pop again.
+      await tester.binding.handlePopRoute();
+      expect(systemNavigatorCalls, ['SystemNavigator.pop']);
+    });
+
+    testWidgets('a PopScope that blocks the pop receives the back and the screen stays', (tester) async {
+      var blockedPops = 0;
+      await pumpApp(tester, MaterialApp(home: _screen('Home')));
+      rootNavigatorOf(tester, 'Home').push(
+        MaterialPageRoute<void>(
+          builder: (_) => PopScope<void>(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) => blockedPops++,
+            child: _screen('Guarded'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(blockedPops, 1);
+      expect(find.text('Guarded'), findsOneWidget);
+    });
+
+    testWidgets('dismisses a dialog before the screen below it', (tester) async {
+      await pumpApp(tester, MaterialApp(home: _screen('Home')));
+      showDialog<void>(
+        context: tester.element(find.text('Home')),
+        builder: (_) => const AlertDialog(title: Text('Confirm')),
+      );
+      await tester.pumpAndSettle();
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(find.text('Confirm'), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+    });
+  });
+
+  group('nested Navigator in a plain MaterialApp', () {
+    late GlobalKey<NavigatorState> nestedKey;
+
+    Future<void> pumpNested(WidgetTester tester, {required bool popHandler}) async {
+      nestedKey = GlobalKey<NavigatorState>();
+      await pumpApp(tester, MaterialApp(home: _screen('Home')));
+      rootNavigatorOf(tester, 'Home').push(
+        _route('Host', body: _NestedHost(navigatorKey: nestedKey, popHandler: popHandler)),
+      );
+      await tester.pumpAndSettle();
+      nestedKey.currentState!.pushNamed('Details');
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('with NavigatorPopHandler: pops the nested screen first, then the host', (tester) async {
+      await pumpNested(tester, popHandler: true);
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(find.text('Details'), findsNothing);
+      expect(find.text('List'), findsOneWidget);
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(find.text('Home'), findsOneWidget);
+    });
+
+    testWidgets('without back wiring: pops the host route, as a real back press does in such an app', (tester) async {
+      await pumpNested(tester, popHandler: false);
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(find.text('Details'), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+    });
+  });
+
+  group('MaterialApp.router with a nested navigator (auto_route style)', () {
+    late GlobalKey<NavigatorState> nestedKey;
+    late _TestRouterDelegate delegate;
+
+    Future<void> pumpRouterApp(WidgetTester tester) async {
+      nestedKey = GlobalKey<NavigatorState>();
+      delegate = _TestRouterDelegate(nestedKey);
+      await pumpApp(
+        tester,
+        MaterialApp.router(routerDelegate: delegate, routeInformationParser: _TestRouteParser()),
+      );
+      nestedKey.currentState!.pushNamed('Details');
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the router decides: nested screen, then router page, then nothing', (tester) async {
+      await pumpRouterApp(tester);
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(find.text('Details'), findsNothing);
+      expect(find.text('List'), findsOneWidget);
+      expect(delegate.pages, ['Home', 'Host']);
+
+      expect((await back(tester))['popped'], isTrue);
+      expect(delegate.pages, ['Home']);
+      expect(find.text('Home'), findsOneWidget);
+      expect(systemNavigatorCalls, isEmpty);
+
+      expect(await back(tester), {'status': 'Success', 'popped': false, 'passedToOs': false});
+      expect(systemNavigatorCalls, isEmpty);
+    });
+  });
 }
 
 Widget _screen(String title, {Widget? body}) => Scaffold(
@@ -18,240 +172,54 @@ Widget _screen(String title, {Widget? body}) => Scaffold(
 Route<void> _route(String title, {Widget? body}) =>
     MaterialPageRoute<void>(settings: RouteSettings(name: title), builder: (_) => _screen(title, body: body));
 
-/// A screen that hosts its own nested [Navigator] (like an auto_route `AutoRouter`
-/// or a tab shell), starting on a `List` screen.
+/// A screen hosting its own [Navigator], starting on a `List` screen. With
+/// [popHandler] it forwards back presses to that navigator the way Flutter
+/// recommends ([NavigatorPopHandler]).
 class _NestedHost extends StatelessWidget {
-  const _NestedHost({required this.navigatorKey, this.popScopeOnDetails = false});
+  const _NestedHost({required this.navigatorKey, this.popHandler = true});
 
   final GlobalKey<NavigatorState> navigatorKey;
-  final bool popScopeOnDetails;
+  final bool popHandler;
 
   @override
-  Widget build(BuildContext context) => Navigator(
-        key: navigatorKey,
-        onGenerateRoute: (settings) => switch (settings.name) {
-          'Details' => MaterialPageRoute<void>(
-              settings: settings,
-              builder: (_) => PopScope(canPop: !popScopeOnDetails, child: _screen('Details')),
-            ),
-          _ => _route('List'),
-        },
-      );
+  Widget build(BuildContext context) {
+    final navigator = Navigator(
+      key: navigatorKey,
+      onGenerateRoute: (settings) => switch (settings.name) {
+        'Details' => _route('Details'),
+        _ => _route('List'),
+      },
+    );
+    if (!popHandler) return navigator;
+    return NavigatorPopHandler<void>(
+      onPopWithResult: (_) => navigatorKey.currentState!.maybePop(),
+      child: navigator,
+    );
+  }
 }
 
-void main() {
-  group('plain single Navigator', () {
-    testWidgets('pops the pushed screen and reports popped: true', (tester) async {
-      await tester.pumpWidget(MaterialApp(home: _screen('Home')));
-      Navigator.of(tester.element(find.text('Home'))).push(_route('Pushed'));
-      await tester.pumpAndSettle();
-
-      final result = await _back(tester);
-
-      expect(result, {'status': 'Success', 'popped': true});
-      expect(find.text('Pushed'), findsNothing);
-      expect(find.text('Home'), findsOneWidget);
-    });
-
-    testWidgets('at the root reports popped: false and leaves the app alone', (tester) async {
-      await tester.pumpWidget(MaterialApp(home: _screen('Home')));
-
-      final result = await _back(tester);
-
-      expect(result, {'status': 'Success', 'popped': false});
-      expect(find.text('Home'), findsOneWidget);
-    });
-
-    testWidgets('a PopScope that blocks the pop is reported as handled without popping', (tester) async {
-      await tester.pumpWidget(MaterialApp(home: _screen('Home')));
-      Navigator.of(tester.element(find.text('Home'))).push(
-        MaterialPageRoute<void>(builder: (_) => PopScope(canPop: false, child: _screen('Guarded'))),
-      );
-      await tester.pumpAndSettle();
-
-      final result = await _back(tester);
-
-      expect(result['popped'], isTrue);
-      expect(find.text('Guarded'), findsOneWidget);
-    });
-
-    testWidgets('reports an error when the app has no Navigator', (tester) async {
-      await tester.pumpWidget(const SizedBox());
-
-      final response = (await tester.runAsync(() => handleBack('ext.fdb.back', const {})))!;
-
-      expect(response.errorDetail, contains('No Navigator found'));
-    });
-  });
-
-  group('nested Navigator inside the root Navigator', () {
-    late GlobalKey<NavigatorState> nestedKey;
-
-    Future<void> pumpNested(WidgetTester tester, {bool popScopeOnDetails = false}) async {
-      nestedKey = GlobalKey<NavigatorState>();
-      await tester.pumpWidget(MaterialApp(home: _screen('Home')));
-      Navigator.of(tester.element(find.text('Home'))).push(
-        _route('Host', body: _NestedHost(navigatorKey: nestedKey, popScopeOnDetails: popScopeOnDetails)),
-      );
-      await tester.pumpAndSettle();
-      nestedKey.currentState!.pushNamed('Details');
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('pops the nested screen, not the root route hosting it', (tester) async {
-      await pumpNested(tester);
-
-      final result = await _back(tester);
-
-      expect(result, {'status': 'Success', 'popped': true});
-      expect(find.text('Details'), findsNothing);
-      expect(find.text('List'), findsOneWidget);
-    });
-
-    testWidgets('once the nested navigator is at its root, back pops the root route that hosts it', (tester) async {
-      await pumpNested(tester);
-      await _back(tester);
-
-      final result = await _back(tester);
-
-      expect(result, {'status': 'Success', 'popped': true});
-      expect(find.text('List'), findsNothing);
-      expect(find.text('Home'), findsOneWidget);
-    });
-
-    testWidgets('a dialog on the root navigator is dismissed before the nested screen', (tester) async {
-      await pumpNested(tester);
-      showDialog<void>(
-        context: tester.element(find.text('Details')),
-        builder: (_) => const AlertDialog(title: Text('Confirm')),
-      );
-      await tester.pumpAndSettle();
-
-      final result = await _back(tester);
-
-      expect(result['popped'], isTrue);
-      expect(find.text('Confirm'), findsNothing);
-      expect(find.text('Details'), findsOneWidget);
-    });
-
-    testWidgets('a PopScope on the nested screen intercepts the back', (tester) async {
-      await pumpNested(tester, popScopeOnDetails: true);
-
-      final result = await _back(tester);
-
-      expect(result['popped'], isTrue);
-      expect(find.text('Details'), findsOneWidget);
-    });
-  });
-
-  group('hidden nested navigators are left alone', () {
-    // Tab 0 is visible; the hidden tab 1 is built later in the tree and also has a screen to pop.
-    final hiddenTabVariants = <String, Widget Function(List<GlobalKey<NavigatorState>> keys)>{
-      'IndexedStack': (keys) => IndexedStack(
-            index: 0,
-            children: [for (final key in keys) _NestedHost(navigatorKey: key)],
-          ),
-      'Offstage': (keys) => Column(
-            children: [
-              Expanded(child: _NestedHost(navigatorKey: keys[0])),
-              Offstage(child: SizedBox(height: 100, child: _NestedHost(navigatorKey: keys[1]))),
-            ],
-          ),
-      'Visibility(maintainSize)': (keys) => Column(
-            children: [
-              Expanded(child: _NestedHost(navigatorKey: keys[0])),
-              Visibility(
-                visible: false,
-                maintainSize: true,
-                maintainAnimation: true,
-                maintainState: true,
-                child: SizedBox(height: 100, child: _NestedHost(navigatorKey: keys[1])),
-              ),
-            ],
-          ),
-    };
-
-    for (final MapEntry(key: name, value: buildTabs) in hiddenTabVariants.entries) {
-      testWidgets('$name: only the visible tab is popped', (tester) async {
-        final tabKeys = [GlobalKey<NavigatorState>(), GlobalKey<NavigatorState>()];
-        await tester.pumpWidget(MaterialApp(home: buildTabs(tabKeys)));
-        tabKeys[0].currentState!.pushNamed('Details');
-        tabKeys[1].currentState!.pushNamed('Details');
-        await tester.pumpAndSettle();
-
-        final result = await _back(tester);
-
-        expect(result['popped'], isTrue);
-        expect(tabKeys[0].currentState!.canPop(), isFalse, reason: 'the visible tab was popped');
-        expect(tabKeys[1].currentState!.canPop(), isTrue, reason: 'the hidden tab must be left alone');
-      });
-    }
-  });
-
-  group('Router based app (MaterialApp.router)', () {
-    late GlobalKey<NavigatorState> nestedKey;
-    late _TestRouterDelegate delegate;
-
-    Future<void> pumpRouterApp(WidgetTester tester) async {
-      nestedKey = GlobalKey<NavigatorState>();
-      delegate = _TestRouterDelegate(nestedKey);
-      await tester.pumpWidget(
-        MaterialApp.router(
-          routerDelegate: delegate,
-          routeInformationParser: _TestRouteParser(),
-        ),
-      );
-      await tester.pumpAndSettle();
-      nestedKey.currentState!.pushNamed('Details');
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('pops the nested screen and keeps the router page stack in sync', (tester) async {
-      await pumpRouterApp(tester);
-      expect(delegate.pages, ['Home', 'Host']);
-
-      final result = await _back(tester);
-
-      expect(result, {'status': 'Success', 'popped': true});
-      expect(find.text('Details'), findsNothing);
-      expect(find.text('List'), findsOneWidget);
-      expect(delegate.pages, ['Home', 'Host'], reason: 'the nested pop must not remove the hosting router page');
-    });
-
-    testWidgets('then pops the router page, and stops at the router root', (tester) async {
-      await pumpRouterApp(tester);
-      await _back(tester);
-
-      expect((await _back(tester))['popped'], isTrue);
-      expect(delegate.pages, ['Home']);
-      expect(find.text('Home'), findsOneWidget);
-
-      expect(await _back(tester), {'status': 'Success', 'popped': false});
-    });
-  });
-}
-
-/// Root [Router] delegate with a page-based [Navigator]; the `Host` page embeds a
-/// nested plain [Navigator], like a nested auto_route / go_router shell.
-class _TestRouterDelegate extends RouterDelegate<String> with ChangeNotifier, PopNavigatorRouterDelegateMixin<String> {
+/// Root [Router] delegate with a page-based [Navigator]; the `Host` page embeds
+/// a nested [Navigator]. Like auto_route, [popRoute] pops the innermost
+/// navigator that can pop before its own pages.
+class _TestRouterDelegate extends RouterDelegate<String> with ChangeNotifier {
   _TestRouterDelegate(this.nestedKey);
 
   final GlobalKey<NavigatorState> nestedKey;
-
-  @override
-  final navigatorKey = GlobalKey<NavigatorState>();
+  final _rootKey = GlobalKey<NavigatorState>();
 
   List<String> pages = ['Home', 'Host'];
 
   @override
   Widget build(BuildContext context) => Navigator(
-        key: navigatorKey,
+        key: _rootKey,
         pages: [
           for (final name in pages)
             MaterialPage<void>(
               key: ValueKey(name),
               name: name,
-              child: name == 'Host' ? _screen('Host', body: _NestedHost(navigatorKey: nestedKey)) : _screen(name),
+              child: name == 'Host'
+                  ? _screen('Host', body: _NestedHost(navigatorKey: nestedKey, popHandler: false))
+                  : _screen(name),
             ),
         ],
         onDidRemovePage: (page) {
@@ -259,6 +227,13 @@ class _TestRouterDelegate extends RouterDelegate<String> with ChangeNotifier, Po
           notifyListeners();
         },
       );
+
+  @override
+  Future<bool> popRoute() async {
+    final nested = nestedKey.currentState;
+    if (nested != null && nested.canPop()) return nested.maybePop();
+    return await _rootKey.currentState?.maybePop() ?? false;
+  }
 
   @override
   Future<void> setNewRoutePath(String configuration) async {}

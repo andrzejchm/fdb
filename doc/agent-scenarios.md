@@ -1113,7 +1113,9 @@ dart run ../../bin/fdb.dart back
 
 ## S42 · back — screen inside a nested navigator
 
-**Purpose:** `fdb back` pops the innermost visible navigator, not the root one.
+**Purpose:** `fdb back` behaves like a real back press: the screen forwards
+back to its nested navigator (`NavigatorPopHandler`), so the nested screen
+closes first, not the screen hosting it.
 
 ```bash
 dart run ../../bin/fdb.dart scroll-to --key go_to_nested_navigator_test

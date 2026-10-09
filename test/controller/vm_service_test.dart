@@ -123,6 +123,25 @@ void main() {
       expect(result.popped, isNull);
     });
 
+    test('back response keeps passedToOs through the controller round trip', () {
+      final fromHelper = FdbBackCommandResponse.fromResponse({
+        'status': 'Success',
+        'popped': false,
+        'passedToOs': true,
+        'type': '_extensionType',
+      });
+      final roundTripped = FdbBackCommandResponse.fromResponse(fromHelper.toJson());
+
+      expect(roundTripped.popped, isFalse);
+      expect(roundTripped.passedToOs, isTrue);
+    });
+
+    test('back response from an older fdb_helper has no passedToOs', () {
+      final result = FdbBackCommandResponse.fromResponse({'status': 'Success', 'popped': false});
+
+      expect(result.passedToOs, isNull);
+    });
+
     test('flutter inspector result extracts decoded widget tree', () {
       final result = FlutterInspectorTreeCommandResponse.fromResponse({
         'result': '{"description":"MaterialApp","children":[]}',

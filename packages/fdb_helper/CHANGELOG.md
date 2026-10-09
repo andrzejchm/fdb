@@ -1,7 +1,7 @@
 ## Unreleased
 
 ### Fixes
-- `ext.fdb.back` pops the innermost visible navigator instead of the first one found from the root, so screens in a nested navigator (`AutoRouter`, tab shells) are popped. When that navigator has nothing to pop it moves out to the enclosing one. `popped` is `true` only when a route was popped or a `PopScope` intercepted the back, `false` at the root.
+- `ext.fdb.back` injects the engine's `popRoute` on `flutter/navigation`, the message a real Android back press sends, instead of calling `maybePop()` on the first navigator under the root. The app's `Router`/`BackButtonDispatcher`, `NavigatorPopHandler` and `PopScope` decide what is popped, so nested navigators behave as on a device. `popped` is the framework's answer. When nothing handles the back, the new `passedToOs` field says whether it went to the OS: `true` on Android (`SystemNavigator.pop()`, as a real press), `false` elsewhere, where `SystemNavigator.pop()` would quit a macOS app.
 
 ## 1.13.0
 

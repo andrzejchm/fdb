@@ -1,74 +1,99 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'handler_utils.dart';
 
-/// Pops the frontmost screen, like the Android back button would.
+/// Presses the system back button, exactly like the Android back button or
+/// back gesture does.
 ///
-/// Apps often nest navigators (an `AutoRouter` or tab shell inside the root
-/// navigator), so the root navigator is not the one showing the front screen.
-/// This pops the innermost visible navigator, and walks outwards only when that
-/// navigator has nothing left to pop.
+/// The engine delivers a back press as a `popRoute` call on the
+/// `flutter/navigation` channel. This pushes that same message into the
+/// framework, so the app decides what back does through its own wiring:
+/// `WidgetsApp` / `Router` and its `BackButtonDispatcher` (auto_route,
+/// go_router), `NavigatorPopHandler`, `PopScope`, dialogs.
 ///
-/// `WidgetsBinding.handlePopRoute` is not used on purpose: it is `@protected`
-/// and, when no observer handles the pop, calls `SystemNavigator.pop()`, which
-/// quits the app at the root screen instead of reporting `popped: false`.
+/// `popped` is the framework's answer: `true` when something in the app
+/// handled the back (popped a route, or a `PopScope` intercepted it).
+///
+/// When nothing in the app handles it, the framework would call
+/// `SystemNavigator.pop()`. On Android that is what a real back press does
+/// (the app leaves the foreground), so fdb does the same and reports
+/// `passedToOs: true`. Other platforms have no system back button that reaches
+/// the app, and there `SystemNavigator.pop()` can quit it (macOS), so fdb
+/// leaves the app alone and reports `passedToOs: false`.
 Future<developer.ServiceExtensionResponse> handleBack(
   String method,
   Map<String, String> params,
 ) async {
   try {
-    final rootElement = WidgetsBinding.instance.rootElement;
-    if (rootElement == null) {
-      return errorResponse('No root element available');
-    }
-    final innermost = _findInnermostActiveNavigator(rootElement);
-    if (innermost == null) {
-      return errorResponse('No Navigator found');
-    }
-    var popped = false;
-    for (NavigatorState? navigator = innermost; navigator != null && !popped;) {
-      popped = await navigator.maybePop();
-      navigator = navigator.mounted ? navigator.context.findAncestorStateOfType<NavigatorState>() : null;
-    }
+    final popped = await _pressSystemBack();
+    final passedToOs = !popped && _hasSystemBackButton();
+    if (passedToOs) await SystemNavigator.pop();
     return developer.ServiceExtensionResponse.result(
-      jsonEncode({'status': 'Success', 'popped': popped}),
+      jsonEncode({'status': 'Success', 'popped': popped, 'passedToOs': passedToOs}),
     );
   } catch (e) {
     return errorResponse('Back failed: $e');
   }
 }
 
-/// Returns the most deeply nested navigator that is currently showing.
+bool _hasSystemBackButton() => !kIsWeb && Platform.isAndroid;
+
+/// Delivers `popRoute` the way the engine does and returns whether the app
+/// handled it.
 ///
-/// A navigator is skipped, together with everything inside it, when it is not
-/// onstage (e.g. a hidden tab, a route fully covered by an opaque one), when an
-/// ancestor [Visibility] hides it (e.g. a tab of an [IndexedStack]), or when its
-/// hosting route is covered by another route (e.g. a dialog pushed on the root
-/// navigator). That way a dialog is dismissed before the screen below it. When
-/// several navigators are equally deep (side by side panes), the one built last
-/// wins.
-NavigatorState? _findInnermostActiveNavigator(Element rootElement) {
-  NavigatorState? innermost;
-  var innermostDepth = -1;
-
-  void visit(Element element, int depth) {
-    var childDepth = depth;
-    if (element is StatefulElement && element.state is NavigatorState) {
-      final hostRoute = ModalRoute.of(element);
-      if (hostRoute != null && !hostRoute.isCurrent) return;
-      if (!Visibility.of(element)) return;
-      childDepth = depth + 1;
-      if (childDepth >= innermostDepth) {
-        innermost = element.state as NavigatorState;
-        innermostDepth = childDepth;
-      }
-    }
-    element.debugVisitOnstageChildren((child) => visit(child, childDepth));
+/// [WidgetsBinding.handlePopRoute] asks its observers in registration order
+/// and calls `SystemNavigator.pop()` when none of them handles the pop. A
+/// temporary observer registered last answers only when every app observer
+/// declined, which keeps the framework from calling `SystemNavigator.pop()`
+/// itself, so [handleBack] can decide per platform.
+Future<bool> _pressSystemBack() async {
+  final unhandled = _UnhandledBackObserver();
+  WidgetsBinding.instance.addObserver(unhandled);
+  try {
+    await _pushPopRoute();
+    return !unhandled.reached;
+  } finally {
+    WidgetsBinding.instance.removeObserver(unhandled);
   }
+}
 
-  rootElement.debugVisitOnstageChildren((child) => visit(child, 0));
-  return innermost;
+Future<void> _pushPopRoute() {
+  final channel = SystemChannels.navigation;
+  final reply = Completer<void>();
+  ServicesBinding.instance.channelBuffers.push(
+    channel.name,
+    channel.codec.encodeMethodCall(const MethodCall('popRoute')),
+    (ByteData? data) {
+      if (data == null) {
+        reply.completeError(StateError('the app has no handler for ${channel.name} (no WidgetsBinding?)'));
+        return;
+      }
+      try {
+        channel.codec.decodeEnvelope(data);
+        reply.complete();
+      } catch (e) {
+        reply.completeError(e);
+      }
+    },
+  );
+  return reply.future;
+}
+
+/// Private exception to the no-classes rule for handler files:
+/// [WidgetsBindingObserver] has no callback-based form.
+class _UnhandledBackObserver with WidgetsBindingObserver {
+  bool reached = false;
+
+  @override
+  Future<bool> didPopRoute() async {
+    reached = true;
+    return true;
+  }
 }
