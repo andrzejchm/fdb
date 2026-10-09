@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixes
+- `ext.fdb.back` injects the engine's `popRoute` on `flutter/navigation`, the message a real Android back press sends, instead of calling `maybePop()` on the first navigator under the root. The app's `Router`/`BackButtonDispatcher`, `NavigatorPopHandler` and `PopScope` decide what is popped, so nested navigators behave as on a device. `popped` is the framework's answer. When nothing handles the back, the new `passedToOs` field says whether it went to the OS: `true` on Android (`SystemNavigator.pop()`, as a real press), `false` elsewhere, where `SystemNavigator.pop()` would quit a macOS app.
+
 ## 1.13.0
 
 ### Improvements

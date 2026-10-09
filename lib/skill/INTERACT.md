@@ -392,7 +392,7 @@ Requires `fdb_helper` in the app.
 fdb back
 ```
 
-Calls `Navigator.maybePop()` on the root navigator. Returns `POPPED` on success, or an error if already at the root route.
+Presses the system back button, exactly like the Android back button: the app's own back handling (router, nested `AutoRouter`, `PopScope`, dialogs) decides what closes. Returns `POPPED` when the app handled it. At the root screen it exits 1 with `ERROR: Nothing in the app handled back ...`. On Android the press then goes to the OS like a real one and the app leaves the foreground (bring it back by relaunching it); on iOS and desktop the app is left alone. If back does not close a screen, a real user's back press would not either: use its on-screen back button (`fdb tap`).
 
 ## Agent workflow patterns
 

@@ -9,7 +9,7 @@ import 'package:fdb/core/commands/back/back.dart';
 ///
 ///   POPPED                                                       (success)
 ///   ERROR: fdb_helper not detected in running app. ...          (no helper)
-///   ERROR: Navigator could not pop — already at root            (at root)
+///   ERROR: Nothing in the app handled back ...                   (at root)
 ///   ERROR: `<message>`                                           (VM error / generic)
 ///   (AppDiedException rethrown for dispatcher's `_formatAppDied`) (app died)
 Future<int> runBackCli(List<String> args) => runCliAdapter(ArgParser(), args, _execute);
@@ -31,8 +31,14 @@ int _format(BackResult result) {
         'FdbBinding.ensureInitialized() in main()',
       );
       return 1;
-    case BackAtRoot():
-      stderr.writeln('ERROR: Navigator could not pop — already at root');
+    case BackAtRoot(:final passedToOs):
+      stderr.writeln(switch (passedToOs) {
+        true => 'ERROR: Nothing in the app handled back (already at the root screen). '
+            'Like a real back press, it went to Android, so the app left the foreground.',
+        false => 'ERROR: Nothing in the app handled back (already at the root screen). '
+            'This platform has no system back button, so the app was left alone.',
+        null => 'ERROR: Navigator could not pop — already at root',
+      });
       return 1;
     case BackVmError(:final message):
       stderr.writeln('ERROR: $message');

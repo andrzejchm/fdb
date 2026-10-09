@@ -2452,6 +2452,39 @@ tasks:
           exit 1
         fi
 
+  test:back-nested:
+    desc: Navigate back from a screen inside a nested Navigator
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        fail() { echo "FAIL: fdb back (nested navigator) - $1" >&2; exit 1; }
+
+        echo "==> Hot restarting to reset UI state"
+        {{.FDB}} restart >/dev/null 2>&1
+        {{.FDB}} wait --key "go_to_details" --present --timeout 10000 >/dev/null
+        echo "==> Opening the screen that hosts a nested Navigator"
+        {{.FDB}} scroll-to --key "go_to_nested_navigator_test" >/dev/null 2>&1 || true
+        {{.FDB}} tap --key "go_to_nested_navigator_test" >/dev/null 2>&1 || fail "could not open the nested navigator screen"
+        {{.FDB}} wait --text "Nested List Content" --present --timeout 5000 >/dev/null || fail "nested list did not appear"
+        {{.FDB}} tap --key "nested_open_details" >/dev/null 2>&1 || fail "could not push the nested details screen"
+        {{.FDB}} wait --text "Nested Details Content" --present --timeout 5000 >/dev/null || fail "nested details did not appear"
+
+        echo "==> back #1: must pop the nested details screen only"
+        OUTPUT=$({{.FDB}} back 2>&1) || fail "fdb back failed: $OUTPUT"
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -q "POPPED" || fail "POPPED not found in output"
+        {{.FDB}} wait --text "Nested Details Content" --absent --timeout 5000 >/dev/null \
+          || fail "nested details screen is still showing"
+        {{.FDB}} wait --text "Nested List Content" --present --timeout 5000 >/dev/null \
+          || fail "the hosting screen was popped instead of the nested screen"
+
+        echo "==> back #2: the nested navigator is at its root, so the hosting screen is popped"
+        OUTPUT=$({{.FDB}} back 2>&1) || fail "second fdb back failed: $OUTPUT"
+        echo "$OUTPUT" | grep -q "POPPED" || fail "POPPED not found in output of second back"
+        {{.FDB}} wait --key "go_to_details" --present --timeout 5000 >/dev/null \
+          || fail "did not return to the home screen"
+        echo "PASS: fdb back (nested navigator)"
+
   test:clean:
     desc: Clear app cache and data directories
     dir: '{{.TEST_APP}}'
@@ -4699,6 +4732,7 @@ tasks:
       - task: test:swipe
       - task: test:swipe-path
       - task: test:back
+      - task: test:back-nested
       - task: test:clean
       - task: test:ext
       - task: test:shared-prefs

@@ -156,7 +156,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | `fdb wait --key/--text/--type/--route <selector> --present\|--absent [--timeout <ms>]` | Wait for a widget or route condition without shell polling |
 | `fdb swipe <direction> [--key/--text/--type <selector>] [--precision px]` | Swipe widget (PageView, Dismissible) |
 | `fdb swipe-path --points "x1,y1;x2,y2;..." [--precision px]` | Dispatch a freeform multi-point gesture as a single continuous stroke (drawing/handwriting/signature) |
-| `fdb back` | Navigate back (Navigator.maybePop) |
+| `fdb back` | Press the system back button, like the Android back button |
 | `fdb deeplink <url>` | Open a deep link |
 
 **iOS Simulator** *(no session required — works against any booted simulator)*

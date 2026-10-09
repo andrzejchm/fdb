@@ -12,7 +12,8 @@ sealed class BackResult extends CommandResult {
   const BackResult();
 }
 
-/// Navigator.maybePop() succeeded and the page was popped.
+/// The app handled the back press: a route was popped, or a `PopScope`
+/// intercepted it.
 class BackPopped extends BackResult {
   const BackPopped();
 }
@@ -22,9 +23,14 @@ class BackNoHelper extends BackResult {
   const BackNoHelper();
 }
 
-/// Navigator.maybePop() returned false — already at root, nothing to pop.
+/// Nothing in the app handled the back press (already at the root screen).
+///
+/// [passedToOs] is true when fdb_helper then passed it to the OS like a real
+/// back press (Android: the app leaves the foreground), false on platforms
+/// without a system back button, null from older fdb_helper versions.
 class BackAtRoot extends BackResult {
-  const BackAtRoot();
+  const BackAtRoot({this.passedToOs});
+  final bool? passedToOs;
 }
 
 /// The VM service returned an error message.

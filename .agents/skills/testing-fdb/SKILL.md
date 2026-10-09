@@ -86,6 +86,7 @@ task test:wait
 task test:swipe
 task test:swipe-path
 task test:back
+task test:back-nested
 task test:clean
 task test:ext
 task test:shared-prefs

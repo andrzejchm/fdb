@@ -26,6 +26,7 @@ class FdbBackCommandResponse extends FdbActionCommandResponse {
     required super.error,
     required super.unexpected,
     required this.popped,
+    required this.passedToOs,
   });
 
   factory FdbBackCommandResponse.fromResponse(Map<String, dynamic> response) {
@@ -34,16 +35,22 @@ class FdbBackCommandResponse extends FdbActionCommandResponse {
       status: result?['status'] as String?,
       error: result?['error'] as String?,
       popped: result?['popped'] as bool?,
+      passedToOs: result?['passedToOs'] as bool?,
       unexpected: result ?? response,
     );
   }
 
   final bool? popped;
 
+  /// Whether the unhandled back press was passed to the OS (Android). Null
+  /// from fdb_helper versions that do not report it.
+  final bool? passedToOs;
+
   @override
   Map<String, Object?> toJson() => {
         ...super.toJson(),
         'popped': popped,
+        'passedToOs': passedToOs,
       };
 }
 

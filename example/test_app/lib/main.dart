@@ -16,6 +16,7 @@ import 'input_label_scope_screen.dart';
 import 'listtile_describe_screen.dart';
 import 'native_view_test_screen.dart';
 import 'nested_gesture_describe_screen.dart';
+import 'nested_navigator_screen.dart';
 import 'notification_test_screen.dart';
 import 'page_view_ref_screen.dart';
 import 'permission_test_screen.dart';
@@ -73,6 +74,7 @@ class FdbTestApp extends StatelessWidget {
         customButtonRoute: (_) => const CustomButtonTestScreen(),
         inputLabelScopeRoute: (_) => const InputLabelScopeScreen(),
         pageViewRefRoute: (_) => const PageViewRefScreen(),
+        nestedNavigatorRoute: (_) => const NestedNavigatorScreen(),
         refListRoute: (_) => const RefListScreen(),
       },
     );
@@ -538,6 +540,13 @@ class _FdbTestHomePageState extends State<FdbTestHomePage> {
                 key: const Key('go_to_page_view_ref_test'),
                 onPressed: () => Navigator.pushNamed(context, pageViewRefRoute),
                 child: const Text('PageView Ref Test'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                key: const Key('go_to_nested_navigator_test'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, nestedNavigatorRoute),
+                child: const Text('Nested Navigator Test'),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
