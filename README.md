@@ -159,7 +159,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | `fdb back` | Press the system back button, like the Android back button |
 | `fdb deeplink <url>` | Open a deep link |
 
-**iOS Simulator** *(no session required — works against any booted simulator)*
+**iOS Simulator** *(no running app required. Every subcommand accepts `--device <udid>` after the action; without it, fdb uses the session's simulator, else the only booted one, and fails listing the candidates if several are booted.)*
 
 | Command | Description |
 |---------|-------------|
@@ -174,6 +174,8 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | `fdb simulator defaults read [--bundle-id <id>] [<key>]` | Read NSUserDefaults for an app |
 | `fdb simulator defaults write [--bundle-id <id>] <key> <value> [--type string\|int\|float\|bool]` | Write an NSUserDefaults key |
 | `fdb simulator defaults delete [--bundle-id <id>] <key>` | Delete an NSUserDefaults key |
+
+Target order: `--device <udid>`, then the session's device (`.fdb/device.txt`) if it is an iOS simulator, then the only booted iOS simulator. Put `--device` after the action (`fdb simulator appearance dark --device <udid>`). With several booted and none of those, the command fails with `ERROR:` and one `<UDID> (<name>)` per line. Point at another project's session with `fdb --session-dir <path/to/.fdb> simulator ...` (the flag goes before `simulator`); without it fdb walks up from the current directory. A stale session can be cleared with `fdb kill`. Details: `fdb skill simulator`.
 
 **Data & state**
 

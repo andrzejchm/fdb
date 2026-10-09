@@ -4,7 +4,7 @@ import 'package:fdb/core/models/command_result.dart';
 // Appearance
 // ---------------------------------------------------------------------------
 
-typedef SimAppearanceInput = ({String mode});
+typedef SimAppearanceInput = ({String mode, String? deviceOverride});
 
 sealed class SimAppearanceResult extends CommandResult {
   const SimAppearanceResult();
@@ -29,7 +29,7 @@ class SimAppearanceFailed extends SimAppearanceResult {
 // Push notification
 // ---------------------------------------------------------------------------
 
-typedef SimPushInput = ({String? bundleId, String payload});
+typedef SimPushInput = ({String? bundleId, String payload, String? deviceOverride});
 
 sealed class SimPushResult extends CommandResult {
   const SimPushResult();
@@ -49,9 +49,9 @@ class SimPushFailed extends SimPushResult {
 // Location
 // ---------------------------------------------------------------------------
 
-typedef SimLocationSetInput = ({String latitude, String longitude});
-typedef SimLocationRouteInput = ({String scenario});
-typedef SimLocationClearInput = ();
+typedef SimLocationSetInput = ({String latitude, String longitude, String? deviceOverride});
+typedef SimLocationRouteInput = ({String scenario, String? deviceOverride});
+typedef SimLocationClearInput = ({String? deviceOverride});
 
 sealed class SimLocationResult extends CommandResult {
   const SimLocationResult();
@@ -81,7 +81,7 @@ class SimLocationFailed extends SimLocationResult {
 // Text size (Dynamic Type / content_size)
 // ---------------------------------------------------------------------------
 
-typedef SimTextSizeInput = ({String size});
+typedef SimTextSizeInput = ({String size, String? deviceOverride});
 
 sealed class SimTextSizeResult extends CommandResult {
   const SimTextSizeResult();
@@ -106,7 +106,7 @@ class SimTextSizeFailed extends SimTextSizeResult {
 // Status bar
 // ---------------------------------------------------------------------------
 
-typedef SimStatusBarClearInput = ();
+typedef SimStatusBarClearInput = ({String? deviceOverride});
 
 typedef SimStatusBarOverrideInput = ({
   String? time,
@@ -118,6 +118,7 @@ typedef SimStatusBarOverrideInput = ({
   String? operatorName,
   String? batteryState,
   int? batteryLevel,
+  String? deviceOverride,
 });
 
 sealed class SimStatusBarResult extends CommandResult {
@@ -141,9 +142,15 @@ class SimStatusBarFailed extends SimStatusBarResult {
 // Defaults (NSUserDefaults via `simctl spawn ... defaults`)
 // ---------------------------------------------------------------------------
 
-typedef SimDefaultsReadInput = ({String bundleId, String? key});
-typedef SimDefaultsWriteInput = ({String bundleId, String key, String value, String type});
-typedef SimDefaultsDeleteInput = ({String bundleId, String key});
+typedef SimDefaultsReadInput = ({String bundleId, String? key, String? deviceOverride});
+typedef SimDefaultsWriteInput = ({
+  String bundleId,
+  String key,
+  String value,
+  String type,
+  String? deviceOverride,
+});
+typedef SimDefaultsDeleteInput = ({String bundleId, String key, String? deviceOverride});
 
 sealed class SimDefaultsResult extends CommandResult {
   const SimDefaultsResult();

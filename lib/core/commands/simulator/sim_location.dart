@@ -7,7 +7,11 @@ export 'package:fdb/core/commands/simulator/simulator_models.dart';
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimLocationResult> setSimLocation(SimLocationSetInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimLocationFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final error = await runSimctl([
     'location',
     device,
@@ -24,7 +28,11 @@ Future<SimLocationResult> setSimLocation(SimLocationSetInput input) async {
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimLocationResult> runSimLocationRoute(SimLocationRouteInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimLocationFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final error = await runSimctl(['location', device, 'run', input.scenario]);
   if (error != null) {
     return SimLocationFailed(error);
@@ -35,8 +43,12 @@ Future<SimLocationResult> runSimLocationRoute(SimLocationRouteInput input) async
 /// Stops location simulation on the iOS simulator.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
-Future<SimLocationResult> clearSimLocation(SimLocationClearInput _) async {
-  final device = await resolveSimulatorDevice();
+Future<SimLocationResult> clearSimLocation(SimLocationClearInput input) async {
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimLocationFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final error = await runSimctl(['location', device, 'clear']);
   if (error != null) {
     return SimLocationFailed(error);

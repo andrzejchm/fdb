@@ -14,17 +14,22 @@ export 'package:fdb/core/commands/simulator/simulator_models.dart';
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimPushResult> sendSimPush(SimPushInput input) async {
-  final device = await resolveSimulatorDevice();
-
-  final bundleId = input.bundleId;
-
-  // Validate payload file exists (unless reading from stdin).
+  // Validate payload file exists (unless reading from stdin) before touching
+  // simctl, so a bad path reports the same error however many simulators are booted.
   if (input.payload != '-') {
     final file = File(input.payload);
     if (!file.existsSync()) {
       return SimPushFailed('Payload file not found: ${input.payload}');
     }
   }
+
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimPushFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
+
+  final bundleId = input.bundleId;
 
   final args = <String>[
     'push',

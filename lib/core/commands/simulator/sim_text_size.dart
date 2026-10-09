@@ -26,7 +26,11 @@ const validContentSizes = <String>{
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimTextSizeResult> setSimTextSize(SimTextSizeInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimTextSizeFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final size = input.size;
 
   if (size == 'get') {

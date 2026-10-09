@@ -12,7 +12,11 @@ export 'package:fdb/core/commands/simulator/simulator_models.dart';
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimDefaultsResult> readSimDefaults(SimDefaultsReadInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimDefaultsFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final bundleId = input.bundleId;
 
   final args = <String>[
@@ -37,7 +41,11 @@ Future<SimDefaultsResult> readSimDefaults(SimDefaultsReadInput input) async {
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimDefaultsResult> writeSimDefaults(SimDefaultsWriteInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimDefaultsFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final bundleId = input.bundleId;
 
   final args = <String>[
@@ -64,7 +72,11 @@ Future<SimDefaultsResult> writeSimDefaults(SimDefaultsWriteInput input) async {
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimDefaultsResult> deleteSimDefaults(SimDefaultsDeleteInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimDefaultsFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final bundleId = input.bundleId;
 
   final args = <String>[

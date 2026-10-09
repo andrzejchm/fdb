@@ -10,7 +10,11 @@ export 'package:fdb/core/commands/simulator/simulator_models.dart';
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimAppearanceResult> setSimAppearance(SimAppearanceInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimAppearanceFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final mode = input.mode;
 
   if (mode == 'get') {

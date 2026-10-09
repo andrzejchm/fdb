@@ -9,7 +9,11 @@ export 'package:fdb/core/commands/simulator/simulator_models.dart';
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<SimStatusBarResult> overrideSimStatusBar(SimStatusBarOverrideInput input) async {
-  final device = await resolveSimulatorDevice();
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimStatusBarFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final args = <String>[
     'status_bar',
     device,
@@ -35,8 +39,12 @@ Future<SimStatusBarResult> overrideSimStatusBar(SimStatusBarOverrideInput input)
 /// Clears all status bar overrides on the iOS simulator.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
-Future<SimStatusBarResult> clearSimStatusBar(SimStatusBarClearInput _) async {
-  final device = await resolveSimulatorDevice();
+Future<SimStatusBarResult> clearSimStatusBar(SimStatusBarClearInput input) async {
+  final resolved = await resolveSimulatorDevice(deviceOverride: input.deviceOverride);
+  if (resolved.error != null) {
+    return SimStatusBarFailed(resolved.error!);
+  }
+  final device = resolved.udid!;
   final error = await runSimctl(['status_bar', device, 'clear']);
   if (error != null) {
     return SimStatusBarFailed(error);
