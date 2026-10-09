@@ -760,8 +760,9 @@ dart ../../bin/fdb.dart back
 ## S33 · simulator — appearance, status-bar, location, text-size, push, defaults
 
 **Purpose:** verifies all `fdb simulator` subcommands work end-to-end on a
-booted iOS simulator. Does not require a running app session for most
-subcommands, but push delivery verification uses the Notification Test screen.
+iOS simulator (the session's simulator, or the only booted one). Does not
+require a running app session for most subcommands, but push delivery
+verification uses the Notification Test screen. For two booted simulators see S43.
 
 > **iOS simulator only** — skip on Android, macOS, physical iOS.
 
@@ -1136,6 +1137,62 @@ dart ../../bin/fdb.dart describe
   screen was not popped)
 - The second `back` exits 0 with `POPPED`; the last `describe` shows the home
   screen (`SCREEN: fdb test app`)
+
+---
+
+## S43 · simulator — target selection with two simulators booted
+
+**Purpose:** `fdb simulator` commands act on one simulator: `--device`, else
+the session's simulator, else the only booted one. With two booted and nothing
+to pick one, they fail instead of guessing.
+
+> **iOS simulator only.** Needs a second simulator (`SIM_B`, a different UDID
+> than the session's `SIM_A`). Skip if only one can be booted.
+
+```bash
+xcrun simctl boot <SIM_B_UDID>
+xcrun simctl list devices booted           # both SIM_A and SIM_B listed
+cat .fdb/device.txt                        # SIM_A
+
+# session simulator (SIM_A)
+dart ../../bin/fdb.dart simulator appearance dark
+xcrun simctl ui <SIM_A_UDID> appearance
+xcrun simctl ui <SIM_B_UDID> appearance
+
+# explicit --device (SIM_B)
+dart ../../bin/fdb.dart simulator appearance light --device <SIM_B_UDID>
+
+# no session: ambiguous
+(cd /tmp && dart <repo>/bin/fdb.dart simulator appearance get; echo "exit=$?")
+# no session, explicit --device
+(cd /tmp && dart <repo>/bin/fdb.dart simulator appearance get --device <SIM_B_UDID>)
+# global --session-dir (before `simulator`) from outside the project
+(cd /tmp && dart <repo>/bin/fdb.dart --session-dir <repo>/example/test_app/.fdb simulator appearance get)
+
+# session simulator shut down
+xcrun simctl shutdown <SIM_A_UDID>
+dart ../../bin/fdb.dart simulator appearance get; echo "exit=$?"
+
+# cleanup
+xcrun simctl shutdown <SIM_B_UDID>
+xcrun simctl boot <SIM_A_UDID>
+dart ../../bin/fdb.dart simulator appearance light
+dart ../../bin/fdb.dart launch --device <SIM_A_UDID>    # shutdown killed the app
+```
+
+**What to verify:**
+
+- First `appearance dark` prints `APPEARANCE=dark`; `simctl ui` reports `dark`
+  for SIM_A and the previous value for SIM_B (SIM_B unchanged)
+- `appearance light --device <SIM_B_UDID>` prints `APPEARANCE=light`; SIM_A is
+  still `dark`
+- Ambiguous run from `/tmp` exits 1 with an `ERROR:` that lists both
+  simulators as `<UDID> (<name>)` and says to pass `--device <udid>`
+- Run with `--device <SIM_B_UDID>` from `/tmp` prints `APPEARANCE=light`
+- Run with `--session-dir` from `/tmp` reports SIM_A's value (`dark`)
+- With SIM_A shut down, the command exits 1 with an `ERROR:` naming SIM_A as
+  not booted; SIM_B's appearance is untouched
+- After cleanup, `status` prints `RUNNING=true` and SIM_A is back on `light`
 
 ---
 

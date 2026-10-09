@@ -1,3 +1,15 @@
+## Unreleased
+
+### Fixes
+- `fdb simulator appearance|text-size|status-bar|location|push|defaults` used simctl's `booted` alias, which picks an arbitrary device when several are booted. The command could change a simulator the app was not running on. They now act on one specific simulator.
+- Target order: `--device <udid>`, then the session's device (`.fdb/device.txt`), then the only booted iOS simulator.
+- A session device that is not a known iOS simulator (Android, macOS, physical iOS devices, names or partial ids that don't match a simulator UDID) is ignored. Booted watchOS, tvOS and visionOS simulators are not counted as "the only booted simulator".
+- New `--device <udid>` on every `fdb simulator` subcommand, placed after the subcommand/action (`fdb simulator appearance dark --device <udid>`). The simulator must exist and be booted.
+- The global `--session-dir <path/to/.fdb>` is now honored by `fdb simulator` (it goes before `simulator`). Without it, fdb walks up from the current directory to find the session.
+- A session simulator that is not booted fails with `ERROR: The session simulator <UDID> (<name>) is not booted ...` instead of using another one.
+- With several booted simulators and nothing to pick one, the command fails with `ERROR: Multiple booted iOS simulators ...` and lists each as `<UDID> (<name>)`. With none booted: `ERROR: No booted iOS simulator. ...`.
+- With one booted simulator and no session nothing changes, and output tokens are unchanged.
+
 ## 1.13.1
 
 ### Fixes
