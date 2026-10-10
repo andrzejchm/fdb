@@ -3792,9 +3792,10 @@ tasks:
         fi
 
         # The out-of-screen error names the screen size in points:
-        #   ERROR: coordinates X,Y are outside the screen (WxH points), e.g. (402.0x874.0 points)
-        SCREEN_W=$(echo "$OUTPUT" | sed -n 's/.*outside the screen (\([0-9.]*\)x\([0-9.]*\) points).*/\1/p' | head -1)
-        SCREEN_H=$(echo "$OUTPUT" | sed -n 's/.*outside the screen (\([0-9.]*\)x\([0-9.]*\) points).*/\2/p' | head -1)
+        #   ERROR: coordinates X,Y are outside the screen (WxH points, <orientation>),
+        #   e.g. (402.0x874.0 points, portrait). WxH is the rotated size in landscape.
+        SCREEN_W=$(echo "$OUTPUT" | sed -n 's/.*outside the screen (\([0-9.]*\)x\([0-9.]*\) points.*/\1/p' | head -1)
+        SCREEN_H=$(echo "$OUTPUT" | sed -n 's/.*outside the screen (\([0-9.]*\)x\([0-9.]*\) points.*/\2/p' | head -1)
         if [ -z "$SCREEN_W" ] || [ -z "$SCREEN_H" ]; then
           echo "FAIL: could not read the screen size from the out-of-screen error" >&2
           exit 1

@@ -96,6 +96,9 @@ int formatNativeTapResult(NativeTapResult result) {
     case NativeTapIosSimulatorOutOfBounds(:final message):
       stderr.writeln('ERROR: $message');
       return 1;
+    case NativeTapIosSimulatorOrientationUnknown(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
     case NativeTapIosSimulatorFailed(:final message):
       stderr.writeln('ERROR: $message');
       return 1;

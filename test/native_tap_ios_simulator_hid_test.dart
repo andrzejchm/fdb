@@ -62,6 +62,107 @@ void main() {
     });
   });
 
+  group('orientation', () {
+    // iPhone 17 Pro: 402x874 points in portrait.
+    const w = 402.0;
+    const h = 874.0;
+
+    ({double x, double y}) portrait(IosSimulatorOrientation o, double x, double y) =>
+        iosSimulatorPortraitPoint(o, x: x, y: y, portraitWidth: w, portraitHeight: h);
+
+    test('maps CoreSimulator values and refuses unknown ones', () {
+      expect(IosSimulatorOrientation.fromRawValue(1), IosSimulatorOrientation.portrait);
+      expect(IosSimulatorOrientation.fromRawValue(2), IosSimulatorOrientation.portraitUpsideDown);
+      expect(IosSimulatorOrientation.fromRawValue(3), IosSimulatorOrientation.landscapeRight);
+      expect(IosSimulatorOrientation.fromRawValue(4), IosSimulatorOrientation.landscapeLeft);
+      expect(IosSimulatorOrientation.fromRawValue(0), isNull);
+      expect(IosSimulatorOrientation.fromRawValue(5), isNull);
+    });
+
+    test('portrait passes the point through', () {
+      expect(portrait(IosSimulatorOrientation.portrait, 358, 796), (x: 358.0, y: 796.0));
+    });
+
+    test('portraitUpsideDown mirrors both axes', () {
+      expect(portrait(IosSimulatorOrientation.portraitUpsideDown, 358, 796), (x: 44.0, y: 78.0));
+      expect(portrait(IosSimulatorOrientation.portraitUpsideDown, 0, 0), (x: w, y: h));
+    });
+
+    test('landscapeLeft maps (x, y) to (W - y, x)', () {
+      // FAB measured on device at 768,338 in the 874x402 landscape frame.
+      expect(portrait(IosSimulatorOrientation.landscapeLeft, 768, 338), (x: 64.0, y: 768.0));
+      expect(portrait(IosSimulatorOrientation.landscapeLeft, 0, 0), (x: w, y: 0.0));
+      expect(portrait(IosSimulatorOrientation.landscapeLeft, h, w), (x: 0.0, y: h));
+    });
+
+    test('landscapeRight maps (x, y) to (y, H - x)', () {
+      expect(portrait(IosSimulatorOrientation.landscapeRight, 768, 338), (x: 338.0, y: 106.0));
+      expect(portrait(IosSimulatorOrientation.landscapeRight, 0, 0), (x: 0.0, y: h));
+      expect(portrait(IosSimulatorOrientation.landscapeRight, h, w), (x: w, y: 0.0));
+    });
+
+    test('every orientation maps the frame corners onto the portrait screen', () {
+      for (final o in IosSimulatorOrientation.values) {
+        final size = iosSimulatorOrientedSize(o, portraitWidth: w, portraitHeight: h);
+        for (final corner in [(0.0, 0.0), (size.width, 0.0), (0.0, size.height), (size.width, size.height)]) {
+          final p = portrait(o, corner.$1, corner.$2);
+          expect(p.x, inInclusiveRange(0, w), reason: '$o $corner');
+          expect(p.y, inInclusiveRange(0, h), reason: '$o $corner');
+        }
+      }
+    });
+
+    test('oriented size swaps width and height in landscape only', () {
+      for (final o in IosSimulatorOrientation.values) {
+        final size = iosSimulatorOrientedSize(o, portraitWidth: w, portraitHeight: h);
+        expect(size, o.isLandscape ? (width: h, height: w) : (width: w, height: h), reason: '$o');
+      }
+    });
+
+    test('bounds check uses the oriented size', () {
+      bool inBounds(IosSimulatorOrientation o, double x, double y) =>
+          iosSimulatorPointInBounds(o, x: x, y: y, portraitWidth: w, portraitHeight: h);
+
+      // x beyond the portrait width is fine in landscape...
+      expect(inBounds(IosSimulatorOrientation.landscapeLeft, 768, 338), isTrue);
+      expect(inBounds(IosSimulatorOrientation.landscapeRight, 874, 402), isTrue);
+      // ...but not in portrait.
+      expect(inBounds(IosSimulatorOrientation.portrait, 768, 338), isFalse);
+      expect(inBounds(IosSimulatorOrientation.portraitUpsideDown, 768, 338), isFalse);
+      // y beyond the landscape height is out in landscape.
+      expect(inBounds(IosSimulatorOrientation.landscapeLeft, 30, 500), isFalse);
+      expect(inBounds(IosSimulatorOrientation.landscapeRight, 875, 30), isFalse);
+      expect(inBounds(IosSimulatorOrientation.portrait, 30, 500), isTrue);
+      for (final o in IosSimulatorOrientation.values) {
+        expect(inBounds(o, -1, 0), isFalse, reason: '$o');
+        expect(inBounds(o, 0, -1), isFalse, reason: '$o');
+        expect(inBounds(o, 0, 0), isTrue, reason: '$o');
+      }
+    });
+
+    test('Swift helper uses the same orientation values and formulas', () {
+      expect(iosSimulatorHidSource, contains('uiOrientation'));
+      expect(
+        iosSimulatorHidSource,
+        contains('1: "portrait", 2: "portraitUpsideDown", 3: "landscapeRight", 4: "landscapeLeft"'),
+      );
+      expect(iosSimulatorHidSource, contains('let landscape = orientation == 3 || orientation == 4'));
+      expect(iosSimulatorHidSource, contains('let frameWidth = landscape ? heightPoints : widthPoints'));
+      expect(iosSimulatorHidSource, contains('let frameHeight = landscape ? widthPoints : heightPoints'));
+      expect(iosSimulatorHidSource, contains('x <= frameWidth, y <= frameHeight'));
+      expect(
+        iosSimulatorHidSource.replaceAll(RegExp(r'\s+'), ' '),
+        allOf(
+          contains('case 2: portraitX = widthPoints - x portraitY = heightPoints - y'),
+          contains('case 3: portraitX = y portraitY = heightPoints - x'),
+          contains('case 4: portraitX = widthPoints - y portraitY = x'),
+          contains('default: portraitX = x portraitY = y'),
+        ),
+      );
+      expect(iosSimulatorHidSource, contains('CGPoint(x: portraitX / widthPoints, y: portraitY / heightPoints)'));
+    });
+  });
+
   test('source keeps the two-payload Indigo envelope and Xcode 27 lookup', () {
     expect(iosSimulatorHidSource, contains('SimDeviceLegacyHIDClient'));
     expect(iosSimulatorHidSource, contains('UInt32(0x0b)'));
@@ -70,6 +171,7 @@ void main() {
     expect(iosSimulatorHidSource, contains('outside the screen'));
     expect(iosSimulatorHidSource, contains('code: 3'));
     expect(iosSimulatorHidSource, contains('code: 4'));
+    expect(iosSimulatorHidSource, contains('code: 5'));
     expect(iosSimulatorHidSource, contains('AutoreleasingUnsafeMutablePointer<NSError?>?'));
   });
 
@@ -162,6 +264,26 @@ void main() {
           'touch partially delivered: sending the touch up failed: boom',
         ),
       );
+    });
+
+    test('maps exit code 5 to orientation unknown, without a fallback', () async {
+      runner.tapExitCode = 5;
+      runner.tapStderr = 'objc[42]: noise\n'
+          "ERROR: native-tap can't tell which way the simulator is rotated (interface orientation 0); "
+          'rotate it to portrait and try again\n';
+
+      final result = await tap();
+
+      expect(
+        result,
+        isA<IosSimulatorHidOrientationUnknown>().having(
+          (r) => r.message,
+          'message',
+          "native-tap can't tell which way the simulator is rotated (interface orientation 0); "
+              'rotate it to portrait and try again',
+        ),
+      );
+      expect(runner.calls.where((c) => c[1] == 'tap'), hasLength(1));
     });
 
     test('maps out-of-bounds using only the ERROR line', () async {

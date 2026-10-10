@@ -51,6 +51,14 @@ class NativeTapIosSimulatorOutOfBounds extends NativeTapResult {
   final String message;
 }
 
+/// The iOS Simulator interface orientation could not be mapped, so nothing
+/// was tapped. No fallback tap is attempted: it could hit the app behind a
+/// SpringBoard dialog instead of the dialog.
+class NativeTapIosSimulatorOrientationUnknown extends NativeTapResult {
+  const NativeTapIosSimulatorOrientationUnknown(this.message);
+  final String message;
+}
+
 /// The iOS Simulator HID tap may have been partially delivered (e.g. touch
 /// down sent, touch up failed). No fallback tap is attempted, since that could
 /// tap twice.

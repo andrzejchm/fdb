@@ -7,8 +7,12 @@
 /// The cache key is a hash of this string plus the compiler flags: any change
 /// here, even whitespace, produces a new binary on the next run.
 ///
+/// Coordinates are in the current interface orientation; the helper reads it
+/// from the simulator and rotates the point into the portrait frame the HID
+/// stack expects.
+///
 /// Exit codes: 0 tapped, 1 failure, 2 usage error, 3 coordinates outside the
-/// screen, 4 touch partially delivered.
+/// screen, 4 touch partially delivered, 5 interface orientation unknown.
 const iosSimulatorHidSource = r'''// fdb iOS simulator HID helper.
 //
 // Injects touches into a booted iOS simulator through SimulatorKit's legacy
@@ -17,10 +21,12 @@ const iosSimulatorHidSource = r'''// fdb iOS simulator HID helper.
 // including SpringBoard (permission prompts, "Open in <App>?", paste prompt).
 //
 // Usage: <binary> tap <developer-dir> <udid> <x> <y>
-//   x, y are in points (UIKit coordinates, portrait).
+//   x, y are in points in the current interface orientation, the same frame
+//   screenshots and `fdb tap` use.
 // Exit codes: 0 tapped, 1 failure (message on stderr), 2 usage error,
 //   3 coordinates outside the screen, 4 touch partially delivered (the touch
-//   down may have reached the simulator but the touch up did not).
+//   down may have reached the simulator but the touch up did not),
+//   5 interface orientation unknown (nothing sent).
 //
 // The message layout mirrors facebook/idb (FBSimulatorIndigoHID). A single
 // multi-touch message straight from IndigoHIDMessageForMouseNSEvent is
@@ -102,10 +108,96 @@ guard let deviceType = device.value(forKey: "deviceType") as? NSObject,
 else {
   fail("could not read the simulator screen size")
 }
+// Portrait size of the screen in points. The HID touch is a ratio of this
+// portrait frame whatever way the simulator is rotated.
 let widthPoints = Double(screenSize.width) / screenScale
 let heightPoints = Double(screenSize.height) / screenScale
-guard x >= 0, y >= 0, x <= widthPoints, y <= heightPoints else {
-  fail("coordinates \(x),\(y) are outside the screen (\(widthPoints)x\(heightPoints) points)", code: 3)
+
+// Interface orientation of the main screen, as the guest reports it to the
+// host (the same value Simulator.app and `simctl io screenshot` rotate by).
+// It follows what is on screen: an app or SpringBoard that does not rotate
+// keeps reporting portrait even when the device is turned.
+// Values: 1 portrait, 2 portraitUpsideDown, 3 landscapeRight, 4 landscapeLeft
+// (devicectl naming). Returns nil when it cannot be read.
+typealias MsgSendUInt32 = @convention(c) (AnyObject, Selector) -> UInt32
+let sendUInt32 = unsafeBitCast(msgSend, to: MsgSendUInt32.self)
+
+func mainScreenOrientation() -> UInt32? {
+  guard let io = device.perform(NSSelectorFromString("io"))?.takeUnretainedValue() as? NSObject,
+    let ports = io.value(forKey: "ioPorts") as? [NSObject]
+  else { return nil }
+  var fallback: UInt32?
+  for port in ports {
+    guard port.responds(to: NSSelectorFromString("descriptor")),
+      let descriptor = port.perform(NSSelectorFromString("descriptor"))?.takeUnretainedValue() as? NSObject,
+      descriptor.responds(to: NSSelectorFromString("screenProperties")),
+      let properties = descriptor.perform(NSSelectorFromString("screenProperties"))?.takeUnretainedValue()
+        as? NSObject,
+      properties.responds(to: NSSelectorFromString("uiOrientation"))
+    else { continue }
+    let orientation = sendUInt32(properties, NSSelectorFromString("uiOrientation"))
+    // The properties are a remote proxy without KVC, so call the getters.
+    if properties.responds(to: NSSelectorFromString("uniqueId")),
+      (properties.perform(NSSelectorFromString("uniqueId"))?.takeUnretainedValue() as? String) == "PurpleMain"
+    {
+      return orientation
+    }
+    if properties.responds(to: NSSelectorFromString("screenID")),
+      sendUInt32(properties, NSSelectorFromString("screenID")) == 1
+    {
+      fallback = orientation
+    }
+  }
+  return fallback
+}
+
+let orientationNames: [UInt32: String] = [
+  1: "portrait", 2: "portraitUpsideDown", 3: "landscapeRight", 4: "landscapeLeft",
+]
+// No orientation API at all (older CoreSimulator): nothing was sent, so this
+// is a plain failure and fdb falls back to the in-process tap, whose
+// coordinates are right in any orientation.
+guard let orientation = mainScreenOrientation() else {
+  fail("could not read the simulator interface orientation")
+}
+// A value we do not know how to map: refuse rather than tap a wrong spot.
+guard let orientationName = orientationNames[orientation] else {
+  fail(
+    "native-tap can't tell which way the simulator is rotated (interface orientation \(orientation)); "
+      + "rotate it to portrait and try again",
+    code: 5
+  )
+}
+
+// x, y are in the rotated frame (what screenshots and `fdb tap` use); its
+// size swaps width and height in landscape.
+let landscape = orientation == 3 || orientation == 4
+let frameWidth = landscape ? heightPoints : widthPoints
+let frameHeight = landscape ? widthPoints : heightPoints
+guard x >= 0, y >= 0, x <= frameWidth, y <= frameHeight else {
+  fail(
+    "coordinates \(x),\(y) are outside the screen (\(frameWidth)x\(frameHeight) points, \(orientationName))",
+    code: 3
+  )
+}
+
+// Rotate the point into the portrait frame. Keep in sync with
+// `iosSimulatorPortraitPoint` in ios_simulator_hid.dart (unit tested there).
+let portraitX: Double
+let portraitY: Double
+switch orientation {
+case 2:
+  portraitX = widthPoints - x
+  portraitY = heightPoints - y
+case 3:
+  portraitX = y
+  portraitY = heightPoints - x
+case 4:
+  portraitX = widthPoints - y
+  portraitY = x
+default:
+  portraitX = x
+  portraitY = y
 }
 
 guard let hidClass = NSClassFromString("SimulatorKit.SimDeviceLegacyHIDClient") as AnyObject?,
@@ -127,7 +219,7 @@ let secondPayloadOffset = payloadOffset + payloadSize
 let touchTarget: Int32 = 0x32
 let eventTypeTouch: UInt8 = 0x02
 
-let ratio = CGPoint(x: x / widthPoints, y: y / heightPoints)
+let ratio = CGPoint(x: portraitX / widthPoints, y: portraitY / heightPoints)
 
 func touchMessage(down: Bool) -> UnsafeMutableRawPointer {
   var point = ratio
@@ -213,5 +305,5 @@ case .timedOut:
   // The down may still have been delivered; release it before reporting.
   sendTouchUp(afterDownProblem: "timed out sending the touch down to the simulator")
 }
-print("TAPPED x=\(x) y=\(y) screen=\(widthPoints)x\(heightPoints)")
+print("TAPPED x=\(x) y=\(y) screen=\(frameWidth)x\(frameHeight) orientation=\(orientationName)")
 ''';

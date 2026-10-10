@@ -157,7 +157,7 @@ fdb simulator defaults delete --bundle-id com.example.app featureFlag
 
 ## System prompts and the software keyboard
 
-`fdb native-tap --at x,y` taps system UI on the iOS simulator. It injects the touch through the simulator's HID stack, so it reaches SpringBoard prompts that run outside the app: permission prompts, "Open in <App>?" URL confirmations, the paste prompt. Coordinates are points in portrait screen orientation (in landscape they differ from `fdb tap --at`); see `fdb skill interact` for converting screenshot pixels. `fdb tap` still injects inside the app process and can't reach these prompts.
+`fdb native-tap --at x,y` taps system UI on the iOS simulator. It injects the touch through the simulator's HID stack, so it reaches SpringBoard prompts that run outside the app: permission prompts, "Open in <App>?" URL confirmations, the paste prompt. Coordinates are points in the current screen orientation, the same as `fdb tap --at` and screenshots, in portrait or landscape; see `fdb skill interact` for converting screenshot pixels. `fdb tap` still injects inside the app process and can't reach these prompts.
 
 Tapping a prompt means finding its buttons on a screenshot, so avoid the prompt when you can:
 

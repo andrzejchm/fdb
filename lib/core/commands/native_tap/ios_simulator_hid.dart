@@ -27,6 +27,14 @@ class IosSimulatorHidOutOfBounds extends IosSimulatorHidResult {
   final String message;
 }
 
+/// The helper could not tell how the simulator is rotated, so it refused to
+/// tap (helper exit code 5). Nothing was delivered, but callers must not fall
+/// back either: the point could land on a different spot than intended.
+class IosSimulatorHidOrientationUnknown extends IosSimulatorHidResult {
+  const IosSimulatorHidOrientationUnknown(this.message);
+  final String message;
+}
+
 /// The touch may have been partially delivered (helper exit code 4, or the
 /// helper was killed on timeout). Callers must NOT fall back to another tap
 /// path: that could double-tap.
@@ -58,6 +66,7 @@ const _tapTimeout = Duration(seconds: 15);
 const _toolTimeout = Duration(seconds: 15);
 const _outOfBoundsExitCode = 3;
 const _partialDeliveryExitCode = 4;
+const _orientationUnknownExitCode = 5;
 const _staleTempAge = Duration(minutes: 10);
 
 /// Flags passed to `xcrun swiftc`. Part of the cache key.
@@ -99,7 +108,76 @@ String iosSimulatorHidBinaryPath(
   return '$cacheDir/ios-simulator-hid-$key';
 }
 
-/// Taps ([x], [y]) in points on the booted simulator [udid].
+/// Interface orientation of the simulator's main screen, as the helper reads
+/// it from CoreSimulator (`SimScreenProperties.uiOrientation`). Names follow
+/// `devicectl device orientation set`.
+enum IosSimulatorOrientation {
+  portrait(1),
+  portraitUpsideDown(2),
+  landscapeRight(3),
+  landscapeLeft(4);
+
+  const IosSimulatorOrientation(this.rawValue);
+
+  /// Value reported by CoreSimulator.
+  final int rawValue;
+
+  bool get isLandscape => this == landscapeLeft || this == landscapeRight;
+
+  /// Orientation for [rawValue], or null for values the helper refuses.
+  static IosSimulatorOrientation? fromRawValue(int rawValue) {
+    for (final orientation in values) {
+      if (orientation.rawValue == rawValue) return orientation;
+    }
+    return null;
+  }
+}
+
+/// Size of the on-screen frame for a screen that is [portraitWidth] x
+/// [portraitHeight] points in portrait. Width and height swap in landscape.
+///
+/// Mirrors the Swift helper; keep both in sync.
+({double width, double height}) iosSimulatorOrientedSize(
+  IosSimulatorOrientation orientation, {
+  required double portraitWidth,
+  required double portraitHeight,
+}) =>
+    orientation.isLandscape
+        ? (width: portraitHeight, height: portraitWidth)
+        : (width: portraitWidth, height: portraitHeight);
+
+/// Whether ([x], [y]), in the current orientation's frame, lies on screen.
+bool iosSimulatorPointInBounds(
+  IosSimulatorOrientation orientation, {
+  required double x,
+  required double y,
+  required double portraitWidth,
+  required double portraitHeight,
+}) {
+  final size = iosSimulatorOrientedSize(orientation, portraitWidth: portraitWidth, portraitHeight: portraitHeight);
+  return x >= 0 && y >= 0 && x <= size.width && y <= size.height;
+}
+
+/// Rotates ([x], [y]) from the current orientation's frame (what screenshots
+/// and `fdb tap` use) into the portrait frame the simulator HID stack expects.
+///
+/// Mirrors the Swift helper; keep both in sync.
+({double x, double y}) iosSimulatorPortraitPoint(
+  IosSimulatorOrientation orientation, {
+  required double x,
+  required double y,
+  required double portraitWidth,
+  required double portraitHeight,
+}) =>
+    switch (orientation) {
+      IosSimulatorOrientation.portrait => (x: x, y: y),
+      IosSimulatorOrientation.portraitUpsideDown => (x: portraitWidth - x, y: portraitHeight - y),
+      IosSimulatorOrientation.landscapeRight => (x: y, y: portraitHeight - x),
+      IosSimulatorOrientation.landscapeLeft => (x: portraitWidth - y, y: x),
+    };
+
+/// Taps ([x], [y]) in points on the booted simulator [udid]. The point is in
+/// the current interface orientation, like screenshots and `fdb tap --at`.
 ///
 /// [environment], [runner] and [cacheDir] are injectable for tests.
 /// Never throws.
@@ -148,6 +226,11 @@ Future<IosSimulatorHidResult> iosSimulatorHidTap({
       case _partialDeliveryExitCode:
         return IosSimulatorHidFailed(
           extractHidErrorMessage(output.stderr) ?? 'touch partially delivered',
+        );
+      case _orientationUnknownExitCode:
+        return IosSimulatorHidOrientationUnknown(
+          extractHidErrorMessage(output.stderr) ??
+              "native-tap can't tell which way the simulator is rotated; rotate it to portrait and try again",
         );
     }
     final message = _stripErrorPrefix(_tail(output.stderr));

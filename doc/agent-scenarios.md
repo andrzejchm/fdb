@@ -1229,7 +1229,7 @@ first command's error names the screen size in points. On iPhone 17 Pro
 **What to verify:**
 
 - `native-tap --at 5000,5000` exits 1 with `ERROR: coordinates <x>,<y> are
-  outside the screen (<W>x<H> points)` and taps nothing
+  outside the screen (<W>x<H> points, portrait)` and taps nothing
 - The first screenshot shows the Settings app with the "Open in “Test App”?"
   alert and Cancel / Open buttons
 - The tap prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y>` and no

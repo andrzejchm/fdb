@@ -59,6 +59,16 @@ void main() {
       expect(out.stdout, isEmpty);
     });
 
+    test('unknown orientation is an ERROR', () {
+      const message = "native-tap can't tell which way the simulator is rotated (interface orientation 0); "
+          'rotate it to portrait and try again';
+      final out = _capture(() => formatNativeTapResult(const NativeTapIosSimulatorOrientationUnknown(message)));
+
+      expect(out.exitCode, 1);
+      expect(out.stderr, 'ERROR: $message\n');
+      expect(out.stdout, isEmpty);
+    });
+
     test('partial delivery is an ERROR', () {
       final out = _capture(
         () => formatNativeTapResult(const NativeTapIosSimulatorFailed('touch partially delivered: boom')),

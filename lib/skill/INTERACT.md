@@ -187,15 +187,17 @@ Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 
 Platform dispatch:
 - **Android**: `adb shell input tap X Y`, in physical pixels. Reaches all on-screen UI including system dialogs.
-- **iOS simulator**: injects a real touch through the simulator's HID stack, the same way Simulator.app does. Coordinates are iOS points in portrait screen orientation. In portrait they match `fdb tap --at`; in landscape they don't, because `fdb tap --at` follows the rotated app. Reaches anything on screen in any app, including SpringBoard: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, and the paste prompt. Needs Xcode only. The first tap on a machine compiles a small helper with `xcrun swiftc` (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (set `FDB_CACHE_DIR` to change it).
+- **iOS simulator**: injects a real touch through the simulator's HID stack, the same way Simulator.app does. Coordinates are iOS points in the current screen orientation, so they match `fdb tap --at`, `fdb describe` and screenshots in portrait and in landscape. fdb reads the orientation from the simulator and rotates the touch itself. If it can't tell which way the simulator is rotated, it fails with an `ERROR` instead of tapping. Reaches anything on screen in any app, including SpringBoard: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, and the paste prompt. Needs Xcode only. The first tap on a machine compiles a small helper with `xcrun swiftc` (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (set `FDB_CACHE_DIR` to change it).
 - **iOS physical / macOS**: not supported. Use `fdb tap --at`.
 
 native-tap only taps. It can't type; use `fdb input` for text entry. Tapping by label (`--text`) is not supported; pass coordinates.
 
 On the iOS simulator, coordinates outside the screen fail with exit 1 and tap nothing:
 ```
-ERROR: coordinates X,Y are outside the screen (WxH points)
+ERROR: coordinates X,Y are outside the screen (WxH points, <orientation>)
 ```
+
+WxH is the size in the current orientation, for example `874.0x402.0 points, landscapeLeft` on an iPhone 17 Pro in landscape.
 
 If the simulator accepted the touch-down but not the touch-up, native-tap fails with an `ERROR:` and exit 1 instead of retrying, to avoid a double tap. It doesn't fall back to the in-process tap in that case.
 

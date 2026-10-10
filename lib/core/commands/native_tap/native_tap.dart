@@ -95,6 +95,9 @@ Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async 
         return NativeTapIosSimulator(x: x.toInt(), y: y.toInt());
       case IosSimulatorHidOutOfBounds(:final message):
         return NativeTapIosSimulatorOutOfBounds(message);
+      case IosSimulatorHidOrientationUnknown(:final message):
+        // The fallback would not tap a SpringBoard dialog the caller may be aiming at.
+        return NativeTapIosSimulatorOrientationUnknown(message);
       case IosSimulatorHidFailed(:final message):
         // Part of the touch may have gone out; falling back could double-tap.
         return NativeTapIosSimulatorFailed(message);
