@@ -182,11 +182,12 @@ Use `select on` to interactively identify a widget's key or type by tapping it o
 fdb native-tap --at 200,400              # tap at device coordinates (x,y)
 fdb native-tap --x 200 --y 400           # same, two-flag form
 fdb native-tap --at 340,793 --logical    # Android: Flutter logical pixels, scaled to physical
-fdb native-tap --text "While using the app"   # Android: tap a native element by label
+fdb native-tap --text "While using the app"   # tap a native element by label (Android, iOS simulator)
+fdb native-tap --text Allow              # iOS simulator: the notification prompt's Allow button
 fdb native-tap --text "OK" --index 1     # the second match (0-based)
 ```
 
-Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`. On Android with `--text`: `NATIVE_TAPPED=android X=<px> Y=<px> TEXT="<matched label>"`. X and Y are the physical pixels that were tapped.
+Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`, plus ` TEXT="<matched label>"` with `--text`. X and Y are physical pixels on Android and points on the iOS simulator.
 
 Platform dispatch:
 - **Android**: `adb shell input tap X Y`, in physical pixels. Reaches all on-screen UI including system dialogs.
@@ -197,7 +198,7 @@ native-tap only taps. It can't type; use `fdb input` for text entry.
 
 **Android units.** Without `--logical`, `--at` is physical pixels. `fdb tap`, `fdb describe` and `fdb scroll-to` print Flutter logical pixels; pass those with `--logical` and fdb multiplies them by the app's device pixel ratio (from fdb_helper; without it, `adb shell wm density` / 160, which is the same value unless the app sets its own density). `fdb screenshot` pixels are neither: the image is downscaled so its longest side is at most 1200px. Convert: `physical px = screenshot px * (screen width in physical px / screenshot width)`; `adb shell wm size` prints the physical size. On the iOS simulator `--logical` changes nothing, since coordinates are already points. `--logical` assumes the Flutter view starts at the top-left corner of the screen, which holds for a full-screen app. In split-screen or freeform windows, in landscape with a display cutout inset, or for a Flutter view embedded in a native app (add-to-app), the tap lands offset by the view's position.
 
-**Tap by label (Android only).** `--text <label>` reads the screen with `uiautomator dump` and taps the center of the matching element, so it works on system dialogs. It matches, in this order, and stops at the first rule that finds something:
+**Tap by label on Android.** `--text <label>` reads the screen with `uiautomator dump` and taps the center of the matching element, so it works on system dialogs. It matches, in this order, and stops at the first rule that finds something:
 1. `text` or `content-desc` equal to the label (both trimmed)
 2. the same, ignoring case and treating curly quotes as straight ones and a no-break space as a space (`Don't allow` matches `Don’t allow`)
 3. `resource-id`, either `com.android.permissioncontroller:id/permission_allow_button` or just `permission_allow_button`
@@ -212,7 +213,31 @@ ERROR: Found 2 native elements matching "Ok". Use --index to specify which one (
 ERROR: Could not read the Android UI hierarchy (uiautomator dump): ERROR: could not get idle state.
 ```
 
-The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`, and `--index`/`--timeout` only apply to `--text`. On the iOS simulator it fails with `ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y`.
+The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`, and `--index`/`--timeout` only apply to `--text`.
+
+**Tap by label on the iOS simulator.** `--text <label>` reads the simulator's accessibility tree and taps the center of the matching element through the HID stack, like `--at`. The tree is the frontmost app's, or SpringBoard's while a system alert is up, so `fdb native-tap --text Allow` answers a notification prompt and `--text Open` answers "Open in “Test App”?". The rules match Android's:
+1. the accessibility label equal to the label (both trimmed). Only the label: unlike Android's `text`, a text field's typed value is not matched
+2. the same, ignoring case, curly quotes and no-break spaces (`Don't Allow` matches `Don’t Allow`, `Open in "Test App"?` matches `Open in “Test App”?`)
+3. the accessibility identifier (UIKit `accessibilityIdentifier`, Flutter `Semantics(identifier:)`)
+
+In a Flutter app the labels are the semantics labels, usually the text `fdb describe` shows. Disabled elements, the application element and elements whose center is off screen are skipped; Flutter reports semantics nodes scrolled out of view with a zero frame, so a button listed twice by `describe` can still match once. Frames are converted to points in the current orientation, landscape included, and X/Y in the output are the tapped frame center rounded to whole points. The no-match, several-matches and `--index` errors are the ones shown above.
+
+It reads the tree again every 300 ms until a match appears or `--timeout` seconds pass (default 5). A read that fails or times out, a moment when the simulator's orientation is unknown, and a tree the simulator only returned in part are retried too; at the deadline it reports the last problem. How long it can take:
+- The first `native-tap` on a machine compiles the helper (about 5-10 s, once).
+- The first read on a freshly booted simulator can take several seconds (2.6-7.5 s measured); later reads take about 0.2 s.
+- One read may run until the deadline but gets at least 10 s, so the command can end up to about 10 s after `--timeout`.
+
+`--text` has no in-process fallback. If the tree can't be read at all (no Xcode, a CoreSimulator without the accessibility API, an unknown or shut down simulator), it taps nothing and fails at once with:
+```
+ERROR: native-tap --text needs the iOS simulator accessibility API, which is not available (<reason>). Tap by coordinates with --at x,y instead.
+```
+Other `--text` errors on the iOS simulator:
+```
+ERROR: native-tap --text could not read the iOS simulator accessibility tree (<last failure>).
+ERROR: native-tap --text could not tap on the iOS simulator (<reason>).
+ERROR: native-tap --text could not place the native elements on the iOS simulator screen (<orientation>), so "<label>" can't be tapped by label. Rotate the simulator to portrait, or tap with --at x,y. Labels: ...
+```
+The last one means the tree had labels but fdb couldn't work out where they are on a rotated screen.
 
 **Blocked input injection (Android).** Some vendors block `adb shell input` until a Developer options switch is on. native-tap then fails with:
 ```

@@ -157,17 +157,25 @@ fdb simulator defaults delete --bundle-id com.example.app featureFlag
 
 ## System prompts and the software keyboard
 
-`fdb native-tap --at x,y` taps system UI on the iOS simulator. It injects the touch through the simulator's HID stack, so it reaches SpringBoard prompts that run outside the app: permission prompts, "Open in <App>?" URL confirmations, the paste prompt. Coordinates are points in the current screen orientation, the same as `fdb tap --at` and screenshots, in portrait or landscape; see `fdb skill interact` for converting screenshot pixels. `fdb tap` still injects inside the app process and can't reach these prompts.
+`fdb native-tap` taps system UI on the iOS simulator. It injects the touch through the simulator's HID stack, so it reaches SpringBoard prompts that run outside the app: permission prompts, "Open in <App>?" URL confirmations, the paste prompt. Tap a prompt button by its label:
 
-Tapping a prompt means finding its buttons on a screenshot, so avoid the prompt when you can:
+```bash
+fdb native-tap --text Allow          # notification or permission prompt
+fdb native-tap --text "Don't Allow"  # curly quotes in the prompt match straight ones
+fdb native-tap --text Open           # "Open in <App>?"
+```
+
+If you don't know the label, ask for one that doesn't exist with `--timeout 1`; the error lists the visible labels. `--at x,y` taps by coordinates instead: points in the current screen orientation, the same as `fdb tap --at` and screenshots, in portrait or landscape (see `fdb skill interact` for converting screenshot pixels). `fdb tap` still injects inside the app process and can't reach these prompts.
+
+Still, avoid the prompt when you can:
 
 - **Permission prompts:** run `fdb grant-permission <perm>` BEFORE the app requests it (pass `--bundle` and `--device` to do it before launch). When you know the permission, this is more reliable than tapping the prompt. Covers what `xcrun simctl privacy` covers: location, location-always, photos, photos-add, camera, contacts, contacts-read, microphone, calendar, reminders, motion, media-library, siri. A grant can terminate the running app; relaunch afterwards. See `fdb skill data`.
-- **Notification prompt:** `simctl privacy` has no notifications service, so `fdb grant-permission notifications` fails on the iOS simulator with `ERROR: 'notifications' on ios-simulator requires an external tool`. Tap "Allow" with `fdb native-tap`, skip the prompt in the app's debug build, or grant it with the external tool the error names.
-- **Paste prompt** ("would like to paste from CoreSimulator-Bridge"): `fdb native-tap` can tap "Allow Paste", but you rarely need to paste. `fdb input` sets the field text directly.
+- **Notification prompt:** `simctl privacy` has no notifications service, so `fdb grant-permission notifications` fails on the iOS simulator with `ERROR: 'notifications' on ios-simulator requires an external tool`. Tap "Allow" with `fdb native-tap --text Allow`, skip the prompt in the app's debug build, or grant it with the external tool the error names.
+- **Paste prompt** ("would like to paste from CoreSimulator-Bridge"): `fdb native-tap --text "Allow Paste"` taps it, but you rarely need to paste. `fdb input` sets the field text directly.
 - **System photo picker:** add a debug-only test hook in the app (e.g. a VM extension called with `fdb ext call`) that injects a picked file. Driving the picker by coordinates is fragile.
 - **Photos grant:** `fdb grant-permission photos` prints `WARNING: Photos permission via simctl is unreliable on iOS simulator.` The app may still prompt or report denied; tap the prompt with `fdb native-tap` if it does.
 
-If native-tap prints `WARNING: iOS simulator HID tap unavailable (...)`, it fell back to an in-process tap that can't reach these prompts. The reason in the warning says what failed (it needs Xcode and `xcrun swiftc`).
+If native-tap prints `WARNING: iOS simulator HID tap unavailable (...)`, it fell back to an in-process tap that can't reach these prompts. The reason in the warning says what failed (it needs Xcode and `xcrun swiftc`). `--text` never falls back; it fails with `ERROR: native-tap --text needs the iOS simulator accessibility API, which is not available (...)`.
 
 **Software keyboard.** Simulator connects the Mac keyboard as a hardware keyboard by default (I/O > Keyboard > Connect Hardware Keyboard, Shift+Cmd+K). With it on, iOS shows no on-screen keyboard, so `MediaQuery.viewInsets.bottom` stays 0 and layouts that react to keyboard insets (bottom-pinned inputs, padding, scroll-into-view) don't change. Don't treat that as a device-accurate result.
 

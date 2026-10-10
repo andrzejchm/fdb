@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/native_tap/android_ui_dump.dart';
 import 'package:fdb/core/commands/native_tap/native_tap_models.dart';
+import 'package:fdb/core/commands/native_tap/native_text_match.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 
 /// Runs `adb` with [args] (device selection already included).
@@ -18,11 +19,6 @@ typedef AppDevicePixelRatioReader = Future<double?> Function();
 /// `/sdcard` on some devices.
 String androidUiDumpFileFor({required int pid, required int timestampMs}) =>
     '/data/local/tmp/fdb_window_dump_${pid}_$timestampMs.xml';
-
-const _pollInterval = Duration(milliseconds: 300);
-
-/// `--timeout` for `--text` when none is given, same as `fdb tap`.
-const defaultNativeTapTextTimeoutSeconds = 5;
 
 /// Android side of `fdb native-tap`: by coordinates (`--at`, optionally
 /// `--logical`) or by label (`--text`).
@@ -222,24 +218,24 @@ Future<NativeTapResult> _tapByText({
       case AndroidUiDumpParsed(:final nodes):
         lastDumpError = null;
         final matches = findAndroidUiMatches(nodes, query);
-        switch (pickAndroidUiMatch(matches, index: index)) {
-          case AndroidUiPicked(:final match):
+        switch (pickNativeMatch(matches, index: index)) {
+          case NativeMatchPicked(:final match):
             final b = match.bounds;
-            return _inputTap(run, b.centerX, b.centerY, text: _oneLine(match.label));
-          case AndroidUiPickAmbiguous(:final matches):
+            return _inputTap(run, b.centerX, b.centerY, text: oneLineLabel(match.label));
+          case NativeMatchAmbiguous(:final matches):
             return NativeTapAmbiguous(
               query: query,
               candidates: [
-                for (final m in matches) (label: _oneLine(m.label), x: m.bounds.centerX, y: m.bounds.centerY),
+                for (final m in matches) (label: oneLineLabel(m.label), x: m.bounds.centerX, y: m.bounds.centerY),
               ],
             );
-          case AndroidUiPickNone():
+          case NativeMatchNone():
             lastLabels = androidVisibleLabels(nodes);
             lastMatchCount = matches.length;
         }
     }
     if (!now().isBefore(deadline)) break;
-    await sleep(_pollInterval);
+    await sleep(nativeTapTextPollInterval);
   }
 
   if (lastLabels == null) return NativeTapUiDumpFailed(lastDumpError ?? 'no window dump');
@@ -248,8 +244,6 @@ Future<NativeTapResult> _tapByText({
   }
   return NativeTapNoMatch(query: query, visibleLabels: lastLabels);
 }
-
-String _oneLine(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim();
 
 /// Dumps the window with `uiautomator dump`, streaming it over `/dev/tty`
 /// first and falling back to a file on devices where that doesn't work.

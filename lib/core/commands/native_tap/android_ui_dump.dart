@@ -5,6 +5,8 @@
 /// device.
 library;
 
+import 'package:fdb/core/commands/native_tap/native_text_match.dart';
+
 /// One `<node>` from a uiautomator window dump.
 class AndroidUiNode {
   AndroidUiNode({
@@ -259,16 +261,6 @@ class AndroidUiMatch {
   String get label => node.label.isNotEmpty ? node.label : node.resourceId;
 }
 
-/// Lowercases and folds typographic variants, so `Don't allow` matches
-/// `Don’t allow`: curly quotes become straight ones, no-break spaces become
-/// spaces.
-String foldAndroidLabel(String s) => s
-    .replaceAll(RegExp('[\u2018\u2019]'), "'")
-    .replaceAll(RegExp('[\u201C\u201D]'), '"')
-    .replaceAll('\u00A0', ' ')
-    .trim()
-    .toLowerCase();
-
 /// Finds the nodes matching [query], in document order, in the first tier
 /// that has any match:
 ///
@@ -285,12 +277,12 @@ String foldAndroidLabel(String s) => s
 List<AndroidUiMatch> findAndroidUiMatches(List<AndroidUiNode> nodes, String query) {
   final q = query.trim();
   if (q.isEmpty) return const [];
-  final folded = foldAndroidLabel(q);
+  final folded = foldNativeLabel(q);
   final screen = _screenBounds(nodes);
 
   final tiers = <bool Function(AndroidUiNode)>[
     (n) => n.text == q || n.contentDesc == q,
-    (n) => foldAndroidLabel(n.text) == folded || foldAndroidLabel(n.contentDesc) == folded,
+    (n) => foldNativeLabel(n.text) == folded || foldNativeLabel(n.contentDesc) == folded,
     (n) => n.resourceId.isNotEmpty && (n.resourceId == q || n.resourceId.split(':id/').last == q),
   ];
 
@@ -354,38 +346,6 @@ AndroidBounds? _screenBounds(List<AndroidUiNode> nodes) {
   return box;
 }
 
-/// Outcome of [pickAndroidUiMatch].
-sealed class AndroidUiPick {
-  const AndroidUiPick();
-}
-
-class AndroidUiPicked extends AndroidUiPick {
-  const AndroidUiPicked(this.match);
-  final AndroidUiMatch match;
-}
-
-/// Several matches and no index.
-class AndroidUiPickAmbiguous extends AndroidUiPick {
-  const AndroidUiPickAmbiguous(this.matches);
-  final List<AndroidUiMatch> matches;
-}
-
-/// Nothing to tap: no matches, or the index is past the last one.
-class AndroidUiPickNone extends AndroidUiPick {
-  const AndroidUiPickNone();
-}
-
-/// Picks the match to tap: the one at [index] (0-based, document order, like
-/// `fdb tap --index`), or the only match when [index] is null.
-AndroidUiPick pickAndroidUiMatch(List<AndroidUiMatch> matches, {required int? index}) {
-  if (matches.isEmpty) return const AndroidUiPickNone();
-  if (index != null) {
-    return index >= 0 && index < matches.length ? AndroidUiPicked(matches[index]) : const AndroidUiPickNone();
-  }
-  if (matches.length == 1) return AndroidUiPicked(matches.single);
-  return AndroidUiPickAmbiguous(matches);
-}
-
 /// [node] when it has usable bounds, else its nearest clickable ancestor
 /// with usable bounds, else null.
 AndroidUiNode? _tapTarget(AndroidUiNode node) {
@@ -406,7 +366,7 @@ List<String> androidVisibleLabels(List<AndroidUiNode> nodes) {
     final bounds = node.bounds;
     if (bounds == null || bounds.isEmpty) continue;
     for (final label in [node.text, node.contentDesc]) {
-      final oneLine = label.replaceAll(RegExp(r'\s+'), ' ').trim();
+      final oneLine = oneLineLabel(label);
       if (oneLine.isNotEmpty && seen.add(oneLine)) labels.add(oneLine);
     }
   }

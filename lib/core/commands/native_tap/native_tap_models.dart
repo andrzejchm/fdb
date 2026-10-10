@@ -5,7 +5,8 @@ import 'package:fdb/core/models/command_result.dart';
 ///
 /// Exactly one target: [x] and [y] together, or [text].
 /// - [text]: label, content description or resource id of a native element
-///   (Android only for now). [index] picks among several matches (0-based).
+///   on Android; accessibility label or identifier on the iOS simulator.
+///   [index] picks among several matches (0-based).
 ///   [timeoutSeconds] is how long to keep looking for a match (default 5).
 /// - [logical]: [x]/[y] are Flutter logical pixels. On Android they are
 ///   multiplied by the device pixel ratio; on the iOS simulator they are
@@ -36,10 +37,13 @@ class NativeTapAndroid extends NativeTapResult {
 /// iOS Simulator tap injected through the simulator's HID stack.
 ///
 /// Reaches every process on screen, including SpringBoard system dialogs.
+/// [x]/[y] are points; [text] is the matched label when the tap was by
+/// `--text`.
 class NativeTapIosSimulator extends NativeTapResult {
-  const NativeTapIosSimulator({required this.x, required this.y});
+  const NativeTapIosSimulator({required this.x, required this.y, this.text});
   final int x;
   final int y;
+  final String? text;
 }
 
 /// iOS Simulator HID tap was unavailable, so the tap went through the
@@ -84,9 +88,38 @@ class NativeTapIosSimulatorFailed extends NativeTapResult {
   final String message;
 }
 
-/// `--text` on the iOS simulator. Not implemented yet (fdb-hwr).
-class NativeTapTextUnsupportedOnIosSimulator extends NativeTapResult {
-  const NativeTapTextUnsupportedOnIosSimulator();
+/// `--text` on the iOS simulator can't read the accessibility tree, and
+/// retrying won't help (no Xcode toolchain, unknown simulator, a
+/// CoreSimulator without the accessibility API). Nothing was tapped, and
+/// there is no in-process fallback for `--text`.
+class NativeTapIosSimulatorAccessibilityUnavailable extends NativeTapResult {
+  const NativeTapIosSimulatorAccessibilityUnavailable(this.reason);
+  final String reason;
+}
+
+/// `--text` on the iOS simulator kept failing to read the accessibility
+/// tree until the timeout (e.g. reads timed out). [reason] is the last
+/// failure. Nothing was tapped.
+class NativeTapIosSimulatorTreeUnreadable extends NativeTapResult {
+  const NativeTapIosSimulatorTreeUnreadable(this.reason);
+  final String reason;
+}
+
+/// `--text` on the iOS simulator found a match but could not tap it, or has
+/// no simulator to tap. Nothing was tapped.
+class NativeTapIosSimulatorTapUnavailable extends NativeTapResult {
+  const NativeTapIosSimulatorTapUnavailable(this.reason);
+  final String reason;
+}
+
+/// The iOS simulator accessibility tree had labels, but the helper could
+/// not tell where on the screen they are (frames it could not map from the
+/// owning app's orientation), so nothing can be tapped by label.
+class NativeTapIosSimulatorFramesUnmapped extends NativeTapResult {
+  const NativeTapIosSimulatorFramesUnmapped({required this.query, required this.orientation, required this.labels});
+  final String query;
+  final String orientation;
+  final List<String> labels;
 }
 
 /// No active fdb session found.
@@ -136,7 +169,8 @@ class NativeTapInputInjectionBlocked extends NativeTapResult {
 }
 
 /// No native element matched [query] before the timeout. [visibleLabels]
-/// are the labels in the last window dump, in document order.
+/// are the labels in the last window dump (Android) or accessibility tree
+/// (iOS simulator), in screen order.
 class NativeTapNoMatch extends NativeTapResult {
   const NativeTapNoMatch({required this.query, required this.visibleLabels});
   final String query;

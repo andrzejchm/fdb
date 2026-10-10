@@ -15,7 +15,7 @@ const _maxVisibleLabels = 20;
 ///   `--y <n>`          Y coordinate
 ///   `--at <x,y>`       Coordinate shorthand (e.g. 200,400)
 ///   `--logical`        Coordinates are Flutter logical pixels (Android scales them)
-///   `--text <label>`   Tap the native element with this label (Android)
+///   `--text <label>`   Tap the native element with this label (Android, iOS simulator)
 ///   `--index <n>`      Which `--text` match to tap (0-based)
 ///   `--timeout <secs>` How long `--text` waits for a match (default: 5)
 Future<int> runNativeTapCli(List<String> args) {
@@ -31,7 +31,8 @@ Future<int> runNativeTapCli(List<String> args) {
     )
     ..addOption(
       'text',
-      help: 'Tap the native element whose text, content-desc or resource-id is this (Android only).',
+      help: 'Tap the native element with this label. Android matches text, content-desc or resource-id; '
+          'the iOS simulator matches the accessibility label or identifier (system alerts included).',
     )
     ..addOption('index', help: 'With --text: which match to tap, 0-based, in screen order.')
     ..addOption('timeout', help: 'With --text: seconds to wait for a match (default: 5).');
@@ -138,7 +139,7 @@ Future<int> _execute(ArgResults results) async {
 
     if (x == null || y == null) {
       stderr.writeln(
-        'ERROR: No coordinates provided. Use --at x,y or --x <x> --y <y>, or --text <label> on Android.\n'
+        'ERROR: No coordinates provided. Use --at x,y or --x <x> --y <y>, or --text <label>.\n'
         '  Usage: fdb native-tap --at 200,400',
       );
       return 1;
@@ -163,8 +164,9 @@ int formatNativeTapResult(NativeTapResult result) {
       final textSuffix = text != null ? ' TEXT="${_escapeQuoted(text)}"' : '';
       stdout.writeln('NATIVE_TAPPED=android X=$x Y=$y$textSuffix');
       return 0;
-    case NativeTapIosSimulator(:final x, :final y):
-      stdout.writeln('NATIVE_TAPPED=ios-simulator X=$x Y=$y');
+    case NativeTapIosSimulator(:final x, :final y, :final text):
+      final textSuffix = text != null ? ' TEXT="${_escapeQuoted(text)}"' : '';
+      stdout.writeln('NATIVE_TAPPED=ios-simulator X=$x Y=$y$textSuffix');
       return 0;
     case NativeTapIosSimulatorFallback(:final x, :final y, :final reason, :final tapResult):
       stderr.writeln(
@@ -184,8 +186,24 @@ int formatNativeTapResult(NativeTapResult result) {
     case NativeTapIosSimulatorFailed(:final message):
       stderr.writeln('ERROR: $message');
       return 1;
-    case NativeTapTextUnsupportedOnIosSimulator():
-      stderr.writeln('ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y');
+    case NativeTapIosSimulatorAccessibilityUnavailable(:final reason):
+      stderr.writeln(
+        'ERROR: native-tap --text needs the iOS simulator accessibility API, which is not available ($reason). '
+        'Tap by coordinates with --at x,y instead.',
+      );
+      return 1;
+    case NativeTapIosSimulatorTreeUnreadable(:final reason):
+      stderr.writeln('ERROR: native-tap --text could not read the iOS simulator accessibility tree ($reason).');
+      return 1;
+    case NativeTapIosSimulatorTapUnavailable(:final reason):
+      stderr.writeln('ERROR: native-tap --text could not tap on the iOS simulator ($reason).');
+      return 1;
+    case NativeTapIosSimulatorFramesUnmapped(:final query, :final orientation, :final labels):
+      stderr.writeln(
+        'ERROR: native-tap --text could not place the native elements on the iOS simulator screen '
+        '($orientation), so "$query" can\'t be tapped by label. Rotate the simulator to portrait, or tap with '
+        '--at x,y. Labels: ${_labelList(labels)}',
+      );
       return 1;
     case NativeTapNoSession():
       stderr.writeln('ERROR: No active fdb session found. Run fdb launch first.');
@@ -204,10 +222,10 @@ int formatNativeTapResult(NativeTapResult result) {
       );
       return 1;
     case NativeTapMacosUnsupported(:final x, :final y):
-      final at = _atArg(x, y);
+      final instead = x != null && y != null ? 'fdb tap --at ${_atArg(x, y)}' : 'fdb tap --text <label>';
       stderr.writeln(
         'ERROR: native-tap is not supported on macOS.\n'
-        '  Use `fdb tap --at $at` instead — it performs in-process tap injection\n'
+        '  Use `$instead` instead — it performs in-process tap injection\n'
         '  via fdb_helper and does not require Accessibility permission.\n'
         '\n'
         '  Why: cross-process tap injection on macOS requires Accessibility\n'
