@@ -1,3 +1,7 @@
+## 1.14.1
+
+- No functional changes.
+
 ## 1.14.0
 
 ### Improvements
