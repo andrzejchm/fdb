@@ -1245,6 +1245,59 @@ first command's error names the screen size in points. On iPhone 17 Pro
 
 ---
 
+## S45 · native-tap — Android permission dialog by label, and --logical
+
+**Purpose:** on Android `fdb native-tap --text` finds a native element in a
+`uiautomator dump` and taps it, so an agent can answer a runtime permission
+dialog without coordinates. `--logical` takes the logical pixels that
+`fdb tap` prints. Android only; skip on other platforms.
+
+Setup: the camera permission must not be granted, or no dialog shows.
+Revoking a granted permission kills the app, so relaunch after it:
+
+```bash
+DEV=$(cat .fdb/device.txt); APP=$(cat .fdb/app_id.txt)
+adb -s "$DEV" shell pm revoke "$APP" android.permission.CAMERA
+adb -s "$DEV" shell pm clear-permission-flags "$APP" android.permission.CAMERA user-set user-fixed
+dart ../../bin/fdb.dart kill; dart ../../bin/fdb.dart launch --device "$DEV"
+```
+
+```bash
+dart ../../bin/fdb.dart describe                     # note "Counter: N"
+dart ../../bin/fdb.dart tap --key increment_button   # note X and Y
+dart ../../bin/fdb.dart native-tap --at <X>,<Y> --logical
+dart ../../bin/fdb.dart describe                     # counter is N+2
+dart ../../bin/fdb.dart native-tap --text "fdb no such label" --timeout 1
+dart ../../bin/fdb.dart scroll-to --key go_to_permission_test
+dart ../../bin/fdb.dart tap --key go_to_permission_test
+dart ../../bin/fdb.dart tap --key perm_request_camera
+dart ../../bin/fdb.dart native-tap --text "<allow label>"
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart back
+```
+
+Take `<allow label>` from the `Visible labels` list of a no-match error
+printed while the dialog is up, e.g. "While using the app" on Android 11+.
+
+**What to verify:**
+
+- `native-tap --at <X>,<Y> --logical` prints `NATIVE_TAPPED=android X=<px>
+  Y=<px>` where px is about X/Y times the device pixel ratio (3.75 on the
+  Xiaomi 25010PN30G), and the counter went up by 2 (one from `fdb tap`, one
+  from native-tap)
+- The no-match call exits 1 with `ERROR: No native element matching "fdb no
+  such label". Visible labels: ...` listing home screen labels such as
+  "Counter: <n>" and "Submit". It makes one or two uiautomator dumps, so it
+  takes a few seconds (one dump is usually 1-3 s), not the full 5 s default
+- The `--text` tap prints `NATIVE_TAPPED=android X=<px> Y=<px>
+  TEXT="<allow label>"` and the dialog is gone
+- `describe` shows `ListTile "camera · status: granted"`
+- If it fails with `ERROR: Android blocked input injection (INJECT_EVENTS)`,
+  the device needs the Developer options switch the error names; that is a
+  device setting, not an fdb failure
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

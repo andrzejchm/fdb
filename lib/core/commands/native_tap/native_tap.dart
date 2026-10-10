@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:fdb/core/commands/native_tap/android_native_tap.dart';
 import 'package:fdb/core/commands/native_tap/ios_simulator_hid.dart';
 import 'package:fdb/core/commands/native_tap/native_tap_models.dart';
 import 'package:fdb/core/commands/tap/tap.dart';
@@ -10,7 +9,9 @@ export 'package:fdb/core/commands/native_tap/native_tap_models.dart';
 /// Taps native (non-Flutter) UI elements using platform-specific tools.
 ///
 /// On Android this goes through `adb shell input tap`, which reaches any
-/// on-screen UI regardless of process.
+/// on-screen UI regardless of process. `--text` finds the element in a
+/// `uiautomator dump` first (see `android_native_tap.dart`); `--logical`
+/// scales the coordinates by the device pixel ratio.
 ///
 /// On iOS simulator this compiles (once, cached) a small Swift helper that
 /// injects the touch through SimulatorKit's HID client, so it reaches every
@@ -30,11 +31,14 @@ Future<NativeTapResult> nativeTap(NativeTapInput input) async {
   final isEmulator = platformInfo.emulator;
 
   if (platform.startsWith('android')) {
-    return _tapAndroid(input: input);
+    return nativeTapAndroid(input, deviceId: readDevice());
   }
 
   if (platform.startsWith('ios') && isEmulator) {
-    return _tapIosSimulator(input: input);
+    // fdb-hwr: read the simulator accessibility tree and tap by label.
+    if (input.text != null) return const NativeTapTextUnsupportedOnIosSimulator();
+    // --logical is a no-op here: iOS coordinates are already points.
+    return _tapIosSimulator(x: input.x!, y: input.y!);
   }
 
   if (platform.startsWith('ios') && !isEmulator) {
@@ -49,41 +53,10 @@ Future<NativeTapResult> nativeTap(NativeTapInput input) async {
 }
 
 // ---------------------------------------------------------------------------
-// Android
-// ---------------------------------------------------------------------------
-
-Future<NativeTapResult> _tapAndroid({required NativeTapInput input}) async {
-  final deviceId = readDevice();
-  final deviceArgs = deviceId != null ? ['-s', deviceId] : <String>[];
-  final x = input.x;
-  final y = input.y;
-  try {
-    final result = await Process.run('adb', [
-      ...deviceArgs,
-      'shell',
-      'input',
-      'tap',
-      x.toInt().toString(),
-      y.toInt().toString(),
-    ]);
-    if (result.exitCode != 0) {
-      final details = (result.stderr as String).trim();
-      return NativeTapAdbFailed(details);
-    }
-    return NativeTapAndroid(x: x.toInt(), y: y.toInt());
-  } catch (e) {
-    return NativeTapAdbExecutionFailed(e.toString());
-  }
-}
-
-// ---------------------------------------------------------------------------
 // iOS simulator — HID injection, falling back to in-process tap
 // ---------------------------------------------------------------------------
 
-Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async {
-  final x = input.x;
-  final y = input.y;
-
+Future<NativeTapResult> _tapIosSimulator({required double x, required double y}) async {
   final udid = readDevice();
   final String reason;
   if (udid == null) {
