@@ -121,22 +121,29 @@ String readTextTolerant(String path) {
 /// Line-split variant of [readTextTolerant], with `readAsLinesSync` semantics.
 List<String> readLinesTolerant(String path) => const LineSplitter().convert(readTextTolerant(path));
 
+/// Sends [signal] to the process [pid]. Matches [Process.killPid].
+typedef ProcessSignaller = bool Function(int pid, ProcessSignal signal);
+
 /// Sends SIGTERM to [pid], waits up to [timeout] for it to exit, then sends
 /// SIGKILL and waits again. Returns true when the process is gone.
 ///
 /// A [pid] of 0 or less is never signalled (0 is the caller's process group,
 /// -1 every process the user owns) and returns true: there is no process to
 /// stop.
+///
+/// [sendSignal] defaults to [Process.killPid]; tests pass a fake so they never
+/// send real signals.
 Future<bool> terminateProcess(
   int pid, {
   Duration timeout = const Duration(seconds: 10),
+  ProcessSignaller sendSignal = Process.killPid,
 }) async {
   if (pid <= 0) return true;
   if (!isProcessAlive(pid)) return true;
 
   for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
     try {
-      Process.killPid(pid, signal);
+      sendSignal(pid, signal);
     } catch (_) {
       return !isProcessAlive(pid);
     }

@@ -88,25 +88,61 @@ exit 0
       expect(isAppPidAlive(-1), isFalse);
     });
 
-    // The guard returns before Process.killPid, which for -1 would signal
-    // every process the user owns.
-    test('terminateProcess does not signal 0 or negative PIDs', () async {
-      expect(await terminateProcess(-1, timeout: const Duration(milliseconds: 100)), isTrue);
-      expect(await terminateProcess(0, timeout: const Duration(milliseconds: 100)), isTrue);
-      expect(isProcessAlive(pid), isTrue);
+    // These tests only ever use a recording fake signaller, so even with the
+    // guards removed they cannot send a real signal to 0 or -1.
+    test('terminateProcess never signals 0 or negative PIDs', () async {
+      final signalled = <int>[];
+      bool fakeSignal(int target, ProcessSignal signal) {
+        signalled.add(target);
+        return true;
+      }
+
+      for (final target in [-1, 0]) {
+        final stopped = await terminateProcess(
+          target,
+          timeout: const Duration(milliseconds: 100),
+          sendSignal: fakeSignal,
+        );
+        expect(stopped, isTrue, reason: 'pid $target');
+      }
+      expect(signalled, isEmpty);
     });
 
-    test('killApp ignores a -1 app PID on a macOS session', () async {
+    test('terminateProcess sends signals through the injected signaller', () async {
+      final process = await Process.start('sleep', ['60']);
+      addTearDown(process.kill);
+      final signals = <(int, ProcessSignal)>[];
+      bool fakeSignal(int target, ProcessSignal signal) {
+        signals.add((target, signal));
+        // Only ever forward to the sleep process started above.
+        return target == process.pid && process.kill(signal);
+      }
+
+      final stopped = await terminateProcess(
+        process.pid,
+        timeout: const Duration(seconds: 5),
+        sendSignal: fakeSignal,
+      );
+
+      expect(stopped, isTrue);
+      expect(signals, [(process.pid, ProcessSignal.sigterm)]);
+    });
+
+    test('killApp never signals 0 or negative PIDs from PID files', () async {
       File(platformFile).writeAsStringSync('macos false');
       File(appPidFile).writeAsStringSync('-1');
       File(pidFile).writeAsStringSync('-1');
       File(controllerPidFile).writeAsStringSync('0');
       File(logCollectorPidFile).writeAsStringSync('-1');
+      final signalled = <int>[];
 
-      final result = await killApp(());
+      final result = await killApp((), sendSignal: (target, signal) {
+        signalled.add(target);
+        return true;
+      });
 
       expect(result, isA<KillSuccess>());
-      expect(isProcessAlive(pid), isTrue);
+      expect(signalled, isEmpty);
       expect(File(appPidFile).existsSync(), isFalse);
     });
   });
