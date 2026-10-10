@@ -25,6 +25,7 @@ Commands:
                -i, --interactive   Start an fdb REPL after attaching
   devices     List connected devices
   deeplink    Open a deep link URL on the device
+               --device <id>       Simulator UDID or Android serial (default: session device)
   launch      Launch a Flutter app
                --device <id>       (required) target device/simulator ID
                --project <path>    Flutter project root (default: CWD)

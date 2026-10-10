@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:fdb/core/commands/screenshot/screenshot_models.dart';
 import 'package:fdb/core/foreground_check.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/simulator_device.dart';
+import 'package:fdb/core/xcrun.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:image/image.dart' as img;
 
@@ -184,10 +186,19 @@ Future<String?> _captureAndroid(String? deviceId, String output) async {
 // iOS Simulator
 // ---------------------------------------------------------------------------
 
+/// Captures the iOS simulator [deviceId], or, when the session has no device
+/// recorded, the simulator picked by [resolveSimulatorDevice] (the only booted
+/// one). Never uses simctl's `booted` alias, which picks an arbitrary simulator
+/// when several are booted.
 Future<String?> _captureIosSimulator(String? deviceId, String output) async {
+  var target = deviceId;
+  if (target == null) {
+    final resolved = await resolveSimulatorDevice();
+    if (resolved.error != null) return resolved.error;
+    target = resolved.udid!;
+  }
   try {
-    final target = deviceId ?? 'booted';
-    final result = await Process.run('xcrun', [
+    final result = await Process.run(xcrunExecutable, [
       'simctl',
       'io',
       target,
