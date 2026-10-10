@@ -3679,7 +3679,7 @@ tasks:
         echo "PASS: test:native-longpress"
 
   test:native-tap:
-    desc: Tap native UI via adb (Android) or the simulator HID stack (iOS simulator, incl. a SpringBoard alert)
+    desc: Tap native UI via adb (Android) or the simulator HID stack (iOS simulator, incl. a SpringBoard alert by label)
     dir: '{{.TEST_APP}}'
     vars:
       BUNDLE_ID: 'dev.andrzejchm.fdb.testApp'
@@ -3941,7 +3941,7 @@ tasks:
         fi
 
         # ---------------------------------------------------------------
-        # iOS simulator only: HID tap reaches SpringBoard
+        # iOS simulator only: HID tap and --text reach SpringBoard
         # ---------------------------------------------------------------
         IS_EMULATOR=$(cat .fdb/platform.txt 2>/dev/null | awk '{print $2}' || echo "")
         UDID=$(cat .fdb/device.txt 2>/dev/null | tr -d '[:space:]' || echo "")
@@ -3985,22 +3985,17 @@ tasks:
           exit 1
         fi
 
-        # Button positions of the "Open in ...?" alert, measured per screen size.
-        # Nothing has been tapped or opened yet, so skipping needs no cleanup.
+        # Button positions of the "Open in ...?" alert, measured per screen size,
+        # for the coordinate tap. Other sizes tap Cancel by label instead.
         case "${SCREEN_W}x${SCREEN_H}" in
           402.0x874.0|402x874)
             # iPhone 17 Pro
-            OPEN_X=275
-            CANCEL_X=127
-            BUTTON_Y=474
+            CANCEL_AT="127,474"
             ;;
           *)
-            echo "SKIP: native-tap SpringBoard check: alert geometry only known for 402x874 points (screen is ${SCREEN_W}x${SCREEN_H})"
-            echo "PASS: test:native-tap"
-            exit 0
+            CANCEL_AT=""
             ;;
         esac
-        echo "==> [native-tap] Screen ${SCREEN_W}x${SCREEN_H} points, Open at $OPEN_X,$BUTTON_Y"
 
         # True (0) when describe succeeds without a lifecycle warning, i.e. the
         # test app is resumed and in front.
@@ -4028,7 +4023,7 @@ tasks:
         # the app back and reset its navigation.
         restore_app() {
           if ! app_in_foreground; then
-            {{.FDB}} native-tap --at "$CANCEL_X,$BUTTON_Y" >/dev/null 2>&1 || true
+            {{.FDB}} native-tap --text "Cancel" --timeout 1 >/dev/null 2>&1 || true
           fi
           xcrun simctl launch "$UDID" "{{.BUNDLE_ID}}" >/dev/null 2>&1 || true
           reset_app || echo "WARNING: could not hot restart the test app after the failure" >&2
@@ -4040,44 +4035,124 @@ tasks:
           exit 1
         }
 
-        echo "==> [native-tap] iOS sim: send the app to the background and trigger the SpringBoard alert"
-        # iOS remembers an approved "Open in ...?" and later opens the URL with
-        # no alert. Forget the approval so the alert shows on every run.
-        xcrun simctl spawn "$UDID" defaults delete com.apple.launchservices.schemeapproval \
-          "com.apple.CoreSimulator.CoreSimulatorBridge-->fdbtest" >/dev/null 2>&1 || true
-        SIMCTL_EXIT=0
-        SIMCTL_OUT=$(xcrun simctl launch "$UDID" com.apple.Preferences 2>&1) || SIMCTL_EXIT=$?
-        if [ $SIMCTL_EXIT -ne 0 ]; then
-          echo "$SIMCTL_OUT"
-          fail_restore "setup: xcrun simctl launch com.apple.Preferences exited with code $SIMCTL_EXIT"
-        fi
-        SIMCTL_EXIT=0
-        SIMCTL_OUT=$(xcrun simctl openurl "$UDID" "fdbtest://native-tap-springboard" 2>&1) || SIMCTL_EXIT=$?
-        if [ $SIMCTL_EXIT -ne 0 ]; then
-          echo "$SIMCTL_OUT"
-          fail_restore "setup: xcrun simctl openurl exited with code $SIMCTL_EXIT"
-        fi
-        # SpringBoard's "Open in “Test App”?" alert is outside the app, so fdb
-        # cannot observe it; a short sleep is the only option here.
-        sleep 2
+        # "Counter: N" from fdb describe on the home screen.
+        read_counter() {
+          {{.FDB}} describe 2>/dev/null | sed -n 's/.*"Counter: \([0-9][0-9]*\)".*/\1/p' | head -1
+        }
 
-        if app_in_foreground; then
-          echo "$FG_OUT"
-          fail_restore "setup: the test app is in the foreground, so the SpringBoard alert did not show"
-        fi
-
-        echo "==> [native-tap] iOS sim: tap Open on the SpringBoard alert"
+        echo "==> [native-tap] iOS sim: --text with no match (expect error)"
         EXIT_CODE=0
-        OUTPUT=$({{.FDB}} native-tap --at "$OPEN_X,$BUTTON_Y" 2>&1) || EXIT_CODE=$?
+        OUTPUT=$({{.FDB}} native-tap --text "fdb no such native label" --timeout 1 2>&1) || EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 1 ] || ! echo "$OUTPUT" | grep -q 'ERROR: No native element matching "fdb no such native label". Visible labels: '; then
+          echo "FAIL: fdb native-tap --text no match: expected exit 1 and ERROR: No native element matching (exit $EXIT_CODE)" >&2
+          exit 1
+        fi
+        echo "PASS: fdb native-tap --text no match"
+
+        echo "==> [native-tap] iOS sim: --text taps a Flutter button by its semantics label"
+        {{.FDB}} scroll-to --text "fdb integration test target" >/dev/null 2>&1 || true
+        BEFORE=$(read_counter)
+        if [ -z "$BEFORE" ]; then
+          echo "FAIL: could not read the counter before native-tap --text Increment" >&2
+          exit 1
+        fi
+        EXIT_CODE=0
+        OUTPUT=$({{.FDB}} native-tap --text "Increment" 2>&1) || EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -qE '^NATIVE_TAPPED=ios-simulator X=[0-9]+ Y=[0-9]+ TEXT="Increment"$'; then
+          echo "FAIL: fdb native-tap --text Increment: expected NATIVE_TAPPED=ios-simulator X=.. Y=.. TEXT=\"Increment\" (exit $EXIT_CODE)" >&2
+          exit 1
+        fi
+        EXPECTED=$((BEFORE + 1))
+        AFTER=""
+        for _ in $(seq 1 10); do
+          AFTER=$(read_counter)
+          [ "$AFTER" = "$EXPECTED" ] && break
+          sleep 0.5
+        done
+        if [ "$AFTER" != "$EXPECTED" ]; then
+          echo "FAIL: counter went $BEFORE -> $AFTER after native-tap --text Increment, expected $EXPECTED" >&2
+          exit 1
+        fi
+        echo "PASS: fdb native-tap --text Increment hit the FAB (counter $BEFORE -> $AFTER)"
+
+        # Sends the app to the background and opens an fdbtest:// URL, so
+        # SpringBoard asks "Open in “Test App”?".
+        show_open_in_alert() {
+          # iOS remembers an approved "Open in ...?" and later opens the URL with
+          # no alert. Forget the approval so the alert shows on every run.
+          xcrun simctl spawn "$UDID" defaults delete com.apple.launchservices.schemeapproval \
+            "com.apple.CoreSimulator.CoreSimulatorBridge-->fdbtest" >/dev/null 2>&1 || true
+          SIMCTL_EXIT=0
+          SIMCTL_OUT=$(xcrun simctl launch "$UDID" com.apple.Preferences 2>&1) || SIMCTL_EXIT=$?
+          if [ $SIMCTL_EXIT -ne 0 ]; then
+            echo "$SIMCTL_OUT"
+            fail_restore "setup: xcrun simctl launch com.apple.Preferences exited with code $SIMCTL_EXIT"
+          fi
+          SIMCTL_EXIT=0
+          SIMCTL_OUT=$(xcrun simctl openurl "$UDID" "fdbtest://native-tap-springboard" 2>&1) || SIMCTL_EXIT=$?
+          if [ $SIMCTL_EXIT -ne 0 ]; then
+            echo "$SIMCTL_OUT"
+            fail_restore "setup: xcrun simctl openurl exited with code $SIMCTL_EXIT"
+          fi
+          # The alert is outside the app, so fdb describe cannot see it; give
+          # SpringBoard a moment to show it.
+          sleep 2
+          if app_in_foreground; then
+            echo "$FG_OUT"
+            fail_restore "setup: the test app is in the foreground, so the SpringBoard alert did not show"
+          fi
+        }
+
+        echo "==> [native-tap] iOS sim: send the app to the background and trigger the SpringBoard alert"
+        show_open_in_alert
+
+        if [ -n "$CANCEL_AT" ]; then
+          echo "==> [native-tap] iOS sim: tap Cancel on the SpringBoard alert at $CANCEL_AT (${SCREEN_W}x${SCREEN_H} points)"
+          CANCEL_ARGS="--at $CANCEL_AT"
+        else
+          echo "==> [native-tap] iOS sim: tap Cancel on the SpringBoard alert by label (no measured coordinates for ${SCREEN_W}x${SCREEN_H} points)"
+          CANCEL_ARGS="--text Cancel"
+        fi
+        EXIT_CODE=0
+        # shellcheck disable=SC2086
+        OUTPUT=$({{.FDB}} native-tap $CANCEL_ARGS 2>&1) || EXIT_CODE=$?
         echo "$OUTPUT"
         if [ $EXIT_CODE -ne 0 ]; then
-          fail_restore "fdb native-tap --at $OPEN_X,$BUTTON_Y exited with code $EXIT_CODE"
+          fail_restore "fdb native-tap $CANCEL_ARGS exited with code $EXIT_CODE"
         fi
         if echo "$OUTPUT" | grep -q "WARNING: iOS simulator HID tap unavailable"; then
           fail_restore "fdb native-tap fell back to the in-process tap instead of the HID tap"
         fi
         if ! echo "$OUTPUT" | grep -q "NATIVE_TAPPED=ios-simulator"; then
           fail_restore "fdb native-tap: NATIVE_TAPPED=ios-simulator not found in output"
+        fi
+
+        # Cancel keeps Settings in front, so the app can't tell. Ask for Cancel
+        # again instead: it must be gone. If the alert were still up, this
+        # would just tap Cancel, which is harmless.
+        echo "==> [native-tap] iOS sim: verify the alert is gone"
+        EXIT_CODE=0
+        OUTPUT=$({{.FDB}} native-tap --text "Cancel" --timeout 1 2>&1) || EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 1 ] || ! echo "$OUTPUT" | grep -q 'ERROR: No native element matching "Cancel"'; then
+          fail_restore "the SpringBoard alert is still up after tapping Cancel (exit $EXIT_CODE)"
+        fi
+        echo "PASS: fdb native-tap tapped Cancel on the SpringBoard alert"
+
+        echo "==> [native-tap] iOS sim: trigger the SpringBoard alert again"
+        show_open_in_alert
+
+        echo "==> [native-tap] iOS sim: tap Open on the SpringBoard alert by label"
+        EXIT_CODE=0
+        OUTPUT=$({{.FDB}} native-tap --text "Open" 2>&1) || EXIT_CODE=$?
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 0 ]; then
+          fail_restore "fdb native-tap --text Open exited with code $EXIT_CODE"
+        fi
+        if ! echo "$OUTPUT" | grep -qE '^NATIVE_TAPPED=ios-simulator X=[0-9]+ Y=[0-9]+ TEXT="Open"$'; then
+          fail_restore "fdb native-tap --text Open: expected NATIVE_TAPPED=ios-simulator X=.. Y=.. TEXT=\"Open\""
         fi
 
         # Tapping Open hands the URL to the test app, which comes back to the
@@ -4096,7 +4171,7 @@ tasks:
           echo "$FG_OUT"
           fail_restore "the test app did not return to the foreground; the tap did not reach the SpringBoard alert"
         fi
-        echo "PASS: fdb native-tap tapped Open on the SpringBoard alert (app is in the foreground)"
+        echo "PASS: fdb native-tap --text Open tapped the SpringBoard alert (app is in the foreground)"
 
         echo "==> [native-tap] iOS sim: hot restart to drop the route the deep link pushed"
         if ! reset_app; then
