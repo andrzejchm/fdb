@@ -14,7 +14,7 @@ App state and data commands — SharedPreferences, clean, VM extensions, and run
 - Run `fdb shared-prefs get-all` before asserting app state in a test — know what's there before you check it.
 - Seed feature flags and onboarding state with `fdb shared-prefs set` before launching a scenario, not after. This avoids race conditions where the app reads prefs before you write them.
 - Run `fdb clean` + `fdb shared-prefs clear` together for a fully hermetic test scenario (clears both file storage and KV storage).
-- Pre-grant permissions with `fdb grant-permission` before launching the app — OS permission dialogs are hard to dismiss reliably from fdb. Grant before the session starts. On the iOS simulator fdb can't tap them at all; see `fdb skill simulator`.
+- Pre-grant permissions with `fdb grant-permission` before launching the app. OS permission dialogs are hard to dismiss reliably from fdb. Grant before the session starts. `fdb native-tap` can tap them on Android and the iOS simulator, but only by coordinates; see `fdb skill simulator`.
 - Use `fdb ext list` on an unfamiliar app to discover debug hooks the team has registered — you may find shortcuts for clearing caches, resetting auth state, or overriding platform behaviour.
 
 ## SharedPreferences

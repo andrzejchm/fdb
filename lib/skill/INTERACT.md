@@ -186,18 +186,50 @@ fdb native-tap --x 200 --y 400 # same, two-flag form
 Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
 
 Platform dispatch:
-- **Android** — `adb shell input tap X Y`. Reaches all on-screen UI including system dialogs.
-- **iOS simulator** — falls back to `fdb tap --at` (in-process). Reaches `UIAlertController` and in-app native overlays. **Cannot reach SpringBoard dialogs** (URL scheme confirmations, OS permission prompts, the paste prompt "would like to paste from CoreSimulator-Bridge") **or the software keyboard.** native-tap can't type; use `fdb input` for text entry.
-- **iOS physical / macOS** — not supported. Use `fdb tap --at`.
+- **Android**: `adb shell input tap X Y`, in physical pixels. Reaches all on-screen UI including system dialogs.
+- **iOS simulator**: injects a real touch through the simulator's HID stack, the same way Simulator.app does. Coordinates are iOS points in the current screen orientation, so they match `fdb tap --at`, `fdb describe` and screenshots in portrait and in landscape. fdb reads the orientation from the simulator and rotates the touch itself. If the simulator reports an orientation fdb can't map, it fails with `ERROR: native-tap can't tell which way the simulator is rotated (...)` instead of tapping; this is usually brief during boot or a rotation, so wait a moment and try again. If the orientation can't be read at all, it falls back to the in-process tap with the `WARNING: iOS simulator HID tap unavailable` line below. Reaches anything on screen in any app, including SpringBoard: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, and the paste prompt. Needs Xcode only. The first tap on a machine compiles a small helper with `xcrun swiftc` (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (set `FDB_CACHE_DIR` to change it).
+- **iOS physical / macOS**: not supported. Use `fdb tap --at`.
 
-For iOS in-app alerts (`UIAlertController`):
+native-tap only taps. It can't type; use `fdb input` for text entry. Tapping by label (`--text`) is not supported; pass coordinates.
+
+On the iOS simulator, coordinates outside the screen fail with exit 1 and tap nothing:
+```
+ERROR: coordinates X,Y are outside the screen (WxH points, <orientation>)
+```
+
+WxH is the size in the current orientation, for example `874.0x402.0 points, landscapeLeft` on an iPhone 17 Pro in landscape.
+
+If the simulator accepted the touch-down but not the touch-up, native-tap fails with an `ERROR:` and exit 1 instead of retrying, to avoid a double tap. It doesn't fall back to the in-process tap in that case.
+
+If the helper can't be built or run, native-tap still taps, but in-process, and prints:
+```
+WARNING: iOS simulator HID tap unavailable (<reason>); fell back to in-process tap (UIApplication.sendEvent), which cannot reach SpringBoard system dialogs.
+```
+That tap reaches `UIAlertController` and other in-app native overlays only. Fix the reason to get the HID tap back. It is usually `xcode-select` pointing at the Command Line Tools instead of Xcode (`sudo xcode-select -s /Applications/Xcode.app`), or an unaccepted Xcode license.
+
+**Getting coordinates from a screenshot.** `fdb screenshot` downscales the image so its longest side is at most 1200px, so screenshot pixels are not points. Convert:
+
+```
+points = screenshot px * (screen width in points / screenshot width in px)
+```
+
+For example, an iPhone 17 Pro is 402x874 points and its screenshot is 552x1200 px, so a button at 378,651 in the screenshot is at 275,474 points. The out-of-screen error above names the screen size in points if you don't know it.
+
+Tap a SpringBoard dialog on the iOS simulator:
+```bash
+fdb screenshot                 # find the button; convert its position to points
+fdb native-tap --at 275,474    # e.g. "Open" in the "Open in <App>?" alert on iPhone 17 Pro
+fdb screenshot                 # verify the dialog is gone
+```
+
+For in-app alerts (`UIAlertController`), `fdb tap --at` works too:
 ```bash
 fdb screenshot                 # locate button coordinates
 fdb tap --at 285,508           # tap at those coordinates
 fdb screenshot                 # verify dismissed
 ```
 
-For OS-level permission prompts on iOS simulator, use `fdb grant-permission` instead — see `fdb skill data`. The system photo picker, the notification prompt, and the software keyboard can't be driven either; see `fdb skill simulator` for workarounds.
+When you know which permission the app will ask for, pre-granting with `fdb grant-permission` is still more reliable than tapping the prompt (see `fdb skill data`). The system photo picker needs an app test hook; see `fdb skill simulator`.
 
 ## Tap a widget
 

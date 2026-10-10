@@ -16,17 +16,55 @@ class NativeTapAndroid extends NativeTapResult {
   final int y;
 }
 
-/// iOS Simulator tap delegated to in-process tap (UIApplication.sendEvent).
+/// iOS Simulator tap injected through the simulator's HID stack.
 ///
-/// SpringBoard-level system dialogs are unreachable from within the app
-/// process; [tapResult] reflects the outcome of the in-process tap attempt.
+/// Reaches every process on screen, including SpringBoard system dialogs.
 class NativeTapIosSimulator extends NativeTapResult {
-  const NativeTapIosSimulator({required this.x, required this.y, required this.tapResult});
+  const NativeTapIosSimulator({required this.x, required this.y});
   final int x;
   final int y;
+}
+
+/// iOS Simulator HID tap was unavailable, so the tap went through the
+/// in-process path (UIApplication.sendEvent) instead.
+///
+/// That path cannot reach SpringBoard-level system dialogs. [reason] says why
+/// the HID path was skipped; [tapResult] is the outcome of the fallback tap.
+class NativeTapIosSimulatorFallback extends NativeTapResult {
+  const NativeTapIosSimulatorFallback({
+    required this.x,
+    required this.y,
+    required this.reason,
+    required this.tapResult,
+  });
+  final int x;
+  final int y;
+  final String reason;
 
   /// The result of the underlying [tapWidget] call.
   final TapResult tapResult;
+}
+
+/// The coordinates are outside the iOS Simulator screen.
+class NativeTapIosSimulatorOutOfBounds extends NativeTapResult {
+  const NativeTapIosSimulatorOutOfBounds(this.message);
+  final String message;
+}
+
+/// The iOS Simulator interface orientation could not be mapped, so nothing
+/// was tapped. No fallback tap is attempted: it could hit the app behind a
+/// SpringBoard dialog instead of the dialog.
+class NativeTapIosSimulatorOrientationUnknown extends NativeTapResult {
+  const NativeTapIosSimulatorOrientationUnknown(this.message);
+  final String message;
+}
+
+/// The iOS Simulator HID tap may have been partially delivered (e.g. touch
+/// down sent, touch up failed). No fallback tap is attempted, since that could
+/// tap twice.
+class NativeTapIosSimulatorFailed extends NativeTapResult {
+  const NativeTapIosSimulatorFailed(this.message);
+  final String message;
 }
 
 /// No active fdb session found.
