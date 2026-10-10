@@ -78,7 +78,7 @@ NEVER reach for `--text`, `--type`, or `--at` without first running `fdb describ
 fdb screenshot [--output <path>] [--full]
 ```
 
-Dispatches to the right capture tool per platform: `adb` (Android), `xcrun simctl` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11), Chrome DevTools Protocol (web), or `fdb_helper` VM extension (physical iOS, Windows, Wayland). Default output: `<project>/.fdb/screenshot.png`. Output is downscaled so the longest side fits within 1200px — pass `--full` to skip downscaling. Read the file with the Read tool to view it.
+Dispatches to the right capture tool per platform: `adb` (Android), `xcrun simctl` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11), Chrome DevTools Protocol (web), or `fdb_helper` VM extension (physical iOS, Windows, Wayland). On the iOS simulator fdb captures the session's simulator; without a session device it captures the only booted iOS simulator and fails listing the candidates if several are booted. Default output: `<project>/.fdb/screenshot.png`. Output is downscaled so the longest side fits within 1200px; pass `--full` to skip downscaling. Read the file with the Read tool to view it.
 
 Use `fdb describe` instead when you need to understand the UI for interaction — it's faster, text-based, and exposes widget refs. Use `fdb screenshot` to visually verify results after interactions.
 

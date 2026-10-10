@@ -171,17 +171,20 @@ fdb --session-dir /path/to/project/.fdb status
 ## Deep links
 
 ```bash
-fdb deeplink <url>
+fdb deeplink <url> [--device <id>]
 ```
 
-Opens a deep link URL on the connected device. Works with Android and iOS simulators only.
+Opens a deep link URL on the session's device (`.fdb/device.txt`). Works with Android and iOS simulators only. `--device` takes an iOS simulator UDID or an Android serial and overrides the session device; with it, no session is needed. An iOS simulator target must be booted, and the URL opens on that simulator even when several are booted. Android runs `adb -s <serial>`.
 
 ```bash
 fdb deeplink "myapp://products/123"
 fdb deeplink "https://example.com/products/123?ref=home"
+fdb deeplink "myapp://products/123" --device <simulator_udid>
 ```
 
 Output on success: `DEEPLINK_OPENED=<url>`
+
+Targeting errors: a shut down session simulator fails with `ERROR: The session simulator <UDID> (<name>) is not booted ...`; an unknown `--device` fails with `ERROR: No iOS simulator or Android device with ID <id>. List devices with: fdb devices`.
 
 **Limitations:**
 - Physical iOS not supported (Apple has no CLI for this)

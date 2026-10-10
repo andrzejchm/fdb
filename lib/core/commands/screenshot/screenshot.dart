@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:fdb/core/commands/screenshot/screenshot_models.dart';
 import 'package:fdb/core/foreground_check.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/simulator_device.dart';
+import 'package:fdb/core/xcrun.dart';
 import 'package:fdb/src/controller/fdb_controller.dart';
 import 'package:image/image.dart' as img;
 
@@ -50,7 +52,7 @@ Future<ScreenshotResult> captureScreenshot(
       warnings: warnings,
     );
   } else {
-    captureError = await _legacyCapture(output, warnings);
+    captureError = await _legacyCapture(deviceId, output);
   }
 
   if (lifecycleFuture != null) {
@@ -149,11 +151,15 @@ Future<String?> _dispatchScreenshot({
 // Legacy capture (no platform.txt — sessions before platform tracking)
 // ---------------------------------------------------------------------------
 
-/// Heuristic capture used when no platform file exists:
-/// checks adb for Android, otherwise assumes iOS simulator.
-Future<String?> _legacyCapture(String output, List<String> warnings) async {
-  if (await _isAndroidConnected()) {
-    return _captureAndroid(null, output);
+/// Heuristic capture used when no platform file exists.
+///
+/// With a session device ([deviceId]): Android when adb lists that serial,
+/// otherwise the iOS simulator path (which resolves the session simulator).
+/// Without one: Android when any adb device is connected, otherwise the iOS
+/// simulator path.
+Future<String?> _legacyCapture(String? deviceId, String output) async {
+  if (await _isAndroidConnected(deviceId)) {
+    return _captureAndroid(deviceId, output);
   }
   return _captureIosSimulator(null, output);
 }
@@ -166,7 +172,7 @@ Future<String?> _captureAndroid(String? deviceId, String output) async {
   try {
     final args = deviceId != null ? ['-s', deviceId] : <String>[];
     final result = await Process.run(
-      'adb',
+      adbExecutable,
       [...args, 'exec-out', 'screencap', '-p'],
       stdoutEncoding: null,
     );
@@ -184,10 +190,19 @@ Future<String?> _captureAndroid(String? deviceId, String output) async {
 // iOS Simulator
 // ---------------------------------------------------------------------------
 
+/// Captures the iOS simulator [deviceId], or, when the session has no device
+/// recorded, the simulator picked by [resolveSimulatorDevice] (the only booted
+/// one). Never uses simctl's `booted` alias, which picks an arbitrary simulator
+/// when several are booted.
 Future<String?> _captureIosSimulator(String? deviceId, String output) async {
+  var target = deviceId;
+  if (target == null) {
+    final resolved = await resolveSimulatorDevice();
+    if (resolved.error != null) return resolved.error;
+    target = resolved.udid!;
+  }
   try {
-    final target = deviceId ?? 'booted';
-    final result = await Process.run('xcrun', [
+    final result = await Process.run(xcrunExecutable, [
       'simctl',
       'io',
       target,
@@ -506,11 +521,16 @@ Future<String?> _resizeToMaxDimension(String path) async {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Future<bool> _isAndroidConnected() async {
+/// Whether adb lists a device in the `device` state: the one with serial
+/// [serial] when given, else any.
+Future<bool> _isAndroidConnected(String? serial) async {
   try {
-    final result = await Process.run('adb', ['devices']);
+    final result = await Process.run(adbExecutable, ['devices']);
     final output = result.stdout as String;
-    return output.split('\n').any((l) => l.contains('\tdevice'));
+    return output.split('\n').any((line) {
+      final columns = line.trim().split(RegExp(r'\s+'));
+      return columns.length >= 2 && columns[1] == 'device' && (serial == null || columns[0] == serial);
+    });
   } catch (_) {
     return false;
   }

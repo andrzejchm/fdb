@@ -1,7 +1,10 @@
 import 'package:fdb/core/models/command_result.dart';
 
 /// Input parameters for [openDeeplink].
-typedef DeeplinkInput = ({String url});
+///
+/// [deviceOverride] is the `--device <id>` value: an iOS simulator UDID or an
+/// Android serial. When null, the session device (`.fdb/device.txt`) is used.
+typedef DeeplinkInput = ({String url, String? deviceOverride});
 
 /// Result of a [openDeeplink] invocation.
 sealed class DeeplinkResult extends CommandResult {
@@ -31,4 +34,11 @@ class DeeplinkUnsupportedPlatform extends DeeplinkResult {
 class DeeplinkFailed extends DeeplinkResult {
   final String details;
   const DeeplinkFailed(this.details);
+}
+
+/// The target device could not be used: a `--device` ID that matches no iOS
+/// simulator or Android device, or an iOS simulator that is not booted.
+class DeeplinkDeviceUnresolved extends DeeplinkResult {
+  final String message;
+  const DeeplinkDeviceUnresolved(this.message);
 }

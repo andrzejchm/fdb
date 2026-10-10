@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/grant_permission/grant_permission_models.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/simulator_device.dart';
 import 'package:fdb/core/xcrun.dart';
 
 export 'package:fdb/core/commands/grant_permission/grant_permission_models.dart';
@@ -15,7 +16,7 @@ export 'package:fdb/core/xcrun.dart' show xcrunExecutable;
 /// applesimutils) and are not supported by xcrun simctl privacy.
 const _iosRequiresExternal = {
   'notifications': (
-    hint: "Use: applesimutils --bundle <id> --simulator booted --setPermissions notifications=YES\n"
+    hint: "Use: applesimutils --bundle <id> --byId <simulator-udid> --setPermissions notifications=YES\n"
         "Install: brew install wix/brew/applesimutils",
   ),
 };
@@ -130,7 +131,14 @@ Future<GrantPermissionResult> grantPermission(GrantPermissionInput input) async 
 Future<GrantPermissionResult> _handleIosSimulator(GrantPermissionInput input) async {
   final bundleId = input.bundleOverride ?? readAppId();
   if (bundleId == null) return const GrantPermissionNoAppId();
-  final device = input.deviceOverride ?? readDevice() ?? 'booted';
+  var device = input.deviceOverride ?? readDevice();
+  if (device == null) {
+    // No session device: pick the only booted simulator. Never simctl's
+    // `booted` alias, which picks an arbitrary one when several are booted.
+    final resolved = await resolveSimulatorDevice();
+    if (resolved.error != null) return GrantPermissionError(resolved.error!);
+    device = resolved.udid!;
+  }
 
   final action = input.action;
 
