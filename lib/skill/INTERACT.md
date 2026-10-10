@@ -68,7 +68,7 @@ After `fdb describe`, choose a selector in this order:
 2. `--key` — stable across navigation changes; prefer for repeated or scripted taps. Keys are shown in `fdb describe` output.
 3. `--text` — brittle if text is localised or changes. Use only when neither a ref nor a key is available.
 4. `--type` — most brittle; breaks on widget type refactors. Last resort before coordinates.
-5. `--at x,y` — coordinate tap. Use ONLY for elements with no other selector (native overlays, canvas). NEVER guess coordinates.
+5. `--at x,y` — coordinate tap. Use ONLY for elements with no other selector (in-app native overlays, canvas); for system dialogs and permission prompts use `fdb native-tap`. NEVER guess coordinates.
 
 NEVER reach for `--text`, `--type`, or `--at` without first running `fdb describe` and exhausting `@N` ref and `--key` options.
 
@@ -78,7 +78,7 @@ NEVER reach for `--text`, `--type`, or `--at` without first running `fdb describ
 fdb screenshot [--output <path>] [--full]
 ```
 
-Dispatches to the right capture tool per platform: `adb` (Android), `xcrun simctl` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11), Chrome DevTools Protocol (web), or `fdb_helper` VM extension (physical iOS, Windows, Wayland). On the iOS simulator fdb captures the session's simulator; without a session device it captures the only booted iOS simulator and fails listing the candidates if several are booted. Default output: `<project>/.fdb/screenshot.png`. Output is downscaled so the longest side fits within 1200px; pass `--full` to skip downscaling. Read the file with the Read tool to view it.
+Dispatches to the right capture tool per platform: `adb` (Android), `xcrun simctl` (iOS simulator), `screencapture` (macOS), `xdotool`+`import` (Linux X11), Chrome DevTools Protocol (web), or `fdb_helper` VM extension (physical iOS, Windows, Wayland). On the iOS simulator fdb captures the session's simulator; without a session device it captures the only booted iOS simulator, and if several are booted it fails with `ERROR: Multiple booted iOS simulators and no fdb session simulator to choose from. ...` followed by the candidates. Default output: `<project>/.fdb/screenshot.png`. Output is downscaled so the longest side fits within 1200px; pass `--full` to skip downscaling. Read the file with the Read tool to view it.
 
 Use `fdb describe` instead when you need to understand the UI for interaction — it's faster, text-based, and exposes widget refs. Use `fdb screenshot` to visually verify results after interactions.
 
@@ -187,16 +187,24 @@ fdb native-tap --text Allow              # iOS simulator: the notification promp
 fdb native-tap --text "OK" --index 1     # the second match (0-based)
 ```
 
-Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`, plus ` TEXT="<matched label>"` with `--text`. X and Y are physical pixels on Android and points on the iOS simulator.
+Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`, plus ` TEXT="<matched label>"` with `--text` (`"` and `\` in the label are escaped as `\"` and `\\`). X and Y are physical pixels on Android and points on the iOS simulator. `NATIVE_TAPPED` means the touch was injected, not that it hit the control you meant.
+
+native-tap needs a session and taps the session's device; it has no `--device` flag. Without a session it fails with `ERROR: No .fdb/ session found. Run from the project root or pass --session-dir <path>.`, or `ERROR: No active fdb session found. Run fdb launch first.` when `.fdb/` holds no launched session.
+
+**System prompts: which command.**
+1. Known permission: `fdb grant-permission <perm>` before the app asks (see `fdb skill data`). On the iOS simulator it can't grant `notifications`.
+2. Otherwise: `fdb screenshot` to see the prompt, then `fdb native-tap --text <button>` (Android, iOS simulator) or `--at x,y`, then `fdb screenshot` to confirm. fdb doesn't check what an `--at` tap hit.
+3. In-app dialogs (Flutter dialogs, `UIAlertController`): `fdb tap`.
+4. Physical iOS: native-tap is not supported. Pre-grant the permission or avoid the prompt.
 
 Platform dispatch:
 - **Android**: `adb shell input tap X Y`, in physical pixels. Reaches all on-screen UI including system dialogs.
-- **iOS simulator**: injects a real touch through the simulator's HID stack, the same way Simulator.app does. Coordinates are iOS points in the current screen orientation, so they match `fdb tap --at`, `fdb describe` and screenshots in portrait and in landscape. fdb reads the orientation from the simulator and rotates the touch itself. If the simulator reports an orientation fdb can't map, it fails with `ERROR: native-tap can't tell which way the simulator is rotated (...)` instead of tapping; this is usually brief during boot or a rotation, so wait a moment and try again. If the orientation can't be read at all, it falls back to the in-process tap with the `WARNING: iOS simulator HID tap unavailable` line below. Reaches anything on screen in any app, including SpringBoard: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, and the paste prompt. Needs Xcode only. The first tap on a machine compiles a small helper with `xcrun swiftc` (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (set `FDB_CACHE_DIR` to change it).
+- **iOS simulator**: injects a real touch through the simulator's HID stack, the same way Simulator.app does. Coordinates are iOS points in the current screen orientation, so they match `fdb tap --at` and `fdb describe` in portrait and in landscape. Screenshot pixels must be converted (see "Getting coordinates from a screenshot" below). fdb reads the orientation from the simulator and rotates the touch itself. If the simulator reports an orientation fdb can't map, it fails with `ERROR: native-tap can't tell which way the simulator is rotated (...)` instead of tapping; this is usually brief during boot or a rotation, so wait a moment and try again. If the orientation can't be read at all, it falls back to the in-process tap with the `WARNING: iOS simulator HID tap unavailable` line below. Reaches anything on screen in any app, including SpringBoard: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, and the paste prompt. Needs Xcode only. The first tap on a machine compiles a small helper with `xcrun swiftc` (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (set `FDB_CACHE_DIR` to change it).
 - **iOS physical / macOS**: not supported. Use `fdb tap --at`.
 
 native-tap only taps. It can't type; use `fdb input` for text entry.
 
-**Android units.** Without `--logical`, `--at` is physical pixels. `fdb tap`, `fdb describe` and `fdb scroll-to` print Flutter logical pixels; pass those with `--logical` and fdb multiplies them by the app's device pixel ratio (from fdb_helper; without it, `adb shell wm density` / 160, which is the same value unless the app sets its own density). `fdb screenshot` pixels are neither: the image is downscaled so its longest side is at most 1200px. Convert: `physical px = screenshot px * (screen width in physical px / screenshot width)`; `adb shell wm size` prints the physical size. On the iOS simulator `--logical` changes nothing, since coordinates are already points. `--logical` assumes the Flutter view starts at the top-left corner of the screen, which holds for a full-screen app. In split-screen or freeform windows, in landscape with a display cutout inset, or for a Flutter view embedded in a native app (add-to-app), the tap lands offset by the view's position.
+**Android units.** Without `--logical`, `--at` is physical pixels. `fdb tap`, `fdb describe` and `fdb scroll-to` print Flutter logical pixels; pass those with `--logical` and fdb multiplies them by the app's device pixel ratio (from fdb_helper; without it, `adb shell wm density` / 160, which is the same value unless the app sets its own density). If neither works it fails with `ERROR: Could not determine the device pixel ratio for --logical: <reason>`. `fdb screenshot` pixels are neither: the image is downscaled so its longest side is at most 1200px. Convert: `physical px = screenshot px * (screen width in physical px / screenshot width)`; `adb shell wm size` prints the physical size. On the iOS simulator `--logical` changes nothing, since coordinates are already points. `--logical` assumes the Flutter view starts at the top-left corner of the screen, which holds for a full-screen app. In split-screen or freeform windows, in landscape with a display cutout inset, or for a Flutter view embedded in a native app (add-to-app), the tap lands offset by the view's position.
 
 **Tap by label on Android.** `--text <label>` reads the screen with `uiautomator dump` and taps the center of the matching element, so it works on system dialogs. It matches, in this order, and stops at the first rule that finds something:
 1. `text` or `content-desc` equal to the label (both trimmed)
@@ -210,10 +218,12 @@ ERROR: No native element matching "Allow". Visible labels: "Allow test_app to ta
 ERROR: Found 2 native elements matching "Ok". Use --index to specify which one (0-based):
   [0] "OK" at 270,650
   [1] "ok" at 810,650
+ERROR: --index 2 is out of range: found 2 native elements matching "Ok" (0-based).
 ERROR: Could not read the Android UI hierarchy (uiautomator dump): ERROR: could not get idle state.
+  uiautomator needs the screen to stop animating. Retry, or tap by coordinates with --at x,y.
 ```
 
-The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`, and `--index`/`--timeout` only apply to `--text`.
+`--text` can't be combined with `--at`/`--x`/`--y` or `--logical`, and `--index`/`--timeout` only apply to `--text`.
 
 **Tap by label on the iOS simulator.** `--text <label>` reads the simulator's accessibility tree and taps the center of the matching element through the HID stack, like `--at`. The tree is the frontmost app's, or SpringBoard's while a system alert is up, so `fdb native-tap --text Allow` answers a notification prompt and `--text Open` answers "Open in “Test App”?". The rules match Android's:
 1. the accessibility label equal to the label (both trimmed). Only the label: unlike Android's `text`, a text field's typed value is not matched
@@ -253,13 +263,17 @@ ERROR: coordinates X,Y are outside the screen (WxH points, <orientation>)
 
 WxH is the size in the current orientation, for example `874.0x402.0 points, landscapeLeft` on an iPhone 17 Pro in landscape.
 
-If the simulator accepted the touch-down but not the touch-up, native-tap fails with an `ERROR:` and exit 1 instead of retrying, to avoid a double tap. It doesn't fall back to the in-process tap in that case.
+If the touch may have gone out only in part (touch-down sent, touch-up not), native-tap fails with exit 1 instead of retrying, to avoid a double tap, and doesn't fall back to the in-process tap:
+```
+ERROR: touch partially delivered: <problem>
+ERROR: iOS simulator HID helper timed out after 15s and was killed; the touch may have been partially delivered
+```
 
 If the helper can't be built or run, native-tap still taps, but in-process, and prints:
 ```
 WARNING: iOS simulator HID tap unavailable (<reason>); fell back to in-process tap (UIApplication.sendEvent), which cannot reach SpringBoard system dialogs.
 ```
-That tap reaches `UIAlertController` and other in-app native overlays only. Fix the reason to get the HID tap back. It is usually `xcode-select` pointing at the Command Line Tools instead of Xcode (`sudo xcode-select -s /Applications/Xcode.app`), or an unaccepted Xcode license.
+The fallback runs `fdb tap --at` in the app process, so it needs fdb_helper and prints a `TAPPED=...` line before `NATIVE_TAPPED=`; if that tap fails you get `fdb tap`'s error and no `NATIVE_TAPPED=`. It reaches `UIAlertController` and other in-app native overlays only. Fix the reason to get the HID tap back. It is usually `xcode-select` pointing at the Command Line Tools instead of Xcode (`sudo xcode-select -s /Applications/Xcode.app`), or an unaccepted Xcode license.
 
 **Getting coordinates from a screenshot.** `fdb screenshot` downscales the image so its longest side is at most 1200px, so screenshot pixels are not points. Convert:
 
@@ -283,7 +297,7 @@ fdb tap --at 285,508           # tap at those coordinates
 fdb screenshot                 # verify dismissed
 ```
 
-When you know which permission the app will ask for, pre-granting with `fdb grant-permission` is still more reliable than tapping the prompt (see `fdb skill data`). The system photo picker needs an app test hook; see `fdb skill simulator`.
+The system photo picker needs an app test hook; see `fdb skill simulator`.
 
 ## Tap a widget
 
@@ -518,4 +532,10 @@ fdb tap --key "password_field"
 fdb input --key "password_field" "secret"
 fdb tap --text "Login"
 fdb screenshot
+
+# System prompt (permission dialog, "Open in <App>?")
+fdb grant-permission camera                # known permission: grant before the app asks (iOS sim: not notifications)
+fdb screenshot                             # otherwise: look at the prompt
+fdb native-tap --text "While using the app"   # Android / iOS simulator; or --at x,y
+fdb screenshot                             # confirm: NATIVE_TAPPED only means the touch was injected
 ```

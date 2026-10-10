@@ -165,7 +165,7 @@ fdb native-tap --text "Don't Allow"  # curly quotes in the prompt match straight
 fdb native-tap --text Open           # "Open in <App>?"
 ```
 
-If you don't know the label, ask for one that doesn't exist with `--timeout 1`; the error lists the visible labels. `--at x,y` taps by coordinates instead: points in the current screen orientation, the same as `fdb tap --at` and screenshots, in portrait or landscape (see `fdb skill interact` for converting screenshot pixels). `fdb tap` still injects inside the app process and can't reach these prompts.
+If you don't know the label, ask for one that doesn't exist with `--timeout 1`; the error lists the visible labels. `--at x,y` taps by coordinates instead: points in the current screen orientation, the same as `fdb tap --at` and `fdb describe`, in portrait or landscape. Screenshot pixels must be converted to points first (see `fdb skill interact`). `fdb tap` still injects inside the app process and can't reach these prompts.
 
 Still, avoid the prompt when you can:
 
