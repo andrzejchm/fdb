@@ -195,28 +195,28 @@ Platform dispatch:
 
 native-tap only taps. It can't type; use `fdb input` for text entry.
 
-**Android units.** Without `--logical`, `--at` is physical pixels. `fdb tap`, `fdb describe` and `fdb scroll-to` print Flutter logical pixels; pass those with `--logical` and fdb multiplies them by the app's device pixel ratio (from fdb_helper; without it, `adb shell wm density` / 160, which is the same value unless the app sets its own density). `fdb screenshot` pixels are neither: the image is downscaled so its longest side is at most 1200px. Convert: `physical px = screenshot px * (screen width in physical px / screenshot width)`; `adb shell wm size` prints the physical size. On the iOS simulator `--logical` changes nothing, since coordinates are already points.
+**Android units.** Without `--logical`, `--at` is physical pixels. `fdb tap`, `fdb describe` and `fdb scroll-to` print Flutter logical pixels; pass those with `--logical` and fdb multiplies them by the app's device pixel ratio (from fdb_helper; without it, `adb shell wm density` / 160, which is the same value unless the app sets its own density). `fdb screenshot` pixels are neither: the image is downscaled so its longest side is at most 1200px. Convert: `physical px = screenshot px * (screen width in physical px / screenshot width)`; `adb shell wm size` prints the physical size. On the iOS simulator `--logical` changes nothing, since coordinates are already points. `--logical` assumes the Flutter view starts at the top-left corner of the screen, which holds for a full-screen app. In split-screen or freeform windows, in landscape with a display cutout inset, or for a Flutter view embedded in a native app (add-to-app), the tap lands offset by the view's position.
 
 **Tap by label (Android only).** `--text <label>` reads the screen with `uiautomator dump` and taps the center of the matching element, so it works on system dialogs. It matches, in this order, and stops at the first rule that finds something:
 1. `text` or `content-desc` equal to the label (both trimmed)
-2. the same, ignoring case
+2. the same, ignoring case and treating curly quotes as straight ones and a no-break space as a space (`Don't allow` matches `Don’t allow`)
 3. `resource-id`, either `com.android.permissioncontroller:id/permission_allow_button` or just `permission_allow_button`
 
-If the matching element isn't clickable (a label inside a row), fdb taps its nearest clickable ancestor. It retries until a match appears or `--timeout` seconds pass (default 5), since dialogs show up after a delay. Labels differ by Android version and vendor ("While using the app", "Only this time", "Allow"); when you don't know the label, tap a label that doesn't exist with `--timeout 1` and read the list in the error.
+fdb taps the center of the matched element itself, not of a clickable container around it; Android delivers the touch to the view under that point that handles it, so a label inside a clickable row still taps the row. Only an element without on-screen bounds falls back to its nearest clickable ancestor. Disabled elements (`enabled="false"`) and elements whose center is off screen are skipped. uiautomator also sees the app's own accessibility nodes, so `--text Allow` can match a text in the app if the dialog hasn't appeared yet. It retries until a match appears or `--timeout` seconds pass (default 5), since dialogs show up after a delay. `--timeout` bounds the retries, not a single dump: one dump usually takes 1-3 s and can take up to about 10 s on a busy screen, so the command can run a little past the timeout. Labels differ by Android version and vendor ("While using the app", "Only this time", "Allow"); when you don't know the label, tap a label that doesn't exist with `--timeout 1` and read the list in the error.
 
 ```
 ERROR: No native element matching "Allow". Visible labels: "Allow test_app to take pictures and record video?", "While using the app", "Only this time", "Don’t allow"
-ERROR: Found 2 native elements matching "ok". Use --index to specify which one (0-based):
+ERROR: Found 2 native elements matching "Ok". Use --index to specify which one (0-based):
   [0] "OK" at 270,650
   [1] "ok" at 810,650
 ERROR: Could not read the Android UI hierarchy (uiautomator dump): ERROR: could not get idle state.
 ```
 
-The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`. On the iOS simulator it fails with `ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y`.
+The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`, and `--index`/`--timeout` only apply to `--text`. On the iOS simulator it fails with `ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y`.
 
 **Blocked input injection (Android).** Some vendors block `adb shell input` until a Developer options switch is on. native-tap then fails with:
 ```
-ERROR: Android blocked input injection (INJECT_EVENTS). Enable it in Developer options: Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring", vivo "USB Security Permissions".
+ERROR: Android blocked input injection (INJECT_EVENTS). Enable it in Developer options: Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring".
   adb said: java.lang.SecurityException: ...
 ```
 Turn that switch on and retry. adb exits 0 in this case, so fdb checks the output instead of the exit code.

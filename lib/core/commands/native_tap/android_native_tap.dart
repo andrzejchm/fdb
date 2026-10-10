@@ -12,18 +12,23 @@ typedef AdbRunner = Future<ProcessResult> Function(List<String> args);
 /// Returns the running app's device pixel ratio, or null when unknown.
 typedef AppDevicePixelRatioReader = Future<double?> Function();
 
-/// Where `uiautomator dump` writes when `/dev/tty` doesn't work. Under
+/// Where `uiautomator dump` writes when `/dev/tty` doesn't work: unique per
+/// fdb invocation so concurrent runs never read each other's dump. Under
 /// `/data/local/tmp` because the shell user can always write there, unlike
 /// `/sdcard` on some devices.
-const androidUiDumpFile = '/data/local/tmp/fdb_window_dump.xml';
+String androidUiDumpFileFor({required int pid, required int timestampMs}) =>
+    '/data/local/tmp/fdb_window_dump_${pid}_$timestampMs.xml';
 
 const _pollInterval = Duration(milliseconds: 300);
+
+/// `--timeout` for `--text` when none is given, same as `fdb tap`.
+const defaultNativeTapTextTimeoutSeconds = 5;
 
 /// Android side of `fdb native-tap`: by coordinates (`--at`, optionally
 /// `--logical`) or by label (`--text`).
 ///
-/// [adb], [appDevicePixelRatio] and [now] are injectable for tests. Never
-/// throws.
+/// [adb], [appDevicePixelRatio], [now], [sleep] and [dumpFile] are
+/// injectable for tests. Never throws.
 Future<NativeTapResult> nativeTapAndroid(
   NativeTapInput input, {
   required String? deviceId,
@@ -31,6 +36,7 @@ Future<NativeTapResult> nativeTapAndroid(
   AppDevicePixelRatioReader? appDevicePixelRatio,
   DateTime Function()? now,
   Future<void> Function(Duration)? sleep,
+  String? dumpFile,
 }) async {
   final deviceArgs = deviceId != null ? ['-s', deviceId] : <String>[];
   final runAdb = adb ?? _runAdb;
@@ -42,10 +48,11 @@ Future<NativeTapResult> nativeTapAndroid(
       return await _tapByText(
         query: text,
         index: input.index,
-        timeout: Duration(seconds: input.timeoutSeconds),
+        timeout: Duration(seconds: input.timeoutSeconds ?? defaultNativeTapTextTimeoutSeconds),
         run: run,
         now: now ?? DateTime.now,
         sleep: sleep ?? Future<void>.delayed,
+        dumpFile: dumpFile ?? androidUiDumpFileFor(pid: pid, timestampMs: DateTime.now().millisecondsSinceEpoch),
       );
     }
 
@@ -62,8 +69,10 @@ Future<NativeTapResult> nativeTapAndroid(
         final physical = logicalToPhysical(x, y, value);
         return await _inputTap(run, physical.x, physical.y);
     }
-  } catch (e) {
+  } on ProcessException catch (e) {
     return NativeTapAdbExecutionFailed(e.toString());
+  } catch (e) {
+    return NativeTapAdbFailed('$e');
   }
 }
 
@@ -197,9 +206,10 @@ Future<NativeTapResult> _tapByText({
   required Future<ProcessResult> Function(List<String>) run,
   required DateTime Function() now,
   required Future<void> Function(Duration) sleep,
+  required String dumpFile,
 }) async {
   final deadline = now().add(timeout);
-  final dumper = _UiDumper(run);
+  final dumper = _UiDumper(run, dumpFile);
   List<String>? lastLabels;
   int? lastMatchCount;
   String? lastDumpError;
@@ -242,19 +252,26 @@ Future<NativeTapResult> _tapByText({
 String _oneLine(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim();
 
 /// Dumps the window with `uiautomator dump`, streaming it over `/dev/tty`
-/// first and falling back to a file (deleted before each dump, so a stale one
-/// is never read) on devices where that doesn't work. Sticks with the file
-/// once it has worked and `/dev/tty` hasn't.
+/// first and falling back to a file on devices where that doesn't work.
+/// Sticks with the file once it has worked and `/dev/tty` hasn't.
+///
+/// "could not get idle state" is not a `/dev/tty` problem (the file dump would
+/// wait for the same idle screen), so it never triggers the fallback. The
+/// file is deleted before each dump, so a stale one is never read, and after
+/// reading it.
 class _UiDumper {
-  _UiDumper(this._run);
+  _UiDumper(this._run, this._file);
 
   final Future<ProcessResult> Function(List<String>) _run;
+  final String _file;
   bool _useFile = false;
 
   Future<AndroidUiDumpParse> dump() async {
     if (_useFile) return _dumpToFile();
     final tty = await _dumpToTty();
-    if (tty is AndroidUiDumpParsed) return tty;
+    if (tty is AndroidUiDumpParsed || (tty is AndroidUiDumpInvalid && isAndroidIdleStateError(tty.reason))) {
+      return tty;
+    }
     final file = await _dumpToFile();
     if (file is AndroidUiDumpParsed) {
       _useFile = true;
@@ -269,14 +286,19 @@ class _UiDumper {
   }
 
   Future<AndroidUiDumpParse> _dumpToFile() async {
-    final dump = await _run(['shell', 'rm -f $androidUiDumpFile; uiautomator dump $androidUiDumpFile']);
+    final dump = await _run(['shell', 'rm -f $_file; uiautomator dump $_file']);
     final dumpOutput = '${dump.stdout}\n${dump.stderr}';
     if (dumpOutput.contains('ERROR:')) return parseAndroidUiDump(dumpOutput);
-    final cat = await _run(['exec-out', 'cat', androidUiDumpFile]);
+    final cat = await _run(['exec-out', 'cat', _file]);
+    await _run(['shell', 'rm', '-f', _file]);
     if (cat.exitCode != 0) {
       final details = '${cat.stderr}${cat.stdout}'.trim();
-      return AndroidUiDumpInvalid('could not read $androidUiDumpFile: $details');
+      return AndroidUiDumpInvalid('could not read $_file: $details');
     }
     return parseAndroidUiDump('${cat.stdout}');
   }
 }
+
+/// True for uiautomator's "could not get idle state" error: the screen kept
+/// changing while it waited.
+bool isAndroidIdleStateError(String reason) => reason.contains('idle state');

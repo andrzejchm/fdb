@@ -6,7 +6,7 @@ import 'package:fdb/core/models/command_result.dart';
 /// Exactly one target: [x] and [y] together, or [text].
 /// - [text]: label, content description or resource id of a native element
 ///   (Android only for now). [index] picks among several matches (0-based).
-///   [timeoutSeconds] is how long to keep looking for a match.
+///   [timeoutSeconds] is how long to keep looking for a match (default 5).
 /// - [logical]: [x]/[y] are Flutter logical pixels. On Android they are
 ///   multiplied by the device pixel ratio; on the iOS simulator they are
 ///   already points, so it changes nothing.
@@ -15,7 +15,7 @@ typedef NativeTapInput = ({
   double? y,
   String? text,
   int? index,
-  int timeoutSeconds,
+  int? timeoutSeconds,
   bool logical,
 });
 
@@ -128,7 +128,7 @@ class NativeTapAdbExecutionFailed extends NativeTapResult {
 }
 
 /// Android refused the injected tap (`SecurityException` / `INJECT_EVENTS`).
-/// Some OEM builds (Xiaomi/HyperOS, OPPO/OnePlus/Realme, vivo) block it until
+/// Some OEM builds (Xiaomi/HyperOS, OPPO/OnePlus/Realme) block it until
 /// a Developer options switch is on. [details] is what adb printed.
 class NativeTapInputInjectionBlocked extends NativeTapResult {
   const NativeTapInputInjectionBlocked(this.details);

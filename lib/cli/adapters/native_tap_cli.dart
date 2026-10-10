@@ -34,7 +34,7 @@ Future<int> runNativeTapCli(List<String> args) {
       help: 'Tap the native element whose text, content-desc or resource-id is this (Android only).',
     )
     ..addOption('index', help: 'With --text: which match to tap, 0-based, in screen order.')
-    ..addOption('timeout', defaultsTo: '5', help: 'With --text: seconds to wait for a match.');
+    ..addOption('timeout', help: 'With --text: seconds to wait for a match (default: 5).');
 
   return runCliAdapter(parser, args, _execute);
 }
@@ -88,10 +88,18 @@ Future<int> _execute(ArgResults results) async {
   }
 
   // Parse --timeout
-  final rawTimeout = results.option('timeout')!;
-  final timeoutSeconds = int.tryParse(rawTimeout);
-  if (timeoutSeconds == null || timeoutSeconds < 0) {
-    stderr.writeln('ERROR: Invalid value for --timeout: $rawTimeout');
+  int? timeoutSeconds;
+  final rawTimeout = results.option('timeout');
+  if (rawTimeout != null) {
+    timeoutSeconds = int.tryParse(rawTimeout);
+    if (timeoutSeconds == null || timeoutSeconds < 0) {
+      stderr.writeln('ERROR: Invalid value for --timeout: $rawTimeout');
+      return 1;
+    }
+  }
+
+  if ((x != null && !x.isFinite) || (y != null && !y.isFinite)) {
+    stderr.writeln('ERROR: Coordinates must be finite numbers.');
     return 1;
   }
 
@@ -115,6 +123,10 @@ Future<int> _execute(ArgResults results) async {
   } else {
     if (index != null) {
       stderr.writeln('ERROR: --index only applies to --text.');
+      return 1;
+    }
+    if (timeoutSeconds != null) {
+      stderr.writeln('ERROR: --timeout only applies to --text.');
       return 1;
     }
 
@@ -148,7 +160,7 @@ Future<int> _execute(ArgResults results) async {
 int formatNativeTapResult(NativeTapResult result) {
   switch (result) {
     case NativeTapAndroid(:final x, :final y, :final text):
-      final textSuffix = text != null ? ' TEXT="$text"' : '';
+      final textSuffix = text != null ? ' TEXT="${_escapeQuoted(text)}"' : '';
       stdout.writeln('NATIVE_TAPPED=android X=$x Y=$y$textSuffix');
       return 0;
     case NativeTapIosSimulator(:final x, :final y):
@@ -212,8 +224,7 @@ int formatNativeTapResult(NativeTapResult result) {
     case NativeTapInputInjectionBlocked(:final details):
       stderr.writeln(
         'ERROR: Android blocked input injection (INJECT_EVENTS). Enable it in Developer options: '
-        'Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring", '
-        'vivo "USB Security Permissions".\n'
+        'Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring".\n'
         '  adb said: ${_firstLine(details)}',
       );
       return 1;
@@ -269,3 +280,6 @@ String _labelList(List<String> labels) {
   final more = labels.length - _maxVisibleLabels;
   return more > 0 ? '$shown, ... ($more more)' : shown;
 }
+
+/// Escapes `\` and `"` so a label can't break out of `TEXT="..."`.
+String _escapeQuoted(String s) => s.replaceAll(r'\', r'\\').replaceAll('"', r'\"');

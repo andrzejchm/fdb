@@ -105,6 +105,12 @@ void main() {
       expect(out.stdout, 'NATIVE_TAPPED=android X=720 Y=2452 TEXT="While using the app"\n');
     });
 
+    test('TEXT escapes backslashes and quotes', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapAndroid(x: 1, y: 2, text: r'Say "hi" \ bye')));
+
+      expect(out.stdout, 'NATIVE_TAPPED=android X=1 Y=2 TEXT="Say \\"hi\\" \\\\ bye"\n');
+    });
+
     test('no match lists the visible labels', () {
       final out = _capture(
         () => formatNativeTapResult(const NativeTapNoMatch(query: 'Allow', visibleLabels: ['Only this time', 'Deny'])),
@@ -182,8 +188,7 @@ void main() {
       expect(
         out.stderr,
         'ERROR: Android blocked input injection (INJECT_EVENTS). Enable it in Developer options: '
-        'Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring", '
-        'vivo "USB Security Permissions".\n'
+        'Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring".\n'
         '  adb said: java.lang.SecurityException: Injecting input events requires INJECT_EVENTS\n',
       );
     });
@@ -224,6 +229,12 @@ void main() {
     test('invalid --timeout', () => expectError(['--text', 'a', '--timeout', 'soon'], 'Invalid value for --timeout'));
 
     test('no target', () => expectError([], 'No coordinates provided'));
+
+    test('--timeout without --text', () => expectError(['--at', '1,2', '--timeout', '3'], '--timeout only applies'));
+
+    test('non-finite --at', () => expectError(['--at', 'NaN,2'], 'Coordinates must be finite numbers.'));
+
+    test('infinite --x', () => expectError(['--x', 'Infinity', '--y', '2'], 'Coordinates must be finite numbers.'));
   });
 }
 

@@ -137,11 +137,62 @@ void main() {
       expect(bare.single.label, 'Only this time');
     });
 
-    test('a non-clickable label taps its nearest clickable ancestor', () {
+    test('a non-clickable label inside a clickable row taps its own bounds', () {
       final matches = findAndroidUiMatches(nested, 'Say "hi" <now> > later');
-      expect(matches.single.target.resourceId, 'com.example:id/row');
-      expect(matches.single.bounds, const AndroidBounds(0, 300, 1080, 500));
+      expect(matches.single.target, same(matches.single.node));
+      expect(matches.single.bounds, const AndroidBounds(40, 320, 540, 480));
       expect(matches.single.label, 'Say "hi" <now> > later');
+    });
+
+    test('dialog message text taps inside its own bounds, not the allow button', () {
+      final matches = findAndroidUiMatches(dialog, 'Allow test_app to take pictures and record video?');
+      final m = matches.single;
+      expect(m.bounds, const AndroidBounds(171, 2067, 1269, 2238));
+      expect((m.bounds.centerX, m.bounds.centerY), (720, 2152));
+      final allow = findAndroidUiMatches(dialog, 'While using the app').single.bounds;
+      expect(allow.top <= m.bounds.centerY && m.bounds.centerY < allow.bottom, isFalse);
+    });
+
+    test('a node without usable bounds falls back to its clickable ancestor', () {
+      final nodes = _nodes(
+        '<hierarchy><node clickable="true" bounds="[0,0][100,100]">'
+        '<node text="Go" clickable="false" bounds="[0,0][0,0]" /></node></hierarchy>',
+      );
+      final m = findAndroidUiMatches(nodes, 'Go').single;
+      expect(m.bounds, const AndroidBounds(0, 0, 100, 100));
+      expect(m.target.clickable, isTrue);
+    });
+
+    test('two separate labels inside one clickable container are two matches', () {
+      final nodes = _nodes(
+        '<hierarchy><node clickable="true" bounds="[0,0][1000,1000]">'
+        '<node text="Allow" bounds="[0,0][500,100]" /><node text="Allow" bounds="[500,0][1000,100]" />'
+        '</node></hierarchy>',
+      );
+      expect(findAndroidUiMatches(nodes, 'Allow'), hasLength(2));
+    });
+
+    test('skips disabled nodes', () {
+      final nodes = _nodes(
+        '<hierarchy><node bounds="[0,0][1000,1000]"><node text="Send" enabled="false" clickable="true" '
+        'bounds="[0,0][100,100]" /></node></hierarchy>',
+      );
+      expect(findAndroidUiMatches(nodes, 'Send'), isEmpty);
+    });
+
+    test('skips nodes centered outside the screen', () {
+      final nodes = _nodes(
+        '<hierarchy><node bounds="[0,0][1080,2400]"><node text="Below" bounds="[0,2400][1080,2600]" />'
+        '<node text="Edge" bounds="[0,2300][1080,2450]" /></node></hierarchy>',
+      );
+      expect(findAndroidUiMatches(nodes, 'Below'), isEmpty);
+      expect(findAndroidUiMatches(nodes, 'Edge'), hasLength(1));
+    });
+
+    test('straight quotes and no-break spaces match their typographic forms', () {
+      expect(findAndroidUiMatches(dialog, "Don't allow").single.label, 'Don’t allow');
+      final nodes = _nodes('<hierarchy><node text="Say “hi”&#160;now" bounds="[0,0][10,10]" /></hierarchy>');
+      expect(findAndroidUiMatches(nodes, 'say "hi" now'), hasLength(1));
     });
 
     test('labels that resolve to the same clickable target count once', () {
@@ -384,33 +435,71 @@ void main() {
       expect((result as NativeTapIndexOutOfRange).count, 2);
     });
 
-    test('falls back to dumping to a file, deleting it first', () async {
+    test('falls back to dumping to a file, deleting it before and after', () async {
+      const file = '/data/local/tmp/fdb_window_dump_test.xml';
       final adb = _FakeAdb()
         ..respond(['exec-out', 'uiautomator', 'dump', '/dev/tty'], 'Exception: /dev/tty not supported')
-        ..respond(['shell', 'rm -f $androidUiDumpFile; uiautomator dump $androidUiDumpFile'],
-            'UI hierchary dumped to: $androidUiDumpFile')
-        ..respond(['exec-out', 'cat', androidUiDumpFile], dialog);
-      final result = await nativeTapAndroid(_textInput('Only this time'), deviceId: null, adb: adb.call);
+        ..respond(['shell', 'rm -f $file; uiautomator dump $file'], 'UI hierchary dumped to: $file')
+        ..respond(['exec-out', 'cat', file], dialog);
+      final result =
+          await nativeTapAndroid(_textInput('Only this time'), deviceId: null, adb: adb.call, dumpFile: file);
       expect((result as NativeTapAndroid).text, 'Only this time');
+      final catAt = adb.calls.indexWhere((c) => c.contains('cat'));
+      expect(adb.calls[catAt + 1], ['shell', 'rm', '-f', file]);
     });
 
-    test('a dump that never works reports the reason', () async {
+    test('the dump file is unique per invocation', () {
+      expect(
+        androidUiDumpFileFor(pid: 12, timestampMs: 34),
+        isNot(androidUiDumpFileFor(pid: 12, timestampMs: 35)),
+      );
+    });
+
+    test('an idle-state error retries /dev/tty without the file fallback', () async {
       final clock = _FakeClock();
       final adb = _FakeAdb()
-        ..respond(['exec-out', 'uiautomator', 'dump', '/dev/tty'], 'ERROR: could not get idle state.')
-        ..respond(['shell', 'rm -f $androidUiDumpFile; uiautomator dump $androidUiDumpFile'],
-            'ERROR: could not get idle state.');
+        ..respond(['exec-out', 'uiautomator', 'dump', '/dev/tty'], 'ERROR: could not get idle state.');
       final result = await nativeTapAndroid(
         _textInput('Allow', timeoutSeconds: 1),
         deviceId: null,
         adb: adb.call,
         now: clock.now,
         sleep: clock.sleep,
+        dumpFile: '/data/local/tmp/x.xml',
       );
       expect(result, isA<NativeTapUiDumpFailed>());
       expect((result as NativeTapUiDumpFailed).reason, 'ERROR: could not get idle state.');
-      // The file is never read when the dump itself failed, so a stale one can't be used.
+      expect(adb.calls.where((c) => c.join(' ').contains('/data/local/tmp/x.xml')), isEmpty);
+      expect(adb.calls.length, greaterThan(1));
+    });
+
+    test('a file dump that fails is never read, so a stale file is not used', () async {
+      const file = '/data/local/tmp/y.xml';
+      final clock = _FakeClock();
+      final adb = _FakeAdb()
+        ..respond(['exec-out', 'uiautomator', 'dump', '/dev/tty'], '')
+        ..respond(['shell', 'rm -f $file; uiautomator dump $file'],
+            'ERROR: null root node returned by UiTestAutomationBridge.');
+      final result = await nativeTapAndroid(
+        _textInput('Allow', timeoutSeconds: 1),
+        deviceId: null,
+        adb: adb.call,
+        now: clock.now,
+        sleep: clock.sleep,
+        dumpFile: file,
+      );
+      expect(result, isA<NativeTapUiDumpFailed>());
       expect(adb.calls.where((c) => c.contains('cat')), isEmpty);
+    });
+
+    test('a non-adb exception is a failure, not "install adb"', () async {
+      final result = await nativeTapAndroid(
+        _textInput('x'),
+        deviceId: null,
+        adb: (_) async => throw StateError('boom'),
+      );
+      expect(result, isA<NativeTapAdbFailed>());
+      expect((result as NativeTapAdbFailed).details, contains('boom'));
     });
 
     test('blocked injection after a match', () async {

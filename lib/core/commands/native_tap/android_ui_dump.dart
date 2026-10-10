@@ -13,6 +13,7 @@ class AndroidUiNode {
     required this.resourceId,
     required this.className,
     required this.clickable,
+    required this.enabled,
     required this.bounds,
     required this.parent,
   });
@@ -30,6 +31,9 @@ class AndroidUiNode {
   final String className;
 
   final bool clickable;
+
+  /// False only when the dump says `enabled="false"`.
+  final bool enabled;
 
   /// Bounds in physical pixels, or null when the attribute is missing or malformed.
   final AndroidBounds? bounds;
@@ -130,6 +134,7 @@ AndroidUiDumpParse parseAndroidUiDump(String raw) {
       resourceId: (attrs['resource-id'] ?? '').trim(),
       className: attrs['class'] ?? '',
       clickable: attrs['clickable'] == 'true',
+      enabled: attrs['enabled'] != 'false',
       bounds: parseAndroidBounds(attrs['bounds']),
       parent: stack.isEmpty ? null : stack.last,
     );
@@ -241,8 +246,10 @@ class AndroidUiMatch {
   /// The node whose text, content-desc or resource-id matched.
   final AndroidUiNode node;
 
-  /// The node to tap: [node] when clickable, else its nearest clickable
-  /// ancestor, else [node] itself.
+  /// The node whose bounds are tapped: [node] itself, so a label inside a big
+  /// clickable container (a dialog, a row) is tapped where it is drawn and
+  /// Android delivers the touch to the deepest view that handles it. Only
+  /// when [node] has no usable bounds is this its nearest clickable ancestor.
   final AndroidUiNode target;
 
   /// [target]'s bounds; their center is the tap point.
@@ -252,41 +259,99 @@ class AndroidUiMatch {
   String get label => node.label.isNotEmpty ? node.label : node.resourceId;
 }
 
+/// Lowercases and folds typographic variants, so `Don't allow` matches
+/// `Don’t allow`: curly quotes become straight ones, no-break spaces become
+/// spaces.
+String foldAndroidLabel(String s) => s
+    .replaceAll(RegExp('[\u2018\u2019]'), "'")
+    .replaceAll(RegExp('[\u201C\u201D]'), '"')
+    .replaceAll('\u00A0', ' ')
+    .trim()
+    .toLowerCase();
+
 /// Finds the nodes matching [query], in document order, in the first tier
 /// that has any match:
 ///
 /// 1. `text` or `content-desc` equal to [query] (both trimmed).
-/// 2. The same, ignoring case.
+/// 2. The same, ignoring case and curly quotes / no-break spaces.
 /// 3. `resource-id` equal to [query], either the full `package:id/name` or
 ///    the bare `name`.
 ///
-/// Nodes without on-screen bounds are skipped. Matches that resolve to the
-/// same tap target (a clickable row and the label inside it) count once.
+/// Skipped: `enabled="false"` nodes, and nodes whose tap point is off screen
+/// (no bounds, or a center outside the bounds of the top-level windows).
+/// A match nested in an earlier match that belongs to the same clickable
+/// element (a button's content-desc and its inner text) counts once; two
+/// separate labels inside one container are two matches.
 List<AndroidUiMatch> findAndroidUiMatches(List<AndroidUiNode> nodes, String query) {
   final q = query.trim();
   if (q.isEmpty) return const [];
-  final lower = q.toLowerCase();
+  final folded = foldAndroidLabel(q);
+  final screen = _screenBounds(nodes);
 
   final tiers = <bool Function(AndroidUiNode)>[
     (n) => n.text == q || n.contentDesc == q,
-    (n) => n.text.toLowerCase() == lower || n.contentDesc.toLowerCase() == lower,
+    (n) => foldAndroidLabel(n.text) == folded || foldAndroidLabel(n.contentDesc) == folded,
     (n) => n.resourceId.isNotEmpty && (n.resourceId == q || n.resourceId.split(':id/').last == q),
   ];
 
   for (final matches in tiers) {
     final result = <AndroidUiMatch>[];
-    final seenTargets = <AndroidUiNode>{};
     for (final node in nodes) {
-      if (!matches(node)) continue;
+      if (!node.enabled || !matches(node)) continue;
       final target = _tapTarget(node);
-      final bounds = target.bounds;
-      if (bounds == null || bounds.isEmpty) continue;
-      if (!seenTargets.add(target)) continue;
+      if (target == null) continue;
+      final bounds = target.bounds!;
+      if (screen != null && !_contains(screen, bounds.centerX, bounds.centerY)) continue;
+      if (result.any((m) => _sameElement(m.node, node))) continue;
       result.add(AndroidUiMatch(node: node, target: target, bounds: bounds));
     }
     if (result.isNotEmpty) return result;
   }
   return const [];
+}
+
+/// True when [later] sits inside [earlier] and both belong to the same
+/// clickable element (same nearest clickable ancestor-or-self).
+bool _sameElement(AndroidUiNode earlier, AndroidUiNode later) {
+  var isDescendant = false;
+  for (var n = later.parent; n != null; n = n.parent) {
+    if (identical(n, earlier)) {
+      isDescendant = true;
+      break;
+    }
+  }
+  if (!isDescendant) return false;
+  return identical(_clickableAncestorOrSelf(earlier), _clickableAncestorOrSelf(later));
+}
+
+AndroidUiNode? _clickableAncestorOrSelf(AndroidUiNode node) {
+  for (AndroidUiNode? n = node; n != null; n = n.parent) {
+    if (n.clickable) return n;
+  }
+  return null;
+}
+
+bool _usable(AndroidBounds? b) => b != null && !b.isEmpty;
+
+bool _contains(AndroidBounds b, int x, int y) => x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+
+/// Bounding box of the top-level nodes (the windows on screen), or null when
+/// none has bounds.
+AndroidBounds? _screenBounds(List<AndroidUiNode> nodes) {
+  AndroidBounds? box;
+  for (final n in nodes) {
+    if (n.parent != null || !_usable(n.bounds)) continue;
+    final b = n.bounds!;
+    box = box == null
+        ? b
+        : AndroidBounds(
+            b.left < box.left ? b.left : box.left,
+            b.top < box.top ? b.top : box.top,
+            b.right > box.right ? b.right : box.right,
+            b.bottom > box.bottom ? b.bottom : box.bottom,
+          );
+  }
+  return box;
 }
 
 /// Outcome of [pickAndroidUiMatch].
@@ -321,11 +386,14 @@ AndroidUiPick pickAndroidUiMatch(List<AndroidUiMatch> matches, {required int? in
   return AndroidUiPickAmbiguous(matches);
 }
 
-AndroidUiNode _tapTarget(AndroidUiNode node) {
-  for (AndroidUiNode? n = node; n != null; n = n.parent) {
-    if (n.clickable && n.bounds != null && !n.bounds!.isEmpty) return n;
+/// [node] when it has usable bounds, else its nearest clickable ancestor
+/// with usable bounds, else null.
+AndroidUiNode? _tapTarget(AndroidUiNode node) {
+  if (_usable(node.bounds)) return node;
+  for (var n = node.parent; n != null; n = n.parent) {
+    if (n.clickable && _usable(n.bounds)) return n;
   }
-  return node;
+  return null;
 }
 
 /// Distinct non-empty labels (text, else content-desc) of nodes with on-screen

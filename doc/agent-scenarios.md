@@ -1287,7 +1287,8 @@ printed while the dialog is up, e.g. "While using the app" on Android 11+.
   from native-tap)
 - The no-match call exits 1 with `ERROR: No native element matching "fdb no
   such label". Visible labels: ...` listing home screen labels such as
-  "Counter: <n>" and "Submit", within about 2 seconds
+  "Counter: <n>" and "Submit". It makes one or two uiautomator dumps, so it
+  takes a few seconds (one dump is usually 1-3 s), not the full 5 s default
 - The `--text` tap prints `NATIVE_TAPPED=android X=<px> Y=<px>
   TEXT="<allow label>"` and the dialog is gone
 - `describe` shows `ListTile "camera · status: granted"`
