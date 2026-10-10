@@ -322,6 +322,28 @@ void main() {
       expect(env.xcrunMutatingCalls(), ['io $_udidB screenshot $output']);
     });
 
+    test('screenshot of a session without platform.txt captures the session simulator', () async {
+      final env = await _FakeEnv.create(session: _udidB);
+      final output = '${env.root.path}/shot.png';
+
+      final result = await captureScreenshot((output: output, fullResolution: true));
+
+      expect(result, isA<ScreenshotSaved>(), reason: '$result');
+      expect(env.xcrunMutatingCalls(), ['io $_udidB screenshot $output']);
+      expect(env.adbMutatingCalls(), isEmpty);
+    });
+
+    test('screenshot of a session without platform.txt captures the session Android device with adb -s', () async {
+      final env = await _FakeEnv.create(session: _android);
+      final output = '${env.root.path}/shot.png';
+
+      final result = await captureScreenshot((output: output, fullResolution: true));
+
+      expect(result, isA<ScreenshotSaved>(), reason: '$result');
+      expect(env.adbMutatingCalls(), ['-s $_android exec-out screencap -p']);
+      expect(env.xcrunMutatingCalls(), isEmpty);
+    });
+
     GrantPermissionInput grantCamera() => (
           permission: 'camera',
           action: GrantPermissionAction.grant,
