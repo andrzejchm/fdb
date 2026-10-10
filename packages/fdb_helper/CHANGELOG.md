@@ -1,4 +1,4 @@
-## Unreleased
+## 1.14.0
 
 ### Improvements
 - `ext.fdb.lifecycle` also returns `devicePixelRatio`, the main view's device pixel ratio (null without a view). `fdb native-tap --logical` uses it to turn logical pixels into physical ones on Android.
