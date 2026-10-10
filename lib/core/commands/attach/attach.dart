@@ -31,7 +31,7 @@ Future<AttachResult> attachApp(
     onProgress('attach: preparing session');
 
     initLaunchSession(project: project, sessionDir: input.sessionDir);
-    await replacePreviousSession(onProgress: onProgress);
+    await replacePreviousSession(progressPrefix: 'attach', onProgress: onProgress);
 
     ensureSessionDir();
     ensureGitignored(project);
