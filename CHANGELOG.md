@@ -3,6 +3,16 @@
 ### Improvements
 - `fdb native-tap --at x,y` on the iOS simulator now injects a real touch through the simulator's HID stack (SimulatorKit Indigo HID, as Simulator.app and idb do) instead of tapping inside the app process. It reaches SpringBoard and every other app on screen: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, the paste prompt. Coordinates are iOS points in portrait screen orientation, so they match `fdb tap --at` in portrait but not in landscape. The output is unchanged (`NATIVE_TAPPED=ios-simulator X=<x> Y=<y>`). Coordinates outside the screen fail with `ERROR: coordinates X,Y are outside the screen (WxH points)` and exit 1. Needs Xcode only, no idb: fdb compiles a small Swift helper with `xcrun swiftc` on first use (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (`FDB_CACHE_DIR` overrides). It is rebuilt only when an fdb release changes the helper. If the helper can't be built or run, fdb falls back to the old in-process tap and prints `WARNING: iOS simulator HID tap unavailable (<reason>); fell back to in-process tap (UIApplication.sendEvent), which cannot reach SpringBoard system dialogs.` Physical iOS and macOS are still not supported, and tapping by label (`--text`) is not supported yet. Android is unchanged.
 
+### Fixes
+- `fdb simulator appearance|text-size|status-bar|location|push|defaults` used simctl's `booted` alias, which picks an arbitrary device when several are booted. The command could change a simulator the app was not running on. They now act on one specific simulator.
+- Target order: `--device <udid>`, then the session's device (`.fdb/device.txt`), then the only booted iOS simulator.
+- A session device that is not a known iOS simulator (Android, macOS, physical iOS devices, names or partial ids that don't match a simulator UDID) is ignored. Booted watchOS, tvOS and visionOS simulators are not counted as "the only booted simulator".
+- New `--device <udid>` on every `fdb simulator` subcommand, placed after the subcommand/action (`fdb simulator appearance dark --device <udid>`). The simulator must exist and be booted.
+- The global `--session-dir <path/to/.fdb>` is now honored by `fdb simulator` (it goes before `simulator`). Without it, fdb walks up from the current directory to find the session.
+- A session simulator that is not booted fails with `ERROR: The session simulator <UDID> (<name>) is not booted ...` instead of using another one.
+- With several booted simulators and nothing to pick one, the command fails with `ERROR: Multiple booted iOS simulators ...` and lists each as `<UDID> (<name>)`. With none booted: `ERROR: No booted iOS simulator. ...`.
+- With one booted simulator and no session nothing changes, and output tokens are unchanged.
+
 ## 1.13.1
 
 ### Fixes

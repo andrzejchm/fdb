@@ -2,9 +2,10 @@
 
 iOS simulator control — appearance, text size, status bar, location, push notifications, and NSUserDefaults.
 
-`fdb simulator` commands control the booted iOS simulator directly. No running app session required — commands work from any directory.
+`fdb simulator` commands control one iOS simulator directly, picked as described in "Which simulator these commands target". No running app is required: with one booted simulator and no session they work from any directory.
 
 ## Contents
+- Which simulator these commands target
 - Best practices
 - Appearance (dark / light mode)
 - Dynamic Type size
@@ -14,6 +15,50 @@ iOS simulator control — appearance, text size, status bar, location, push noti
 - NSUserDefaults
 - System prompts and the software keyboard
 - Output tokens
+
+## Which simulator these commands target
+
+Every `fdb simulator` subcommand acts on exactly one simulator, chosen in this order:
+
+1. `--device <udid>`, accepted by every `fdb simulator` subcommand. The simulator must exist and be booted. Get UDIDs from `fdb devices` or `xcrun simctl list devices booted`.
+2. The session's device (`.fdb/device.txt`, written by `fdb launch --device <udid>` / `fdb attach`), when it is a known iOS simulator. If that simulator is not booted the command fails; it never falls back to another simulator. A session device that is not an iOS simulator (Android, macOS, a physical iPhone) is ignored.
+3. The only booted iOS simulator. Booted watchOS, tvOS and visionOS simulators are not counted here; they are used only when named explicitly with `--device` or by the session.
+
+`push` and `defaults` also read the bundle ID from the session (`app_id.txt`) when `--bundle-id` is omitted. fdb does not use simctl's `booted` alias.
+
+**Where the session comes from.** fdb finds it the way other fdb commands do:
+
+- `fdb --session-dir <path>/.fdb simulator ...` uses that directory as given. The flag is global, so it goes BEFORE `simulator`.
+- Otherwise fdb walks up from the current directory and uses the nearest `.fdb` with a live session (a running app or controller).
+- If no live session exists anywhere above, the `.fdb` in the current directory is still read when present. A leftover `device.txt` from a dead session in the current directory is therefore still honored (and fails if that simulator is shut down), while the same leftover one level down in a subdirectory is skipped.
+
+**Stale session.** If a dead session keeps pointing at the wrong simulator, run `fdb kill` (it removes `.fdb/device.txt`), delete `.fdb/`, or pass `--device <udid>`.
+
+**`--device` position.** `--device` goes after the subcommand and action, not before them:
+
+```bash
+fdb simulator status-bar override --time 9:41 --device <udid>
+fdb simulator appearance dark --device <udid>
+```
+
+`fdb simulator --device <udid> appearance dark` is not supported.
+
+With two simulators booted, target the one your app runs on:
+
+```bash
+fdb --session-dir path/to/.fdb simulator status-bar override --time 9:41   # session's simulator
+fdb simulator appearance dark --device <udid>                              # explicit simulator
+```
+
+With more than one booted simulator and neither a session simulator nor `--device`, the command fails and lists them:
+
+```
+ERROR: Multiple booted iOS simulators and no fdb session simulator to choose from. Pass --device <udid> with one of:
+  <UDID> (<name>)
+  <UDID> (<name>)
+```
+
+A session simulator that is not booted fails with `ERROR: The session simulator <UDID> (<name>) is not booted (state: Shutdown). Boot it, or target another booted simulator with --device <udid>.` With none booted the command fails with `ERROR: No booted iOS simulator. Boot one with: xcrun simctl boot <udid>`.
 
 ## Best practices
 

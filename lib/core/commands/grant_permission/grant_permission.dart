@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/grant_permission/grant_permission_models.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/core/xcrun.dart';
 
 export 'package:fdb/core/commands/grant_permission/grant_permission_models.dart';
-
-String xcrunExecutable = 'xcrun';
+export 'package:fdb/core/xcrun.dart' show xcrunExecutable;
 
 // ---------------------------------------------------------------------------
 // Permission token → platform-specific name maps

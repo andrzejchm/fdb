@@ -91,7 +91,7 @@ Commands:
                                    --isolate <id>  Target a specific isolate
   status      Check if the app is running
   kill        Stop the running app
-  simulator   iOS simulator command palette (appearance, push, location, etc.)
+  simulator   iOS simulator command palette (appearance, push, location, etc.; --device <udid>)
   skill       Print the AI agent skill file (SKILL.md)
 
 Global options:
@@ -158,10 +158,12 @@ Future<void> main(List<String> args) async {
     CliCommand.launch,
     CliCommand.devices,
     CliCommand.skill,
-    CliCommand.simulator,
   };
   // Commands that run against a potentially dead/missing session (soft-fail on null).
+  // `simulator` is here so `--session-dir` / CWD walk-up pick the session's device
+  // (`.fdb/device.txt`) when targeting a simulator, yet it still works without a session.
   const sessionSoftFail = {
+    CliCommand.simulator,
     CliCommand.status,
     CliCommand.doctor,
     CliCommand.crashReport,
