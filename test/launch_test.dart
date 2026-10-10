@@ -145,6 +145,41 @@ void main() {
       expect(readAppPid(), 82633);
     });
 
+    test('resolveLaunchPid treats a pid of 0 or less (web) as unknown', () async {
+      final root = await _createTempSessionRoot();
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      expect(await resolveLaunchPid('ws://127.0.0.1:1/ws', queryVmPid: (_) async => -1), isNull);
+      expect(await resolveLaunchPid('ws://127.0.0.1:1/ws', queryVmPid: (_) async => 0), isNull);
+      expect(File(appPidFile).existsSync(), isFalse);
+
+      // A -1 left in the pid file by an older fdb is not reported either.
+      File(appPidFile).writeAsStringSync('-1');
+      expect(await resolveLaunchPid('ws://127.0.0.1:1/ws', queryVmPid: (_) async => null), isNull);
+    });
+
+    test('queryVmPidFromUri gives up quickly when the VM service does not answer', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+      // Accept connections but never complete the WebSocket handshake.
+      final sockets = <Socket>[];
+      server.listen(sockets.add);
+      addTearDown(() async {
+        for (final socket in sockets) {
+          socket.destroy();
+        }
+      });
+
+      final stopwatch = Stopwatch()..start();
+      await expectLater(
+        queryVmPidFromUri('ws://127.0.0.1:${server.port}/ws'),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 3)));
+    });
+
     test('resolveLaunchPid returns null when no source knows the pid', () async {
       final root = await _createTempSessionRoot();
       addTearDown(() async {

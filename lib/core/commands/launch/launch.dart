@@ -231,14 +231,15 @@ int? readLaunchPid() => readAppPid() ?? readPid();
 ///
 /// Prefers the PID files written by the controller. If none is there yet, asks
 /// the VM service directly through [queryVmPid] and saves the answer to
-/// [appPidFile] so `fdb status` reports the same PID. Returns null only when
-/// neither source knows the PID.
+/// [appPidFile] so `fdb status` reports the same PID. A PID of 0 or less
+/// (DWDS on web reports -1) counts as unknown. Returns null when neither
+/// source knows the PID.
 Future<int?> resolveLaunchPid(
   String vmUri, {
   Future<int?> Function(String vmUri) queryVmPid = queryVmPidFromUri,
 }) async {
   final pid = readLaunchPid();
-  if (pid != null) return pid;
+  if (pid != null && pid > 0) return pid;
 
   final int? vmPid;
   try {
@@ -246,7 +247,7 @@ Future<int?> resolveLaunchPid(
   } catch (_) {
     return null;
   }
-  if (vmPid == null) return null;
+  if (vmPid == null || vmPid <= 0) return null;
 
   try {
     File(appPidFile).writeAsStringSync(vmPid.toString());
@@ -257,8 +258,12 @@ Future<int?> resolveLaunchPid(
 }
 
 /// Reads the app process PID from the VM service at [vmUri].
+///
+/// Runs after launch / attach already saw the VM service come up, so it uses
+/// a short timeout (1 s each for connect and `getVM`) to avoid running far past
+/// `--timeout` when the VM service hangs.
 Future<int?> queryVmPidFromUri(String vmUri) async {
-  final vm = await getVmFromUri(vmUri, timeout: const Duration(seconds: 5));
+  final vm = await getVmFromUri(vmUri, timeout: const Duration(seconds: 1));
   return vm?.pid;
 }
 
