@@ -179,18 +179,47 @@ Use `select on` to interactively identify a widget's key or type by tapping it o
 ## Tap native UI (system dialogs, permission sheets)
 
 ```bash
-fdb native-tap --at 200,400    # tap at device coordinates (x,y)
-fdb native-tap --x 200 --y 400 # same, two-flag form
+fdb native-tap --at 200,400              # tap at device coordinates (x,y)
+fdb native-tap --x 200 --y 400           # same, two-flag form
+fdb native-tap --at 340,793 --logical    # Android: Flutter logical pixels, scaled to physical
+fdb native-tap --text "While using the app"   # Android: tap a native element by label
+fdb native-tap --text "OK" --index 1     # the second match (0-based)
 ```
 
-Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`
+Output: `NATIVE_TAPPED=<platform> X=<x> Y=<y>`. On Android with `--text`: `NATIVE_TAPPED=android X=<px> Y=<px> TEXT="<matched label>"`. X and Y are the physical pixels that were tapped.
 
 Platform dispatch:
 - **Android**: `adb shell input tap X Y`, in physical pixels. Reaches all on-screen UI including system dialogs.
 - **iOS simulator**: injects a real touch through the simulator's HID stack, the same way Simulator.app does. Coordinates are iOS points in the current screen orientation, so they match `fdb tap --at`, `fdb describe` and screenshots in portrait and in landscape. fdb reads the orientation from the simulator and rotates the touch itself. If the simulator reports an orientation fdb can't map, it fails with `ERROR: native-tap can't tell which way the simulator is rotated (...)` instead of tapping; this is usually brief during boot or a rotation, so wait a moment and try again. If the orientation can't be read at all, it falls back to the in-process tap with the `WARNING: iOS simulator HID tap unavailable` line below. Reaches anything on screen in any app, including SpringBoard: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, and the paste prompt. Needs Xcode only. The first tap on a machine compiles a small helper with `xcrun swiftc` (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (set `FDB_CACHE_DIR` to change it).
 - **iOS physical / macOS**: not supported. Use `fdb tap --at`.
 
-native-tap only taps. It can't type; use `fdb input` for text entry. Tapping by label (`--text`) is not supported; pass coordinates.
+native-tap only taps. It can't type; use `fdb input` for text entry.
+
+**Android units.** Without `--logical`, `--at` is physical pixels. `fdb tap`, `fdb describe` and `fdb scroll-to` print Flutter logical pixels; pass those with `--logical` and fdb multiplies them by the app's device pixel ratio (from fdb_helper; without it, `adb shell wm density` / 160, which is the same value unless the app sets its own density). `fdb screenshot` pixels are neither: the image is downscaled so its longest side is at most 1200px. Convert: `physical px = screenshot px * (screen width in physical px / screenshot width)`; `adb shell wm size` prints the physical size. On the iOS simulator `--logical` changes nothing, since coordinates are already points.
+
+**Tap by label (Android only).** `--text <label>` reads the screen with `uiautomator dump` and taps the center of the matching element, so it works on system dialogs. It matches, in this order, and stops at the first rule that finds something:
+1. `text` or `content-desc` equal to the label (both trimmed)
+2. the same, ignoring case
+3. `resource-id`, either `com.android.permissioncontroller:id/permission_allow_button` or just `permission_allow_button`
+
+If the matching element isn't clickable (a label inside a row), fdb taps its nearest clickable ancestor. It retries until a match appears or `--timeout` seconds pass (default 5), since dialogs show up after a delay. Labels differ by Android version and vendor ("While using the app", "Only this time", "Allow"); when you don't know the label, tap a label that doesn't exist with `--timeout 1` and read the list in the error.
+
+```
+ERROR: No native element matching "Allow". Visible labels: "Allow test_app to take pictures and record video?", "While using the app", "Only this time", "Don’t allow"
+ERROR: Found 2 native elements matching "ok". Use --index to specify which one (0-based):
+  [0] "OK" at 270,650
+  [1] "ok" at 810,650
+ERROR: Could not read the Android UI hierarchy (uiautomator dump): ERROR: could not get idle state.
+```
+
+The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`. On the iOS simulator it fails with `ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y`.
+
+**Blocked input injection (Android).** Some vendors block `adb shell input` until a Developer options switch is on. native-tap then fails with:
+```
+ERROR: Android blocked input injection (INJECT_EVENTS). Enable it in Developer options: Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring", vivo "USB Security Permissions".
+  adb said: java.lang.SecurityException: ...
+```
+Turn that switch on and retry. adb exits 0 in this case, so fdb checks the output instead of the exit code.
 
 On the iOS simulator, coordinates outside the screen fail with exit 1 and tap nothing:
 ```

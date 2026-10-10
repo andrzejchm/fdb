@@ -78,6 +78,152 @@ void main() {
       expect(out.stderr, 'ERROR: touch partially delivered: boom\n');
       expect(out.stdout, isEmpty);
     });
+
+    test('--text is not supported yet', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapTextUnsupportedOnIosSimulator()));
+
+      expect(out.exitCode, 1);
+      expect(out.stderr, 'ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y\n');
+    });
+  });
+
+  group('native-tap CLI Android output', () {
+    test('coordinate tap keeps the original token', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapAndroid(x: 1275, y: 2974)));
+
+      expect(out.exitCode, 0);
+      expect(out.stdout, 'NATIVE_TAPPED=android X=1275 Y=2974\n');
+      expect(out.stderr, isEmpty);
+    });
+
+    test('--text tap appends the matched label', () {
+      final out = _capture(
+        () => formatNativeTapResult(const NativeTapAndroid(x: 720, y: 2452, text: 'While using the app')),
+      );
+
+      expect(out.exitCode, 0);
+      expect(out.stdout, 'NATIVE_TAPPED=android X=720 Y=2452 TEXT="While using the app"\n');
+    });
+
+    test('no match lists the visible labels', () {
+      final out = _capture(
+        () => formatNativeTapResult(const NativeTapNoMatch(query: 'Allow', visibleLabels: ['Only this time', 'Deny'])),
+      );
+
+      expect(out.exitCode, 1);
+      expect(out.stderr, 'ERROR: No native element matching "Allow". Visible labels: "Only this time", "Deny"\n');
+      expect(out.stdout, isEmpty);
+    });
+
+    test('no match caps the label list', () {
+      final labels = [for (var i = 0; i < 25; i++) 'L$i'];
+      final out = _capture(() => formatNativeTapResult(NativeTapNoMatch(query: 'x', visibleLabels: labels)));
+
+      expect(out.stderr, contains('"L19", ... (5 more)\n'));
+      expect(out.stderr, isNot(contains('"L20"')));
+    });
+
+    test('no match on an empty screen', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapNoMatch(query: 'x', visibleLabels: [])));
+
+      expect(out.stderr, 'ERROR: No native element matching "x". Visible labels: none\n');
+    });
+
+    test('ambiguous matches list candidates and the --index hint', () {
+      final out = _capture(
+        () => formatNativeTapResult(
+          const NativeTapAmbiguous(
+            query: 'ok',
+            candidates: [(label: 'OK', x: 270, y: 650), (label: 'ok', x: 810, y: 650)],
+          ),
+        ),
+      );
+
+      expect(out.exitCode, 1);
+      expect(
+        out.stderr,
+        'ERROR: Found 2 native elements matching "ok". Use --index to specify which one (0-based):\n'
+        '  [0] "OK" at 270,650\n'
+        '  [1] "ok" at 810,650\n',
+      );
+    });
+
+    test('index out of range', () {
+      final out = _capture(
+        () => formatNativeTapResult(const NativeTapIndexOutOfRange(query: 'ok', index: 2, count: 1)),
+      );
+
+      expect(out.stderr, 'ERROR: --index 2 is out of range: found 1 native element matching "ok" (0-based).\n');
+    });
+
+    test('dump failure with the idle-state hint', () {
+      final out = _capture(
+        () => formatNativeTapResult(const NativeTapUiDumpFailed('ERROR: could not get idle state.')),
+      );
+
+      expect(out.exitCode, 1);
+      expect(
+        out.stderr,
+        'ERROR: Could not read the Android UI hierarchy (uiautomator dump): ERROR: could not get idle state.\n'
+        '  uiautomator needs the screen to stop animating. Retry, or tap by coordinates with --at x,y.\n',
+      );
+    });
+
+    test('blocked injection names the OEM settings', () {
+      final out = _capture(
+        () => formatNativeTapResult(
+          const NativeTapInputInjectionBlocked(
+            'java.lang.SecurityException: Injecting input events requires INJECT_EVENTS\n\tat android.os.Parcel',
+          ),
+        ),
+      );
+
+      expect(out.exitCode, 1);
+      expect(
+        out.stderr,
+        'ERROR: Android blocked input injection (INJECT_EVENTS). Enable it in Developer options: '
+        'Xiaomi/HyperOS "USB debugging (Security settings)", OPPO/OnePlus/Realme "Disable permission monitoring", '
+        'vivo "USB Security Permissions".\n'
+        '  adb said: java.lang.SecurityException: Injecting input events requires INJECT_EVENTS\n',
+      );
+    });
+
+    test('device pixel ratio unavailable', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapDevicePixelRatioUnavailable('why')));
+
+      expect(out.stderr, 'ERROR: Could not determine the device pixel ratio for --logical: why\n');
+    });
+
+    test('physical iOS with --text keeps the advice generic', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapPhysicalIosUnsupported(x: null, y: null)));
+
+      expect(out.stderr, contains('Use `fdb tap --at x,y` instead'));
+    });
+  });
+
+  group('native-tap CLI flag validation', () {
+    Future<void> expectError(List<String> args, String error) async {
+      final out = await _captureAsync(() => runNativeTapCli(args));
+      expect(out.exitCode, 1, reason: 'args: $args');
+      expect(out.stderr, startsWith('ERROR: $error'), reason: 'args: $args');
+      expect(out.stdout, isEmpty);
+    }
+
+    test('--text with --at', () => expectError(['--text', 'Allow', '--at', '1,2'], '--text cannot be combined'));
+
+    test('--text with --x/--y', () => expectError(['--text', 'Allow', '--x', '1'], '--text cannot be combined'));
+
+    test('--text with --logical', () => expectError(['--text', 'Allow', '--logical'], '--logical only applies'));
+
+    test('empty --text', () => expectError(['--text', '  '], '--text must not be empty'));
+
+    test('--index without --text', () => expectError(['--at', '1,2', '--index', '0'], '--index only applies'));
+
+    test('invalid --index', () => expectError(['--text', 'a', '--index', '-1'], 'Invalid value for --index: -1'));
+
+    test('invalid --timeout', () => expectError(['--text', 'a', '--timeout', 'soon'], 'Invalid value for --timeout'));
+
+    test('no target', () => expectError([], 'No coordinates provided'));
   });
 }
 
@@ -85,6 +231,13 @@ void main() {
   final out = _CapturingStdout();
   final err = _CapturingStdout();
   final exitCode = IOOverrides.runZoned(body, stdout: () => out, stderr: () => err);
+  return (exitCode: exitCode, stdout: out.buffer.toString(), stderr: err.buffer.toString());
+}
+
+Future<({int exitCode, String stdout, String stderr})> _captureAsync(Future<int> Function() body) async {
+  final out = _CapturingStdout();
+  final err = _CapturingStdout();
+  final exitCode = await IOOverrides.runZoned(body, stdout: () => out, stderr: () => err);
   return (exitCode: exitCode, stdout: out.buffer.toString(), stderr: err.buffer.toString());
 }
 

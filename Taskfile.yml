@@ -3700,8 +3700,11 @@ tasks:
           exit 1
         fi
 
+        # fdb tap reports logical pixels. --logical converts them to physical
+        # pixels on Android (otherwise the tap lands elsewhere on screen) and
+        # changes nothing on the iOS simulator, where they are already points.
         set +e
-        OUTPUT=$({{.FDB}} native-tap --at "$X,$Y" 2>&1)
+        OUTPUT=$({{.FDB}} native-tap --at "$X,$Y" --logical 2>&1)
         EXIT_CODE=$?
         set -e
         echo "$OUTPUT"
@@ -3754,6 +3757,161 @@ tasks:
         else
           echo "FAIL: fdb native-tap missing --at — expected ERROR: output" >&2
           exit 1
+        fi
+
+        echo "==> [native-tap] --text with --at (expect error)"
+        set +e
+        OUTPUT=$({{.FDB}} native-tap --text "Allow" --at 1,2 2>&1)
+        EXIT_CODE=$?
+        set -e
+        echo "$OUTPUT"
+        if [ $EXIT_CODE -ne 1 ] || ! echo "$OUTPUT" | grep -q 'ERROR: --text cannot be combined with --at or --x/--y.'; then
+          echo "FAIL: fdb native-tap --text --at: expected exit 1 and ERROR: --text cannot be combined (exit $EXIT_CODE)" >&2
+          exit 1
+        fi
+        echo "PASS: fdb native-tap --text --at rejected"
+
+        # ---------------------------------------------------------------
+        # Android only: --logical, --text on a runtime permission dialog
+        # ---------------------------------------------------------------
+        case "$PLATFORM" in android*) IS_ANDROID=true ;; *) IS_ANDROID=false ;; esac
+        if [ "$IS_ANDROID" != "true" ]; then
+          echo "SKIP: native-tap Android checks (--logical, --text): Android only (platform=$PLATFORM)"
+        else
+          ADB_DEVICE=$(cat .fdb/device.txt 2>/dev/null | tr -d '[:space:]' || echo "")
+          APP_ID=$(cat .fdb/app_id.txt 2>/dev/null | tr -d '[:space:]' || echo "")
+          if [ -z "$ADB_DEVICE" ] || [ -z "$APP_ID" ]; then
+            echo "FAIL: native-tap Android checks need .fdb/device.txt and .fdb/app_id.txt (device='$ADB_DEVICE' app='$APP_ID')" >&2
+            exit 1
+          fi
+          adb_dev() { adb -s "$ADB_DEVICE" "$@"; }
+
+          # "Counter: N" from fdb describe on the home screen.
+          read_counter() {
+            {{.FDB}} describe 2>/dev/null | sed -n 's/.*"Counter: \([0-9][0-9]*\)".*/\1/p' | head -1
+          }
+
+          echo "==> [native-tap] Android: --logical taps Flutter logical pixels"
+          # An earlier scroll-to may have left the counter off screen.
+          {{.FDB}} scroll-to --text "fdb integration test target" >/dev/null 2>&1 || true
+          BEFORE=$(read_counter)
+          # fdb tap reports the FAB center in logical pixels (and taps it once).
+          COORD_OUT=$({{.FDB}} tap --key "increment_button" 2>&1) || true
+          echo "$COORD_OUT"
+          LX=$(echo "$COORD_OUT" | sed -n 's/.* X=\([^ ]*\).*/\1/p' | head -1)
+          LY=$(echo "$COORD_OUT" | sed -n 's/.* Y=\([^ ]*\).*/\1/p' | head -1)
+          if [ -z "$BEFORE" ] || [ -z "$LX" ] || [ -z "$LY" ]; then
+            echo "FAIL: could not read the counter ('$BEFORE') or increment_button logical coordinates ('$LX','$LY')" >&2
+            exit 1
+          fi
+          EXIT_CODE=0
+          OUTPUT=$({{.FDB}} native-tap --at "$LX,$LY" --logical 2>&1) || EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 0 ] || ! echo "$OUTPUT" | grep -qE '^NATIVE_TAPPED=android X=[0-9]+ Y=[0-9]+$'; then
+            echo "FAIL: fdb native-tap --at $LX,$LY --logical (exit $EXIT_CODE)" >&2
+            exit 1
+          fi
+          EXPECTED=$((BEFORE + 2))
+          AFTER=""
+          for _ in $(seq 1 10); do
+            AFTER=$(read_counter)
+            [ "$AFTER" = "$EXPECTED" ] && break
+            sleep 0.5
+          done
+          if [ "$AFTER" != "$EXPECTED" ]; then
+            echo "FAIL: counter went $BEFORE -> $AFTER after fdb tap + native-tap --logical, expected $EXPECTED" >&2
+            exit 1
+          fi
+          echo "PASS: fdb native-tap --logical hit the FAB (counter $BEFORE -> $AFTER)"
+
+          echo "==> [native-tap] Android: --text with no match (expect error)"
+          EXIT_CODE=0
+          OUTPUT=$({{.FDB}} native-tap --text "fdb no such native label" --timeout 1 2>&1) || EXIT_CODE=$?
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -ne 1 ] || ! echo "$OUTPUT" | grep -q 'ERROR: No native element matching "fdb no such native label". Visible labels: '; then
+            echo "FAIL: fdb native-tap --text no match: expected exit 1 and ERROR: No native element matching (exit $EXIT_CODE)" >&2
+            exit 1
+          fi
+          echo "PASS: fdb native-tap --text no match"
+
+          echo "==> [native-tap] Android: reset the camera permission so the system dialog shows"
+          # Revoking a granted runtime permission kills the app, so relaunch only then.
+          if adb_dev shell dumpsys package "$APP_ID" | grep -q 'android.permission.CAMERA: granted=true'; then
+            adb_dev shell pm revoke "$APP_ID" android.permission.CAMERA
+            adb_dev shell pm clear-permission-flags "$APP_ID" android.permission.CAMERA user-set user-fixed || true
+            echo "INFO: camera was granted; revoked it (that kills the app), relaunching"
+            {{.FDB}} kill >/dev/null 2>&1 || true
+            LAUNCH_EXIT=0
+            LAUNCH_OUTPUT=$({{.FDB}} launch --device "$ADB_DEVICE" 2>&1) || LAUNCH_EXIT=$?
+            if [ $LAUNCH_EXIT -ne 0 ] || ! echo "$LAUNCH_OUTPUT" | grep -q "APP_STARTED"; then
+              echo "$LAUNCH_OUTPUT"
+              echo "FAIL: relaunch after revoking the camera permission (exit $LAUNCH_EXIT)" >&2
+              exit 1
+            fi
+          else
+            # A denied permission can be "user fixed" (don't ask again): clear that so the dialog shows.
+            adb_dev shell pm clear-permission-flags "$APP_ID" android.permission.CAMERA user-set user-fixed || true
+          fi
+
+          echo "==> [native-tap] Android: open the Permission Test screen and request the camera"
+          {{.FDB}} scroll-to --key "go_to_permission_test" >/dev/null 2>&1 || true
+          if ! {{.FDB}} tap --key "go_to_permission_test" >/dev/null 2>&1; then
+            echo "FAIL: could not navigate to the Permission Test screen" >&2
+            exit 1
+          fi
+          if ! {{.FDB}} tap --key "perm_request_camera" --timeout 10 >/dev/null 2>&1; then
+            echo "FAIL: could not tap perm_request_camera" >&2
+            {{.FDB}} back >/dev/null 2>&1 || true
+            exit 1
+          fi
+
+          echo "==> [native-tap] Android: tap the allow button on the system dialog by label"
+          # The label differs by Android version and OEM; resource ids are the AOSP fallback.
+          TAPPED=""
+          for LABEL in "While using the app" "Allow" "Only this time" \
+              "permission_allow_foreground_only_button" "permission_allow_button" "permission_allow_one_time_button"; do
+            EXIT_CODE=0
+            OUTPUT=$({{.FDB}} native-tap --text "$LABEL" --timeout 3 2>&1) || EXIT_CODE=$?
+            echo "$OUTPUT"
+            if [ $EXIT_CODE -eq 0 ]; then
+              TAPPED="$LABEL"
+              break
+            fi
+            if ! echo "$OUTPUT" | grep -q 'ERROR: No native element matching'; then
+              echo "FAIL: fdb native-tap --text \"$LABEL\" failed for a reason other than no match (exit $EXIT_CODE)" >&2
+              {{.FDB}} back >/dev/null 2>&1 || true
+              exit 1
+            fi
+          done
+          if [ -z "$TAPPED" ]; then
+            echo "FAIL: no allow button found on the camera permission dialog" >&2
+            {{.FDB}} back >/dev/null 2>&1 || true
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -qE '^NATIVE_TAPPED=android X=[0-9]+ Y=[0-9]+ TEXT=".+"$'; then
+            echo "FAIL: fdb native-tap --text: expected NATIVE_TAPPED=android X=.. Y=.. TEXT=\"..\"" >&2
+            exit 1
+          fi
+
+          echo "==> [native-tap] Android: verify the app sees the camera permission granted"
+          STATUS_OK=0
+          DESCRIBE_OUTPUT=""
+          for _ in $(seq 1 10); do
+            DESCRIBE_OUTPUT=$({{.FDB}} describe 2>&1)
+            if echo "$DESCRIBE_OUTPUT" | grep -qE 'ListTile "camera.*status: granted"'; then
+              STATUS_OK=1
+              break
+            fi
+            sleep 1
+          done
+          {{.FDB}} back >/dev/null 2>&1 || true
+          {{.FDB}} scroll-to --text "fdb integration test target" >/dev/null 2>&1 || true
+          if [ $STATUS_OK -ne 1 ]; then
+            echo "$DESCRIBE_OUTPUT"
+            echo "FAIL: camera status 'granted' not shown after native-tap --text \"$TAPPED\"" >&2
+            exit 1
+          fi
+          echo "PASS: fdb native-tap --text \"$TAPPED\" granted the camera permission"
         fi
 
         # ---------------------------------------------------------------
