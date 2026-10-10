@@ -122,7 +122,7 @@ fdb grant-permission --bundle com.example.app camera
 fdb grant-permission camera --bundle com.example.app --device <simulator_udid>
 ```
 
-On the iOS simulator the target is `--device`, then the session's device, then the only booted iOS simulator. With several booted and neither of the first two, the command fails with `ERROR: Multiple booted iOS simulators and no fdb session simulator to choose from. Pass --device <udid> with one of:` followed by the list.
+On the iOS simulator the target is `--device`, then the session's device, then the only booted iOS simulator. With several booted and neither of the first two, the command fails and lists them.
 
 Supported permission tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `motion`, `media-library`, `siri` (iOS), `notifications` (Android), `screen-capture` (macOS).
 

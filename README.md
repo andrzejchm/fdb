@@ -141,7 +141,7 @@ fdb kill
 
 **Interaction**
 
-Widget-targeted commands require `fdb_helper`; `native-tap` (except its iOS simulator fallback to an in-process tap) and `deeplink` do not.
+Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do not.
 
 | Command | Description |
 |---------|-------------|
