@@ -14,7 +14,7 @@ App state and data commands — SharedPreferences, clean, VM extensions, and run
 - Run `fdb shared-prefs get-all` before asserting app state in a test — know what's there before you check it.
 - Seed feature flags and onboarding state with `fdb shared-prefs set` before launching a scenario, not after. This avoids race conditions where the app reads prefs before you write them.
 - Run `fdb clean` + `fdb shared-prefs clear` together for a fully hermetic test scenario (clears both file storage and KV storage).
-- Pre-grant permissions with `fdb grant-permission` before launching the app. OS permission dialogs are hard to dismiss reliably from fdb. Grant before the session starts. `fdb native-tap` can tap them on Android (by coordinates or with `--text <label>`) and on the iOS simulator (by coordinates); see `fdb skill interact` and `fdb skill simulator`.
+- Pre-grant permissions with `fdb grant-permission` before launching the app. A grant is more reliable than tapping the OS dialog, and nothing appears to tap. When a dialog does appear, `fdb native-tap` taps it on Android and the iOS simulator, by label (`--text Allow`) or by coordinates; see `fdb skill interact` and `fdb skill simulator`.
 - Use `fdb ext list` on an unfamiliar app to discover debug hooks the team has registered — you may find shortcuts for clearing caches, resetting auth state, or overriding platform behaviour.
 
 ## SharedPreferences
@@ -122,7 +122,7 @@ fdb grant-permission --bundle com.example.app camera
 fdb grant-permission camera --bundle com.example.app --device <simulator_udid>
 ```
 
-On the iOS simulator the target is `--device`, then the session's device, then the only booted iOS simulator. With several booted and neither of the first two, the command fails and lists them.
+On the iOS simulator the target is `--device`, then the session's device, then the only booted iOS simulator. With several booted and neither of the first two, the command fails with `ERROR: Multiple booted iOS simulators and no fdb session simulator to choose from. Pass --device <udid> with one of:` followed by the list.
 
 Supported permission tokens: `camera`, `microphone`, `location`, `location-always`, `contacts`, `contacts-read`, `photos`, `photos-add`, `calendar`, `reminders`, `motion`, `media-library`, `siri` (iOS), `notifications` (Android), `screen-capture` (macOS).
 

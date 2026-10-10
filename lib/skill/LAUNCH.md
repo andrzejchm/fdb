@@ -43,7 +43,9 @@ fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <
 
 `--timeout` is how long to wait for the VM service (default 600 seconds). Raise it for first debug builds of large apps that print `LAUNCH_TIMEOUT` while the build is still running. An invalid value prints `ERROR: Invalid value for --timeout: <value>`. `fdb attach` takes the same flag (default 300 seconds).
 
-Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`. `PID=` is the app process ID, the same value `fdb status` reports. The line is left out only if fdb cannot get the PID from either the session files or the VM service.
+Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`. `PID=` is the app process ID, the same value `fdb status` reports. The line is left out only if fdb cannot get the PID from either the session files or the VM service, as on web, where the VM service has no process ID.
+
+**Launching over a live session.** `fdb launch` stops the old app and its flutter process first, the same way `fdb kill` does. `fdb attach` stops the old session's flutter process but leaves the app running, so you can attach to the app a live `fdb launch` started (verified on mobile; desktop and web unverified). While it waits, stdout shows `launch: stopping previous session` (or `attach: ...`) and, if the old controller is still alive, `launch: waiting for the previous session to exit`. Replacing a hung session can take up to about 30 s, not counted in `--timeout`. On Windows the old flutter process can outlive its controller.
 
 Output on failure (process exited before VM service appeared):
 ```
@@ -184,7 +186,14 @@ fdb deeplink "myapp://products/123" --device <simulator_udid>
 
 Output on success: `DEEPLINK_OPENED=<url>`
 
-Targeting errors: a shut down session simulator fails with `ERROR: The session simulator <UDID> (<name>) is not booted ...`; an unknown `--device` fails with `ERROR: No iOS simulator or Android device with ID <id>. List devices with: fdb devices`.
+Errors:
+```
+ERROR: No active fdb session found. Run fdb launch first.          # no session and no --device
+ERROR: The session simulator <UDID> (<name>) is not booted (state: Shutdown). Boot it, or target another booted simulator with --device <udid>.
+ERROR: Simulator <UDID> (<name>) is not booted (state: Shutdown).  # --device simulator not booted
+ERROR: No iOS simulator or Android device with ID <id>. List devices with: fdb devices
+ERROR: Could not find an option named "--foo".                     # unknown flag
+```
 
 **Limitations:**
 - Physical iOS not supported (Apple has no CLI for this)
