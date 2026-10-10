@@ -43,7 +43,7 @@ fdb launch --device <device_id> --project <path> [--flavor <flavor>] [--target <
 
 `--timeout` is how long to wait for the VM service (default 600 seconds). Raise it for first debug builds of large apps that print `LAUNCH_TIMEOUT` while the build is still running. An invalid value prints `ERROR: Invalid value for --timeout: <value>`. `fdb attach` takes the same flag (default 300 seconds).
 
-Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+Output on success: `APP_STARTED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`. `PID=` is the app process ID, the same value `fdb status` reports. The line is left out only if fdb cannot get the PID from either the session files or the VM service.
 
 Output on failure (process exited before VM service appeared):
 ```
@@ -77,7 +77,7 @@ Find device IDs: `fdb devices`
 fdb attach --device <device_id> --project <path> [--app-id <bundle_or_package>] [--debug-url <vm_service_url>]
 ```
 
-Output on success: `APP_ATTACHED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...`
+Output on success: `APP_ATTACHED`, `VM_SERVICE_URI=...`, `PID=...`, `LOG_FILE=...` (`PID=` follows the same rule as for `launch`)
 
 Use `attach` when the app must be started by native tooling first, such as Xcode, Android Studio, `simctl`, or `adb`. The target app must be a debug/profile Flutter app exposing the Dart VM service.
 

@@ -150,6 +150,50 @@ List<String> buildFlutterAttachArgs({
       if (verbose) '--verbose',
     ];
 
+/// Writes the app PID file and only then the VM URI file for one
+/// `app.debugPort` event.
+///
+/// `fdb launch` and `fdb attach` treat the VM URI file as the "app is ready"
+/// signal and read the PID right after it appears, so the PID file has to
+/// exist by then. [lookupAppPid] returns the app PID, or null when it is
+/// unknown; a PID of 0 or less (DWDS on web reports -1) also counts as
+/// unknown and is not written.
+///
+/// [isCurrent] is checked after the lookup: when a newer `app.debugPort`
+/// event arrived in the meantime, nothing is written, so a slow lookup cannot
+/// overwrite the newer URI and PID. Never throws (it runs unawaited); errors
+/// go to [onError].
+Future<void> publishDebugPort(
+  String wsUri, {
+  required Future<int?> Function() lookupAppPid,
+  required bool Function() isCurrent,
+  void Function(Object error) onError = _ignoreError,
+}) async {
+  int? pid;
+  try {
+    pid = await lookupAppPid();
+  } catch (e) {
+    onError(e);
+  }
+  if (!isCurrent()) return;
+
+  try {
+    if (pid != null && pid > 0) {
+      File(appPidFile).writeAsStringSync(pid.toString());
+    }
+  } catch (e) {
+    onError(e);
+  }
+
+  try {
+    File(vmUriFile).writeAsStringSync(wsUri);
+  } catch (e) {
+    onError(e);
+  }
+}
+
+void _ignoreError(Object _) {}
+
 class _FdbController implements ControllerContext {
   _FdbController(this.config);
 
@@ -168,6 +212,7 @@ class _FdbController implements ControllerContext {
   bool _running = false;
   bool _stopRequested = false;
   int _nextId = 0;
+  int _debugPortGeneration = 0;
 
   @override
   bool get running => _running;
@@ -354,9 +399,16 @@ class _FdbController implements ControllerContext {
         final wsUri = params['wsUri'] as String?;
         if (wsUri != null && wsUri.isNotEmpty) {
           _vmUri = wsUri;
-          File(vmUriFile).writeAsStringSync(wsUri);
           unawaited(_logCollector.start(wsUri));
-          unawaited(_writeAppPidFromVm(wsUri));
+          final generation = ++_debugPortGeneration;
+          unawaited(
+            publishDebugPort(
+              wsUri,
+              lookupAppPid: () => getVmFromUri(wsUri, timeout: const Duration(seconds: 5)).then((vm) => vm?.pid),
+              isCurrent: () => generation == _debugPortGeneration,
+              onError: (e) => _appendLogLine('WARNING: Failed to resolve app PID from VM service: $e'),
+            ),
+          );
         }
       case 'app.stop':
         _running = false;
@@ -379,17 +431,6 @@ class _FdbController implements ControllerContext {
     final completer = _pending.remove(id);
     if (completer != null && !completer.isCompleted) {
       completer.complete(entry);
-    }
-  }
-
-  Future<void> _writeAppPidFromVm(String wsUri) async {
-    try {
-      final vm = await getVmFromUri(wsUri, timeout: const Duration(seconds: 5));
-      if (vm?.pid != null) {
-        File(appPidFile).writeAsStringSync(vm!.pid.toString());
-      }
-    } catch (e) {
-      _appendLogLine('WARNING: Failed to resolve app PID from VM service: $e');
     }
   }
 

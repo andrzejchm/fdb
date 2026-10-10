@@ -7,7 +7,13 @@ import 'package:fdb/core/commands/launch/launch_models.dart';
 import 'package:fdb/core/flutter_binary.dart';
 import 'package:fdb/core/process_utils.dart';
 import 'package:fdb/src/controller/fdb_controller.dart'
-    show AppDiedException, ControllerCommand, ControllerCommandFailed, ControllerUnavailable, sendControllerCommand;
+    show
+        AppDiedException,
+        ControllerCommand,
+        ControllerCommandFailed,
+        ControllerUnavailable,
+        getVmFromUri,
+        sendControllerCommand;
 
 export 'package:fdb/core/commands/launch/launch_models.dart';
 
@@ -171,7 +177,7 @@ Future<LaunchResult> launchApp(
         return LaunchTimeout(tailLogLines: readLogTail());
       }
 
-      final pid = readLaunchPid();
+      final pid = await resolveLaunchPid(vmUri);
 
       return LaunchSuccess(
         vmServiceUri: vmUri,
@@ -218,21 +224,47 @@ List<String> buildLaunchControllerArgs(
 
 /// Reads the app or flutter-tools PID written during launch.
 ///
-/// Returns an empty string until one of the expected PID files exists.
-String readLaunchPid() {
-  for (final path in [appPidFile, pidFile]) {
-    final file = File(path);
-    if (!file.existsSync()) {
-      continue;
-    }
+/// Returns null until one of the expected PID files holds a valid PID.
+int? readLaunchPid() => readAppPid() ?? readPid();
 
-    final pid = file.readAsStringSync().trim();
-    if (pid.isNotEmpty) {
-      return pid;
-    }
+/// Resolves the PID to report once the VM service at [vmUri] is up.
+///
+/// Prefers the PID files written by the controller. If none is there yet, asks
+/// the VM service directly through [queryVmPid] and saves the answer to
+/// [appPidFile] so `fdb status` reports the same PID. A PID of 0 or less
+/// (DWDS on web reports -1) counts as unknown. Returns null when neither
+/// source knows the PID.
+Future<int?> resolveLaunchPid(
+  String vmUri, {
+  Future<int?> Function(String vmUri) queryVmPid = queryVmPidFromUri,
+}) async {
+  final pid = readLaunchPid();
+  if (pid != null && pid > 0) return pid;
+
+  final int? vmPid;
+  try {
+    vmPid = await queryVmPid(vmUri);
+  } catch (_) {
+    return null;
   }
+  if (vmPid == null || vmPid <= 0) return null;
 
-  return '';
+  try {
+    File(appPidFile).writeAsStringSync(vmPid.toString());
+  } catch (_) {
+    // Not fatal: the PID is still reported, status just cannot reuse it.
+  }
+  return vmPid;
+}
+
+/// Reads the app process PID from the VM service at [vmUri].
+///
+/// Runs after launch / attach already saw the VM service come up, so it uses
+/// a short timeout (1 s each for connect and `getVM`) to avoid running far past
+/// `--timeout` when the VM service hangs.
+Future<int?> queryVmPidFromUri(String vmUri) async {
+  final vm = await getVmFromUri(vmUri, timeout: const Duration(seconds: 1));
+  return vm?.pid;
 }
 
 /// Removes launch-owned session files before starting a new launch.

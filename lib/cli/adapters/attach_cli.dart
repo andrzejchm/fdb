@@ -143,6 +143,6 @@ int _format(AttachResult result) {
 List<String> attachSuccessTokens(AttachSuccess result) => [
       'APP_ATTACHED',
       'VM_SERVICE_URI=${result.vmServiceUri}',
-      'PID=${result.pid}',
+      if (result.pid != null) 'PID=${result.pid}',
       'LOG_FILE=${result.logFilePath}',
     ];

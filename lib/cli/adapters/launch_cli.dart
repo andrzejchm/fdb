@@ -164,6 +164,6 @@ int _format(LaunchResult result) {
 List<String> launchSuccessTokens(LaunchSuccess result) => [
       'APP_STARTED',
       'VM_SERVICE_URI=${result.vmServiceUri}',
-      'PID=${result.pid}',
+      if (result.pid != null) 'PID=${result.pid}',
       'LOG_FILE=${result.logFilePath}',
     ];

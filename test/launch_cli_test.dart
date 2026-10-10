@@ -11,7 +11,7 @@ void main() {
     test('success tokens stay machine-readable and ordered', () {
       final result = LaunchSuccess(
         vmServiceUri: 'ws://127.0.0.1:12345/abc=/ws',
-        pid: '4321',
+        pid: 4321,
         logFilePath: '/tmp/project/.fdb/logs.txt',
       );
 
@@ -21,6 +21,23 @@ void main() {
           'APP_STARTED',
           'VM_SERVICE_URI=ws://127.0.0.1:12345/abc=/ws',
           'PID=4321',
+          'LOG_FILE=/tmp/project/.fdb/logs.txt',
+        ],
+      );
+    });
+
+    test('omits PID line instead of printing an empty value when the pid is unknown', () {
+      const result = LaunchSuccess(
+        vmServiceUri: 'ws://127.0.0.1:12345/abc=/ws',
+        pid: null,
+        logFilePath: '/tmp/project/.fdb/logs.txt',
+      );
+
+      expect(
+        launchSuccessTokens(result),
+        [
+          'APP_STARTED',
+          'VM_SERVICE_URI=ws://127.0.0.1:12345/abc=/ws',
           'LOG_FILE=/tmp/project/.fdb/logs.txt',
         ],
       );

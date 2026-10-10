@@ -170,7 +170,7 @@ Future<AttachResult> attachApp(
 
       return AttachSuccess(
         vmServiceUri: vmUri,
-        pid: readLaunchPid(),
+        pid: await resolveLaunchPid(vmUri),
         logFilePath: logFile,
       );
     } finally {

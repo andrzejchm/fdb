@@ -8,6 +8,7 @@
   - The other output tokens are unchanged.
 - `fdb screenshot` and `fdb grant-permission` on the iOS simulator fell back to simctl's `booted` alias when the session had no device recorded. They now use the only booted iOS simulator and fail with `ERROR: Multiple booted iOS simulators ...` (listing each) instead of guessing when several are booted. With a session device, they target it as before.
 - `fdb screenshot` on an older session without `.fdb/platform.txt` captured Android whenever any adb device was connected, even when the session's device was an iOS simulator. It now captures the session's device (`adb -s <serial>` for Android, otherwise the session simulator).
+- `fdb launch` and `fdb attach` sometimes printed an empty `PID=` line while `fdb status` right after showed the app's PID. The controller wrote the VM service URI, which launch and attach wait for, before it had looked up the app PID from the VM service, so a poll could land between the two writes. The controller now writes the PID file first. If launch or attach still find no PID file, they ask the VM service for the PID themselves. `PID=` is no longer printed empty: it shows the app's PID, or the line is left out when fdb can't determine it (as on web, where the VM service has no process ID).
 
 ## 1.14.0
 
