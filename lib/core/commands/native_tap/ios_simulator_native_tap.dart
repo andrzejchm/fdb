@@ -78,7 +78,7 @@ Future<NativeTapResult> nativeTapIosSimulatorText(
               final matches = findIosAxMatches(snapshot, query);
               switch (pickNativeMatch(matches, index: index)) {
                 case NativeMatchPicked(:final match):
-                  if (index == null || trusted) return _tap(tapAt, udid, match);
+                  if (index == null || trusted) return await _tap(tapAt, udid, match);
                 case NativeMatchAmbiguous(:final matches):
                   final ambiguous = NativeTapAmbiguous(
                     query: query,
