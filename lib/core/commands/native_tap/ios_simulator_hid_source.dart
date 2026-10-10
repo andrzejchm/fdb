@@ -123,8 +123,11 @@ typealias MsgSendUInt32 = @convention(c) (AnyObject, Selector) -> UInt32
 let sendUInt32 = unsafeBitCast(msgSend, to: MsgSendUInt32.self)
 
 func mainScreenOrientation() -> UInt32? {
-  guard let io = device.perform(NSSelectorFromString("io"))?.takeUnretainedValue() as? NSObject,
-    let ports = io.value(forKey: "ioPorts") as? [NSObject]
+  // Check every selector first: messaging a missing one raises and aborts.
+  guard device.responds(to: NSSelectorFromString("io")),
+    let io = device.perform(NSSelectorFromString("io"))?.takeUnretainedValue() as? NSObject,
+    io.responds(to: NSSelectorFromString("ioPorts")),
+    let ports = io.perform(NSSelectorFromString("ioPorts"))?.takeUnretainedValue() as? [NSObject]
   else { return nil }
   var fallback: UInt32?
   for port in ports {
@@ -164,7 +167,7 @@ guard let orientation = mainScreenOrientation() else {
 guard let orientationName = orientationNames[orientation] else {
   fail(
     "native-tap can't tell which way the simulator is rotated (interface orientation \(orientation)); "
-      + "rotate it to portrait and try again",
+      + "wait a moment and try again, or rotate it to portrait",
     code: 5
   )
 }
@@ -195,9 +198,12 @@ case 3:
 case 4:
   portraitX = widthPoints - y
   portraitY = x
-default:
+case 1:
   portraitX = x
   portraitY = y
+default:
+  // Unreachable: orientationNames only holds 1-4.
+  fail("native-tap can't map interface orientation \(orientation)", code: 5)
 }
 
 guard let hidClass = NSClassFromString("SimulatorKit.SimDeviceLegacyHIDClient") as AnyObject?,

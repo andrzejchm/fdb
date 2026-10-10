@@ -156,7 +156,8 @@ void main() {
           contains('case 2: portraitX = widthPoints - x portraitY = heightPoints - y'),
           contains('case 3: portraitX = y portraitY = heightPoints - x'),
           contains('case 4: portraitX = widthPoints - y portraitY = x'),
-          contains('default: portraitX = x portraitY = y'),
+          contains('case 1: portraitX = x portraitY = y'),
+          contains('default: // Unreachable'),
         ),
       );
       expect(iosSimulatorHidSource, contains('CGPoint(x: portraitX / widthPoints, y: portraitY / heightPoints)'));
@@ -235,7 +236,7 @@ void main() {
 
     test('maps exit code 3 to out-of-bounds without the ERROR prefix', () async {
       runner.tapExitCode = 3;
-      runner.tapStderr = 'ERROR: coordinates 999.0,30.0 are outside the screen (402.0x874.0 points)\n';
+      runner.tapStderr = 'ERROR: coordinates 999.0,30.0 are outside the screen (402.0x874.0 points, portrait)\n';
 
       final result = await tap();
 
@@ -244,7 +245,7 @@ void main() {
         isA<IosSimulatorHidOutOfBounds>().having(
           (r) => r.message,
           'message',
-          'coordinates 999.0,30.0 are outside the screen (402.0x874.0 points)',
+          'coordinates 999.0,30.0 are outside the screen (402.0x874.0 points, portrait)',
         ),
       );
     });
@@ -270,7 +271,7 @@ void main() {
       runner.tapExitCode = 5;
       runner.tapStderr = 'objc[42]: noise\n'
           "ERROR: native-tap can't tell which way the simulator is rotated (interface orientation 0); "
-          'rotate it to portrait and try again\n';
+          'wait a moment and try again, or rotate it to portrait\n';
 
       final result = await tap();
 
@@ -280,7 +281,7 @@ void main() {
           (r) => r.message,
           'message',
           "native-tap can't tell which way the simulator is rotated (interface orientation 0); "
-              'rotate it to portrait and try again',
+              'wait a moment and try again, or rotate it to portrait',
         ),
       );
       expect(runner.calls.where((c) => c[1] == 'tap'), hasLength(1));

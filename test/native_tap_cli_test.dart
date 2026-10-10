@@ -61,7 +61,7 @@ void main() {
 
     test('unknown orientation is an ERROR', () {
       const message = "native-tap can't tell which way the simulator is rotated (interface orientation 0); "
-          'rotate it to portrait and try again';
+          'wait a moment and try again, or rotate it to portrait';
       final out = _capture(() => formatNativeTapResult(const NativeTapIosSimulatorOrientationUnknown(message)));
 
       expect(out.exitCode, 1);

@@ -230,7 +230,8 @@ Future<IosSimulatorHidResult> iosSimulatorHidTap({
       case _orientationUnknownExitCode:
         return IosSimulatorHidOrientationUnknown(
           extractHidErrorMessage(output.stderr) ??
-              "native-tap can't tell which way the simulator is rotated; rotate it to portrait and try again",
+              "native-tap can't tell which way the simulator is rotated; "
+                  'wait a moment and try again, or rotate it to portrait',
         );
     }
     final message = _stripErrorPrefix(_tail(output.stderr));
