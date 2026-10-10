@@ -10,15 +10,18 @@ export 'package:fdb/core/commands/kill/kill_models.dart';
 ///
 /// Returns [KillSuccess] on success, [KillNoSession] if no PID file is
 /// present, or [KillFailed] if the process refused to die after `SIGKILL`.
-Future<KillResult> killApp(KillInput _) async {
+///
+/// [sendSignal] defaults to [Process.killPid]; tests pass a fake so they never
+/// send real signals.
+Future<KillResult> killApp(KillInput _, {ProcessSignaller sendSignal = Process.killPid}) async {
   if (!hasMeaningfulSessionFiles()) {
     return const KillNoSession();
   }
 
-  final logCollectorStopped = await _stopLogCollector();
+  final logCollectorStopped = await _stopLogCollector(sendSignal);
   final controllerStopped = await _stopThroughController();
   if (controllerStopped) {
-    final visibleProcessesStopped = await _stopVisibleSessionProcesses();
+    final visibleProcessesStopped = await _stopVisibleSessionProcesses(sendSignal);
     cleanupTempFiles();
     if (logCollectorStopped && visibleProcessesStopped) {
       return const KillSuccess();
@@ -27,7 +30,7 @@ Future<KillResult> killApp(KillInput _) async {
     return const KillFailed();
   }
 
-  final fallbackStopped = await _stopVisibleSessionProcesses();
+  final fallbackStopped = await _stopVisibleSessionProcesses(sendSignal);
   cleanupTempFiles();
   if (logCollectorStopped && fallbackStopped) {
     return const KillSuccess();
@@ -52,16 +55,16 @@ Future<bool> _stopThroughController() async {
   }
 }
 
-Future<bool> _stopLogCollector() async {
+Future<bool> _stopLogCollector(ProcessSignaller sendSignal) async {
   final collectorPid = readLogCollectorPid();
   if (collectorPid == null) {
     return true;
   }
 
-  return _terminateProcess(collectorPid);
+  return _terminateProcess(collectorPid, sendSignal);
 }
 
-Future<bool> _stopVisibleSessionProcesses() async {
+Future<bool> _stopVisibleSessionProcesses(ProcessSignaller sendSignal) async {
   final pidsToStop = <int>{};
   var allStopped = true;
 
@@ -88,7 +91,7 @@ Future<bool> _stopVisibleSessionProcesses() async {
   }
 
   for (final pid in pidsToStop) {
-    final stopped = await _terminateProcess(pid);
+    final stopped = await _terminateProcess(pid, sendSignal);
     if (!stopped) {
       allStopped = false;
     }
@@ -119,4 +122,5 @@ bool _forceStopAndroidApp() {
   }
 }
 
-Future<bool> _terminateProcess(int pid) => terminateProcess(pid, timeout: const Duration(seconds: killTimeoutSeconds));
+Future<bool> _terminateProcess(int pid, ProcessSignaller sendSignal) =>
+    terminateProcess(pid, timeout: const Duration(seconds: killTimeoutSeconds), sendSignal: sendSignal);

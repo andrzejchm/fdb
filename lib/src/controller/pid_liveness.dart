@@ -2,11 +2,16 @@ import 'dart:io';
 
 /// Returns true if a process with [pid] is currently running.
 ///
+/// Returns false for a [pid] of 0 or less without running anything: `kill -0`
+/// treats 0 as the caller's process group and -1 as every process the user
+/// may signal, so both would report a live process.
+///
 /// Dart has no portable "is PID alive" API, so this shells out to a
 /// platform-specific tool: `kill -0` on POSIX (macOS/Linux) and `tasklist`
 /// on Windows. Never throws — any failure to invoke the tool is treated as
 /// "not alive".
 bool isProcessAlive(int pid) {
+  if (pid <= 0) return false;
   return Platform.isWindows ? _isProcessAliveWindows(pid) : _isProcessAlivePosix(pid);
 }
 

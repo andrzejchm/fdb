@@ -21,24 +21,27 @@ bool isToolOnPath(String tool) {
   }
 }
 
-int? readPid() {
-  final file = File(pidFile);
+int? readPid() => _readPidFile(pidFile);
+
+/// Reads a PID from [path]. Returns null when the file is missing, does not
+/// hold an integer, or holds a PID of 0 or less. Such values never name a
+/// single process, and signalling them hits a whole process group (0) or every
+/// process the user owns (-1). Older fdb versions wrote -1 on web.
+int? _readPidFile(String path) {
+  final file = File(path);
   if (!file.existsSync()) return null;
-  final content = file.readAsStringSync().trim();
-  return int.tryParse(content);
+  final pid = int.tryParse(file.readAsStringSync().trim());
+  if (pid == null || pid <= 0) return null;
+  return pid;
 }
 
 /// Reads the app VM PID from [appPidFile] written by `fdb launch` after
 /// the VM service is confirmed reachable.
 ///
-/// Returns null if the file does not exist or its content is not a valid
-/// integer (e.g. the session was created by an older fdb version).
-int? readAppPid() {
-  final file = File(appPidFile);
-  if (!file.existsSync()) return null;
-  final content = file.readAsStringSync().trim();
-  return int.tryParse(content);
-}
+/// Returns null if the file does not exist, its content is not a valid
+/// integer (e.g. the session was created by an older fdb version), or the PID
+/// is 0 or less.
+int? readAppPid() => _readPidFile(appPidFile);
 
 String projectPathFromSessionDir() {
   return Directory(sessionDirPath).parent.path;
@@ -51,12 +54,7 @@ String? readVmUri() {
   return content.isEmpty ? null : content;
 }
 
-int? readControllerPid() {
-  final file = File(controllerPidFile);
-  if (!file.existsSync()) return null;
-  final content = file.readAsStringSync().trim();
-  return int.tryParse(content);
-}
+int? readControllerPid() => _readPidFile(controllerPidFile);
 
 int? readControllerPort() {
   final file = File(controllerPortFile);
@@ -97,12 +95,7 @@ void writePlatformInfo(String targetPlatform, bool emulator) {
 }
 
 /// Read the log collector PID from its PID file.
-int? readLogCollectorPid() {
-  final file = File(logCollectorPidFile);
-  if (!file.existsSync()) return null;
-  final content = file.readAsStringSync().trim();
-  return int.tryParse(content);
-}
+int? readLogCollectorPid() => _readPidFile(logCollectorPidFile);
 
 /// UTF-8 codec that replaces malformed bytes with U+FFFD instead of throwing.
 ///
@@ -128,17 +121,29 @@ String readTextTolerant(String path) {
 /// Line-split variant of [readTextTolerant], with `readAsLinesSync` semantics.
 List<String> readLinesTolerant(String path) => const LineSplitter().convert(readTextTolerant(path));
 
+/// Sends [signal] to the process [pid]. Matches [Process.killPid].
+typedef ProcessSignaller = bool Function(int pid, ProcessSignal signal);
+
 /// Sends SIGTERM to [pid], waits up to [timeout] for it to exit, then sends
 /// SIGKILL and waits again. Returns true when the process is gone.
+///
+/// A [pid] of 0 or less is never signalled (0 is the caller's process group,
+/// -1 every process the user owns) and returns true: there is no process to
+/// stop.
+///
+/// [sendSignal] defaults to [Process.killPid]; tests pass a fake so they never
+/// send real signals.
 Future<bool> terminateProcess(
   int pid, {
   Duration timeout = const Duration(seconds: 10),
+  ProcessSignaller sendSignal = Process.killPid,
 }) async {
+  if (pid <= 0) return true;
   if (!isProcessAlive(pid)) return true;
 
   for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
     try {
-      Process.killPid(pid, signal);
+      sendSignal(pid, signal);
     } catch (_) {
       return !isProcessAlive(pid);
     }
@@ -171,6 +176,7 @@ bool isAndroidTarget() {
 }
 
 bool isAndroidAppPidAlive(int pid) {
+  if (pid <= 0) return false;
   if (!isAndroidTarget()) return false;
   final device = readDevice();
   if (device == null || device.isEmpty) return false;
@@ -222,6 +228,7 @@ bool isAndroidAppPidAlive(int pid) {
 }
 
 bool isAppPidAlive(int pid) {
+  if (pid <= 0) return false;
   if (isAndroidTarget()) {
     return isAndroidAppPidAlive(pid);
   }
