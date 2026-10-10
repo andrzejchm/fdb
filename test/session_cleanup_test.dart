@@ -19,7 +19,8 @@ void main() {
       final progress = <String>[];
       await replacePreviousSession(onProgress: progress.add);
 
-      expect(progress, [startsWith('WARNING: Cleaned up a stale session')]);
+      expect(
+          progress.where((line) => line.startsWith('WARNING:')), [startsWith('WARNING: Cleaned up a stale session')]);
       for (final pid in [session.controller, session.flutterTool, session.collector]) {
         await _expectProcessDead(pid);
       }
@@ -32,7 +33,8 @@ void main() {
       final progress = <String>[];
       await replacePreviousSession(onProgress: progress.add);
 
-      expect(progress, isEmpty);
+      expect(progress, isNot(contains(startsWith('WARNING:'))));
+      expect(progress, contains('launch: stopping previous session'));
       await _expectProcessDead(session.controller);
       await _expectProcessDead(session.collector);
       _expectRuntimeFilesRemoved();
@@ -48,6 +50,28 @@ void main() {
       await _expectProcessDead(session.controller);
       _expectRuntimeFilesRemoved();
     });
+
+    test('waits for a controller that takes a while to exit on SIGTERM', () async {
+      // Stands in for a controller stopping its flutter tool: exits ~1 s
+      // after SIGTERM.
+      final session = await _seedSession(
+        appAlive: true,
+        controllerResponds: true,
+        controllerCommand: ['sh', '-c', 'trap "sleep 1; exit 0" TERM; while true; do sleep 0.1; done'],
+      );
+      // Let sh install its trap before the signal arrives.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      final progress = <String>[];
+      final stopwatch = Stopwatch()..start();
+      await replacePreviousSession(onProgress: progress.add);
+      stopwatch.stop();
+
+      expect(isProcessAlive(session.controller), isFalse, reason: 'controller must be gone on return');
+      expect(stopwatch.elapsed, greaterThanOrEqualTo(const Duration(milliseconds: 900)));
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 8)));
+      expect(progress, contains('launch: waiting for the previous session to exit'));
+    });
   });
 }
 
@@ -57,13 +81,22 @@ typedef _SessionPids = ({int controller, int flutterTool, int collector, List<Co
 /// are `sleep` processes. The app PID is a live `sleep` when [appAlive],
 /// otherwise a PID that has already exited. When [controllerResponds], a fake
 /// controller answers on the recorded port.
-Future<_SessionPids> _seedSession({required bool appAlive, required bool controllerResponds}) async {
+///
+/// [controllerCommand] replaces the controller's `sleep` process.
+Future<_SessionPids> _seedSession({
+  required bool appAlive,
+  required bool controllerResponds,
+  List<String>? controllerCommand,
+}) async {
   final root = await Directory.systemTemp.createTemp('fdb_session_cleanup_');
   initSessionDirFromPath(Directory('${root.path}/.fdb').path);
   ensureSessionDir();
 
   final processes = [
-    for (var i = 0; i < 4; i++) await Process.start('sleep', ['60'])
+    controllerCommand == null
+        ? await Process.start('sleep', ['60'])
+        : await Process.start(controllerCommand.first, controllerCommand.sublist(1)),
+    for (var i = 1; i < 4; i++) await Process.start('sleep', ['60'])
   ];
   final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   final port = server.port;

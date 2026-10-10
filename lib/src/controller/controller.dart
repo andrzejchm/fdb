@@ -194,17 +194,25 @@ Future<void> publishDebugPort(
 
 void _ignoreError(Object _) {}
 
-/// How long the controller may take to shut down after SIGTERM: stopping the
-/// flutter tool ([stopFlutterProcess]) plus the log collector. Whoever sends
-/// SIGTERM to the controller should wait at least this long before escalating
-/// to SIGKILL, or the flutter tool is orphaned again.
+/// How long `fdb launch` / `fdb attach` wait for a replaced controller to exit
+/// after SIGTERM before sending SIGKILL (a SIGKILL'd controller orphans its
+/// flutter tool again).
+///
+/// The controller needs at most about 6 s to stop the flutter tool
+/// ([stopFlutterProcess]: 3 s after SIGTERM, 3 s after SIGKILL) and up to 6 s
+/// more for a log collector that ignores SIGTERM. `fdb kill`'s 10 s fallback
+/// is enough: it stops the log collector itself before signalling the
+/// controller, so only the flutter tool's ~6 s remain. This value adds margin
+/// on top of the 12 s worst case.
 const controllerShutdownTimeout = Duration(seconds: 15);
 
 /// Stops the flutter tool [process] (`flutter run` / `flutter attach`) before
 /// the controller exits: SIGTERM, then SIGKILL if it is still alive after
 /// [exitTimeout].
 ///
-/// This only detaches: the app keeps running. Stopping the app is the job of
+/// This only detaches: on mobile targets the app keeps running (verified on
+/// the iOS simulator); desktop and web are not verified. Stopping the app is
+/// the job of
 /// the `kill` controller command (`app.stop`), which `fdb kill` and
 /// `fdb launch` send before signalling the controller. Never throws.
 Future<void> stopFlutterProcess(
@@ -310,8 +318,8 @@ class _FdbController implements ControllerContext {
     // A SIGTERM (e.g. from `fdb launch` replacing this session) or SIGINT
     // would otherwise kill the controller and leave the flutter tool and the
     // log collector running with nobody owning them.
-    // ProcessSignal.sigterm.watch() is not supported on Windows.
     ProcessSignal.sigint.watch().listen((_) => _shutdownOnSignal(130));
+    // ProcessSignal.sigterm.watch() is not supported on Windows.
     if (!Platform.isWindows) {
       ProcessSignal.sigterm.watch().listen((_) => _shutdownOnSignal(143));
     }

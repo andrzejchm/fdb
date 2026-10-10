@@ -310,17 +310,24 @@ List<String> readLogTail({int count = 10}) {
 /// collector receive SIGTERM.
 ///
 /// On SIGTERM the controller stops its `flutter run` / `flutter attach` child
-/// before exiting (the app keeps running), so it gets
+/// before exiting (on mobile targets the app keeps running, verified on the
+/// iOS simulator; desktop and web are not verified), so it gets
 /// [controllerShutdownTimeout] before SIGKILL. `fdb launch` passes
 /// [stopApp] because it starts the app again anyway; `fdb attach` does not,
 /// as it may be attaching to the very app the previous session ran.
+///
+/// Stopping a hung session can take up to about 30 s, so progress lines
+/// prefixed with [progressPrefix] (`launch` / `attach`) are reported through
+/// [onProgress] before each wait.
 Future<void> replacePreviousSession({
   bool stopApp = false,
+  String progressPrefix = 'launch',
   void Function(String) onProgress = _noop,
 }) async {
   if (await isPreviousSessionStale()) {
     final controllerPid = readControllerPid();
     if (controllerPid != null) {
+      if (isProcessAlive(controllerPid)) onProgress('$progressPrefix: stopping previous session');
       await terminateProcess(controllerPid, timeout: controllerShutdownTimeout);
     }
     final pids = {readPid(), readLogCollectorPid()}.whereType<int>().where((pid) => pid != controllerPid);
@@ -332,6 +339,7 @@ Future<void> replacePreviousSession({
     return;
   }
 
+  onProgress('$progressPrefix: stopping previous session');
   if (stopApp) {
     try {
       await sendControllerCommand(ControllerCommand.kill, timeout: const Duration(seconds: killTimeoutSeconds));
@@ -347,7 +355,8 @@ Future<void> replacePreviousSession({
     } catch (_) {}
   }
   final controllerPid = readControllerPid();
-  if (controllerPid != null) {
+  if (controllerPid != null && isProcessAlive(controllerPid)) {
+    onProgress('$progressPrefix: waiting for the previous session to exit');
     await terminateProcess(controllerPid, timeout: controllerShutdownTimeout);
   }
   cleanupLaunchSessionFiles();
