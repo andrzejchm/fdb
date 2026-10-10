@@ -163,8 +163,11 @@ Future<void> main(List<String> args) async {
   // Commands that run against a potentially dead/missing session (soft-fail on null).
   // `simulator` is here so `--session-dir` / CWD walk-up pick the session's device
   // (`.fdb/device.txt`) when targeting a simulator, yet it still works without a session.
+  // `deeplink` likewise works without a session when given `--device`; with neither,
+  // its adapter reports the missing session.
   const sessionSoftFail = {
     CliCommand.simulator,
+    CliCommand.deeplink,
     CliCommand.status,
     CliCommand.doctor,
     CliCommand.crashReport,

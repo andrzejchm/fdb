@@ -78,6 +78,39 @@ void main() {
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
     expect(env.mutatingCalls(), ['status_bar $_udidA override --time 9:41']);
   });
+
+  group('deeplink through the real dispatcher', () {
+    const url = 'fdbtest://test/hello';
+
+    test('--device opens the URL without any session', () async {
+      final env = await _E2eEnv.create();
+
+      final result = await env.runFdb(['deeplink', url, '--device', _udidA]);
+
+      expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+      expect(result.stdout, 'DEEPLINK_OPENED=$url\n');
+      expect(env.mutatingCalls(), ['openurl $_udidA $url']);
+    });
+
+    test('no session and no --device reports the missing session from the adapter', () async {
+      final env = await _E2eEnv.create();
+
+      final result = await env.runFdb(['deeplink', url]);
+
+      expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+      expect(result.stderr, 'ERROR: No active fdb session found. Run fdb launch first.\n');
+      expect(env.mutatingCalls(), isEmpty);
+    });
+
+    test('opens the URL on the --session-dir simulator when two are booted', () async {
+      final env = await _E2eEnv.create(sessionDevice: _udidB);
+
+      final result = await env.runFdb(['--session-dir', env.sessionDir.path, 'deeplink', url]);
+
+      expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+      expect(env.mutatingCalls(), ['openurl $_udidB $url']);
+    });
+  });
 }
 
 /// Upper bound for one `bin/fdb.dart` subprocess; a cold `dart` compile of the
