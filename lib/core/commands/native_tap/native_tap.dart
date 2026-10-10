@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fdb/core/commands/native_tap/ios_simulator_hid.dart';
 import 'package:fdb/core/commands/native_tap/native_tap_models.dart';
 import 'package:fdb/core/commands/tap/tap.dart';
 import 'package:fdb/core/process_utils.dart';
@@ -11,13 +12,14 @@ export 'package:fdb/core/commands/native_tap/native_tap_models.dart';
 /// On Android this goes through `adb shell input tap`, which reaches any
 /// on-screen UI regardless of process.
 ///
-/// On iOS simulator there is no dependency-free mechanism that crosses the
-/// SpringBoard process boundary, so this delegates to the in-process
-/// `UIApplication.sendEvent()` path (the same one `fdb tap --at` uses).
-/// That path reaches `UIAlertController` and other in-app native overlays
-/// but cannot reach SpringBoard-level system dialogs ("Allow location
-/// access?", "Open in Test App?", etc.). The CLI adapter emits a WARNING
-/// so callers know the limitation.
+/// On iOS simulator this compiles (once, cached) a small Swift helper that
+/// injects the touch through SimulatorKit's HID client, so it reaches every
+/// process on screen, including SpringBoard system dialogs ("Allow location
+/// access?", "Open in Test App?", etc.). When the helper cannot be used (no
+/// Xcode toolchain, unknown device, compile failure...) it falls back to the
+/// in-process `UIApplication.sendEvent()` path (the same one `fdb tap --at`
+/// uses), which cannot reach SpringBoard; the result carries the reason so
+/// the CLI adapter can warn.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<NativeTapResult> nativeTap(NativeTapInput input) async {
@@ -75,12 +77,32 @@ Future<NativeTapResult> _tapAndroid({required NativeTapInput input}) async {
 }
 
 // ---------------------------------------------------------------------------
-// iOS simulator — delegate to in-process tap (UIApplication.sendEvent)
+// iOS simulator — HID injection, falling back to in-process tap
 // ---------------------------------------------------------------------------
 
 Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async {
   final x = input.x;
   final y = input.y;
+
+  final udid = readDevice();
+  final String reason;
+  if (udid == null) {
+    reason = 'no simulator UDID recorded for this session';
+  } else {
+    final hid = await iosSimulatorHidTap(udid: udid, x: x, y: y);
+    switch (hid) {
+      case IosSimulatorHidTapped():
+        return NativeTapIosSimulator(x: x.toInt(), y: y.toInt());
+      case IosSimulatorHidOutOfBounds(:final message):
+        return NativeTapIosSimulatorOutOfBounds(message);
+      case IosSimulatorHidFailed(:final message):
+        // Part of the touch may have gone out; falling back could double-tap.
+        return NativeTapIosSimulatorFailed(message);
+      case IosSimulatorHidUnavailable(reason: final unavailableReason):
+        reason = unavailableReason;
+    }
+  }
+
   final tapResult = await tapWidget((
     x: x,
     y: y,
@@ -94,5 +116,5 @@ Future<NativeTapResult> _tapIosSimulator({required NativeTapInput input}) async 
     expectType: null,
     timeoutSeconds: 10,
   ));
-  return NativeTapIosSimulator(x: x.toInt(), y: y.toInt(), tapResult: tapResult);
+  return NativeTapIosSimulatorFallback(x: x.toInt(), y: y.toInt(), reason: reason, tapResult: tapResult);
 }

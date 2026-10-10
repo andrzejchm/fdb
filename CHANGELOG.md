@@ -1,3 +1,8 @@
+## Unreleased
+
+### Improvements
+- `fdb native-tap --at x,y` on the iOS simulator now injects a real touch through the simulator's HID stack (SimulatorKit Indigo HID, as Simulator.app and idb do) instead of tapping inside the app process. It reaches SpringBoard and every other app on screen: permission prompts ("Allow notifications", location), "Open in <App>?" URL confirmations, the paste prompt. Coordinates are iOS points in portrait screen orientation, so they match `fdb tap --at` in portrait but not in landscape. The output is unchanged (`NATIVE_TAPPED=ios-simulator X=<x> Y=<y>`). Coordinates outside the screen fail with `ERROR: coordinates X,Y are outside the screen (WxH points)` and exit 1. Needs Xcode only, no idb: fdb compiles a small Swift helper with `xcrun swiftc` on first use (about 5-10 s) and caches it in `~/Library/Caches/fdb/` (`FDB_CACHE_DIR` overrides). It is rebuilt only when an fdb release changes the helper. If the helper can't be built or run, fdb falls back to the old in-process tap and prints `WARNING: iOS simulator HID tap unavailable (<reason>); fell back to in-process tap (UIApplication.sendEvent), which cannot reach SpringBoard system dialogs.` Physical iOS and macOS are still not supported, and tapping by label (`--text`) is not supported yet. Android is unchanged.
+
 ## 1.13.1
 
 ### Fixes

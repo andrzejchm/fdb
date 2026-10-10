@@ -1139,6 +1139,55 @@ dart ../../bin/fdb.dart describe
 
 ---
 
+## S43 · native-tap — SpringBoard alert on the iOS simulator
+
+**Purpose:** on the iOS simulator `fdb native-tap` injects the touch through
+the simulator's HID stack, so it reaches SpringBoard dialogs outside the app.
+Opening an `fdbtest://` URL while another app is in front makes SpringBoard
+ask "Open in “Test App”?". Tapping Open must bring the test app back.
+iOS simulator only; skip on other platforms.
+
+```bash
+UDID=$(cat .fdb/device.txt)
+dart ../../bin/fdb.dart native-tap --at 5000,5000
+# iOS remembers an earlier "Open"; forget it so the alert shows again
+xcrun simctl spawn "$UDID" defaults delete com.apple.launchservices.schemeapproval \
+  "com.apple.CoreSimulator.CoreSimulatorBridge-->fdbtest" 2>/dev/null || true
+xcrun simctl launch "$UDID" com.apple.Preferences
+xcrun simctl openurl "$UDID" "fdbtest://native-tap-springboard"
+sleep 2
+dart ../../bin/fdb.dart screenshot
+dart ../../bin/fdb.dart native-tap --at <open_x>,<open_y>
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart screenshot
+dart ../../bin/fdb.dart restart   # the URL pushed a second home route; reset it
+```
+
+Find `<open_x>,<open_y>` on the first screenshot and convert it to points:
+points = screenshot px * (screen width in points / screenshot width). The
+first command's error names the screen size in points. On iPhone 17 Pro
+(402x874 points, 552x1200 screenshot) Open is at 275,474 and Cancel at
+127,474.
+
+**What to verify:**
+
+- `native-tap --at 5000,5000` exits 1 with `ERROR: coordinates <x>,<y> are
+  outside the screen (<W>x<H> points)` and taps nothing
+- The first screenshot shows the Settings app with the "Open in “Test App”?"
+  alert and Cancel / Open buttons
+- The tap prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y>` and no
+  `WARNING: iOS simulator HID tap unavailable` line. The first tap on a
+  machine takes a few extra seconds while the helper compiles
+- `describe` prints no `WARNING: App is not in the foreground` line and shows
+  the home screen (`SCREEN: fdb test app`)
+- The last screenshot shows the test app with no alert on top
+- If the alert never shows and the app opens directly, the approval
+  `defaults delete` did not run or failed; run it again before `openurl`
+- If the tap misses, check `describe` before tapping Cancel: with no alert up,
+  a tap at Cancel's position lands on a button in the app
+
+---
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

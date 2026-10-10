@@ -72,23 +72,33 @@ Future<int> _execute(ArgResults results) async {
   }
 
   final result = await nativeTap((x: x, y: y));
-  return _format(result);
+  return formatNativeTapResult(result);
 }
 
-int _format(NativeTapResult result) {
+/// Writes the stdout tokens / stderr lines for [result] and returns the exit code.
+int formatNativeTapResult(NativeTapResult result) {
   switch (result) {
     case NativeTapAndroid(:final x, :final y):
       stdout.writeln('NATIVE_TAPPED=android X=$x Y=$y');
       return 0;
-    case NativeTapIosSimulator(:final x, :final y, :final tapResult):
+    case NativeTapIosSimulator(:final x, :final y):
+      stdout.writeln('NATIVE_TAPPED=ios-simulator X=$x Y=$y');
+      return 0;
+    case NativeTapIosSimulatorFallback(:final x, :final y, :final reason, :final tapResult):
       stderr.writeln(
-        'WARNING: iOS simulator native-tap falls back to in-process tap '
-        '(UIApplication.sendEvent). SpringBoard-level system dialogs are unreachable.',
+        'WARNING: iOS simulator HID tap unavailable ($reason); fell back to in-process tap '
+        '(UIApplication.sendEvent), which cannot reach SpringBoard system dialogs.',
       );
       final tapExitCode = formatTapResult(tapResult);
       if (tapExitCode != 0) return tapExitCode;
       stdout.writeln('NATIVE_TAPPED=ios-simulator X=$x Y=$y');
       return 0;
+    case NativeTapIosSimulatorOutOfBounds(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
+    case NativeTapIosSimulatorFailed(:final message):
+      stderr.writeln('ERROR: $message');
+      return 1;
     case NativeTapNoSession():
       stderr.writeln('ERROR: No active fdb session found. Run fdb launch first.');
       return 1;
