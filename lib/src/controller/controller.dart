@@ -194,6 +194,45 @@ Future<void> publishDebugPort(
 
 void _ignoreError(Object _) {}
 
+/// How long the controller may take to shut down after SIGTERM: stopping the
+/// flutter tool ([stopFlutterProcess]) plus the log collector. Whoever sends
+/// SIGTERM to the controller should wait at least this long before escalating
+/// to SIGKILL, or the flutter tool is orphaned again.
+const controllerShutdownTimeout = Duration(seconds: 15);
+
+/// Stops the flutter tool [process] (`flutter run` / `flutter attach`) before
+/// the controller exits: SIGTERM, then SIGKILL if it is still alive after
+/// [exitTimeout].
+///
+/// This only detaches: the app keeps running. Stopping the app is the job of
+/// the `kill` controller command (`app.stop`), which `fdb kill` and
+/// `fdb launch` send before signalling the controller. Never throws.
+Future<void> stopFlutterProcess(
+  Process process, {
+  Duration exitTimeout = const Duration(seconds: 3),
+}) async {
+  var exited = false;
+  final exitFuture = process.exitCode.then((_) => exited = true);
+
+  Future<void> waitForExit(Duration timeout) async {
+    if (exited) return;
+    try {
+      await exitFuture.timeout(timeout);
+    } on TimeoutException {
+      // Still running; the caller escalates.
+    }
+  }
+
+  // Lets an already completed exitCode mark the process as exited, so a
+  // process that is already gone gets no signal.
+  await waitForExit(Duration.zero);
+  for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
+    if (exited) return;
+    process.kill(signal);
+    await waitForExit(exitTimeout);
+  }
+}
+
 class _FdbController implements ControllerContext {
   _FdbController(this.config);
 
@@ -211,6 +250,9 @@ class _FdbController implements ControllerContext {
   late final LogCollectorManager _logCollector;
   bool _running = false;
   bool _stopRequested = false;
+  bool _flutterExited = false;
+  Future<void>? _signalShutdown;
+  Future<void>? _finishing;
   int _nextId = 0;
   int _debugPortGeneration = 0;
 
@@ -265,18 +307,43 @@ class _FdbController implements ControllerContext {
     _stderrSub =
         _flutterProcess!.stderr.transform(tolerantUtf8.decoder).transform(const LineSplitter()).listen(_appendLogLine);
 
-    // A SIGTERM (e.g. from `fdb launch` replacing this session) would otherwise
-    // kill the controller without stopping its log collector.
+    // A SIGTERM (e.g. from `fdb launch` replacing this session) or SIGINT
+    // would otherwise kill the controller and leave the flutter tool and the
+    // log collector running with nobody owning them.
     // ProcessSignal.sigterm.watch() is not supported on Windows.
+    ProcessSignal.sigint.watch().listen((_) => _shutdownOnSignal(130));
     if (!Platform.isWindows) {
-      ProcessSignal.sigterm.watch().listen((_) async {
-        await _logCollector.stop();
-        _cleanupControllerFiles();
-        exit(143);
-      });
+      ProcessSignal.sigterm.watch().listen((_) => _shutdownOnSignal(143));
     }
 
     final exitCodeValue = await _flutterProcess!.exitCode;
+    _flutterExited = true;
+    final signalShutdown = _signalShutdown;
+    if (signalShutdown != null) {
+      // The signal handler is stopping things and exits on its own.
+      await signalShutdown;
+      return;
+    }
+    await _finish(_stopRequested && exitCodeValue == 0 ? 0 : exitCodeValue);
+  }
+
+  /// Stops the flutter tool child, then cleans up and exits with [code].
+  /// Runs at most once.
+  Future<void> _shutdownOnSignal(int code) {
+    return _signalShutdown ??= () async {
+      final process = _flutterProcess;
+      if (process != null && !_flutterExited) {
+        await stopFlutterProcess(process);
+      }
+      await _finish(code);
+    }();
+  }
+
+  /// Cleans up and exits with [code]. Runs at most once: `fdb kill` can send
+  /// SIGTERM while the controller is already finishing after flutter exited.
+  Future<void> _finish(int code) => _finishing ??= _cleanupAndExit(code);
+
+  Future<void> _cleanupAndExit(int code) async {
     await _logCollector.stop();
     await _stdoutSub?.cancel();
     await _stderrSub?.cancel();
@@ -284,10 +351,7 @@ class _FdbController implements ControllerContext {
     await _logSink.close();
     await _server.close();
     _cleanupControllerFiles();
-    if (_stopRequested && exitCodeValue == 0) {
-      exit(0);
-    }
-    exit(exitCodeValue);
+    exit(code);
   }
 
   Future<void> _acceptClients() async {

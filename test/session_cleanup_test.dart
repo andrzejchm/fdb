@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:fdb/core/commands/launch/launch.dart';
 import 'package:fdb/core/process_utils.dart';
+import 'package:fdb/src/controller/controller_command.dart';
 import 'package:fdb/src/controller/controller_response.dart';
 import 'package:fdb/src/controller/controller_transport.dart';
 import 'package:fdb/src/controller/session.dart';
@@ -35,11 +36,22 @@ void main() {
       await _expectProcessDead(session.controller);
       await _expectProcessDead(session.collector);
       _expectRuntimeFilesRemoved();
+      expect(session.commands, isNot(contains(ControllerCommand.kill)));
+    });
+
+    test('with stopApp asks the live controller to stop the app first', () async {
+      final session = await _seedSession(appAlive: true, controllerResponds: true);
+
+      await replacePreviousSession(stopApp: true);
+
+      expect(session.commands, contains(ControllerCommand.kill));
+      await _expectProcessDead(session.controller);
+      _expectRuntimeFilesRemoved();
     });
   });
 }
 
-typedef _SessionPids = ({int controller, int flutterTool, int collector});
+typedef _SessionPids = ({int controller, int flutterTool, int collector, List<ControllerCommand> commands});
 
 /// Seeds a temp session dir whose controller, flutter tool and log collector
 /// are `sleep` processes. The app PID is a live `sleep` when [appAlive],
@@ -68,9 +80,10 @@ Future<_SessionPids> _seedSession({required bool appAlive, required bool control
     app.kill(ProcessSignal.sigkill);
     await app.exitCode;
   }
+  final commands = <ControllerCommand>[];
   if (controllerResponds) {
     server.listen((socket) async {
-      await readControllerRequest(socket);
+      commands.add((await readControllerRequest(socket)).command);
       await writeControllerResponse(socket, ControllerResponse.success({'running': true}));
       await socket.close();
     });
@@ -87,7 +100,12 @@ Future<_SessionPids> _seedSession({required bool appAlive, required bool control
   File(controllerTokenFile).writeAsStringSync('token');
   File(vmUriFile).writeAsStringSync('ws://127.0.0.1:1/ws');
 
-  return (controller: processes[0].pid, flutterTool: processes[1].pid, collector: processes[2].pid);
+  return (
+    controller: processes[0].pid,
+    flutterTool: processes[1].pid,
+    collector: processes[2].pid,
+    commands: commands,
+  );
 }
 
 void _expectRuntimeFilesRemoved() {

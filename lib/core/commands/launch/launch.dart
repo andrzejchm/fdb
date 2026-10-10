@@ -12,6 +12,7 @@ import 'package:fdb/src/controller/fdb_controller.dart'
         ControllerCommand,
         ControllerCommandFailed,
         ControllerUnavailable,
+        controllerShutdownTimeout,
         getVmFromUri,
         sendControllerCommand;
 
@@ -54,7 +55,7 @@ Future<LaunchResult> launchApp(
     onProgress('launch: preparing session');
 
     initLaunchSession(project: project, sessionDir: input.sessionDir);
-    await replacePreviousSession(onProgress: onProgress);
+    await replacePreviousSession(stopApp: true, onProgress: onProgress);
 
     // Create .fdb/ session directory and persist device ID.
     ensureSessionDir();
@@ -304,10 +305,25 @@ List<String> readLogTail({int count = 10}) {
 /// A dead session (see [isPreviousSessionStale]) has its leftover controller,
 /// flutter tool and log collector processes terminated and waited for, and a
 /// single `WARNING:` line is reported through [onProgress]. A live session is
-/// replaced as before: its controller and log collector receive SIGTERM.
-Future<void> replacePreviousSession({void Function(String) onProgress = _noop}) async {
+/// replaced: with [stopApp] its app is first stopped through the controller
+/// (the `app.stop` path `fdb kill` uses), then its controller and log
+/// collector receive SIGTERM.
+///
+/// On SIGTERM the controller stops its `flutter run` / `flutter attach` child
+/// before exiting (the app keeps running), so it gets
+/// [controllerShutdownTimeout] before SIGKILL. `fdb launch` passes
+/// [stopApp] because it starts the app again anyway; `fdb attach` does not,
+/// as it may be attaching to the very app the previous session ran.
+Future<void> replacePreviousSession({
+  bool stopApp = false,
+  void Function(String) onProgress = _noop,
+}) async {
   if (await isPreviousSessionStale()) {
-    final pids = {readControllerPid(), readPid(), readLogCollectorPid()}.whereType<int>();
+    final controllerPid = readControllerPid();
+    if (controllerPid != null) {
+      await terminateProcess(controllerPid, timeout: controllerShutdownTimeout);
+    }
+    final pids = {readPid(), readLogCollectorPid()}.whereType<int>().where((pid) => pid != controllerPid);
     for (final pid in pids) {
       await terminateProcess(pid, timeout: const Duration(seconds: 3));
     }
@@ -316,11 +332,23 @@ Future<void> replacePreviousSession({void Function(String) onProgress = _noop}) 
     return;
   }
 
-  for (final pid in [readControllerPid(), readLogCollectorPid()].whereType<int>()) {
-    if (!isProcessAlive(pid)) continue;
+  if (stopApp) {
     try {
-      Process.killPid(pid, ProcessSignal.sigterm);
+      await sendControllerCommand(ControllerCommand.kill, timeout: const Duration(seconds: killTimeoutSeconds));
+    } catch (_) {
+      // Best effort: the controller is signalled below either way.
+    }
+  }
+
+  final logCollectorPid = readLogCollectorPid();
+  if (logCollectorPid != null && isProcessAlive(logCollectorPid)) {
+    try {
+      Process.killPid(logCollectorPid, ProcessSignal.sigterm);
     } catch (_) {}
+  }
+  final controllerPid = readControllerPid();
+  if (controllerPid != null) {
+    await terminateProcess(controllerPid, timeout: controllerShutdownTimeout);
   }
   cleanupLaunchSessionFiles();
 }
