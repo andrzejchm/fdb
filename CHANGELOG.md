@@ -1,3 +1,8 @@
+## 1.14.2
+
+### Fixes
+- The fdb skill (`fdb skill`) now covers native-tap for system dialogs and permission prompts: it lists `native-tap` in the command index and points agents to it instead of `fdb tap --at` for system dialogs. A short workflow covers prompts: pre-grant with `fdb grant-permission`, otherwise `fdb native-tap --text <button>`, then `fdb screenshot` to confirm. It also corrects the claim that native-tap coordinates match screenshot pixels (screenshots are downscaled).
+
 ## 1.14.1
 
 ### Fixes
