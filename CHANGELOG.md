@@ -1,3 +1,12 @@
+## Unreleased
+
+### Fixes
+- `fdb deeplink` on the iOS simulator ran `xcrun simctl openurl booted <url>`. With several simulators booted, simctl picked one of them, so the link could open on a simulator without the app and fail with `OSStatus error -10814`. It now opens on the session's simulator (`.fdb/device.txt`), resolved the same way as `fdb simulator`. On Android it runs `adb -s <session device>` instead of plain `adb`, so it no longer fails or hits the wrong device when several are connected.
+  - New `fdb deeplink <url> --device <id>` takes an iOS simulator UDID or an Android serial and overrides the session device. It works without a session.
+  - New errors: `ERROR: The session simulator <UDID> (<name>) is not booted ...` (and `ERROR: Simulator <UDID> (<name>) is not booted ...` for `--device`), and `ERROR: No iOS simulator or Android device with ID <id>. List devices with: fdb devices`.
+  - The other output tokens are unchanged.
+- `fdb screenshot` and `fdb grant-permission` on the iOS simulator fell back to simctl's `booted` alias when the session had no device recorded. They now use the only booted iOS simulator and fail with `ERROR: Multiple booted iOS simulators ...` (listing each) instead of guessing when several are booted. With a session device, they target it as before.
+
 ## 1.14.0
 
 ### Improvements

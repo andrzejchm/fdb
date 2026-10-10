@@ -157,7 +157,7 @@ Widget-targeted commands require `fdb_helper`; `native-tap` and `deeplink` do no
 | `fdb swipe <direction> [--key/--text/--type <selector>] [--precision px]` | Swipe widget (PageView, Dismissible) |
 | `fdb swipe-path --points "x1,y1;x2,y2;..." [--precision px]` | Dispatch a freeform multi-point gesture as a single continuous stroke (drawing/handwriting/signature) |
 | `fdb back` | Press the system back button, like the Android back button |
-| `fdb deeplink <url>` | Open a deep link |
+| `fdb deeplink <url> [--device <id>]` | Open a deep link on the session's device (`--device`: an iOS simulator UDID or Android serial) |
 
 **iOS Simulator** *(no running app required. Every subcommand accepts `--device <udid>` after the action; without it, fdb uses the session's simulator, else the only booted one, and fails listing the candidates if several are booted.)*
 
