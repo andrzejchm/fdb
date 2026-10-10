@@ -72,6 +72,7 @@ class IosAxSnapshot {
     required this.screenWidth,
     required this.screenHeight,
     required this.elements,
+    this.complete = true,
   });
 
   /// `portrait`, `portraitUpsideDown`, `landscapeRight` or `landscapeLeft`.
@@ -84,6 +85,10 @@ class IosAxSnapshot {
   /// Depth-first; the application element first. Empty while the frontmost
   /// application is not known yet.
   final List<IosAxElement> elements;
+
+  /// False when the helper may have missed elements: an accessibility
+  /// request timed out, or the tree was larger than it reads.
+  final bool complete;
 }
 
 /// Outcome of [parseIosSimulatorAccessibility].
@@ -124,6 +129,7 @@ IosAxParse parseIosSimulatorAccessibility(String raw) {
       orientation: decoded['orientation'] is String ? decoded['orientation'] as String : '',
       screenWidth: width,
       screenHeight: height,
+      complete: decoded['complete'] != false,
       elements: [
         for (final e in elements)
           if (e is Map) _element(e),
@@ -215,6 +221,13 @@ List<String> iosAxVisibleLabels(IosAxSnapshot snapshot) {
     if (label.isNotEmpty && seen.add(label)) labels.add(label);
   }
   return labels;
+}
+
+/// True when elements carry labels but none has a frame the helper could map
+/// to the screen, so nothing can be tapped by label.
+bool iosAxLabelsWithoutFrames(IosAxSnapshot snapshot) {
+  final labelled = snapshot.elements.where((e) => !e.isApplication && e.label.isNotEmpty);
+  return labelled.isNotEmpty && labelled.every((e) => e.frame == null);
 }
 
 /// Not the application element, with a non-empty frame whose center is on

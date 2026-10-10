@@ -88,12 +88,38 @@ class NativeTapIosSimulatorFailed extends NativeTapResult {
   final String message;
 }
 
-/// `--text` on the iOS simulator could not read the accessibility tree (or
-/// the helper could not tap). Nothing was tapped, and there is no in-process
-/// fallback for `--text`.
+/// `--text` on the iOS simulator can't read the accessibility tree, and
+/// retrying won't help (no Xcode toolchain, unknown simulator, a
+/// CoreSimulator without the accessibility API). Nothing was tapped, and
+/// there is no in-process fallback for `--text`.
 class NativeTapIosSimulatorAccessibilityUnavailable extends NativeTapResult {
   const NativeTapIosSimulatorAccessibilityUnavailable(this.reason);
   final String reason;
+}
+
+/// `--text` on the iOS simulator kept failing to read the accessibility
+/// tree until the timeout (e.g. reads timed out). [reason] is the last
+/// failure. Nothing was tapped.
+class NativeTapIosSimulatorTreeUnreadable extends NativeTapResult {
+  const NativeTapIosSimulatorTreeUnreadable(this.reason);
+  final String reason;
+}
+
+/// `--text` on the iOS simulator found a match but could not tap it, or has
+/// no simulator to tap. Nothing was tapped.
+class NativeTapIosSimulatorTapUnavailable extends NativeTapResult {
+  const NativeTapIosSimulatorTapUnavailable(this.reason);
+  final String reason;
+}
+
+/// The iOS simulator accessibility tree had labels, but the helper could
+/// not tell where on the screen they are (frames it could not map from the
+/// owning app's orientation), so nothing can be tapped by label.
+class NativeTapIosSimulatorFramesUnmapped extends NativeTapResult {
+  const NativeTapIosSimulatorFramesUnmapped({required this.query, required this.orientation, required this.labels});
+  final String query;
+  final String orientation;
+  final List<String> labels;
 }
 
 /// No active fdb session found.

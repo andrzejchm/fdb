@@ -64,9 +64,11 @@ typedef HidProcessRunner = Future<HidProcessOutput> Function(
 
 const _compileTimeout = Duration(seconds: 180);
 const _tapTimeout = Duration(seconds: 15);
-// The first accessibility query on a freshly booted simulator took up to
-// 7.5 s on an M-series Mac; later ones take about 0.2 s.
-const _describeTimeout = Duration(seconds: 30);
+
+/// Default limit for one `describe` run. The first accessibility query on a
+/// freshly booted simulator took up to 7.5 s on an M-series Mac; later ones
+/// take about 0.2 s.
+const iosSimulatorDescribeTimeout = Duration(seconds: 30);
 const _toolTimeout = Duration(seconds: 15);
 const _outOfBoundsExitCode = 3;
 const _partialDeliveryExitCode = 4;
@@ -180,6 +182,25 @@ bool iosSimulatorPointInBounds(
       IosSimulatorOrientation.landscapeLeft => (x: portraitWidth - y, y: x),
     };
 
+/// Rotates ([x], [y]) from the portrait frame back into the current
+/// orientation's frame: the inverse of [iosSimulatorPortraitPoint].
+///
+/// Mirrors `describeInterfacePoint` in the Swift helper, which uses it to
+/// map SpringBoard's portrait frames over a landscape app; keep both in sync.
+({double x, double y}) iosSimulatorInterfacePoint(
+  IosSimulatorOrientation orientation, {
+  required double x,
+  required double y,
+  required double portraitWidth,
+  required double portraitHeight,
+}) =>
+    switch (orientation) {
+      IosSimulatorOrientation.portrait => (x: x, y: y),
+      IosSimulatorOrientation.portraitUpsideDown => (x: portraitWidth - x, y: portraitHeight - y),
+      IosSimulatorOrientation.landscapeRight => (x: portraitHeight - y, y: x),
+      IosSimulatorOrientation.landscapeLeft => (x: y, y: portraitWidth - x),
+    };
+
 /// Taps ([x], [y]) in points on the booted simulator [udid]. The point is in
 /// the current interface orientation, like screenshots and `fdb tap --at`.
 ///
@@ -252,26 +273,36 @@ class IosSimulatorDescribed extends IosSimulatorDescribeResult {
 }
 
 /// The helper could not tell how the simulator is rotated (exit code 5), so
-/// it could not map the frames.
+/// it could not map the frames. Usually brief (boot, rotation): retry.
 class IosSimulatorDescribeOrientationUnknown extends IosSimulatorDescribeResult {
   const IosSimulatorDescribeOrientationUnknown(this.message);
   final String message;
 }
 
-/// The accessibility tree cannot be read: no toolchain, unknown simulator,
-/// a CoreSimulator without the accessibility API, and so on.
+/// This read failed but the next one may work: it timed out, or the helper
+/// exited in an unexpected way.
+class IosSimulatorDescribeFailed extends IosSimulatorDescribeResult {
+  const IosSimulatorDescribeFailed(this.reason);
+  final String reason;
+}
+
+/// The accessibility tree cannot be read and retrying won't help: no
+/// toolchain, the helper doesn't build, unknown or shut down simulator, a
+/// CoreSimulator without the accessibility API (helper exit code 1).
 class IosSimulatorDescribeUnavailable extends IosSimulatorDescribeResult {
   const IosSimulatorDescribeUnavailable(this.reason);
   final String reason;
 }
 
 /// Reads the accessibility tree of the frontmost application on the booted
-/// simulator [udid] (SpringBoard while a system alert is up).
+/// simulator [udid] (SpringBoard while a system alert is up). The helper is
+/// killed after [timeout]; compiling it on first use has its own limit.
 ///
 /// [environment], [runner] and [cacheDir] are injectable for tests.
 /// Never throws.
 Future<IosSimulatorDescribeResult> iosSimulatorDescribe({
   required String udid,
+  Duration timeout = iosSimulatorDescribeTimeout,
   Map<String, String>? environment,
   HidProcessRunner? runner,
   String? cacheDir,
@@ -280,10 +311,8 @@ Future<IosSimulatorDescribeResult> iosSimulatorDescribe({
     final output = await _runHelperCommand(
       command: 'describe',
       arguments: [udid],
-      timeout: _describeTimeout,
-      onTimeout: () => _HidUnavailable(
-        'reading the accessibility tree timed out after ${_describeTimeout.inSeconds}s',
-      ),
+      timeout: timeout,
+      onTimeout: () => _HidRetryable('reading the accessibility tree timed out after ${timeout.inSeconds}s'),
       environment: environment,
       runner: runner,
       cacheDir: cacheDir,
@@ -297,13 +326,16 @@ Future<IosSimulatorDescribeResult> iosSimulatorDescribe({
         );
     }
     final message = extractHidErrorMessage(output.stderr) ?? _stripErrorPrefix(_tail(output.stderr));
-    return IosSimulatorDescribeUnavailable(
-      message.isEmpty ? 'helper exited with code ${output.exitCode}' : message,
-    );
+    final reason = message.isEmpty ? 'helper exited with code ${output.exitCode}' : message;
+    // Exit code 1 is the helper's own diagnosis (unknown simulator, missing
+    // API...). Anything else, e.g. a crash, may not happen again.
+    return output.exitCode == 1 ? IosSimulatorDescribeUnavailable(reason) : IosSimulatorDescribeFailed(reason);
+  } on _HidRetryable catch (e) {
+    return IosSimulatorDescribeFailed(e.reason);
   } on _HidUnavailable catch (e) {
     return IosSimulatorDescribeUnavailable(e.reason);
   } catch (e) {
-    return IosSimulatorDescribeUnavailable('helper failed: $e');
+    return IosSimulatorDescribeFailed('helper failed: $e');
   }
 }
 
@@ -339,6 +371,12 @@ Future<HidProcessOutput> runHidProcess(String executable, List<String> arguments
 
 class _HidUnavailable implements Exception {
   const _HidUnavailable(this.reason);
+  final String reason;
+}
+
+/// A describe run timed out; the next one may work.
+class _HidRetryable implements Exception {
+  const _HidRetryable(this.reason);
   final String reason;
 }
 

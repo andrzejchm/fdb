@@ -112,6 +112,35 @@ void main() {
       }
     });
 
+    test('interface point is the inverse of portrait point in every orientation', () {
+      for (final o in IosSimulatorOrientation.values) {
+        final size = iosSimulatorOrientedSize(o, portraitWidth: w, portraitHeight: h);
+        for (final point in [(0.0, 0.0), (size.width, size.height), (358.0, 30.0), (12.5, size.height - 7)]) {
+          final p = portrait(o, point.$1, point.$2);
+          final back = iosSimulatorInterfacePoint(o, x: p.x, y: p.y, portraitWidth: w, portraitHeight: h);
+          expect((back.x, back.y), (point.$1, point.$2), reason: '$o $point');
+        }
+      }
+      // SpringBoard's Allow button centre, reported in portrait over a landscapeRight app.
+      expect(
+        iosSimulatorInterfacePoint(IosSimulatorOrientation.landscapeRight,
+            x: 257.5, y: 363, portraitWidth: w, portraitHeight: h),
+        (x: 511.0, y: 257.5),
+      );
+    });
+
+    test('Swift describe uses the same inverse formulas', () {
+      expect(
+        iosSimulatorHidSource.replaceAll(RegExp(r'\s+'), ' '),
+        allOf(
+          contains('case 2: return CGPoint(x: widthPoints - point.x, y: heightPoints - point.y)'),
+          contains('case 3: return CGPoint(x: heightPoints - point.y, y: point.x)'),
+          contains('case 4: return CGPoint(x: point.y, y: widthPoints - point.x)'),
+          contains('Keep in sync with `iosSimulatorInterfacePoint`'),
+        ),
+      );
+    });
+
     test('oriented size swaps width and height in landscape only', () {
       for (final o in IosSimulatorOrientation.values) {
         final size = iosSimulatorOrientedSize(o, portraitWidth: w, portraitHeight: h);

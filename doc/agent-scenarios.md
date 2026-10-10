@@ -1219,7 +1219,9 @@ sleep 2
 dart ../../bin/fdb.dart screenshot
 dart ../../bin/fdb.dart native-tap --text "Open in \"Test App\"?" --timeout 0 --index 1
 dart ../../bin/fdb.dart native-tap --text Cancel
-dart ../../bin/fdb.dart native-tap --text Cancel --timeout 1
+sleep 1
+# an --index no alert has: reports the alert without tapping it
+dart ../../bin/fdb.dart native-tap --text Cancel --index 9 --timeout 0
 xcrun simctl openurl "$UDID" "fdbtest://native-tap-springboard"
 sleep 2
 dart ../../bin/fdb.dart native-tap --text Open
@@ -1249,8 +1251,9 @@ points, 552x1200 screenshot) Open is at 275,474 and Cancel at 127,474.
   quotes matched the alert's curly ones, and nothing was tapped
 - `--text Cancel` prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y>
   TEXT="Cancel"` (127,474 on iPhone 17 Pro) and no `WARNING:` line; the
-  second `--text Cancel` exits 1 with `ERROR: No native element matching
-  "Cancel"` and lists Settings labels, because the alert is gone
+  `--index 9` call exits 1 with `ERROR: No native element matching
+  "Cancel"` and lists Settings labels, because the alert is gone (with the
+  alert still up it would print `ERROR: --index 9 is out of range`)
 - `--text Open` prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y> TEXT="Open"`
 - `describe` prints no `WARNING: App is` line and shows the home screen
   (`SCREEN: fdb test app`)

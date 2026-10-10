@@ -106,6 +106,64 @@ void main() {
     });
   });
 
+  group('native-tap CLI iOS simulator --text errors', () {
+    test('tree unreadable until the deadline', () {
+      final out = _capture(
+        () => formatNativeTapResult(
+          const NativeTapIosSimulatorTreeUnreadable('reading the accessibility tree timed out after 10s'),
+        ),
+      );
+
+      expect(out.exitCode, 1);
+      expect(
+        out.stderr,
+        'ERROR: native-tap --text could not read the iOS simulator accessibility tree '
+        '(reading the accessibility tree timed out after 10s).\n',
+      );
+    });
+
+    test('tap unavailable after a match', () {
+      final out = _capture(
+        () => formatNativeTapResult(
+            const NativeTapIosSimulatorTapUnavailable('no simulator UDID recorded for this session')),
+      );
+
+      expect(out.exitCode, 1);
+      expect(
+        out.stderr,
+        'ERROR: native-tap --text could not tap on the iOS simulator (no simulator UDID recorded for this session).\n',
+      );
+    });
+
+    test('labels without mappable frames', () {
+      final out = _capture(
+        () => formatNativeTapResult(
+          const NativeTapIosSimulatorFramesUnmapped(query: 'Allow', orientation: 'landscapeLeft', labels: ['Allow']),
+        ),
+      );
+
+      expect(out.exitCode, 1);
+      expect(
+        out.stderr,
+        'ERROR: native-tap --text could not place the native elements on the iOS simulator screen (landscapeLeft), '
+        'so "Allow" can\'t be tapped by label. Rotate the simulator to portrait, or tap with --at x,y. '
+        'Labels: "Allow"\n',
+      );
+    });
+
+    test('macOS with --text suggests fdb tap --text', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapMacosUnsupported(x: null, y: null)));
+
+      expect(out.stderr, contains('Use `fdb tap --text <label>` instead'));
+    });
+
+    test('macOS with coordinates suggests fdb tap --at', () {
+      final out = _capture(() => formatNativeTapResult(const NativeTapMacosUnsupported(x: 1, y: 2)));
+
+      expect(out.stderr, contains('Use `fdb tap --at 1.0,2.0` instead'));
+    });
+  });
+
   group('native-tap CLI Android output', () {
     test('coordinate tap keeps the original token', () {
       final out = _capture(() => formatNativeTapResult(const NativeTapAndroid(x: 1275, y: 2974)));

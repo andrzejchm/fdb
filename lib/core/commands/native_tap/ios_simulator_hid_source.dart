@@ -213,27 +213,31 @@ let frameHeight = landscape ? widthPoints : heightPoints
 // and blocks until the response arrives.
 //
 // Output, one JSON object with sorted keys:
-//   {"orientation": "portrait", "screen": {"width": W, "height": H},
+//   {"orientation": "portrait", "screen": {"width": W, "height": H}, "complete": true,
 //    "elements": [{"label", "role", "identifier"?, "value"?, "enabled",
 //                  "pid", "depth", "frame": {"x", "y", "width", "height"} | null}]}
 // Elements are in depth-first order, the application element first. Frames
 // are in points in the current interface orientation (W x H), the frame the
 // tap command takes. A frame is null when it could not be mapped there.
 // "elements" is empty when there is no frontmost application yet.
+// "complete" is false when an accessibility request timed out or the walk
+// stopped at the element or depth cap, so elements may be missing.
+//
+// Only object, BOOL and integer returns go through objc_msgSend. Struct
+// returns such as accessibilityFrame are read with KVC, which boxes them in
+// NSValue: on x86_64 a CGRect return would need objc_msgSend_stret.
 
 typealias SendAXRequestFn = @convention(c) (AnyObject, Selector, AnyObject, DispatchQueue, AnyObject) -> Void
 typealias FrontmostFn = @convention(c) (AnyObject, Selector, UInt32, NSString) -> AnyObject?
 typealias ObjectAtPointFn = @convention(c) (AnyObject, Selector, CGPoint, UInt32, NSString) -> AnyObject?
 typealias ObjectToObjectFn = @convention(c) (AnyObject, Selector, AnyObject) -> AnyObject?
 typealias ObjectGetterFn = @convention(c) (AnyObject, Selector) -> AnyObject?
-typealias RectGetterFn = @convention(c) (AnyObject, Selector) -> CGRect
 typealias BoolGetterFn = @convention(c) (AnyObject, Selector) -> Bool
 let sendAXRequest = unsafeBitCast(msgSend, to: SendAXRequestFn.self)
 let frontmostFn = unsafeBitCast(msgSend, to: FrontmostFn.self)
 let objectAtPointFn = unsafeBitCast(msgSend, to: ObjectAtPointFn.self)
 let objectToObjectFn = unsafeBitCast(msgSend, to: ObjectToObjectFn.self)
 let objectGetterFn = unsafeBitCast(msgSend, to: ObjectGetterFn.self)
-let rectGetterFn = unsafeBitCast(msgSend, to: RectGetterFn.self)
 let boolGetterFn = unsafeBitCast(msgSend, to: BoolGetterFn.self)
 
 let sendAXSelector = NSSelectorFromString("sendAccessibilityRequestAsync:completionQueue:completionHandler:")
@@ -245,6 +249,23 @@ let setTokenSelector = NSSelectorFromString("setBridgeDelegateToken:")
 // thread the translator call is blocked on.
 let accessibilityQueue = DispatchQueue(label: "fdb.ios-simulator-accessibility")
 let bridgeToken = UUID().uuidString
+
+/// Set when the tree read may be missing elements.
+final class DescribeProgress: @unchecked Sendable {
+  private let lock = NSLock()
+  private var incompleteValue = false
+  var incomplete: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return incompleteValue
+  }
+  func markIncomplete() {
+    lock.lock()
+    incompleteValue = true
+    lock.unlock()
+  }
+}
+let describeProgress = DescribeProgress()
 
 /// Calls the getter [name] on [object], or returns nil when it has none.
 /// Every selector is checked first: messaging a missing one raises and aborts.
@@ -269,7 +290,9 @@ final class TranslationDelegate: NSObject {
         guard let responseClass = NSClassFromString("AXPTranslatorResponse") else { return nil }
         return getObject(responseClass, "emptyResponse")
       }
-      guard let request else { return emptyResponse() }
+      // After one timeout the tree is incomplete anyway; answer the rest
+      // at once instead of waiting 5 s for each.
+      guard let request, !describeProgress.incomplete else { return emptyResponse() }
       let done = DispatchSemaphore(value: 0)
       var response: AnyObject?
       let completion: @convention(block) (AnyObject?) -> Void = { inner in
@@ -278,6 +301,7 @@ final class TranslationDelegate: NSObject {
       }
       sendAXRequest(device, sendAXSelector, request, accessibilityQueue, completion as AnyObject)
       if done.wait(timeout: .now() + 5) == .timedOut {
+        describeProgress.markIncomplete()
         return emptyResponse()
       }
       return response ?? emptyResponse()
@@ -325,10 +349,17 @@ func ownerPid(_ element: AnyObject) -> Int32 {
   return pid.int32Value
 }
 
+func accessibilityFrame(_ element: AnyObject) -> CGRect {
+  guard element.responds(to: NSSelectorFromString("accessibilityFrame")),
+    let object = element as? NSObject,
+    let value = object.value(forKey: "accessibilityFrame") as? NSValue
+  else { return .zero }
+  return value.rectValue
+}
+
 func readElement(_ element: AnyObject, depth: Int) -> AccessibilityElement {
   setBridgeToken(element)
   let enabledSelector = NSSelectorFromString("isAccessibilityEnabled")
-  let frameSelector = NSSelectorFromString("accessibilityFrame")
   return AccessibilityElement(
     depth: depth,
     label: accessibilityString(element, "accessibilityLabel"),
@@ -337,7 +368,7 @@ func readElement(_ element: AnyObject, depth: Int) -> AccessibilityElement {
     identifier: accessibilityString(element, "accessibilityIdentifier"),
     enabled: element.responds(to: enabledSelector) ? boolGetterFn(element, enabledSelector) : true,
     pid: ownerPid(element),
-    rawFrame: element.responds(to: frameSelector) ? rectGetterFn(element, frameSelector) : .zero
+    rawFrame: accessibilityFrame(element)
   )
 }
 
@@ -354,9 +385,20 @@ let maxElements = 3000
 let maxDepth = 64
 
 func walk(_ element: AnyObject, depth: Int, into elements: inout [AccessibilityElement]) {
-  guard elements.count < maxElements else { return }
-  elements.append(readElement(element, depth: depth))
-  guard depth < maxDepth, let children = getObject(element, "accessibilityChildren") as? [AnyObject] else { return }
+  guard elements.count < maxElements else {
+    describeProgress.markIncomplete()
+    return
+  }
+  // Each read creates autoreleased proxies; drain them per element.
+  let children: [AnyObject] = autoreleasepool {
+    elements.append(readElement(element, depth: depth))
+    return getObject(element, "accessibilityChildren") as? [AnyObject] ?? []
+  }
+  guard !children.isEmpty else { return }
+  guard depth < maxDepth else {
+    describeProgress.markIncomplete()
+    return
+  }
   for child in children {
     walk(child, depth: depth + 1, into: &elements)
   }
@@ -373,6 +415,7 @@ func describePortraitPoint(_ point: CGPoint) -> CGPoint {
 }
 
 // Portrait point to interface point, the inverse of describePortraitPoint.
+// Keep in sync with `iosSimulatorInterfacePoint` in ios_simulator_hid.dart.
 func describeInterfacePoint(_ point: CGPoint) -> CGPoint {
   switch orientation {
   case 2: return CGPoint(x: widthPoints - point.x, y: heightPoints - point.y)
@@ -399,36 +442,52 @@ enum FrameSpace {
 }
 
 // A process reports frames in its own interface orientation. SpringBoard on
-// iPhone stays portrait even over a landscape app, so in landscape decide per
-// process whether its frames are already in the interface orientation or
-// still portrait: hit-test the centre of a few small elements under both
-// readings and keep the one that finds the element again. Hit-tests take
-// portrait points.
+// iPhone stays portrait even over a landscape app, so outside portrait decide
+// per process whether its frames are already in the interface orientation or
+// still portrait: hit-test the centre of small elements under both readings
+// and keep the one that finds the element again. Hit-tests take portrait
+// points. When no hit-test decides, fall back to geometry: if every frame
+// fits on screen under one reading only, use that one. The application
+// element's own frame is no guide: SpringBoard's reports the rotated screen
+// while its alert's frames are portrait.
 func frameSpaces(_ translator: AnyObject, _ elements: [AccessibilityElement]) -> [Int32: FrameSpace] {
+  let interfaceScreen = CGRect(x: 0, y: 0, width: frameWidth, height: frameHeight)
+  let portraitScreen = CGRect(x: 0, y: 0, width: widthPoints, height: heightPoints)
   var spaces: [Int32: FrameSpace] = [:]
   for pid in Set(elements.map { $0.pid }) {
     if orientation == 1 {
       spaces[pid] = .interface
       continue
     }
-    let candidates = elements.dropFirst()
+    let framed = elements.dropFirst()
       .filter { $0.pid == pid && $0.rawFrame.width > 0 && $0.rawFrame.height > 0 }
+    let candidates = framed
       .sorted { $0.rawFrame.width * $0.rawFrame.height < $1.rawFrame.width * $1.rawFrame.height }
-      .prefix(3)
+      .prefix(8)
     var space = FrameSpace.unresolved
     for candidate in candidates {
       let centre = CGPoint(x: candidate.rawFrame.midX, y: candidate.rawFrame.midY)
-      let readings: [(FrameSpace, CGPoint)] = [(.interface, describePortraitPoint(centre)), (.portrait, centre)]
+      var readings: [(FrameSpace, CGPoint)] = []
+      if interfaceScreen.contains(centre) { readings.append((.interface, describePortraitPoint(centre))) }
+      if portraitScreen.contains(centre) { readings.append((.portrait, centre)) }
       for (reading, point) in readings {
-        let translation = objectAtPointFn(translator, objectAtPointSelector, point, 0, bridgeToken as NSString)
-        guard let hit = platformElement(translator, translation) else { continue }
-        let hitElement = readElement(hit, depth: 0)
-        if hitElement.pid == pid, sameFrame(hitElement.rawFrame, candidate.rawFrame) {
+        let found: Bool = autoreleasepool {
+          let translation = objectAtPointFn(translator, objectAtPointSelector, point, 0, bridgeToken as NSString)
+          guard let hit = platformElement(translator, translation) else { return false }
+          let hitElement = readElement(hit, depth: 0)
+          return hitElement.pid == pid && sameFrame(hitElement.rawFrame, candidate.rawFrame)
+        }
+        if found {
           space = reading
           break
         }
       }
       if space != .unresolved { break }
+    }
+    if space == .unresolved, !framed.isEmpty {
+      let fitsInterface = framed.allSatisfy { interfaceScreen.insetBy(dx: -1, dy: -1).contains($0.rawFrame) }
+      let fitsPortrait = framed.allSatisfy { portraitScreen.insetBy(dx: -1, dy: -1).contains($0.rawFrame) }
+      if fitsInterface != fitsPortrait { space = fitsInterface ? .interface : .portrait }
     }
     spaces[pid] = space
   }
@@ -498,6 +557,7 @@ func describeScreen() -> Never {
   let document: [String: Any] = [
     "orientation": orientationName,
     "screen": ["width": frameWidth, "height": frameHeight],
+    "complete": !describeProgress.incomplete,
     "elements": items,
   ]
   guard JSONSerialization.isValidJSONObject(document),

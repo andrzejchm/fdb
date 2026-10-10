@@ -20,12 +20,6 @@ typedef AppDevicePixelRatioReader = Future<double?> Function();
 String androidUiDumpFileFor({required int pid, required int timestampMs}) =>
     '/data/local/tmp/fdb_window_dump_${pid}_$timestampMs.xml';
 
-const _pollInterval = Duration(milliseconds: 300);
-
-/// `--timeout` for `--text` when none is given, same as `fdb tap`. Shared
-/// with the iOS simulator.
-const defaultNativeTapTextTimeoutSeconds = 5;
-
 /// Android side of `fdb native-tap`: by coordinates (`--at`, optionally
 /// `--logical`) or by label (`--text`).
 ///
@@ -241,7 +235,7 @@ Future<NativeTapResult> _tapByText({
         }
     }
     if (!now().isBefore(deadline)) break;
-    await sleep(_pollInterval);
+    await sleep(nativeTapTextPollInterval);
   }
 
   if (lastLabels == null) return NativeTapUiDumpFailed(lastDumpError ?? 'no window dump');

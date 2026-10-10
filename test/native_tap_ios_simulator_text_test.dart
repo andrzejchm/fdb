@@ -225,8 +225,10 @@ void main() {
     late IosSimulatorHidResult tapResult;
     late DateTime clock;
     late int describes;
+    late List<Duration> readTimeouts;
 
     setUp(() {
+      readTimeouts = [];
       trees = [];
       taps = [];
       tapResult = const IosSimulatorHidTapped();
@@ -238,9 +240,10 @@ void main() {
         nativeTapIosSimulatorText(
           (x: null, y: null, text: text, index: index, timeoutSeconds: timeout, logical: false),
           udid: udid,
-          describe: (u) async {
+          describe: (u, readTimeout) async {
             expect(u, 'UDID');
             describes++;
+            readTimeouts.add(readTimeout);
             final next = trees.length > 1 ? trees.removeAt(0) : trees.single;
             return next is IosSimulatorDescribeResult ? next : IosSimulatorDescribed(next as String);
           },
@@ -351,27 +354,129 @@ void main() {
       expect(taps, isEmpty);
     });
 
-    test('unknown orientation fails at once', () async {
+    test('an unknown orientation is retried', () async {
+      trees = [const IosSimulatorDescribeOrientationUnknown('cannot tell'), _openInAlert];
+
+      expect(await run('Open'), isA<NativeTapIosSimulator>().having((r) => r.text, 'text', 'Open'));
+      expect(describes, 2);
+    });
+
+    test('an unknown orientation until the deadline is reported', () async {
       trees = [const IosSimulatorDescribeOrientationUnknown('cannot tell')];
 
       expect(
-        await run('Allow'),
+        await run('Allow', timeout: 1),
         isA<NativeTapIosSimulatorOrientationUnknown>().having((r) => r.message, 'message', 'cannot tell'),
+      );
+      expect(describes, 5);
+    });
+
+    test('failed reads are retried and the last failure is reported at the deadline', () async {
+      trees = [
+        const IosSimulatorDescribeFailed('first'),
+        'garbage',
+        const IosSimulatorDescribeFailed('reading the accessibility tree timed out after 10s'),
+      ];
+
+      expect(
+        await run('Allow', timeout: 0),
+        isA<NativeTapIosSimulatorTreeUnreadable>().having((r) => r.reason, 'reason', 'first'),
+      );
+      expect(
+        await run('Allow', timeout: 0),
+        isA<NativeTapIosSimulatorTreeUnreadable>()
+            .having((r) => r.reason, 'reason', startsWith('the accessibility tree is not valid JSON')),
+      );
+      expect(
+        await run('Allow', timeout: 1),
+        isA<NativeTapIosSimulatorTreeUnreadable>().having((r) => r.reason, 'reason', contains('timed out')),
       );
     });
 
-    test('invalid JSON is reported as unavailable', () async {
-      trees = ['garbage'];
+    test('a failed read followed by the alert taps', () async {
+      trees = [const IosSimulatorDescribeFailed('crashed'), _notificationAlert];
+
+      expect(await run('Allow'), isA<NativeTapIosSimulator>());
+    });
+
+    test('a newer no-match replaces an earlier failure', () async {
+      trees = [const IosSimulatorDescribeFailed('crashed'), _openInAlert];
+
+      expect(await run('Allow', timeout: 1), isA<NativeTapNoMatch>());
+    });
+
+    test('each read gets the time left, but at least 10 s', () async {
+      trees = [_notReady];
+
+      await run('Allow', timeout: 30);
+
+      expect(readTimeouts.first, const Duration(seconds: 30));
+      expect(readTimeouts.last, const Duration(seconds: 10));
+      expect(readTimeouts.every((t) => t >= const Duration(seconds: 10)), isTrue);
+    });
+
+    group('incomplete trees', () {
+      String incomplete(String json) => json.replaceFirst('{', '{"complete":false,');
+
+      test('ambiguity waits for a complete read', () async {
+        trees = [
+          incomplete(_flutterApp),
+          _tree([_element('Save')])
+        ];
+
+        expect(await run('Save'), isA<NativeTapIosSimulator>());
+        expect(describes, 2);
+      });
+
+      test('ambiguity is reported at the deadline', () async {
+        trees = [incomplete(_flutterApp)];
+
+        expect(await run('Save', timeout: 1), isA<NativeTapAmbiguous>());
+        expect(taps, isEmpty);
+      });
+
+      test('--index waits, then taps at the deadline', () async {
+        trees = [incomplete(_flutterApp)];
+
+        final result = await run('Save', index: 1, timeout: 1);
+
+        expect(result, isA<NativeTapIosSimulator>().having((r) => (r.x, r.y), 'point', (201, 766)));
+        expect(describes, 5);
+      });
+
+      test('a single match without --index taps at once', () async {
+        trees = [incomplete(_openInAlert)];
+
+        expect(await run('Open'), isA<NativeTapIosSimulator>());
+        expect(describes, 1);
+      });
+
+      test('the parser reads the flag', () {
+        expect(_snapshot(_openInAlert).complete, isTrue);
+        expect(_snapshot(incomplete(_openInAlert)).complete, isFalse);
+      });
+    });
+
+    test('labels without mappable frames are a dedicated error at the deadline', () async {
+      trees = [
+        _tree([_element('Allow', nullFrame: true), _element('Deny', nullFrame: true)])
+      ];
+
+      final result = await run('Allow', timeout: 0);
 
       expect(
-        await run('Allow'),
-        isA<NativeTapIosSimulatorAccessibilityUnavailable>()
-            .having((r) => r.reason, 'reason', startsWith('the accessibility tree is not valid JSON')),
+        result,
+        isA<NativeTapIosSimulatorFramesUnmapped>().having((r) => r.labels, 'labels', ['Allow', 'Deny']).having(
+            (r) => r.orientation, 'orientation', 'portrait'),
       );
     });
 
     test('no simulator UDID', () async {
-      expect(await run('Allow', udid: null), isA<NativeTapIosSimulatorAccessibilityUnavailable>());
+      expect(
+        await run('Allow', udid: null),
+        isA<NativeTapIosSimulatorTapUnavailable>()
+            .having((r) => r.reason, 'reason', 'no simulator UDID recorded for this session'),
+      );
     });
 
     test('tap failures map to the coordinate tap results', () async {
@@ -386,7 +491,7 @@ void main() {
       tapResult = const IosSimulatorHidUnavailable('xcrun not available');
       expect(
         await run('Open'),
-        isA<NativeTapIosSimulatorAccessibilityUnavailable>().having((r) => r.reason, 'reason', 'xcrun not available'),
+        isA<NativeTapIosSimulatorTapUnavailable>().having((r) => r.reason, 'reason', 'xcrun not available'),
       );
     });
   });
@@ -395,6 +500,7 @@ void main() {
     late Directory cacheDir;
     late List<List<String>> calls;
     late Object helperOutput;
+    late Duration lastTimeout;
 
     setUp(() async {
       cacheDir = await Directory.systemTemp.createTemp('fdb-describe-test-');
@@ -406,6 +512,7 @@ void main() {
 
     Future<HidProcessOutput> runner(String executable, List<String> arguments, Duration timeout) async {
       calls.add([executable, ...arguments]);
+      if (executable != 'xcrun') lastTimeout = timeout;
       if (executable == 'xcrun') {
         await File(arguments.last).writeAsString('binary');
         return (exitCode: 0, stdout: '', stderr: '');
@@ -416,6 +523,7 @@ void main() {
 
     Future<IosSimulatorDescribeResult> describe() => iosSimulatorDescribe(
           udid: 'UDID',
+          timeout: const Duration(seconds: 12),
           environment: {'DEVELOPER_DIR': '/dev/dir'},
           runner: runner,
           cacheDir: cacheDir.path,
@@ -426,6 +534,7 @@ void main() {
 
       expect(result, isA<IosSimulatorDescribed>().having((r) => r.json, 'json', _openInAlert));
       expect(calls.last, [iosSimulatorHidBinaryPath(cacheDir.path), 'describe', '/dev/dir', 'UDID']);
+      expect(lastTimeout, const Duration(seconds: 12));
     });
 
     test('exit code 1 is unavailable with the ERROR line', () async {
@@ -452,13 +561,35 @@ void main() {
       );
     });
 
-    test('a timeout is unavailable', () async {
+    test('a timeout can be retried', () async {
       helperOutput = TimeoutException('describe');
 
       expect(
         await describe(),
-        isA<IosSimulatorDescribeUnavailable>().having((r) => r.reason, 'reason', contains('timed out')),
+        isA<IosSimulatorDescribeFailed>()
+            .having((r) => r.reason, 'reason', 'reading the accessibility tree timed out after 12s'),
       );
+    });
+
+    test('an unexpected exit code can be retried', () async {
+      helperOutput = (exitCode: 6, stdout: '', stderr: 'ERROR: could not encode the accessibility tree as JSON\n');
+
+      expect(
+        await describe(),
+        isA<IosSimulatorDescribeFailed>()
+            .having((r) => r.reason, 'reason', 'could not encode the accessibility tree as JSON'),
+      );
+    });
+
+    test('a compile failure is permanent', () async {
+      final result = await iosSimulatorDescribe(
+        udid: 'UDID',
+        environment: {'DEVELOPER_DIR': '/dev/dir'},
+        runner: (executable, arguments, timeout) async => (exitCode: 1, stdout: '', stderr: 'error: boom'),
+        cacheDir: cacheDir.path,
+      );
+
+      expect(result, isA<IosSimulatorDescribeUnavailable>().having((r) => r.reason, 'reason', startsWith('swiftc')));
     });
   });
 
@@ -469,6 +600,11 @@ void main() {
     expect(iosSimulatorHidSource, contains('frontmostApplicationWithDisplayId:bridgeDelegateToken:'));
     expect(iosSimulatorHidSource, contains('guard device.responds(to: sendAXSelector)'));
     expect(iosSimulatorHidSource, contains('withExtendedLifetime(delegate)'));
+    expect(iosSimulatorHidSource, contains('"complete": !describeProgress.incomplete'));
+    // Struct returns must not go through objc_msgSend (x86_64 needs _stret).
+    expect(iosSimulatorHidSource, isNot(contains('-> CGRect\n')));
+    expect(iosSimulatorHidSource, isNot(contains('RectGetterFn')));
+    expect(iosSimulatorHidSource, contains('object.value(forKey: "accessibilityFrame") as? NSValue'));
     // The tap path still checks its usage and bounds.
     expect(iosSimulatorHidSource, contains('arguments.count == 6 && arguments[1] == "tap"'));
   });

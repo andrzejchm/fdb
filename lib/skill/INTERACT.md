@@ -216,16 +216,28 @@ ERROR: Could not read the Android UI hierarchy (uiautomator dump): ERROR: could 
 The last one means the screen never stopped animating long enough for uiautomator; retry, or tap by coordinates. `--text` can't be combined with `--at`/`--x`/`--y` or `--logical`, and `--index`/`--timeout` only apply to `--text`.
 
 **Tap by label on the iOS simulator.** `--text <label>` reads the simulator's accessibility tree and taps the center of the matching element through the HID stack, like `--at`. The tree is the frontmost app's, or SpringBoard's while a system alert is up, so `fdb native-tap --text Allow` answers a notification prompt and `--text Open` answers "Open in “Test App”?". The rules match Android's:
-1. the accessibility label equal to the label (both trimmed)
+1. the accessibility label equal to the label (both trimmed). Only the label: unlike Android's `text`, a text field's typed value is not matched
 2. the same, ignoring case, curly quotes and no-break spaces (`Don't Allow` matches `Don’t Allow`, `Open in "Test App"?` matches `Open in “Test App”?`)
 3. the accessibility identifier (UIKit `accessibilityIdentifier`, Flutter `Semantics(identifier:)`)
 
-In a Flutter app the labels are the semantics labels, usually the text `fdb describe` shows. Disabled elements, the application element and elements whose center is off screen are skipped; Flutter reports semantics nodes scrolled out of view with a zero frame, so a button listed twice by `describe` can still match once. It retries every 300 ms until a match appears or `--timeout` seconds pass (default 5). The first read on a freshly booted simulator can take a few seconds (2.6-7.5 s measured); later ones take about 0.2 s. The no-match, several-matches and `--index` errors are the ones shown above. Frames are converted to points in the current orientation, landscape included.
+In a Flutter app the labels are the semantics labels, usually the text `fdb describe` shows. Disabled elements, the application element and elements whose center is off screen are skipped; Flutter reports semantics nodes scrolled out of view with a zero frame, so a button listed twice by `describe` can still match once. Frames are converted to points in the current orientation, landscape included, and X/Y in the output are the tapped frame center rounded to whole points. The no-match, several-matches and `--index` errors are the ones shown above.
 
-`--text` has no in-process fallback. If the tree can't be read (no Xcode, a CoreSimulator without the accessibility API, an unknown simulator), it taps nothing and fails with:
+It reads the tree again every 300 ms until a match appears or `--timeout` seconds pass (default 5). A read that fails or times out, a moment when the simulator's orientation is unknown, and a tree the simulator only returned in part are retried too; at the deadline it reports the last problem. How long it can take:
+- The first `native-tap` on a machine compiles the helper (about 5-10 s, once).
+- The first read on a freshly booted simulator can take several seconds (2.6-7.5 s measured); later reads take about 0.2 s.
+- One read may run until the deadline but gets at least 10 s, so the command can end up to about 10 s after `--timeout`.
+
+`--text` has no in-process fallback. If the tree can't be read at all (no Xcode, a CoreSimulator without the accessibility API, an unknown or shut down simulator), it taps nothing and fails at once with:
 ```
 ERROR: native-tap --text needs the iOS simulator accessibility API, which is not available (<reason>). Tap by coordinates with --at x,y instead.
 ```
+Other `--text` errors on the iOS simulator:
+```
+ERROR: native-tap --text could not read the iOS simulator accessibility tree (<last failure>).
+ERROR: native-tap --text could not tap on the iOS simulator (<reason>).
+ERROR: native-tap --text could not place the native elements on the iOS simulator screen (<orientation>), so "<label>" can't be tapped by label. Rotate the simulator to portrait, or tap with --at x,y. Labels: ...
+```
+The last one means the tree had labels but fdb couldn't work out where they are on a rotated screen.
 
 **Blocked input injection (Android).** Some vendors block `adb shell input` until a Developer options switch is on. native-tap then fails with:
 ```

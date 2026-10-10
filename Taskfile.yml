@@ -4129,15 +4129,32 @@ tasks:
           fail_restore "fdb native-tap: NATIVE_TAPPED=ios-simulator not found in output"
         fi
 
-        # Cancel keeps Settings in front, so the app can't tell. Ask for Cancel
-        # again instead: it must be gone. If the alert were still up, this
-        # would just tap Cancel, which is harmless.
-        echo "==> [native-tap] iOS sim: verify the alert is gone"
-        EXIT_CODE=0
-        OUTPUT=$({{.FDB}} native-tap --text "Cancel" --timeout 1 2>&1) || EXIT_CODE=$?
+        # Cancel keeps Settings in front, so the app can't tell. Look for the
+        # Cancel button instead, with an --index no alert has: while the alert
+        # is up (or still animating away) that fails with "out of range" and
+        # never taps; once it is gone it fails with "No native element".
+        echo "==> [native-tap] iOS sim: wait for the alert to go away"
+        GONE=false
+        for _ in $(seq 1 10); do
+          EXIT_CODE=0
+          OUTPUT=$({{.FDB}} native-tap --text "Cancel" --index 9 --timeout 0 2>&1) || EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "$OUTPUT"
+            fail_restore "native-tap --text Cancel --index 9 tapped something"
+          fi
+          if echo "$OUTPUT" | grep -q 'ERROR: No native element matching "Cancel"'; then
+            GONE=true
+            break
+          fi
+          if ! echo "$OUTPUT" | grep -q 'ERROR: --index 9 is out of range'; then
+            echo "$OUTPUT"
+            fail_restore "unexpected native-tap error while waiting for the alert to close (exit $EXIT_CODE)"
+          fi
+          sleep 0.2
+        done
         echo "$OUTPUT"
-        if [ $EXIT_CODE -ne 1 ] || ! echo "$OUTPUT" | grep -q 'ERROR: No native element matching "Cancel"'; then
-          fail_restore "the SpringBoard alert is still up after tapping Cancel (exit $EXIT_CODE)"
+        if [ "$GONE" != "true" ]; then
+          fail_restore "the SpringBoard alert is still up after tapping Cancel"
         fi
         echo "PASS: fdb native-tap tapped Cancel on the SpringBoard alert"
 

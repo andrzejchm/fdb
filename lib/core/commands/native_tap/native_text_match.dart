@@ -2,6 +2,12 @@
 /// simulator. Pure functions only.
 library;
 
+/// `--timeout` for `--text` when none is given, same as `fdb tap`.
+const defaultNativeTapTextTimeoutSeconds = 5;
+
+/// Pause between two reads of the screen while `--text` waits for a match.
+const nativeTapTextPollInterval = Duration(milliseconds: 300);
+
 /// Lowercases and folds typographic variants, so `Don't allow` matches
 /// `Don’t allow`: curly quotes become straight ones, no-break spaces become
 /// spaces.
