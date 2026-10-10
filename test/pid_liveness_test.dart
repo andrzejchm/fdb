@@ -13,6 +13,17 @@ void main() {
       // PIDs above 4194304 (Linux's traditional max) are never assigned.
       expect(isProcessAlive(999999999), isFalse);
     });
+
+    // `kill -0 0` targets the caller's process group and `kill -0 -1` every
+    // process the user may signal; both exit 0.
+    test('returns false for PID 0', () {
+      expect(isProcessAlive(0), isFalse);
+    });
+
+    test('returns false for negative PIDs', () {
+      expect(isProcessAlive(-1), isFalse);
+      expect(isProcessAlive(-42), isFalse);
+    });
   });
 
   group('tasklistOutputHasPid (Windows CSV parsing — testable without a Windows host)', () {
