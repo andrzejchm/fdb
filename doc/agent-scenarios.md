@@ -1199,14 +1199,17 @@ dart ../../bin/fdb.dart launch --device <SIM_A_UDID>    # shutdown killed the ap
 ## S44 · native-tap — SpringBoard alert on the iOS simulator
 
 **Purpose:** on the iOS simulator `fdb native-tap` injects the touch through
-the simulator's HID stack, so it reaches SpringBoard dialogs outside the app.
-Opening an `fdbtest://` URL while another app is in front makes SpringBoard
-ask "Open in “Test App”?". Tapping Open must bring the test app back.
-iOS simulator only; skip on other platforms.
+the simulator's HID stack, so it reaches SpringBoard dialogs outside the app,
+and `--text` finds the button in the simulator's accessibility tree, so no
+coordinates are needed. Opening an `fdbtest://` URL while another app is in
+front makes SpringBoard ask "Open in “Test App”?". Cancel must close it;
+Open must bring the test app back. iOS simulator only; skip on other
+platforms.
 
 ```bash
 UDID=$(cat .fdb/device.txt)
 dart ../../bin/fdb.dart native-tap --at 5000,5000
+dart ../../bin/fdb.dart native-tap --text "fdb no such label" --timeout 1
 # iOS remembers an earlier "Open"; forget it so the alert shows again
 xcrun simctl spawn "$UDID" defaults delete com.apple.launchservices.schemeapproval \
   "com.apple.CoreSimulator.CoreSimulatorBridge-->fdbtest" 2>/dev/null || true
@@ -1214,34 +1217,49 @@ xcrun simctl launch "$UDID" com.apple.Preferences
 xcrun simctl openurl "$UDID" "fdbtest://native-tap-springboard"
 sleep 2
 dart ../../bin/fdb.dart screenshot
-dart ../../bin/fdb.dart native-tap --at <open_x>,<open_y>
+dart ../../bin/fdb.dart native-tap --text "Open in \"Test App\"?" --timeout 0 --index 1
+dart ../../bin/fdb.dart native-tap --text Cancel
+dart ../../bin/fdb.dart native-tap --text Cancel --timeout 1
+xcrun simctl openurl "$UDID" "fdbtest://native-tap-springboard"
+sleep 2
+dart ../../bin/fdb.dart native-tap --text Open
 dart ../../bin/fdb.dart describe
 dart ../../bin/fdb.dart screenshot
 dart ../../bin/fdb.dart restart   # the URL pushed a second home route; reset it
 ```
 
-Find `<open_x>,<open_y>` on the first screenshot and convert it to points:
-points = screenshot px * (screen width in points / screenshot width). The
-first command's error names the screen size in points. On iPhone 17 Pro
-(402x874 points, 552x1200 screenshot) Open is at 275,474 and Cancel at
-127,474.
+To check the coordinate path too, tap Cancel or Open with `--at` instead:
+find the button on the screenshot and convert it to points, points =
+screenshot px * (screen width in points / screenshot width). The first
+command's error names the screen size in points. On iPhone 17 Pro (402x874
+points, 552x1200 screenshot) Open is at 275,474 and Cancel at 127,474.
 
 **What to verify:**
 
 - `native-tap --at 5000,5000` exits 1 with `ERROR: coordinates <x>,<y> are
   outside the screen (<W>x<H> points, portrait)` and taps nothing
+- The no-match call exits 1 with `ERROR: No native element matching "fdb no
+  such label". Visible labels: ...` listing home screen labels such as
+  "Counter: <n>" and "Increment". The first `--text` call on a freshly booted
+  simulator can take a few extra seconds
 - The first screenshot shows the Settings app with the "Open in “Test App”?"
   alert and Cancel / Open buttons
-- The tap prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y>` and no
-  `WARNING: iOS simulator HID tap unavailable` line. The first tap on a
-  machine takes a few extra seconds while the helper compiles
-- `describe` prints no `WARNING: App is not in the foreground` line and shows
-  the home screen (`SCREEN: fdb test app`)
+- The `--index 1` call exits 1 with `ERROR: --index 1 is out of range: found 1
+  native element matching "Open in "Test App"?" (0-based).`: the straight
+  quotes matched the alert's curly ones, and nothing was tapped
+- `--text Cancel` prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y>
+  TEXT="Cancel"` (127,474 on iPhone 17 Pro) and no `WARNING:` line; the
+  second `--text Cancel` exits 1 with `ERROR: No native element matching
+  "Cancel"` and lists Settings labels, because the alert is gone
+- `--text Open` prints `NATIVE_TAPPED=ios-simulator X=<x> Y=<y> TEXT="Open"`
+- `describe` prints no `WARNING: App is` line and shows the home screen
+  (`SCREEN: fdb test app`)
 - The last screenshot shows the test app with no alert on top
 - If the alert never shows and the app opens directly, the approval
   `defaults delete` did not run or failed; run it again before `openurl`
-- If the tap misses, check `describe` before tapping Cancel: with no alert up,
-  a tap at Cancel's position lands on a button in the app
+- In landscape (`xcrun devicectl device orientation set --device "$UDID"
+  landscapeRight`, Xcode 27) the same `--text` calls work and the reported
+  X/Y are in the rotated 874x402 frame
 
 ---
 
