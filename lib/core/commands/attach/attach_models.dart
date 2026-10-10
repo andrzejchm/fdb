@@ -32,7 +32,10 @@ class AttachSuccess extends AttachResult {
   });
 
   final String vmServiceUri;
-  final String pid;
+
+  /// App process PID, or null when neither the session files nor the VM
+  /// service could provide it.
+  final int? pid;
   final String logFilePath;
 }
 

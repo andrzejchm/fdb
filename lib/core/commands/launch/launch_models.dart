@@ -33,7 +33,10 @@ sealed class LaunchResult extends CommandResult {
 /// App launched successfully. VM service is reachable at [vmServiceUri].
 class LaunchSuccess extends LaunchResult {
   final String vmServiceUri;
-  final String pid;
+
+  /// App process PID, or null when neither the session files nor the VM
+  /// service could provide it.
+  final int? pid;
   final String logFilePath;
 
   const LaunchSuccess({

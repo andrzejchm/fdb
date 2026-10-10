@@ -150,6 +150,23 @@ List<String> buildFlutterAttachArgs({
       if (verbose) '--verbose',
     ];
 
+/// Writes the app PID file (through [writeAppPid]) and only then the VM URI
+/// file.
+///
+/// `fdb launch` and `fdb attach` treat the VM URI file as the "app is ready"
+/// signal and read the PID right after it appears, so the PID file has to
+/// exist by then. The VM URI file is written even if [writeAppPid] fails.
+Future<void> publishDebugPort(
+  String wsUri, {
+  required Future<void> Function() writeAppPid,
+}) async {
+  try {
+    await writeAppPid();
+  } finally {
+    File(vmUriFile).writeAsStringSync(wsUri);
+  }
+}
+
 class _FdbController implements ControllerContext {
   _FdbController(this.config);
 
@@ -354,9 +371,8 @@ class _FdbController implements ControllerContext {
         final wsUri = params['wsUri'] as String?;
         if (wsUri != null && wsUri.isNotEmpty) {
           _vmUri = wsUri;
-          File(vmUriFile).writeAsStringSync(wsUri);
           unawaited(_logCollector.start(wsUri));
-          unawaited(_writeAppPidFromVm(wsUri));
+          unawaited(publishDebugPort(wsUri, writeAppPid: () => _writeAppPidFromVm(wsUri)));
         }
       case 'app.stop':
         _running = false;

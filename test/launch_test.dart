@@ -75,7 +75,7 @@ void main() {
 
       File(controllerPidFile).writeAsStringSync('9999');
 
-      expect(readLaunchPid(), isEmpty);
+      expect(readLaunchPid(), isNull);
     });
 
     test('readLaunchPid prefers app pid over flutter-tools pid', () async {
@@ -87,7 +87,76 @@ void main() {
       File(pidFile).writeAsStringSync('2222');
       File(appPidFile).writeAsStringSync('1111');
 
-      expect(readLaunchPid(), '1111');
+      expect(readLaunchPid(), 1111);
+    });
+
+    test('readLaunchPid ignores an empty or garbled app pid file', () async {
+      final root = await _createTempSessionRoot();
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      File(appPidFile).writeAsStringSync('');
+      expect(readLaunchPid(), isNull);
+
+      File(appPidFile).writeAsStringSync('not-a-pid');
+      expect(readLaunchPid(), isNull);
+    });
+
+    test('resolveLaunchPid uses the pid file without querying the VM', () async {
+      final root = await _createTempSessionRoot();
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      File(appPidFile).writeAsStringSync('1111');
+      var queried = false;
+
+      final pid = await resolveLaunchPid(
+        'ws://127.0.0.1:1/ws',
+        queryVmPid: (_) async {
+          queried = true;
+          return 2222;
+        },
+      );
+
+      expect(pid, 1111);
+      expect(queried, isFalse);
+    });
+
+    test('resolveLaunchPid asks the VM service when the pid file is not written yet', () async {
+      final root = await _createTempSessionRoot();
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      String? queriedUri;
+      final pid = await resolveLaunchPid(
+        'ws://127.0.0.1:1/ws',
+        queryVmPid: (uri) async {
+          queriedUri = uri;
+          return 82633;
+        },
+      );
+
+      expect(pid, 82633);
+      expect(queriedUri, 'ws://127.0.0.1:1/ws');
+      // Saved so `fdb status` reports the same PID.
+      expect(readAppPid(), 82633);
+    });
+
+    test('resolveLaunchPid returns null when no source knows the pid', () async {
+      final root = await _createTempSessionRoot();
+      addTearDown(() async {
+        await root.delete(recursive: true);
+      });
+
+      expect(await resolveLaunchPid('ws://127.0.0.1:1/ws', queryVmPid: (_) async => null), isNull);
+      expect(
+        await resolveLaunchPid('ws://127.0.0.1:1/ws', queryVmPid: (_) => throw const SocketException('refused')),
+        isNull,
+      );
+      expect(File(appPidFile).existsSync(), isFalse);
     });
 
     test('initLaunchSession uses explicit session dir instead of project .fdb', () async {
