@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fdb/core/commands/native_tap/android_native_tap.dart';
 import 'package:fdb/core/commands/native_tap/android_ui_dump.dart';
 import 'package:fdb/core/commands/native_tap/native_tap_models.dart';
+import 'package:fdb/core/commands/native_tap/native_text_match.dart';
 import 'package:test/test.dart';
 
 String _fixture(String name) => File('test/fixtures/native_tap/$name').readAsStringSync();
@@ -218,29 +219,29 @@ void main() {
     });
   });
 
-  group('pickAndroidUiMatch', () {
+  group('pickNativeMatch', () {
     final nested = _nodes(_fixture('entities_and_nesting.xml'));
     final twoOks = findAndroidUiMatches(nested, 'Ok');
 
     test('one match without an index is picked', () {
-      final pick = pickAndroidUiMatch(findAndroidUiMatches(nested, 'Close'), index: null);
-      expect(pick, isA<AndroidUiPicked>());
+      final pick = pickNativeMatch(findAndroidUiMatches(nested, 'Close'), index: null);
+      expect(pick, isA<NativeMatchPicked<AndroidUiMatch>>());
     });
 
     test('several matches without an index are ambiguous', () {
-      expect(pickAndroidUiMatch(twoOks, index: null), isA<AndroidUiPickAmbiguous>());
+      expect(pickNativeMatch(twoOks, index: null), isA<NativeMatchAmbiguous<AndroidUiMatch>>());
     });
 
     test('--index is 0-based, in document order', () {
-      final first = pickAndroidUiMatch(twoOks, index: 0) as AndroidUiPicked;
-      final second = pickAndroidUiMatch(twoOks, index: 1) as AndroidUiPicked;
+      final first = pickNativeMatch(twoOks, index: 0) as NativeMatchPicked<AndroidUiMatch>;
+      final second = pickNativeMatch(twoOks, index: 1) as NativeMatchPicked<AndroidUiMatch>;
       expect(first.match.node.resourceId, 'com.example:id/ok_1');
       expect(second.match.node.resourceId, 'com.example:id/ok_2');
     });
 
     test('--index past the end picks nothing', () {
-      expect(pickAndroidUiMatch(twoOks, index: 2), isA<AndroidUiPickNone>());
-      expect(pickAndroidUiMatch(const [], index: null), isA<AndroidUiPickNone>());
+      expect(pickNativeMatch(twoOks, index: 2), isA<NativeMatchNone<AndroidUiMatch>>());
+      expect(pickNativeMatch(const <AndroidUiMatch>[], index: null), isA<NativeMatchNone<AndroidUiMatch>>());
     });
   });
 

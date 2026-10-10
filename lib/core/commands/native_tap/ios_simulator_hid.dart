@@ -9,7 +9,8 @@ import 'package:fdb/core/process_utils.dart';
 //
 // Compiles `iosSimulatorHidSource` once with `xcrun swiftc`, caches the
 // binary under the fdb cache dir and runs it to inject a tap through the
-// simulator's HID stack. Not a command on its own.
+// simulator's HID stack, or to read the simulator's accessibility tree
+// (`describe`, for `--text`). Not a command on its own.
 
 /// Outcome of [iosSimulatorHidTap].
 sealed class IosSimulatorHidResult {
@@ -63,6 +64,9 @@ typedef HidProcessRunner = Future<HidProcessOutput> Function(
 
 const _compileTimeout = Duration(seconds: 180);
 const _tapTimeout = Duration(seconds: 15);
+// The first accessibility query on a freshly booted simulator took up to
+// 7.5 s on an M-series Mac; later ones take about 0.2 s.
+const _describeTimeout = Duration(seconds: 30);
 const _toolTimeout = Duration(seconds: 15);
 const _outOfBoundsExitCode = 3;
 const _partialDeliveryExitCode = 4;
@@ -189,32 +193,20 @@ Future<IosSimulatorHidResult> iosSimulatorHidTap({
   HidProcessRunner? runner,
   String? cacheDir,
 }) async {
-  final env = environment ?? Platform.environment;
-  final run = runner ?? runHidProcess;
   try {
-    final dir = cacheDir ?? iosSimulatorHidCacheDir(environment: env);
-    if (dir == null) {
-      return const IosSimulatorHidUnavailable('no cache directory: set FDB_CACHE_DIR or HOME');
-    }
-
-    final binaryPath = await _ensureCompiled(cacheDir: dir, run: run);
-    final devDir = await _developerDir(env: env, run: run);
-    final arguments = ['tap', devDir, udid, '$x', '$y'];
-
-    HidProcessOutput output;
-    try {
-      output = await _runHelper(binaryPath, arguments, run);
-    } on _BadBinary catch (e) {
-      // A corrupt or incompatible cached binary never got far enough to send
-      // a touch, so rebuilding and retrying once is safe.
-      await _deleteQuietly(File(binaryPath));
-      await _ensureCompiled(cacheDir: dir, run: run);
-      try {
-        output = await _runHelper(binaryPath, arguments, run);
-      } on _BadBinary catch (retry) {
-        throw _HidUnavailable('helper failed after rebuild: ${retry.reason} (first attempt: ${e.reason})');
-      }
-    }
+    final output = await _runHelperCommand(
+      command: 'tap',
+      arguments: [udid, '$x', '$y'],
+      timeout: _tapTimeout,
+      // The touch down may already have reached the simulator.
+      onTimeout: () => _HidPartialDelivery(
+        'iOS simulator HID helper timed out after ${_tapTimeout.inSeconds}s and was killed; '
+        'the touch may have been partially delivered',
+      ),
+      environment: environment,
+      runner: runner,
+      cacheDir: cacheDir,
+    );
 
     switch (output.exitCode) {
       case 0:
@@ -244,6 +236,74 @@ Future<IosSimulatorHidResult> iosSimulatorHidTap({
     return IosSimulatorHidUnavailable(e.reason);
   } catch (e) {
     return IosSimulatorHidUnavailable('helper failed: $e');
+  }
+}
+
+/// Outcome of [iosSimulatorDescribe].
+sealed class IosSimulatorDescribeResult {
+  const IosSimulatorDescribeResult();
+}
+
+/// The helper read the accessibility tree; [json] is its stdout, parsed by
+/// `parseIosSimulatorAccessibility`.
+class IosSimulatorDescribed extends IosSimulatorDescribeResult {
+  const IosSimulatorDescribed(this.json);
+  final String json;
+}
+
+/// The helper could not tell how the simulator is rotated (exit code 5), so
+/// it could not map the frames.
+class IosSimulatorDescribeOrientationUnknown extends IosSimulatorDescribeResult {
+  const IosSimulatorDescribeOrientationUnknown(this.message);
+  final String message;
+}
+
+/// The accessibility tree cannot be read: no toolchain, unknown simulator,
+/// a CoreSimulator without the accessibility API, and so on.
+class IosSimulatorDescribeUnavailable extends IosSimulatorDescribeResult {
+  const IosSimulatorDescribeUnavailable(this.reason);
+  final String reason;
+}
+
+/// Reads the accessibility tree of the frontmost application on the booted
+/// simulator [udid] (SpringBoard while a system alert is up).
+///
+/// [environment], [runner] and [cacheDir] are injectable for tests.
+/// Never throws.
+Future<IosSimulatorDescribeResult> iosSimulatorDescribe({
+  required String udid,
+  Map<String, String>? environment,
+  HidProcessRunner? runner,
+  String? cacheDir,
+}) async {
+  try {
+    final output = await _runHelperCommand(
+      command: 'describe',
+      arguments: [udid],
+      timeout: _describeTimeout,
+      onTimeout: () => _HidUnavailable(
+        'reading the accessibility tree timed out after ${_describeTimeout.inSeconds}s',
+      ),
+      environment: environment,
+      runner: runner,
+      cacheDir: cacheDir,
+    );
+    switch (output.exitCode) {
+      case 0:
+        return IosSimulatorDescribed(output.stdout);
+      case _orientationUnknownExitCode:
+        return IosSimulatorDescribeOrientationUnknown(
+          extractHidErrorMessage(output.stderr) ?? "native-tap can't tell which way the simulator is rotated",
+        );
+    }
+    final message = extractHidErrorMessage(output.stderr) ?? _stripErrorPrefix(_tail(output.stderr));
+    return IosSimulatorDescribeUnavailable(
+      message.isEmpty ? 'helper exited with code ${output.exitCode}' : message,
+    );
+  } on _HidUnavailable catch (e) {
+    return IosSimulatorDescribeUnavailable(e.reason);
+  } catch (e) {
+    return IosSimulatorDescribeUnavailable('helper failed: $e');
   }
 }
 
@@ -287,6 +347,45 @@ class _HidPartialDelivery implements Exception {
   final String message;
 }
 
+/// Compiles the helper if needed and runs it with [command], the developer
+/// dir and [arguments]. A cached binary that cannot start is rebuilt and run once
+/// more: it never got far enough to send a touch, so that is safe.
+///
+/// Throws [_HidUnavailable] when the helper cannot be built or run, and what
+/// [onTimeout] returns when it is killed on [timeout].
+Future<HidProcessOutput> _runHelperCommand({
+  required String command,
+  required List<String> arguments,
+  required Duration timeout,
+  required Exception Function() onTimeout,
+  required Map<String, String>? environment,
+  required HidProcessRunner? runner,
+  required String? cacheDir,
+}) async {
+  final env = environment ?? Platform.environment;
+  final run = runner ?? runHidProcess;
+  final dir = cacheDir ?? iosSimulatorHidCacheDir(environment: env);
+  if (dir == null) {
+    throw const _HidUnavailable('no cache directory: set FDB_CACHE_DIR or HOME');
+  }
+
+  final binaryPath = await _ensureCompiled(cacheDir: dir, run: run);
+  final devDir = await _developerDir(env: env, run: run);
+  final fullArguments = [command, devDir, ...arguments];
+
+  try {
+    return await _runHelper(binaryPath, fullArguments, run, timeout, onTimeout);
+  } on _BadBinary catch (e) {
+    await _deleteQuietly(File(binaryPath));
+    await _ensureCompiled(cacheDir: dir, run: run);
+    try {
+      return await _runHelper(binaryPath, fullArguments, run, timeout, onTimeout);
+    } on _BadBinary catch (retry) {
+      throw _HidUnavailable('helper failed after rebuild: ${retry.reason} (first attempt: ${e.reason})');
+    }
+  }
+}
+
 /// The cached binary could not be started or died from a signal before
 /// printing anything.
 class _BadBinary implements Exception {
@@ -295,19 +394,21 @@ class _BadBinary implements Exception {
 }
 
 /// Runs the helper once. Throws [_BadBinary] when the binary looks broken and
-/// [_HidPartialDelivery] when it was killed on timeout.
-Future<HidProcessOutput> _runHelper(String binaryPath, List<String> arguments, HidProcessRunner run) async {
+/// what [onTimeout] returns when it was killed on [timeout].
+Future<HidProcessOutput> _runHelper(
+  String binaryPath,
+  List<String> arguments,
+  HidProcessRunner run,
+  Duration timeout,
+  Exception Function() onTimeout,
+) async {
   final HidProcessOutput output;
   try {
-    output = await run(binaryPath, arguments, _tapTimeout);
+    output = await run(binaryPath, arguments, timeout);
   } on ProcessException catch (e) {
     throw _BadBinary('could not start the helper: ${e.message}');
   } on TimeoutException {
-    // The touch down may already have reached the simulator.
-    throw _HidPartialDelivery(
-      'iOS simulator HID helper timed out after ${_tapTimeout.inSeconds}s and was killed; '
-      'the touch may have been partially delivered',
-    );
+    throw onTimeout();
   }
   if (output.exitCode < 0 && output.stdout.trim().isEmpty && output.stderr.trim().isEmpty) {
     throw _BadBinary('helper killed by signal ${-output.exitCode}');

@@ -3,6 +3,8 @@
 /// fdb compiles this once with `xcrun swiftc` and caches the binary (see
 /// `ios_simulator_hid.dart`). The helper injects touches through SimulatorKit's
 /// legacy Indigo HID client, so taps reach SpringBoard system dialogs too.
+/// Its `describe` subcommand reads the accessibility tree of whatever is in
+/// front (an app, or SpringBoard while an alert is up) for `--text`.
 ///
 /// The cache key is a hash of this string plus the compiler flags: any change
 /// here, even whitespace, produces a new binary on the next run.
@@ -11,8 +13,12 @@
 /// from the simulator and rotates the point into the portrait frame the HID
 /// stack expects.
 ///
-/// Exit codes: 0 tapped, 1 failure, 2 usage error, 3 coordinates outside the
-/// screen, 4 touch partially delivered, 5 interface orientation unknown.
+/// Exit codes: 0 tapped (or described), 1 failure, 2 usage error,
+/// 3 coordinates outside the screen, 4 touch partially delivered,
+/// 5 interface orientation unknown.
+///
+/// `describe` prints one JSON document on stdout, parsed by
+/// `parseIosSimulatorAccessibility` in `ios_simulator_accessibility.dart`.
 const iosSimulatorHidSource = r'''// fdb iOS simulator HID helper.
 //
 // Injects touches into a booted iOS simulator through SimulatorKit's legacy
@@ -23,7 +29,10 @@ const iosSimulatorHidSource = r'''// fdb iOS simulator HID helper.
 // Usage: <binary> tap <developer-dir> <udid> <x> <y>
 //   x, y are in points in the current interface orientation, the same frame
 //   screenshots and `fdb tap` use.
-// Exit codes: 0 tapped, 1 failure (message on stderr), 2 usage error,
+// Usage: <binary> describe <developer-dir> <udid>
+//   Prints the accessibility elements of the frontmost application as JSON,
+//   frames in points in the current interface orientation (see describe below).
+// Exit codes: 0 tapped / described, 1 failure (message on stderr), 2 usage error,
 //   3 coordinates outside the screen, 4 touch partially delivered (the touch
 //   down may have reached the simulator but the touch up did not),
 //   5 interface orientation unknown (nothing sent).
@@ -42,13 +51,25 @@ func fail(_ message: String, code: Int32 = 1) -> Never {
 }
 
 let arguments = CommandLine.arguments
-guard arguments.count == 6, arguments[1] == "tap" else {
-  fail("usage: \(arguments.first ?? "helper") tap <developer-dir> <udid> <x> <y>", code: 2)
+let isTap = arguments.count == 6 && arguments[1] == "tap"
+let isDescribe = arguments.count == 4 && arguments[1] == "describe"
+guard isTap || isDescribe else {
+  let name = arguments.first ?? "helper"
+  fail("usage: \(name) tap <developer-dir> <udid> <x> <y> | \(name) describe <developer-dir> <udid>", code: 2)
 }
 let developerDir = arguments[2]
 let udid = arguments[3].uppercased()
-guard let x = Double(arguments[4]), let y = Double(arguments[5]) else {
-  fail("invalid coordinates \(arguments[4]),\(arguments[5])", code: 2)
+let x: Double
+let y: Double
+if isTap {
+  guard let parsedX = Double(arguments[4]), let parsedY = Double(arguments[5]) else {
+    fail("invalid coordinates \(arguments[4]),\(arguments[5])", code: 2)
+  }
+  x = parsedX
+  y = parsedY
+} else {
+  x = 0
+  y = 0
 }
 
 guard dlopen("/Library/Developer/PrivateFrameworks/CoreSimulator.framework/CoreSimulator", RTLD_NOW) != nil else {
@@ -177,6 +198,321 @@ guard let orientationName = orientationNames[orientation] else {
 let landscape = orientation == 3 || orientation == 4
 let frameWidth = landscape ? heightPoints : widthPoints
 let frameHeight = landscape ? widthPoints : heightPoints
+
+// MARK: describe
+
+// Reads the accessibility tree of the frontmost application through the
+// private AccessibilityPlatformTranslation framework, the way Simulator.app's
+// accessibility support and facebook/idb's describe-all do. While a
+// SpringBoard alert is up the frontmost application is SpringBoard, so the
+// elements are the alert's.
+//
+// The AXPTranslator singleton asks a "bridge token delegate" for a callback;
+// the callback forwards each AXPTranslatorRequest to
+// -[SimDevice sendAccessibilityRequestAsync:completionQueue:completionHandler:]
+// and blocks until the response arrives.
+//
+// Output, one JSON object with sorted keys:
+//   {"orientation": "portrait", "screen": {"width": W, "height": H},
+//    "elements": [{"label", "role", "identifier"?, "value"?, "enabled",
+//                  "pid", "depth", "frame": {"x", "y", "width", "height"} | null}]}
+// Elements are in depth-first order, the application element first. Frames
+// are in points in the current interface orientation (W x H), the frame the
+// tap command takes. A frame is null when it could not be mapped there.
+// "elements" is empty when there is no frontmost application yet.
+
+typealias SendAXRequestFn = @convention(c) (AnyObject, Selector, AnyObject, DispatchQueue, AnyObject) -> Void
+typealias FrontmostFn = @convention(c) (AnyObject, Selector, UInt32, NSString) -> AnyObject?
+typealias ObjectAtPointFn = @convention(c) (AnyObject, Selector, CGPoint, UInt32, NSString) -> AnyObject?
+typealias ObjectToObjectFn = @convention(c) (AnyObject, Selector, AnyObject) -> AnyObject?
+typealias ObjectGetterFn = @convention(c) (AnyObject, Selector) -> AnyObject?
+typealias RectGetterFn = @convention(c) (AnyObject, Selector) -> CGRect
+typealias BoolGetterFn = @convention(c) (AnyObject, Selector) -> Bool
+let sendAXRequest = unsafeBitCast(msgSend, to: SendAXRequestFn.self)
+let frontmostFn = unsafeBitCast(msgSend, to: FrontmostFn.self)
+let objectAtPointFn = unsafeBitCast(msgSend, to: ObjectAtPointFn.self)
+let objectToObjectFn = unsafeBitCast(msgSend, to: ObjectToObjectFn.self)
+let objectGetterFn = unsafeBitCast(msgSend, to: ObjectGetterFn.self)
+let rectGetterFn = unsafeBitCast(msgSend, to: RectGetterFn.self)
+let boolGetterFn = unsafeBitCast(msgSend, to: BoolGetterFn.self)
+
+let sendAXSelector = NSSelectorFromString("sendAccessibilityRequestAsync:completionQueue:completionHandler:")
+let frontmostSelector = NSSelectorFromString("frontmostApplicationWithDisplayId:bridgeDelegateToken:")
+let objectAtPointSelector = NSSelectorFromString("objectAtPoint:displayId:bridgeDelegateToken:")
+let macElementSelector = NSSelectorFromString("macPlatformElementFromTranslation:")
+let setTokenSelector = NSSelectorFromString("setBridgeDelegateToken:")
+// CoreSimulator delivers accessibility responses here. It must not be the
+// thread the translator call is blocked on.
+let accessibilityQueue = DispatchQueue(label: "fdb.ios-simulator-accessibility")
+let bridgeToken = UUID().uuidString
+
+/// Calls the getter [name] on [object], or returns nil when it has none.
+/// Every selector is checked first: messaging a missing one raises and aborts.
+func getObject(_ object: AnyObject, _ name: String) -> AnyObject? {
+  let selector = NSSelectorFromString(name)
+  guard object.responds(to: selector) else { return nil }
+  return objectGetterFn(object, selector)
+}
+
+final class TranslationDelegate: NSObject {
+  let device: NSObject
+  init(device: NSObject) { self.device = device }
+
+  // Returns the block that turns one AXPTranslatorRequest into an
+  // AXPTranslatorResponse. The translator calls it synchronously for every
+  // attribute it reads.
+  @objc(accessibilityTranslationDelegateBridgeCallbackWithToken:)
+  func bridgeCallback(withToken token: NSString) -> Any {
+    let device = self.device
+    let callback: @convention(block) (AnyObject?) -> AnyObject? = { request in
+      let emptyResponse: () -> AnyObject? = {
+        guard let responseClass = NSClassFromString("AXPTranslatorResponse") else { return nil }
+        return getObject(responseClass, "emptyResponse")
+      }
+      guard let request else { return emptyResponse() }
+      let done = DispatchSemaphore(value: 0)
+      var response: AnyObject?
+      let completion: @convention(block) (AnyObject?) -> Void = { inner in
+        response = inner
+        done.signal()
+      }
+      sendAXRequest(device, sendAXSelector, request, accessibilityQueue, completion as AnyObject)
+      if done.wait(timeout: .now() + 5) == .timedOut {
+        return emptyResponse()
+      }
+      return response ?? emptyResponse()
+    }
+    return callback as AnyObject
+  }
+
+  // Simulator.app converts to window coordinates here; keep the guest's points.
+  @objc(accessibilityTranslationConvertPlatformFrameToSystem:withToken:)
+  func convertFrame(_ rect: CGRect, withToken token: NSString) -> CGRect { rect }
+
+  @objc(accessibilityTranslationRootParentWithToken:)
+  func rootParent(withToken token: NSString) -> Any? { nil }
+}
+
+struct AccessibilityElement {
+  var depth: Int
+  var label: String?
+  var role: String?
+  var value: String?
+  var identifier: String?
+  var enabled: Bool
+  var pid: Int32
+  var rawFrame: CGRect
+}
+
+func setBridgeToken(_ object: AnyObject) {
+  guard let translation = getObject(object, "translation"), translation.responds(to: setTokenSelector) else { return }
+  _ = translation.perform(setTokenSelector, with: bridgeToken as NSString)
+}
+
+func accessibilityString(_ element: AnyObject, _ name: String) -> String? {
+  guard let value = getObject(element, name) else { return nil }
+  if let string = value as? String { return string }
+  if let attributed = value as? NSAttributedString { return attributed.string }
+  if let number = value as? NSNumber { return number.stringValue }
+  return nil
+}
+
+func ownerPid(_ element: AnyObject) -> Int32 {
+  guard let translation = getObject(element, "translation") as? NSObject,
+    translation.responds(to: NSSelectorFromString("pid")),
+    let pid = translation.value(forKey: "pid") as? NSNumber
+  else { return 0 }
+  return pid.int32Value
+}
+
+func readElement(_ element: AnyObject, depth: Int) -> AccessibilityElement {
+  setBridgeToken(element)
+  let enabledSelector = NSSelectorFromString("isAccessibilityEnabled")
+  let frameSelector = NSSelectorFromString("accessibilityFrame")
+  return AccessibilityElement(
+    depth: depth,
+    label: accessibilityString(element, "accessibilityLabel"),
+    role: accessibilityString(element, "accessibilityRole"),
+    value: accessibilityString(element, "accessibilityValue"),
+    identifier: accessibilityString(element, "accessibilityIdentifier"),
+    enabled: element.responds(to: enabledSelector) ? boolGetterFn(element, enabledSelector) : true,
+    pid: ownerPid(element),
+    rawFrame: element.responds(to: frameSelector) ? rectGetterFn(element, frameSelector) : .zero
+  )
+}
+
+/// Turns a translation object into a platform element, or nil.
+func platformElement(_ translator: AnyObject, _ translation: AnyObject?) -> AnyObject? {
+  guard let translation, translation.responds(to: setTokenSelector) else { return nil }
+  _ = translation.perform(setTokenSelector, with: bridgeToken as NSString)
+  guard let element = objectToObjectFn(translator, macElementSelector, translation) else { return nil }
+  setBridgeToken(element)
+  return element
+}
+
+let maxElements = 3000
+let maxDepth = 64
+
+func walk(_ element: AnyObject, depth: Int, into elements: inout [AccessibilityElement]) {
+  guard elements.count < maxElements else { return }
+  elements.append(readElement(element, depth: depth))
+  guard depth < maxDepth, let children = getObject(element, "accessibilityChildren") as? [AnyObject] else { return }
+  for child in children {
+    walk(child, depth: depth + 1, into: &elements)
+  }
+}
+
+// Interface point to portrait point: the same mapping as the tap below.
+func describePortraitPoint(_ point: CGPoint) -> CGPoint {
+  switch orientation {
+  case 2: return CGPoint(x: widthPoints - point.x, y: heightPoints - point.y)
+  case 3: return CGPoint(x: point.y, y: heightPoints - point.x)
+  case 4: return CGPoint(x: widthPoints - point.y, y: point.x)
+  default: return point
+  }
+}
+
+// Portrait point to interface point, the inverse of describePortraitPoint.
+func describeInterfacePoint(_ point: CGPoint) -> CGPoint {
+  switch orientation {
+  case 2: return CGPoint(x: widthPoints - point.x, y: heightPoints - point.y)
+  case 3: return CGPoint(x: heightPoints - point.y, y: point.x)
+  case 4: return CGPoint(x: point.y, y: widthPoints - point.x)
+  default: return point
+  }
+}
+
+func interfaceRect(fromPortrait rect: CGRect) -> CGRect {
+  let a = describeInterfacePoint(rect.origin)
+  let b = describeInterfacePoint(CGPoint(x: rect.maxX, y: rect.maxY))
+  return CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+}
+
+func sameFrame(_ a: CGRect, _ b: CGRect) -> Bool {
+  abs(a.minX - b.minX) < 1 && abs(a.minY - b.minY) < 1 && abs(a.width - b.width) < 1 && abs(a.height - b.height) < 1
+}
+
+enum FrameSpace {
+  case interface
+  case portrait
+  case unresolved
+}
+
+// A process reports frames in its own interface orientation. SpringBoard on
+// iPhone stays portrait even over a landscape app, so in landscape decide per
+// process whether its frames are already in the interface orientation or
+// still portrait: hit-test the centre of a few small elements under both
+// readings and keep the one that finds the element again. Hit-tests take
+// portrait points.
+func frameSpaces(_ translator: AnyObject, _ elements: [AccessibilityElement]) -> [Int32: FrameSpace] {
+  var spaces: [Int32: FrameSpace] = [:]
+  for pid in Set(elements.map { $0.pid }) {
+    if orientation == 1 {
+      spaces[pid] = .interface
+      continue
+    }
+    let candidates = elements.dropFirst()
+      .filter { $0.pid == pid && $0.rawFrame.width > 0 && $0.rawFrame.height > 0 }
+      .sorted { $0.rawFrame.width * $0.rawFrame.height < $1.rawFrame.width * $1.rawFrame.height }
+      .prefix(3)
+    var space = FrameSpace.unresolved
+    for candidate in candidates {
+      let centre = CGPoint(x: candidate.rawFrame.midX, y: candidate.rawFrame.midY)
+      let readings: [(FrameSpace, CGPoint)] = [(.interface, describePortraitPoint(centre)), (.portrait, centre)]
+      for (reading, point) in readings {
+        let translation = objectAtPointFn(translator, objectAtPointSelector, point, 0, bridgeToken as NSString)
+        guard let hit = platformElement(translator, translation) else { continue }
+        let hitElement = readElement(hit, depth: 0)
+        if hitElement.pid == pid, sameFrame(hitElement.rawFrame, candidate.rawFrame) {
+          space = reading
+          break
+        }
+      }
+      if space != .unresolved { break }
+    }
+    spaces[pid] = space
+  }
+  return spaces
+}
+
+func frameJSON(_ rect: CGRect) -> Any {
+  let values = [rect.origin.x, rect.origin.y, rect.size.width, rect.size.height].map { Double($0) }
+  guard values.allSatisfy({ $0.isFinite }) else { return NSNull() }
+  return ["x": values[0], "y": values[1], "width": values[2], "height": values[3]]
+}
+
+func describeScreen() -> Never {
+  guard
+    dlopen(
+      "/System/Library/PrivateFrameworks/AccessibilityPlatformTranslation.framework/AccessibilityPlatformTranslation",
+      RTLD_NOW
+    ) != nil
+  else {
+    fail("could not load AccessibilityPlatformTranslation.framework")
+  }
+  guard device.responds(to: sendAXSelector) else {
+    fail("this CoreSimulator has no accessibility request API")
+  }
+  guard let translatorClass = NSClassFromString("AXPTranslator"),
+    let translator = getObject(translatorClass, "sharedInstance") as? NSObject,
+    translator.responds(to: frontmostSelector),
+    translator.responds(to: objectAtPointSelector),
+    translator.responds(to: macElementSelector),
+    translator.responds(to: NSSelectorFromString("setBridgeTokenDelegate:"))
+  else {
+    fail("the accessibility translator API (AXPTranslator) is missing")
+  }
+  let delegate = TranslationDelegate(device: device)
+  if let helperProtocol = objc_getProtocol("AXPTranslationTokenDelegateHelper") {
+    class_addProtocol(TranslationDelegate.self, helperProtocol)
+  }
+  translator.setValue(delegate, forKey: "bridgeTokenDelegate")
+  // The translator holds its delegate weakly: keep it alive while reading.
+  let (elements, spaces) = withExtendedLifetime(delegate) { () -> ([AccessibilityElement], [Int32: FrameSpace]) in
+    var elements: [AccessibilityElement] = []
+    let rootTranslation = frontmostFn(translator, frontmostSelector, 0, bridgeToken as NSString)
+    if let root = platformElement(translator, rootTranslation) {
+      walk(root, depth: 0, into: &elements)
+    }
+    return (elements, frameSpaces(translator, elements))
+  }
+  let items: [[String: Any]] = elements.enumerated().map { index, element in
+    // The application element reports the screen in the interface orientation.
+    let space = index == 0 ? FrameSpace.interface : (spaces[element.pid] ?? .unresolved)
+    var item: [String: Any] = [
+      "label": element.label ?? "",
+      "role": element.role ?? "",
+      "enabled": element.enabled,
+      "pid": Int(element.pid),
+      "depth": element.depth,
+    ]
+    if let identifier = element.identifier, !identifier.isEmpty { item["identifier"] = identifier }
+    if let value = element.value, !value.isEmpty { item["value"] = value }
+    switch space {
+    case .interface: item["frame"] = frameJSON(element.rawFrame)
+    case .portrait: item["frame"] = frameJSON(interfaceRect(fromPortrait: element.rawFrame))
+    case .unresolved: item["frame"] = NSNull()
+    }
+    return item
+  }
+  let document: [String: Any] = [
+    "orientation": orientationName,
+    "screen": ["width": frameWidth, "height": frameHeight],
+    "elements": items,
+  ]
+  guard JSONSerialization.isValidJSONObject(document),
+    let data = try? JSONSerialization.data(withJSONObject: document, options: [.sortedKeys]),
+    let json = String(data: data, encoding: .utf8)
+  else {
+    fail("could not encode the accessibility tree as JSON")
+  }
+  print(json)
+  exit(0)
+}
+
+if isDescribe {
+  describeScreen()
+}
 guard x >= 0, y >= 0, x <= frameWidth, y <= frameHeight else {
   fail(
     "coordinates \(x),\(y) are outside the screen (\(frameWidth)x\(frameHeight) points, \(orientationName))",

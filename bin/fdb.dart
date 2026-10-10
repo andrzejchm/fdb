@@ -54,7 +54,7 @@ Commands:
                Grant, revoke, or reset a runtime permission
                iOS sim: xcrun simctl privacy; Android: adb pm grant/revoke
                macOS: reset only (tccutil); physical iOS/Windows/Linux: unsupported
-  native-tap  Tap native (non-Flutter) UI by coordinates, or by label on Android
+  native-tap  Tap native (non-Flutter) UI by coordinates or by label (Android, iOS simulator)
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector, coordinates, or @N ref
   double-tap  Double-tap a widget by selector, coordinates, or @N ref

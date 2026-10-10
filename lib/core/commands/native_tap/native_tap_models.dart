@@ -5,7 +5,8 @@ import 'package:fdb/core/models/command_result.dart';
 ///
 /// Exactly one target: [x] and [y] together, or [text].
 /// - [text]: label, content description or resource id of a native element
-///   (Android only for now). [index] picks among several matches (0-based).
+///   on Android; accessibility label or identifier on the iOS simulator.
+///   [index] picks among several matches (0-based).
 ///   [timeoutSeconds] is how long to keep looking for a match (default 5).
 /// - [logical]: [x]/[y] are Flutter logical pixels. On Android they are
 ///   multiplied by the device pixel ratio; on the iOS simulator they are
@@ -36,10 +37,13 @@ class NativeTapAndroid extends NativeTapResult {
 /// iOS Simulator tap injected through the simulator's HID stack.
 ///
 /// Reaches every process on screen, including SpringBoard system dialogs.
+/// [x]/[y] are points; [text] is the matched label when the tap was by
+/// `--text`.
 class NativeTapIosSimulator extends NativeTapResult {
-  const NativeTapIosSimulator({required this.x, required this.y});
+  const NativeTapIosSimulator({required this.x, required this.y, this.text});
   final int x;
   final int y;
+  final String? text;
 }
 
 /// iOS Simulator HID tap was unavailable, so the tap went through the
@@ -84,9 +88,12 @@ class NativeTapIosSimulatorFailed extends NativeTapResult {
   final String message;
 }
 
-/// `--text` on the iOS simulator. Not implemented yet (fdb-hwr).
-class NativeTapTextUnsupportedOnIosSimulator extends NativeTapResult {
-  const NativeTapTextUnsupportedOnIosSimulator();
+/// `--text` on the iOS simulator could not read the accessibility tree (or
+/// the helper could not tap). Nothing was tapped, and there is no in-process
+/// fallback for `--text`.
+class NativeTapIosSimulatorAccessibilityUnavailable extends NativeTapResult {
+  const NativeTapIosSimulatorAccessibilityUnavailable(this.reason);
+  final String reason;
 }
 
 /// No active fdb session found.
@@ -136,7 +143,8 @@ class NativeTapInputInjectionBlocked extends NativeTapResult {
 }
 
 /// No native element matched [query] before the timeout. [visibleLabels]
-/// are the labels in the last window dump, in document order.
+/// are the labels in the last window dump (Android) or accessibility tree
+/// (iOS simulator), in screen order.
 class NativeTapNoMatch extends NativeTapResult {
   const NativeTapNoMatch({required this.query, required this.visibleLabels});
   final String query;

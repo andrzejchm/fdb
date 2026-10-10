@@ -79,11 +79,30 @@ void main() {
       expect(out.stdout, isEmpty);
     });
 
-    test('--text is not supported yet', () {
-      final out = _capture(() => formatNativeTapResult(const NativeTapTextUnsupportedOnIosSimulator()));
+    test('--text tap appends the matched label, escaped', () {
+      final out = _capture(
+        () => formatNativeTapResult(const NativeTapIosSimulator(x: 275, y: 474, text: 'Open in “Test App” \\ "now"')),
+      );
+
+      expect(out.exitCode, 0);
+      expect(out.stdout, 'NATIVE_TAPPED=ios-simulator X=275 Y=474 TEXT="Open in “Test App” \\\\ \\"now\\""\n');
+      expect(out.stderr, isEmpty);
+    });
+
+    test('--text without the accessibility API is an ERROR with the reason', () {
+      final out = _capture(
+        () => formatNativeTapResult(
+          const NativeTapIosSimulatorAccessibilityUnavailable('this CoreSimulator has no accessibility request API'),
+        ),
+      );
 
       expect(out.exitCode, 1);
-      expect(out.stderr, 'ERROR: native-tap --text is not supported on the iOS simulator yet; use --at x,y\n');
+      expect(
+        out.stderr,
+        'ERROR: native-tap --text needs the iOS simulator accessibility API, which is not available '
+        '(this CoreSimulator has no accessibility request API). Tap by coordinates with --at x,y instead.\n',
+      );
+      expect(out.stdout, isEmpty);
     });
   });
 

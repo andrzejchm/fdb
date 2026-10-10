@@ -1,5 +1,6 @@
 import 'package:fdb/core/commands/native_tap/android_native_tap.dart';
 import 'package:fdb/core/commands/native_tap/ios_simulator_hid.dart';
+import 'package:fdb/core/commands/native_tap/ios_simulator_native_tap.dart';
 import 'package:fdb/core/commands/native_tap/native_tap_models.dart';
 import 'package:fdb/core/commands/tap/tap.dart';
 import 'package:fdb/core/process_utils.dart';
@@ -20,7 +21,9 @@ export 'package:fdb/core/commands/native_tap/native_tap_models.dart';
 /// Xcode toolchain, unknown device, compile failure...) it falls back to the
 /// in-process `UIApplication.sendEvent()` path (the same one `fdb tap --at`
 /// uses), which cannot reach SpringBoard; the result carries the reason so
-/// the CLI adapter can warn.
+/// the CLI adapter can warn. `--text` reads the simulator's accessibility
+/// tree with the same helper and taps the matched element's frame center
+/// (see `ios_simulator_native_tap.dart`); it has no fallback.
 ///
 /// Never throws; all error conditions are represented as sealed result cases.
 Future<NativeTapResult> nativeTap(NativeTapInput input) async {
@@ -35,8 +38,7 @@ Future<NativeTapResult> nativeTap(NativeTapInput input) async {
   }
 
   if (platform.startsWith('ios') && isEmulator) {
-    // fdb-hwr: read the simulator accessibility tree and tap by label.
-    if (input.text != null) return const NativeTapTextUnsupportedOnIosSimulator();
+    if (input.text != null) return nativeTapIosSimulatorText(input, udid: readDevice());
     // --logical is a no-op here: iOS coordinates are already points.
     return _tapIosSimulator(x: input.x!, y: input.y!);
   }
