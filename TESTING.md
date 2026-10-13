@@ -128,6 +128,16 @@ app-restoration coverage. Ask the user to unlock on-device, then relaunch the
 app and verify foreground `fdb describe` before resuming smoke. Do not press
 power again to resolve uncertain delivery or attempt passcode unlocking.
 
+### Native-button verification record (fdb-5eb)
+
+Home and lock sleep/wake were verified on the iPhone 17 Pro simulator and
+Android b433094a, including responsive foreground app restoration. Android S49
+completed through its manual-unlock checkpoint. iOS S1/S46/S48 and Android
+S1/S45/S47/S49 passed; unsupported macOS behavior was also verified.
+The full Android Home-only smoke run passed in 29m59s. Before shipping,
+analysis and formatting passed again, along with 719 Dart tests and 56 helper
+tests run directly in their package directories.
+
 ## Test Output Conventions
 
 Each test task prints:
