@@ -164,6 +164,12 @@ After CI completes successfully:
 
 ## Troubleshooting
 
+### Verification fails because `task` is missing
+
+`test/native_button_task_test.dart` runs Taskfile integration tests. Both the main CI and publish workflows must install Task before `dart test`. If publish verification fails with `ProcessException: No such file or directory` for `task`, add the same Task installation step used in `.github/workflows/ci.yml` to `.github/workflows/publish.yml`.
+
+If the release tag is already pushed, fixing `main` does not change the tagged workflow. After verifying the tagged source locally and confirming main CI passed, publish both packages locally with `dart pub publish --force` (use `flutter pub publish --force` in `packages/fdb_helper`) and create the GitHub release manually. Complete every post-release check above.
+
 ### fdb_helper not published (fdb visible on pub.dev but fdb_helper is not)
 
 The CI publish job publishes `fdb` first, then `fdb_helper`. If `fdb_helper` fails (exit code 65), `fdb` is already live but `fdb_helper` is stuck on the old version. Users who add `fdb_helper: ^X.Y.Z` to their pubspec will get a resolution error.
