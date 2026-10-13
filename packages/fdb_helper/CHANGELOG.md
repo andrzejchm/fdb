@@ -1,3 +1,7 @@
+## 1.15.0
+
+- No functional changes. Version matches fdb 1.15.0.
+
 ## 1.14.2
 
 - No functional changes.

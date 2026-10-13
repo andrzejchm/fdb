@@ -1,3 +1,9 @@
+## 1.15.0
+
+### New commands
+- `fdb native-swipe --from x,y --to x,y --duration <ms>` swipes OS UI on the session's Android device or iOS simulator, including system panels and other apps. Works without a VM service or fdb_helper connection. Coordinates are physical pixels on Android and points on the iOS simulator.
+- `fdb native-button home|lock` presses one hardware button on the session's Android device or iOS simulator without a VM service or fdb_helper connection. `home` returns to OS home when unlocked; `lock` presses power/lock and can sleep or wake the device. Success confirms delivery, so check the resulting screen with a screenshot.
+
 ## 1.14.2
 
 ### Fixes
