@@ -110,7 +110,7 @@ let sendObjectError = unsafeBitCast(msgSend, to: MsgSendObjectError.self)
 let sendHid = unsafeBitCast(msgSend, to: MsgSendHid.self)
 
 typealias MouseMessageFn = @convention(c) (
-  UnsafeMutablePointer<CGPoint>, UnsafeMutablePointer<CGPoint>?, Int32, UInt, Bool
+  UnsafeMutablePointer<CGPoint>, UnsafeMutablePointer<CGPoint>?, UInt32, UInt, CGSize, UInt32
 ) -> UnsafeMutableRawPointer?
 guard let mouseMessagePointer = dlsym(simulatorKit, "IndigoHIDMessageForMouseNSEvent") else {
   fail("IndigoHIDMessageForMouseNSEvent not found in SimulatorKit")
@@ -634,7 +634,7 @@ let payloadSize = 0x90
 let touchOffset = 0x30
 let touchSize = 0x80
 let secondPayloadOffset = payloadOffset + payloadSize
-let touchTarget: Int32 = 0x32
+let touchTarget: UInt32 = 0x32
 let eventTypeTouch: UInt8 = 0x02
 
 var ratio = CGPoint(x: portraitX / widthPoints, y: portraitY / heightPoints)
@@ -644,7 +644,10 @@ func touchMessage(down: Bool, moving: Bool = false) -> UnsafeMutableRawPointer? 
   // NSEventType is NSUInteger: 1 = leftMouseDown, 2 = leftMouseUp.
   // The legacy builder only accepts down/up; NSEvent dragged (6) returns nil.
   // A move is a sustained down with Position-only mask and the same identity.
-  guard let source = mouseMessage(&point, nil, touchTarget, down ? UInt(1) : UInt(2), false) else { return nil }
+  // The builder normalizes by screen size. Our point is already a ratio, so
+  // pass a unit size and explicitly select no edge instead of leaving ABI
+  // arguments undefined. The coordinate fields below are patched in both cases.
+  guard let source = mouseMessage(&point, nil, touchTarget, down ? UInt(1) : UInt(2), CGSize(width: 1, height: 1), 0) else { return nil }
   if moving { source.storeBytes(of: UInt32(0x04), toByteOffset: 0x38, as: UInt32.self) }
   source.storeBytes(of: Double(ratio.x), toByteOffset: 0x3c, as: Double.self)
   source.storeBytes(of: Double(ratio.y), toByteOffset: 0x44, as: Double.self)
@@ -671,7 +674,7 @@ enum SendOutcome {
   case timedOut
 }
 
-func send(_ candidate: UnsafeMutableRawPointer?) -> SendOutcome {
+func send(_ candidate: UnsafeMutableRawPointer?, cancellable: Bool = false) -> SendOutcome {
   guard let message = candidate else { return .failed("could not build the HID touch message") }
   let done = DispatchSemaphore(value: 0)
   var sendFailure: NSError?
@@ -687,8 +690,12 @@ func send(_ candidate: UnsafeMutableRawPointer?) -> SendOutcome {
     completionQueue,
     completion as AnyObject
   )
-  if done.wait(timeout: .now() + 5) == .timedOut {
-    return .timedOut
+  let deadline = DispatchTime.now() + 5
+  while done.wait(timeout: .now() + .milliseconds(20)) == .timedOut {
+    // Stop waiting for down/move promptly on cancellation so both five-second
+    // release attempts fit inside the host's 12-second grace. Never cancel up.
+    if cancellable && interrupted { return .failed("gesture interrupted; touch-up cleanup requested") }
+    if DispatchTime.now() >= deadline { return .timedOut }
   }
   if let sendFailure {
     return .failed(sendFailure.localizedDescription)
@@ -721,11 +728,12 @@ func sendTouchUp(afterDownProblem downProblem: String?) {
 }
 
 if isSwipe {
+  if interrupted { fail("gesture interrupted before touch down; no gesture delivered", code: 2) }
   var problem: String?
   let startTime = ProcessInfo.processInfo.systemUptime
   let duration = Double(durationMs) / 1000
   let deadline = startTime + duration + 5
-  switch send(touchMessage(down: true)) {
+  switch send(touchMessage(down: true), cancellable: true) {
   case .sent: break
   case .failed(let message): problem = "sending touch down failed: \(message)"
   case .timedOut: problem = "timed out sending touch down"
@@ -746,7 +754,7 @@ if isSwipe {
       let fraction = Double(step) / Double(steps)
       let point = describePortraitPoint(CGPoint(x: x + (endX - x) * fraction, y: y + (endY - y) * fraction))
       ratio = CGPoint(x: point.x / widthPoints, y: point.y / heightPoints)
-      switch send(touchMessage(down: true, moving: true)) {
+      switch send(touchMessage(down: true, moving: true), cancellable: true) {
       case .sent: break
       case .failed(let message): problem = "sending touch move failed: \(message)"
       case .timedOut: problem = "timed out sending touch move"
@@ -754,6 +762,7 @@ if isSwipe {
       if problem != nil { break }
     }
   }
+  if interrupted && problem == nil { problem = "gesture interrupted; touch-up cleanup requested" }
   // Even a failed down can have reached the guest. Always attempt release.
   sendTouchUp(afterDownProblem: problem)
   print("SWIPED from=\(x),\(y) to=\(endX),\(endY) duration_ms=\(durationMs) orientation=\(orientationName)")
