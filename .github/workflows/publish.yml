@@ -38,6 +38,11 @@ jobs:
         run: flutter analyze --suppress-analytics
         working-directory: packages/fdb_helper
 
+      - name: Install Task for Taskfile integration tests
+        run: |
+          go install github.com/go-task/task/v3/cmd/task@v3.48.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
       - name: Test (fdb)
         run: dart test
 
