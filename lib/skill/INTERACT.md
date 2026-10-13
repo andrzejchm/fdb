@@ -99,8 +99,10 @@ fdb native-swipe --from 360,1 --to 360,2400 --duration 600
   the OS screen before deciding whether to run another swipe.
 - Verification: `NATIVE_SWIPED` confirms injection, not which panel opened.
   Take a screenshot and check the intended OS panel; OEM edge gestures differ.
-  On Android use `adb -s <session-id> exec-out screencap -p > screen.png` for OS
-  panels: Flutter's screenshot path can still show the app under an OS overlay.
+  On Android `fdb screenshot --full --output screen.png` captures the OS display
+  through adb. For an independent capture use
+  `adb -s <session-id> exec-out screencap -p > screen.png`. Let the panel settle
+  before capturing; a delivered gesture does not guarantee that the OS opened it.
 
 ## Selector priority
 

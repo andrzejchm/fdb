@@ -12,10 +12,13 @@ token-matching tests) rather than replacing it.
 
 ## Prerequisites
 
-App is running and `fdb_helper` is wired up:
+Flutter must be on `PATH` because `fdb launch` starts the Flutter CLI as a
+child process. The examples use this repository's pinned SDK; set `FLUTTER_SDK`
+to another Flutter SDK root if needed. The app must have `fdb_helper` wired up.
 
 ```bash
 cd example/test_app
+export PATH="${FLUTTER_SDK:-$HOME/fvm/versions/3.44.0}/bin:$PATH"
 dart ../../bin/fdb.dart status   # must print RUNNING=true
 ```
 
@@ -26,6 +29,9 @@ dart ../../bin/fdb.dart launch --device <device_id>
 ```
 
 All commands below are run from `example/test_app/` unless stated otherwise.
+`RUNNING=true` confirms process/VM liveness, not that the app is in the foreground
+or that its Flutter UI isolate still exposes `fdb_helper`. S1 establishes a fresh
+home-screen baseline before the other scenarios.
 
 ---
 
@@ -34,9 +40,16 @@ All commands below are run from `example/test_app/` unless stated otherwise.
 **Purpose:** baseline describe on the root route. Catches output format
 regressions and verifies all expected elements are present.
 
+**Setup:** replace `<device_id>` with the exact target ID (for the standard
+devices: `C1DE4562-CFBF-45D8-B79E-740A11E86171` on iOS or `b433094a` on Android).
+Launch fresh so the route is `/` and the counter is zero. Do not use `back` to
+reset this baseline: at the Android root route it passes back to the OS and
+leaves the foreground, which can tear down the Flutter UI isolate and its helper
+extensions. This is the existing system-back behavior, not a describe failure.
+
 ```bash
-# Ensure we are on the home screen (back to root if needed)
-dart ../../bin/fdb.dart back 2>/dev/null || true
+export PATH="${FLUTTER_SDK:-$HOME/fvm/versions/3.44.0}/bin:$PATH"
+dart ../../bin/fdb.dart launch --device <device_id>
 dart ../../bin/fdb.dart describe
 ```
 
