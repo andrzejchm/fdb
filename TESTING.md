@@ -103,6 +103,14 @@ The explicit lock task reports this restoration blocker rather than accepting
 Flutter's cached frame. On failure it reports unrestored state and never sends
 an automatic cleanup button press. It cannot unlock passcodes.
 
+On a secure physical Android, complete S49 using the documented manual-unlock
+checkpoint: retain the observed sleep/wake evidence, have the user unlock the
+device, then confirm the keyguard is no longer showing and restore responsive
+foreground Flutter. This completes manual button coverage. The explicit lock
+task's inability to automatically restore through a secure keyguard is expected
+device behavior, not an input-delivery failure. Default smoke can then run
+Home-only coverage without repeating the power sequence.
+
 The simulator lock task's restoration swipe defaults to the portrait iPhone 17
 Pro fixture used in S48. For another screen size/orientation, explicitly set
 `UNLOCK_FROM=x,y UNLOCK_TO=x,y` to valid lock-screen swipe coordinates before
