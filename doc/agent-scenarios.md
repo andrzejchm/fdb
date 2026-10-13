@@ -1424,11 +1424,14 @@ Do not mark a cached Flutter frame as successful restoration.
 ```bash
 dart ../../bin/fdb.dart describe
 dart ../../bin/fdb.dart native-button home
+sleep 1
 adb -s b433094a exec-out screencap -p > .fdb/s49-home.png
 dart ../../bin/fdb.dart native-button lock
+sleep 1
 adb -s b433094a shell dumpsys power
 adb -s b433094a exec-out screencap -p > .fdb/s49-lock.png
 dart ../../bin/fdb.dart native-button lock
+sleep 1
 adb -s b433094a shell dumpsys power
 adb -s b433094a exec-out screencap -p > .fdb/s49-wake.png
 adb -s b433094a shell dumpsys window policy
@@ -1447,6 +1450,8 @@ dart ../../bin/fdb.dart describe
 
 **What to verify:**
 - Home prints `NATIVE_BUTTON=home PLATFORM=android` and shows the OS launcher.
+- Capture after the documented settling delay; an app-to-launcher transition
+  thumbnail does not satisfy the launcher assertion.
 - Lock prints `NATIVE_BUTTON=lock PLATFORM=android`. Power state changes to
   asleep/dozing; screenshot may show black or always-on display. The next
   intentional lock press wakes the device. It does not promise passcode unlock.
