@@ -61,6 +61,7 @@ task test:native-view-tap
 task test:deeplink
 task test:native-tap
 task test:native-button
+task test:native-button-lock    # explicit sleep/wake; disposable simulator/emulator for unattended runs
 task test:native-swipe
 task test:grant-permission
 task test:simulator

@@ -5,6 +5,7 @@ Rules and commands for testing fdb changes.
 ## Contents
 - Requirements
 - Test Commands
+- Native Button Integration
 - Test Output Conventions
 - Adding Tests for New Commands
 
@@ -68,6 +69,7 @@ task test:simulator
 task test:grant-permission
 task test:native-tap
 task test:native-button
+task test:native-button-lock    # explicit sleep/wake test; see below
 task test:native-swipe
 task test:app-died
 task test:kill
@@ -88,13 +90,37 @@ task test:unit
 task cleanup
 ```
 
-## Test Output Conventions
+## Native Button Integration
 
-`task test:native-button` starts awake/unlocked and captures Home, sleep, wake
-and restoration states. A secure Android keyguard needs manual unlocking;
-the task reports that blocker rather than accepting Flutter's cached frame as
-restoration. Use an unlocked test device without a secure keyguard for unattended
-`task smoke`. This command does not unlock passcodes.
+`task test:native-button` and default `task smoke` test Home and app restoration,
+starting awake/unlocked. They skip lock sleep/wake explicitly in their output.
+Run `task test:native-button-lock` to test Home, sleep, wake and restoration.
+For unattended full coverage, choose a disposable simulator or Android emulator
+without a secure keyguard, and run that task separately (or set
+`LOCK_BUTTON=true` for smoke). An unlocked secure physical Android can become
+passcode-locked after the first power press; use the manual S49 scenario for it.
+The explicit lock task reports this restoration blocker rather than accepting
+Flutter's cached frame. On failure it reports unrestored state and never sends
+an automatic cleanup button press. It cannot unlock passcodes.
+
+The simulator lock task's restoration swipe defaults to the portrait iPhone 17
+Pro fixture used in S48. For another screen size/orientation, explicitly set
+`UNLOCK_FROM=x,y UNLOCK_TO=x,y` to valid lock-screen swipe coordinates before
+running the lock task. Inspect Home/lock/wake/restored captures for OS semantics;
+delivery tokens alone do not prove the final screen state.
+
+For a physical Android already left secure-locked by a test, the minimal
+verification is read-only, using its exact serial: inspect
+`adb -s <serial> shell dumpsys power` and
+`adb -s <serial> shell dumpsys window policy`. Awake plus `secure=true` and
+`showing=true` verifies an awake secure keyguard; use an OS screenshot if
+available to check the visible screen. Preserve the earlier sleep power dump
+and delivery output as evidence of the first press. These reads do not complete
+app-restoration coverage. Ask the user to unlock on-device, then relaunch the
+app and verify foreground `fdb describe` before resuming smoke. Do not press
+power again to resolve uncertain delivery or attempt passcode unlocking.
+
+## Test Output Conventions
 
 Each test task prints:
 - `PASS: fdb <command>` on success.

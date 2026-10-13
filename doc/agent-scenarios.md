@@ -1410,7 +1410,7 @@ dart ../../bin/fdb.dart describe
   lock screen, not an unlocked app. These are two intentional observed actions.
 - Swipe and simulator launch restore the test app. Final describe shows home
   widgets. Home is not described as universal unlock or lock as idempotent.
-- `task test:native-button` also exercises these actions using only copied
+- `task test:native-button-lock` also exercises these actions using only copied
   device/platform metadata, with no PID, controller, VM URI or helper dependency.
 
 ## S49 · native-button: Android Home and power button
@@ -1431,7 +1431,16 @@ adb -s b433094a exec-out screencap -p > .fdb/s49-lock.png
 dart ../../bin/fdb.dart native-button lock
 adb -s b433094a shell dumpsys power
 adb -s b433094a exec-out screencap -p > .fdb/s49-wake.png
-adb -s b433094a shell wm dismiss-keyguard
+adb -s b433094a shell dumpsys window policy
+```
+
+If the policy reports `secure=true` and `showing=true`, stop here and ask the
+user to unlock on the device. Do not repeat power or try to enter a passcode.
+After the user unlocks (or on a nonsecure disposable emulator), confirm the
+keyguard is no longer showing before restoring the app:
+
+```bash
+adb -s b433094a shell dumpsys window policy
 adb -s b433094a shell monkey -p com.fdb.test.test_app -c android.intent.category.LAUNCHER 1
 dart ../../bin/fdb.dart describe
 ```
@@ -1443,7 +1452,10 @@ dart ../../bin/fdb.dart describe
   intentional lock press wakes the device. It does not promise passcode unlock.
 - Commands still work with Flutter backgrounded/suspended. All adb calls use
   exactly b433094a. Final describe after keyguard dismissal/relaunch shows home.
-- `task test:native-button` verifies delivery using metadata-only sessions.
+- `task test:native-button` verifies Home using metadata-only sessions; default
+  smoke does not press power. `task test:native-button-lock` explicitly adds
+  sleep/wake and may stop at a secure keyguard restoration blocker. Prefer a
+  disposable emulator without a secure keyguard for unattended lock coverage.
   Physical iOS and desktop task runs instead verify clear unsupported errors.
 
 ## Adding new scenarios
