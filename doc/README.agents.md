@@ -63,3 +63,8 @@ iOS simulator points or Android physical pixels in the current orientation. It
 targets the recorded session device without contacting the VM or `fdb_helper`.
 Physical iOS and desktop targets are unsupported. Run `fdb skill interact` for
 examples and the `NATIVE_SWIPED` output contract.
+
+Use `fdb native-button home` or `fdb native-button lock` for one hardware-button
+press on the recorded Android device or iOS simulator, even with a suspended app.
+Home is not universal unlock; lock is a power/lock press that may sleep or wake.
+Inspect OS state before another press. Uncertain delivery fails without retry.

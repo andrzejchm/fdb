@@ -50,7 +50,7 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 | Topic | Commands | Run |
 |-------|----------|-----|
 | **launch** | `devices`, `launch`, `attach`, `doctor`, `reload`, `restart`, `status`, `kill`, `deeplink` | `fdb skill launch` |
-| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap` (`--at x,y` / `--text <label>`; system dialogs and permission prompts, Android + iOS simulator), `native-swipe` (OS panels; `--from x,y --to x,y --duration ms`), `tap`, `longpress`, `double-tap`, `input` (any text input incl. flutter_quill; `--action send`), `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
+| **interact** | `screenshot`, `tree`, `describe`, `select`, `selected`, `native-tap` (`--at x,y` / `--text <label>`; system dialogs and permission prompts, Android + iOS simulator), `native-swipe` (OS panels; `--from x,y --to x,y --duration ms`), `native-button` (`home` / `lock`; hardware press), `tap`, `longpress`, `double-tap`, `input` (any text input incl. flutter_quill; `--action send`), `scroll`, `scroll-to`, `swipe`, `swipe-path`, `back` | `fdb skill interact` |
 | **data** | `shared-prefs`, `clean`, `ext`, `grant-permission` | `fdb skill data` |
 | **diagnostics** | `logs`, `syslog`, `crash-report` + websocat fallback | `fdb skill diagnostics` |
 | **memory** | `mem`, `gc`, `heap` | `fdb skill memory` |
@@ -61,6 +61,12 @@ Run `fdb skill <topic>` to print full docs, flags, output tokens, and best pract
 All state lives in `<project>/.fdb/`. fdb auto-resolves by walking up from CWD — no need to `cd` to the project root. Key files: `logs.txt`, `vm_uri.txt`, `platform.txt`, `app_id.txt`, `screenshot.png`. Full reference: `fdb skill launch`.
 
 ## Caveats
+
+- `fdb native-button home` / `fdb native-button lock` presses one OS hardware button
+  on the recorded Android device or iOS simulator, without contacting Flutter.
+  Home is not universal unlock. Lock presses power/lock and may sleep or wake;
+  it cannot unlock passcodes. Inspect OS state before another press. Uncertain
+  delivery fails without retry. See `fdb skill interact`.
 
 - `--session-dir` is a global option and goes BEFORE the command: `fdb --session-dir $S input "x"`. `fdb input --session-dir $S "x"` fails with `ERROR: Could not find an option named "--session-dir".` (or `ERROR: No .fdb/ session found.` if CWD has no session).
 - `fdb doctor` takes no options, so no `--device`; it reads the device from the session. `fdb doctor --device X` fails with `ERROR: Could not find an option named "--device".`

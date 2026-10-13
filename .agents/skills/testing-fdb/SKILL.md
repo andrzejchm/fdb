@@ -60,6 +60,7 @@ task test:screenshot
 task test:native-view-tap
 task test:deeplink
 task test:native-tap
+task test:native-button
 task test:native-swipe
 task test:grant-permission
 task test:simulator

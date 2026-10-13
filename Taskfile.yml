@@ -3678,6 +3678,93 @@ tasks:
 
         echo "PASS: test:native-longpress"
 
+  test:native-button:
+    desc: "Hardware Home/lock delivery without VM metadata, with OS captures and app restoration"
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        set -eu
+        for ARGS in "" "power" "home lock"; do
+          CODE=0
+          OUTPUT=$({{.FDB}} native-button $ARGS 2>&1) || CODE=$?
+          [ "$CODE" -eq 1 ] && echo "$OUTPUT" | grep -q '^ERROR: Expected one button: home or lock.$' || exit 1
+        done
+        PLATFORM=$(cut -d' ' -f1 .fdb/platform.txt)
+        EMULATOR=$(cut -d' ' -f2 .fdb/platform.txt)
+        case "$PLATFORM $EMULATOR" in
+          android*) EXPECTED=android ;;
+          "ios true") EXPECTED=ios-simulator ;;
+          *)
+            for BUTTON in home lock; do
+              CODE=0
+              OUTPUT=$({{.FDB}} native-button "$BUTTON" 2>&1) || CODE=$?
+              [ "$CODE" -eq 1 ] && echo "$OUTPUT" | grep -q 'native-button is not supported' || exit 1
+            done
+            echo "PASS: fdb native-button unsupported platform ($PLATFORM $EMULATOR)"
+            exit 0 ;;
+        esac
+        META=$(mktemp -d)
+        trap 'rm -rf "$META"' EXIT
+        cp .fdb/device.txt .fdb/platform.txt "$META/"
+        DEVICE=$(cat .fdb/device.txt)
+        APP_ID=$(cat .fdb/app_id.txt)
+        capture() {
+          case "$PLATFORM" in
+            ios) xcrun simctl io "$DEVICE" screenshot ".fdb/native-button-$1.png" ;;
+            android*) adb -s "$DEVICE" exec-out screencap -p > ".fdb/native-button-$1.png" ;;
+          esac
+        }
+        press() {
+          OUTPUT=$({{.FDB}} --session-dir "$META" native-button "$1" 2>&1)
+          echo "$OUTPUT"
+          [ "$OUTPUT" = "NATIVE_BUTTON=$1 PLATFORM=$EXPECTED" ] || exit 1
+          sleep 1
+        }
+        # Start awake/unlocked. The task never treats Home as universal unlock.
+        case "$PLATFORM" in
+          android*) POLICY=$(adb -s "$DEVICE" shell dumpsys window policy)
+                    if echo "$POLICY" | grep -q 'showing=true'; then
+                      echo "FAIL: unlock Android $DEVICE before testing Home/lock" >&2; exit 1
+                    fi ;;
+        esac
+        press home
+        capture home
+        # Already backgrounded; no PID/controller/VM URI in META.
+        press lock
+        capture lock
+        case "$PLATFORM" in
+          android*) adb -s "$DEVICE" shell dumpsys power > .fdb/native-button-lock-power.txt
+                    grep -Eq 'mWakefulness=(Asleep|Dozing)' .fdb/native-button-lock-power.txt || {
+                      echo "FAIL: lock press did not sleep Android (inspect power dump)" >&2; exit 1; } ;;
+        esac
+        # Intentional second press after observation, not a delivery retry.
+        press lock
+        capture wake
+        case "$PLATFORM" in
+          android*) adb -s "$DEVICE" shell dumpsys power > .fdb/native-button-wake-power.txt
+                    grep -q 'mWakefulness=Awake' .fdb/native-button-wake-power.txt || {
+                      echo "FAIL: second observed lock press did not wake Android" >&2; exit 1; } ;;
+        esac
+        case "$PLATFORM" in
+          ios) {{.FDB}} --session-dir "$META" native-swipe --from 150,873 --to 150,100 --duration 400
+               xcrun simctl launch "$DEVICE" "$APP_ID" ;;
+          android*) adb -s "$DEVICE" shell wm dismiss-keyguard
+                    POLICY=$(adb -s "$DEVICE" shell dumpsys window policy)
+                    if echo "$POLICY" | grep -q 'showing=true'; then
+                      echo "FAIL: Android keyguard still showing; unlock $DEVICE manually before app restoration (no passcode unlocking). Button delivery and sleep/wake were verified." >&2
+                      exit 1
+                    fi
+                    adb -s "$DEVICE" shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >/dev/null ;;
+        esac
+        sleep 1
+        {{.FDB}} wait --key increment_button --present --timeout 10000
+        capture restored
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        if echo "$OUTPUT" | grep -q 'App is not in the foreground'; then
+          echo "FAIL: native-button app restoration left Flutter backgrounded" >&2; exit 1
+        fi
+        echo "PASS: fdb native-button (inspect home/lock/wake/restored captures for OS state)"
+
   test:native-swipe:
     desc: "Native OS swipe, validation, and metadata-only session (Android / iOS simulator)"
     dir: '{{.TEST_APP}}'
@@ -5208,6 +5295,7 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:native-swipe
+      - task: test:native-button
       - task: test:grant-permission
       - task: test:simulator
       - task: test:select

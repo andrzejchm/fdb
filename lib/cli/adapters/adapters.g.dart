@@ -23,6 +23,7 @@ export 'launch_cli.dart';
 export 'logs_cli.dart';
 export 'longpress_cli.dart';
 export 'mem_cli.dart';
+export 'native_button_cli.dart';
 export 'native_tap_cli.dart';
 export 'native_swipe_cli.dart';
 export 'reload_cli.dart';

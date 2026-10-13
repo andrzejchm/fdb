@@ -1,4 +1,4 @@
-/// Swift source of the cached iOS simulator HID helper for native taps and swipes.
+/// Swift source of the cached iOS simulator HID helper for touches and buttons.
 ///
 /// fdb compiles this once with `xcrun swiftc` and caches the binary (see
 /// `ios_simulator_hid.dart`). The helper injects touches through SimulatorKit's
@@ -13,8 +13,8 @@
 /// from the simulator and rotates the point into the portrait frame the HID
 /// stack expects.
 ///
-/// Exit codes: 0 tapped (or described), 1 failure, 2 usage error,
-/// 3 coordinates outside the screen, 4 touch partially delivered,
+/// Exit codes: 0 delivered (or described), 1 failure before button delivery, 2 usage error,
+/// 3 coordinates outside the screen, 4 touch/button partially delivered,
 /// 5 interface orientation unknown.
 ///
 /// `describe` prints one JSON document on stdout, parsed by
@@ -33,6 +33,8 @@ const iosSimulatorHidSource = r'''// fdb iOS simulator HID helper.
 // Usage: <binary> describe <developer-dir> <udid>
 //   Prints the accessibility elements of the frontmost application as JSON,
 //   frames in points in the current interface orientation (see describe below).
+// Usage: <binary> button <developer-dir> <udid> <home|lock>
+//   Delivers one short hardware press/release without querying the screen.
 // Exit codes: 0 tapped / described, 1 failure (message on stderr), 2 usage error,
 //   3 coordinates outside the screen, 4 touch partially delivered (the touch
 //   down may have reached the simulator but the touch up did not),
@@ -55,9 +57,10 @@ let arguments = CommandLine.arguments
 let isTap = arguments.count == 6 && arguments[1] == "tap"
 let isSwipe = arguments.count == 9 && arguments[1] == "swipe"
 let isDescribe = arguments.count == 4 && arguments[1] == "describe"
-guard isTap || isSwipe || isDescribe else {
+let isButton = arguments.count == 5 && arguments[1] == "button"
+guard isTap || isSwipe || isDescribe || isButton else {
   let name = arguments.first ?? "helper"
-  fail("usage: \(name) tap <developer-dir> <udid> <x> <y> | swipe <developer-dir> <udid> <from-x> <from-y> <to-x> <to-y> <duration-ms> | describe <developer-dir> <udid>", code: 2)
+  fail("usage: \(name) tap <developer-dir> <udid> <x> <y> | swipe <developer-dir> <udid> <from-x> <from-y> <to-x> <to-y> <duration-ms> | describe <developer-dir> <udid> | button <developer-dir> <udid> <home|lock>", code: 2)
 }
 let developerDir = arguments[2]
 let udid = arguments[3].uppercased()
@@ -112,10 +115,6 @@ let sendHid = unsafeBitCast(msgSend, to: MsgSendHid.self)
 typealias MouseMessageFn = @convention(c) (
   UnsafeMutablePointer<CGPoint>, UnsafeMutablePointer<CGPoint>?, UInt32, UInt, CGSize, UInt32
 ) -> UnsafeMutableRawPointer?
-guard let mouseMessagePointer = dlsym(simulatorKit, "IndigoHIDMessageForMouseNSEvent") else {
-  fail("IndigoHIDMessageForMouseNSEvent not found in SimulatorKit")
-}
-let mouseMessage = unsafeBitCast(mouseMessagePointer, to: MouseMessageFn.self)
 
 var error: NSError?
 guard let contextClass = NSClassFromString("SimServiceContext"),
@@ -134,6 +133,63 @@ guard let device = devices.first(where: { ($0.value(forKey: "UDID") as? NSUUID)?
 guard (device.value(forKey: "state") as? Int) == 3 else {
   fail("simulator \(udid) is not booted")
 }
+
+// Hardware button builder ABI and layout verified against facebook/idb:
+// FBSimulatorControl/HID/SimulatorIndigoHID.swift and PrivateHeaders/SimulatorApp/Indigo.h.
+// Single-payload button envelope: innerSize 0xa0, eventType 1, eventKind 2;
+// source at 0x30 (Home 0, lock 1), direction at 0x34 (down 1/up 2), target 0x33.
+// Use the builder's allocation directly, never a touch envelope. This branch
+// exits before screen size/orientation and mouse builder initialization.
+if isButton {
+  let button = arguments[4]
+  guard button == "home" || button == "lock" else { fail("expected home or lock", code: 2) }
+  typealias ButtonMessageFn = @convention(c) (Int32, Int32, Int32) -> UnsafeMutableRawPointer?
+  guard let pointer = dlsym(simulatorKit, "IndigoHIDMessageForButton") else {
+    fail("IndigoHIDMessageForButton not found in SimulatorKit")
+  }
+  let builder = unsafeBitCast(pointer, to: ButtonMessageFn.self)
+  let source: Int32 = button == "home" ? 0 : 1
+  guard let down = builder(source, 1, 0x33), let up = builder(source, 2, 0x33) else {
+    fail("could not build hardware button messages")
+  }
+  for (message, direction) in [(down, UInt32(1)), (up, UInt32(2))] {
+    guard message.load(fromByteOffset: 0x18, as: UInt32.self) == 0xa0,
+      message.load(fromByteOffset: 0x1c, as: UInt8.self) == 1,
+      message.load(fromByteOffset: 0x20, as: UInt32.self) == 2,
+      message.load(fromByteOffset: 0x30, as: Int32.self) == source,
+      message.load(fromByteOffset: 0x34, as: UInt32.self) == direction,
+      message.load(fromByteOffset: 0x38, as: UInt32.self) == 0x33
+    else { fail("unsupported Indigo hardware button layout; nothing delivered") }
+  }
+  let selector = NSSelectorFromString("sendWithMessage:freeWhenDone:completionQueue:completion:")
+  guard let hidClass = NSClassFromString("SimulatorKit.SimDeviceLegacyHIDClient") as AnyObject?,
+    let allocated = hidClass.perform(NSSelectorFromString("alloc"))?.takeUnretainedValue(),
+    let hid = sendObjectError(allocated, NSSelectorFromString("initWithDevice:error:"), device, &error),
+    hid.responds(to: selector)
+  else { fail("could not create hardware HID client: \(error?.localizedDescription ?? "unknown error")") }
+  let queue = DispatchQueue(label: "fdb.ios-simulator-button")
+  func deliver(_ message: UnsafeMutableRawPointer) -> String? {
+    let done = DispatchSemaphore(value: 0)
+    var failure: NSError?
+    let completion: @convention(block) (NSError?) -> Void = { error in failure = error; done.signal() }
+    sendHid(hid, selector, message, true, queue, completion as AnyObject)
+    if done.wait(timeout: .now() + 5) == .timedOut { return "timed out delivering button" }
+    return failure?.localizedDescription
+  }
+  let downProblem = deliver(down)
+  if downProblem == nil { Thread.sleep(forTimeInterval: 0.05) }
+  // Release once even after uncertain down. Never repeat a whole press or
+  // uncertain up: lock can toggle state and a repeated release may act twice.
+  let upProblem = deliver(up)
+  if let problem = downProblem ?? upProblem { fail("button delivery uncertain: \(problem); no retry", code: 4) }
+  print("BUTTON=\(button)")
+  exit(0)
+}
+
+guard let mouseMessagePointer = dlsym(simulatorKit, "IndigoHIDMessageForMouseNSEvent") else {
+  fail("IndigoHIDMessageForMouseNSEvent not found in SimulatorKit")
+}
+let mouseMessage = unsafeBitCast(mouseMessagePointer, to: MouseMessageFn.self)
 
 guard let deviceType = device.value(forKey: "deviceType") as? NSObject,
   let screenSize = (deviceType.value(forKey: "mainScreenSize") as? NSValue)?.sizeValue,

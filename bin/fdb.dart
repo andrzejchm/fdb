@@ -56,6 +56,8 @@ Commands:
                iOS sim: xcrun simctl privacy; Android: adb pm grant/revoke
                macOS: reset only (tccutil); physical iOS/Windows/Linux: unsupported
   native-tap  Tap native (non-Flutter) UI by coordinates or by label (Android, iOS simulator)
+  native-button home|lock Press OS hardware button on session Android device / iOS simulator
+               Home is not universal unlock; lock presses power/lock (may sleep or wake)
   native-swipe Swipe OS UI on the session device (Android, iOS simulator)
                --from x,y --to x,y --duration <ms> (all required; 1-60000 ms)
                iOS points / Android physical pixels, current orientation; no VM required
@@ -169,6 +171,7 @@ Future<void> main(List<String> args) async {
   // `deeplink` likewise works without a session when given `--device`; with neither,
   // its adapter reports the missing session.
   const sessionSoftFail = {
+    CliCommand.nativeButton,
     CliCommand.nativeSwipe,
     CliCommand.simulator,
     CliCommand.deeplink,

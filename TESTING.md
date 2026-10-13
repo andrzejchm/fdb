@@ -67,6 +67,7 @@ task test:native-view-tap
 task test:simulator
 task test:grant-permission
 task test:native-tap
+task test:native-button
 task test:native-swipe
 task test:app-died
 task test:kill
@@ -88,6 +89,12 @@ task cleanup
 ```
 
 ## Test Output Conventions
+
+`task test:native-button` starts awake/unlocked and captures Home, sleep, wake
+and restoration states. A secure Android keyguard needs manual unlocking;
+the task reports that blocker rather than accepting Flutter's cached frame as
+restoration. Use an unlocked test device without a secure keyguard for unattended
+`task smoke`. This command does not unlock passcodes.
 
 Each test task prints:
 - `PASS: fdb <command>` on success.

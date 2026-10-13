@@ -11,6 +11,7 @@ UI interaction commands — screenshot, describe, tap, input, scroll, swipe, and
 - Widget selection
 - Tap native UI (system dialogs)
 - Swipe native OS UI
+- Press native hardware buttons
 - Tap a widget
 - Long-press
 - Double-tap
@@ -58,6 +59,29 @@ Dismissible(
 ```
 
 Add keys to: buttons, text fields, list rows, tabs, cards, bottom-sheet handles, and any container that wraps interactive children you might need to breadcrumb in `fdb describe`.
+
+## Press native hardware buttons
+
+```bash
+fdb native-button home
+# NATIVE_BUTTON=home PLATFORM=ios-simulator
+fdb native-button lock
+# NATIVE_BUTTON=lock PLATFORM=android
+```
+
+- Exactly one positional action: `home` or `lock`. Targets only the recorded
+  `.fdb/device.txt` and `.fdb/platform.txt`; global `--session-dir` selects a session.
+  No VM, controller or `fdb_helper` connection, including while the app is suspended.
+- Home returns to OS home when unlocked. It does not universally unlock devices.
+- Lock delivers one short power/lock press, not an idempotent lock request.
+  An awake device may sleep; a sleeping device may wake to the lock screen.
+  Passcode unlocking is outside this command. Inspect the screen before another press.
+- iOS simulator requires macOS/Xcode and uses the cached HID hardware-button builder,
+  without reading orientation or touch bounds. Android uses exact-serial adb
+  `KEYCODE_HOME` / `KEYCODE_POWER`. Physical iOS and desktop targets fail clearly.
+- `NATIVE_BUTTON` confirms delivery, not final OS state. An injection failure or
+  timeout returns `ERROR:`. Uncertain delivery is never retried or sent by another
+  path, since another lock press could toggle state again.
 
 ## Swipe native OS UI
 

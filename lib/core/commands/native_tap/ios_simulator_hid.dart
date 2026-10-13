@@ -17,7 +17,7 @@ sealed class IosSimulatorHidResult {
   const IosSimulatorHidResult();
 }
 
-/// The helper delivered the touch down/up pair.
+/// The helper delivered the touch or hardware-button down/up pair.
 class IosSimulatorHidTapped extends IosSimulatorHidResult {
   const IosSimulatorHidTapped();
 }
@@ -304,6 +304,39 @@ Future<IosSimulatorHidResult> iosSimulatorHidSwipe({
     return IosSimulatorHidUnavailable(e.reason);
   } catch (e) {
     return IosSimulatorHidFailed('HID swipe failed: $e; delivery may be partial (no retry)');
+  }
+}
+
+/// Presses and releases a hardware Home or lock button, without screen queries.
+/// Reuses the cached helper but never retries a started button delivery.
+Future<IosSimulatorHidResult> iosSimulatorHidButton({
+  required String udid,
+  required String button,
+  Map<String, String>? environment,
+  HidProcessRunner? runner,
+  String? cacheDir,
+}) async {
+  if (button != 'home' && button != 'lock') return const IosSimulatorHidUnavailable('expected home or lock');
+  try {
+    final output = await _runHelperCommand(
+      command: 'button',
+      arguments: [udid, button],
+      timeout: const Duration(seconds: 20),
+      onTimeout: () => const _HidPartialDelivery('HID button timed out; delivery may be partial (no retry)'),
+      environment: environment,
+      runner: runner,
+      cacheDir: cacheDir,
+    );
+    final message = extractHidErrorMessage(output.stderr) ?? 'HID button exited with code ${output.exitCode}';
+    if (output.exitCode == 0 && output.stdout.trim() == 'BUTTON=$button') return const IosSimulatorHidTapped();
+    if (output.exitCode == 1 || output.exitCode == 2) return IosSimulatorHidUnavailable(message);
+    return IosSimulatorHidFailed('$message; delivery may be partial (no retry)');
+  } on _HidUnavailable catch (e) {
+    return IosSimulatorHidUnavailable(e.reason);
+  } on _HidPartialDelivery catch (e) {
+    return IosSimulatorHidFailed(e.message);
+  } catch (e) {
+    return IosSimulatorHidFailed('HID button failed: $e; delivery may be partial (no retry)');
   }
 }
 

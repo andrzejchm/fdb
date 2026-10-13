@@ -1382,6 +1382,70 @@ dart ../../bin/fdb.dart describe
 - Permission denial must exit 1 with `ERROR: Android blocked input injection
   (INJECT_EVENTS)` and no success token; it is a device setup blocker.
 
+## S48 · native-button: iOS simulator Home, lock and exact targeting
+
+**Platform:** portrait iPhone 17 Pro C1DE4562-CFBF-45D8-B79E-740A11E86171,
+awake/unlocked, test app freshly launched. Another booted simulator stays untouched.
+Run from `example/test_app`. Inspect each screenshot before the next press.
+
+```bash
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart native-button home
+dart ../../bin/fdb.dart screenshot --output .fdb/s48-home.png
+dart ../../bin/fdb.dart native-button lock
+dart ../../bin/fdb.dart screenshot --output .fdb/s48-lock.png
+dart ../../bin/fdb.dart native-button lock
+dart ../../bin/fdb.dart screenshot --output .fdb/s48-wake.png
+dart ../../bin/fdb.dart native-swipe --from 150,873 --to 150,100 --duration 400
+xcrun simctl launch C1DE4562-CFBF-45D8-B79E-740A11E86171 dev.andrzejchm.fdb.testApp
+dart ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+- Home prints `NATIVE_BUTTON=home PLATFORM=ios-simulator`; screenshot shows
+  SpringBoard icons rather than Flutter home. The other booted simulator's
+  foreground UI does not change (take independent before/after captures).
+- First lock prints `NATIVE_BUTTON=lock PLATFORM=ios-simulator`; screenshot
+  shows the dimmed lock/always-on screen. Second press wakes to the brighter
+  lock screen, not an unlocked app. These are two intentional observed actions.
+- Swipe and simulator launch restore the test app. Final describe shows home
+  widgets. Home is not described as universal unlock or lock as idempotent.
+- `task test:native-button` also exercises these actions using only copied
+  device/platform metadata, with no PID, controller, VM URI or helper dependency.
+
+## S49 · native-button: Android Home and power button
+
+**Platform:** physical Android b433094a, awake/unlocked, test app freshly
+launched, input injection enabled. Run from `example/test_app`.
+Inspect each capture and power state before the next press.
+Secure keyguards need manual unlocking after wake, before the restoration steps.
+Do not mark a cached Flutter frame as successful restoration.
+
+```bash
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart native-button home
+adb -s b433094a exec-out screencap -p > .fdb/s49-home.png
+dart ../../bin/fdb.dart native-button lock
+adb -s b433094a shell dumpsys power
+adb -s b433094a exec-out screencap -p > .fdb/s49-lock.png
+dart ../../bin/fdb.dart native-button lock
+adb -s b433094a shell dumpsys power
+adb -s b433094a exec-out screencap -p > .fdb/s49-wake.png
+adb -s b433094a shell wm dismiss-keyguard
+adb -s b433094a shell monkey -p com.fdb.test.test_app -c android.intent.category.LAUNCHER 1
+dart ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+- Home prints `NATIVE_BUTTON=home PLATFORM=android` and shows the OS launcher.
+- Lock prints `NATIVE_BUTTON=lock PLATFORM=android`. Power state changes to
+  asleep/dozing; screenshot may show black or always-on display. The next
+  intentional lock press wakes the device. It does not promise passcode unlock.
+- Commands still work with Flutter backgrounded/suspended. All adb calls use
+  exactly b433094a. Final describe after keyguard dismissal/relaunch shows home.
+- `task test:native-button` verifies delivery using metadata-only sessions.
+  Physical iOS and desktop task runs instead verify clear unsupported errors.
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:
