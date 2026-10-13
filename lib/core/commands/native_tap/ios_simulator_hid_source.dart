@@ -1,4 +1,4 @@
-/// Swift source of the iOS simulator HID helper used by `fdb native-tap`.
+/// Swift source of the cached iOS simulator HID helper for native taps and swipes.
 ///
 /// fdb compiles this once with `xcrun swiftc` and caches the binary (see
 /// `ios_simulator_hid.dart`). The helper injects touches through SimulatorKit's
@@ -27,6 +27,7 @@ const iosSimulatorHidSource = r'''// fdb iOS simulator HID helper.
 // including SpringBoard (permission prompts, "Open in <App>?", paste prompt).
 //
 // Usage: <binary> tap <developer-dir> <udid> <x> <y>
+// Usage: <binary> swipe <developer-dir> <udid> <from-x> <from-y> <to-x> <to-y> <duration-ms>
 //   x, y are in points in the current interface orientation, the same frame
 //   screenshots and `fdb tap` use.
 // Usage: <binary> describe <developer-dir> <udid>
@@ -52,16 +53,17 @@ func fail(_ message: String, code: Int32 = 1) -> Never {
 
 let arguments = CommandLine.arguments
 let isTap = arguments.count == 6 && arguments[1] == "tap"
+let isSwipe = arguments.count == 9 && arguments[1] == "swipe"
 let isDescribe = arguments.count == 4 && arguments[1] == "describe"
-guard isTap || isDescribe else {
+guard isTap || isSwipe || isDescribe else {
   let name = arguments.first ?? "helper"
-  fail("usage: \(name) tap <developer-dir> <udid> <x> <y> | \(name) describe <developer-dir> <udid>", code: 2)
+  fail("usage: \(name) tap <developer-dir> <udid> <x> <y> | swipe <developer-dir> <udid> <from-x> <from-y> <to-x> <to-y> <duration-ms> | describe <developer-dir> <udid>", code: 2)
 }
 let developerDir = arguments[2]
 let udid = arguments[3].uppercased()
 let x: Double
 let y: Double
-if isTap {
+if isTap || isSwipe {
   guard let parsedX = Double(arguments[4]), let parsedY = Double(arguments[5]) else {
     fail("invalid coordinates \(arguments[4]),\(arguments[5])", code: 2)
   }
@@ -71,6 +73,17 @@ if isTap {
   x = 0
   y = 0
 }
+let endX = isSwipe ? Double(arguments[6]) ?? .nan : x
+let endY = isSwipe ? Double(arguments[7]) ?? .nan : y
+let durationMs = isSwipe ? Int(arguments[8]) ?? 0 : 50
+if isSwipe {
+  guard [x, y, endX, endY].allSatisfy({ $0.isFinite }), durationMs >= 1, durationMs <= 60000,
+    x != endX || y != endY
+  else { fail("invalid swipe endpoints or duration (1-60000 milliseconds)", code: 2) }
+}
+// The handler only sets a flag; cleanup runs on the gesture thread.
+var interrupted = false
+if isSwipe { signal(SIGTERM) { _ in interrupted = true } }
 
 guard dlopen("/Library/Developer/PrivateFrameworks/CoreSimulator.framework/CoreSimulator", RTLD_NOW) != nil else {
   fail("could not load CoreSimulator.framework")
@@ -97,8 +110,8 @@ let sendObjectError = unsafeBitCast(msgSend, to: MsgSendObjectError.self)
 let sendHid = unsafeBitCast(msgSend, to: MsgSendHid.self)
 
 typealias MouseMessageFn = @convention(c) (
-  UnsafeMutablePointer<CGPoint>, UnsafeMutablePointer<CGPoint>?, Int32, UInt, Bool
-) -> UnsafeMutableRawPointer
+  UnsafeMutablePointer<CGPoint>, UnsafeMutablePointer<CGPoint>?, UInt32, UInt, CGSize, UInt32
+) -> UnsafeMutableRawPointer?
 guard let mouseMessagePointer = dlsym(simulatorKit, "IndigoHIDMessageForMouseNSEvent") else {
   fail("IndigoHIDMessageForMouseNSEvent not found in SimulatorKit")
 }
@@ -579,6 +592,9 @@ guard x >= 0, y >= 0, x <= frameWidth, y <= frameHeight else {
     code: 3
   )
 }
+if isSwipe && !(endX >= 0 && endY >= 0 && endX <= frameWidth && endY <= frameHeight) {
+  fail("coordinates \(endX),\(endY) are outside the screen (\(frameWidth)x\(frameHeight) points, \(orientationName))", code: 3)
+}
 
 // Rotate the point into the portrait frame. Keep in sync with
 // `iosSimulatorPortraitPoint` in ios_simulator_hid.dart (unit tested there).
@@ -618,15 +634,21 @@ let payloadSize = 0x90
 let touchOffset = 0x30
 let touchSize = 0x80
 let secondPayloadOffset = payloadOffset + payloadSize
-let touchTarget: Int32 = 0x32
+let touchTarget: UInt32 = 0x32
 let eventTypeTouch: UInt8 = 0x02
 
-let ratio = CGPoint(x: portraitX / widthPoints, y: portraitY / heightPoints)
+var ratio = CGPoint(x: portraitX / widthPoints, y: portraitY / heightPoints)
 
-func touchMessage(down: Bool) -> UnsafeMutableRawPointer {
+func touchMessage(down: Bool, moving: Bool = false) -> UnsafeMutableRawPointer? {
   var point = ratio
   // NSEventType is NSUInteger: 1 = leftMouseDown, 2 = leftMouseUp.
-  let source = mouseMessage(&point, nil, touchTarget, down ? UInt(1) : UInt(2), false)
+  // The legacy builder only accepts down/up; NSEvent dragged (6) returns nil.
+  // A move is a sustained down with Position-only mask and the same identity.
+  // The builder normalizes by screen size. Our point is already a ratio, so
+  // pass a unit size and explicitly select no edge instead of leaving ABI
+  // arguments undefined. The coordinate fields below are patched in both cases.
+  guard let source = mouseMessage(&point, nil, touchTarget, down ? UInt(1) : UInt(2), CGSize(width: 1, height: 1), 0) else { return nil }
+  if moving { source.storeBytes(of: UInt32(0x04), toByteOffset: 0x38, as: UInt32.self) }
   source.storeBytes(of: Double(ratio.x), toByteOffset: 0x3c, as: Double.self)
   source.storeBytes(of: Double(ratio.y), toByteOffset: 0x44, as: Double.self)
 
@@ -652,7 +674,8 @@ enum SendOutcome {
   case timedOut
 }
 
-func send(_ message: UnsafeMutableRawPointer) -> SendOutcome {
+func send(_ candidate: UnsafeMutableRawPointer?, cancellable: Bool = false) -> SendOutcome {
+  guard let message = candidate else { return .failed("could not build the HID touch message") }
   let done = DispatchSemaphore(value: 0)
   var sendFailure: NSError?
   let completion: @convention(block) (NSError?) -> Void = { error in
@@ -667,8 +690,12 @@ func send(_ message: UnsafeMutableRawPointer) -> SendOutcome {
     completionQueue,
     completion as AnyObject
   )
-  if done.wait(timeout: .now() + 5) == .timedOut {
-    return .timedOut
+  let deadline = DispatchTime.now() + 5
+  while done.wait(timeout: .now() + .milliseconds(20)) == .timedOut {
+    // Stop waiting for down/move promptly on cancellation so both five-second
+    // release attempts fit inside the host's 12-second grace. Never cancel up.
+    if cancellable && interrupted { return .failed("gesture interrupted; touch-up cleanup requested") }
+    if DispatchTime.now() >= deadline { return .timedOut }
   }
   if let sendFailure {
     return .failed(sendFailure.localizedDescription)
@@ -694,7 +721,52 @@ func sendTouchUp(afterDownProblem downProblem: String?) {
       lastProblem = "timed out sending the touch up to the simulator"
     }
   }
+  if isSwipe {
+    fail("touch partially delivered: \(downProblem ?? "") touch-up cleanup failed: \(lastProblem)", code: 4)
+  }
   fail("touch partially delivered: \(downProblem ?? lastProblem)", code: 4)
+}
+
+if isSwipe {
+  if interrupted { fail("gesture interrupted before touch down; no gesture delivered", code: 2) }
+  var problem: String?
+  let startTime = ProcessInfo.processInfo.systemUptime
+  let duration = Double(durationMs) / 1000
+  let deadline = startTime + duration + 5
+  switch send(touchMessage(down: true), cancellable: true) {
+  case .sent: break
+  case .failed(let message): problem = "sending touch down failed: \(message)"
+  case .timedOut: problem = "timed out sending touch down"
+  }
+  // Absolute monotonic scheduling avoids accumulating per-move IPC latency.
+  // The orientation above is a snapshot: never remap a finger mid-stroke.
+  let steps = max(1, Int(ceil(duration * 60)))
+  if problem == nil {
+    for step in 1...steps {
+      if interrupted { problem = "gesture interrupted; touch-up cleanup requested"; break }
+      let targetTime = startTime + duration * Double(step) / Double(steps)
+      let remaining = targetTime - ProcessInfo.processInfo.systemUptime
+      if remaining > 0 { Thread.sleep(forTimeInterval: remaining) }
+      if interrupted { problem = "gesture interrupted; touch-up cleanup requested"; break }
+      if ProcessInfo.processInfo.systemUptime > deadline {
+        problem = "gesture exceeded its delivery deadline"; break
+      }
+      let fraction = Double(step) / Double(steps)
+      let point = describePortraitPoint(CGPoint(x: x + (endX - x) * fraction, y: y + (endY - y) * fraction))
+      ratio = CGPoint(x: point.x / widthPoints, y: point.y / heightPoints)
+      switch send(touchMessage(down: true, moving: true), cancellable: true) {
+      case .sent: break
+      case .failed(let message): problem = "sending touch move failed: \(message)"
+      case .timedOut: problem = "timed out sending touch move"
+      }
+      if problem != nil { break }
+    }
+  }
+  if interrupted && problem == nil { problem = "gesture interrupted; touch-up cleanup requested" }
+  // Even a failed down can have reached the guest. Always attempt release.
+  sendTouchUp(afterDownProblem: problem)
+  print("SWIPED from=\(x),\(y) to=\(endX),\(endY) duration_ms=\(durationMs) orientation=\(orientationName)")
+  exit(0)
 }
 
 switch send(touchMessage(down: true)) {

@@ -3678,6 +3678,69 @@ tasks:
 
         echo "PASS: test:native-longpress"
 
+  test:native-swipe:
+    desc: "Native OS swipe, validation, and metadata-only session (Android / iOS simulator)"
+    dir: '{{.TEST_APP}}'
+    cmds:
+      - |
+        set -eu
+        export LC_ALL=C
+        for ARGS in "" "--from 1,2 --to 2,3" "--from NaN,2 --to 2,3 --duration 600" "--from 1,2 --to 2,3 --duration 0"; do
+          CODE=0
+          OUTPUT=$({{.FDB}} native-swipe $ARGS 2>&1) || CODE=$?
+          if [ "$CODE" -ne 1 ] || ! echo "$OUTPUT" | grep -q '^ERROR: '; then
+            echo "FAIL: native-swipe validation: $ARGS ($OUTPUT)" >&2; exit 1
+          fi
+        done
+        PLATFORM=$(cut -d' ' -f1 .fdb/platform.txt)
+        EMULATOR=$(cut -d' ' -f2 .fdb/platform.txt)
+        CODE=0
+        OUTPUT=$({{.FDB}} native-swipe --from 1,1 --to 99999,99999 --duration 600 2>&1) || CODE=$?
+        case "$PLATFORM $EMULATOR" in
+          android*|"ios true") ;;
+          *)
+            if [ "$CODE" -ne 1 ] || ! echo "$OUTPUT" | grep -q 'native-swipe is not supported'; then
+              echo "FAIL: native-swipe unsupported platform: $OUTPUT" >&2; exit 1
+            fi
+            echo "PASS: fdb native-swipe unsupported platform ($PLATFORM $EMULATOR)"
+            exit 0 ;;
+        esac
+        if [ "$CODE" -ne 1 ] || ! echo "$OUTPUT" | grep -q 'outside the screen'; then
+          echo "FAIL: native-swipe endpoint bounds: $OUTPUT" >&2; exit 1
+        fi
+        W=$(echo "$OUTPUT" | sed -n 's/.*outside the screen (\([0-9.]*\)x\([0-9.]*\) .*/\1/p')
+        H=$(echo "$OUTPUT" | sed -n 's/.*outside the screen (\([0-9.]*\)x\([0-9.]*\) .*/\2/p')
+        X=$(awk "BEGIN { printf \"%.1f\", $W * 0.25 }")
+        Y=$(awk "BEGIN { printf \"%.1f\", $H * 0.75 }")
+        BOTTOM=$(awk "BEGIN { printf \"%.1f\", $H - 1 }")
+        META=$(mktemp -d)
+        trap 'rm -rf "$META"' EXIT
+        cp .fdb/platform.txt .fdb/device.txt "$META/"
+        DEVICE=$(cat .fdb/device.txt)
+        APP_ID=$(cat .fdb/app_id.txt)
+        # No PID, controller, VM URI or helper: gestures must still reach the OS.
+        OUTPUT=$({{.FDB}} --session-dir "$META" native-swipe --from "$X,1" --to "$X,$Y" --duration 600 2>&1)
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -q '^NATIVE_SWIPED=.* DURATION_MS=600$' || { echo "FAIL: native-swipe success contract" >&2; exit 1; }
+        sleep 1
+        case "$PLATFORM" in
+          ios) xcrun simctl io "$DEVICE" screenshot .fdb/native-swipe-open.png ;;
+          android*) adb -s "$DEVICE" exec-out screencap -p > .fdb/native-swipe-open.png ;;
+        esac
+        {{.FDB}} --session-dir "$META" native-swipe --from "$X,$BOTTOM" --to "$X,100" --duration 400
+        case "$PLATFORM" in
+          ios) xcrun simctl launch "$DEVICE" "$APP_ID" ;;
+          android*) adb -s "$DEVICE" shell input keyevent KEYCODE_BACK
+                    adb -s "$DEVICE" shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >/dev/null ;;
+        esac
+        sleep 1
+        {{.FDB}} wait --key increment_button --present --timeout 10000
+        case "$PLATFORM" in
+          ios) xcrun simctl io "$DEVICE" screenshot .fdb/native-swipe-restored.png ;;
+          android*) adb -s "$DEVICE" exec-out screencap -p > .fdb/native-swipe-restored.png ;;
+        esac
+        echo "PASS: fdb native-swipe (inspect .fdb/native-swipe-open.png for OS panel)"
+
   test:native-tap:
     desc: Tap native UI via adb (Android) or the simulator HID stack (iOS simulator, incl. a SpringBoard alert by label)
     dir: '{{.TEST_APP}}'
@@ -5144,6 +5207,7 @@ tasks:
       - task: test:native-tap
         vars:
           DEVICE: '{{.DEVICE}}'
+      - task: test:native-swipe
       - task: test:grant-permission
       - task: test:simulator
       - task: test:select

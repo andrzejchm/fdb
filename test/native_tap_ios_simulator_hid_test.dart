@@ -339,19 +339,20 @@ void main() {
       expect(runner.calls.where((c) => c[1] == 'tap'), hasLength(2));
     });
 
-    test('rebuilds and retries once when the helper dies from a signal without output', () async {
+    test('does not retry uncertain delivery when the helper dies from a signal without output', () async {
       runner.tapQueue.add((exitCode: -11, stdout: '', stderr: ''));
 
       final result = await tap();
 
-      expect(result, isA<IosSimulatorHidTapped>());
-      expect(runner.calls.where((c) => c.first == 'xcrun'), hasLength(2));
+      expect(result, isA<IosSimulatorHidFailed>());
+      expect(runner.calls.where((c) => c.first == 'xcrun'), hasLength(1));
+      expect(runner.calls.where((c) => c[1] == 'tap'), hasLength(1));
     });
 
     test('is unavailable when the rebuilt binary is still broken', () async {
       runner.tapQueue.addAll([
         const ProcessException('helper', [], 'Exec format error', 8),
-        (exitCode: -9, stdout: '', stderr: ''),
+        const ProcessException('helper', [], 'Exec format error', 8),
       ]);
 
       final result = await tap();

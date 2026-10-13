@@ -56,6 +56,9 @@ Commands:
                iOS sim: xcrun simctl privacy; Android: adb pm grant/revoke
                macOS: reset only (tccutil); physical iOS/Windows/Linux: unsupported
   native-tap  Tap native (non-Flutter) UI by coordinates or by label (Android, iOS simulator)
+  native-swipe Swipe OS UI on the session device (Android, iOS simulator)
+               --from x,y --to x,y --duration <ms> (all required; 1-60000 ms)
+               iOS points / Android physical pixels, current orientation; no VM required
   tap         Tap a widget by selector, coordinates, or @N ref from describe
   longpress   Long-press a widget by selector, coordinates, or @N ref
   double-tap  Double-tap a widget by selector, coordinates, or @N ref
@@ -166,6 +169,7 @@ Future<void> main(List<String> args) async {
   // `deeplink` likewise works without a session when given `--device`; with neither,
   // its adapter reports the missing session.
   const sessionSoftFail = {
+    CliCommand.nativeSwipe,
     CliCommand.simulator,
     CliCommand.deeplink,
     CliCommand.status,

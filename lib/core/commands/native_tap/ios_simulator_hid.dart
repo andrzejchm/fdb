@@ -247,6 +247,9 @@ Future<IosSimulatorHidResult> iosSimulatorHidTap({
                   'wait a moment and try again, or rotate it to portrait',
         );
     }
+    if (output.exitCode < 0) {
+      return IosSimulatorHidFailed('helper killed by signal ${-output.exitCode}; touch may be partially delivered');
+    }
     final message = _stripErrorPrefix(_tail(output.stderr));
     return IosSimulatorHidUnavailable(
       message.isEmpty ? 'helper exited with code ${output.exitCode}' : message,
@@ -257,6 +260,50 @@ Future<IosSimulatorHidResult> iosSimulatorHidTap({
     return IosSimulatorHidUnavailable(e.reason);
   } catch (e) {
     return IosSimulatorHidUnavailable('helper failed: $e');
+  }
+}
+
+/// Swipes with linear moves in the orientation sampled before touch down.
+/// Uses the cached HID helper; never retries uncertain delivery or falls back.
+Future<IosSimulatorHidResult> iosSimulatorHidSwipe({
+  required String udid,
+  required double fromX,
+  required double fromY,
+  required double toX,
+  required double toY,
+  required int durationMs,
+  Map<String, String>? environment,
+  HidProcessRunner? runner,
+  String? cacheDir,
+}) async {
+  try {
+    final timeout = Duration(milliseconds: durationMs + 35000);
+    final output = await _runHelperCommand(
+      command: 'swipe',
+      arguments: [udid, '$fromX', '$fromY', '$toX', '$toY', '$durationMs'],
+      timeout: timeout,
+      onTimeout: () => const _HidPartialDelivery(
+        'iOS simulator HID swipe timed out; touch-up cleanup was requested, '
+        'but delivery may be partial (no retry)',
+      ),
+      environment: environment,
+      runner: runner,
+      cacheDir: cacheDir,
+    );
+    final message = extractHidErrorMessage(output.stderr) ?? 'HID swipe exited with code ${output.exitCode}';
+    return switch (output.exitCode) {
+      0 => const IosSimulatorHidTapped(),
+      _outOfBoundsExitCode => IosSimulatorHidOutOfBounds(message),
+      _orientationUnknownExitCode => IosSimulatorHidOrientationUnknown(message),
+      1 || 2 => IosSimulatorHidUnavailable(message),
+      _ => IosSimulatorHidFailed('$message; delivery may be partial (no retry)'),
+    };
+  } on _HidPartialDelivery catch (e) {
+    return IosSimulatorHidFailed(e.message);
+  } on _HidUnavailable catch (e) {
+    return IosSimulatorHidUnavailable(e.reason);
+  } catch (e) {
+    return IosSimulatorHidFailed('HID swipe failed: $e; delivery may be partial (no retry)');
   }
 }
 
@@ -349,8 +396,9 @@ String? extractHidErrorMessage(String stderr) {
   return message.isEmpty ? null : message;
 }
 
-/// Default [HidProcessRunner]: starts the process, decodes output leniently
-/// and SIGKILLs it after [timeout] (then throws [TimeoutException]).
+/// Default [HidProcessRunner]: starts the process and decodes output leniently.
+/// On timeout, swipes get SIGTERM and 12 seconds to release the finger before
+/// SIGKILL; other commands are killed immediately. Throws [TimeoutException].
 Future<HidProcessOutput> runHidProcess(String executable, List<String> arguments, Duration timeout) async {
   final process = await Process.start(executable, arguments);
   final stdoutFuture = process.stdout.transform(tolerantUtf8.decoder).join();
@@ -359,6 +407,17 @@ Future<HidProcessOutput> runHidProcess(String executable, List<String> arguments
   try {
     exitCode = await process.exitCode.timeout(timeout);
   } on TimeoutException {
+    if (arguments.firstOrNull == 'swipe') {
+      // The Swift helper handles SIGTERM by stopping moves and releasing the
+      // finger. Two up attempts may take five seconds each.
+      process.kill(ProcessSignal.sigterm);
+      try {
+        await process.exitCode.timeout(const Duration(seconds: 12));
+      } on TimeoutException {
+        process.kill(ProcessSignal.sigkill);
+      }
+      rethrow;
+    }
     process.kill(ProcessSignal.sigkill);
     rethrow;
   }
@@ -424,8 +483,8 @@ Future<HidProcessOutput> _runHelperCommand({
   }
 }
 
-/// The cached binary could not be started or died from a signal before
-/// printing anything.
+/// The cached binary could not be started, or a read-only command died from
+/// a signal before printing anything. Gesture signal deaths are never retried.
 class _BadBinary implements Exception {
   const _BadBinary(this.reason);
   final String reason;
@@ -448,7 +507,10 @@ Future<HidProcessOutput> _runHelper(
   } on TimeoutException {
     throw onTimeout();
   }
-  if (output.exitCode < 0 && output.stdout.trim().isEmpty && output.stderr.trim().isEmpty) {
+  if (arguments.first == 'describe' &&
+      output.exitCode < 0 &&
+      output.stdout.trim().isEmpty &&
+      output.stderr.trim().isEmpty) {
     throw _BadBinary('helper killed by signal ${-output.exitCode}');
   }
   return output;

@@ -56,3 +56,10 @@ fdb status
 ```
 
 Restart your agent after installing the skill file, then load the `using-fdb` skill for full usage instructions.
+
+For OS panels outside Flutter, use `fdb native-swipe --from x,y --to x,y --duration <ms>`.
+All flags are required, with duration 1-60000 integer milliseconds. Coordinates are
+iOS simulator points or Android physical pixels in the current orientation. It
+targets the recorded session device without contacting the VM or `fdb_helper`.
+Physical iOS and desktop targets are unsupported. Run `fdb skill interact` for
+examples and the `NATIVE_SWIPED` output contract.
