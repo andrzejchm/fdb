@@ -1319,6 +1319,56 @@ printed while the dialog is up, e.g. "While using the app" on Android 11+.
 
 ---
 
+## S46 · native-swipe: iOS Notification Center without a responsive VM
+
+**Platform:** iOS simulator, portrait iPhone 17 Pro (402x874 points).
+**Setup:** test app launched through fdb on C1DE4562-CFBF-45D8-B79E-740A11E86171,
+home screen visible; another simulator may be booted. Run from `example/test_app`.
+
+```bash
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart native-swipe --from 150,1 --to 5000,650 --duration 600
+dart ../../bin/fdb.dart native-swipe --from 150,1 --to 150,650 --duration 600
+dart ../../bin/fdb.dart screenshot --output .fdb/s46-notification-center.png
+dart ../../bin/fdb.dart native-swipe --from 150,873 --to 150,100 --duration 400
+xcrun simctl launch C1DE4562-CFBF-45D8-B79E-740A11E86171 dev.andrzejchm.fdb.testApp
+dart ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+- Initial describe shows home-screen content. Out-of-bounds endpoint exits 1,
+  with `ERROR: coordinates ... outside the screen`, without a gesture or fallback.
+- Downward swipe prints `NATIVE_SWIPED=ios-simulator FROM=150.0,1.0
+  TO=150.0,650.0 DURATION_MS=600`. Screenshot shows Notification Center's
+  clock/date and notifications or empty notification state, not the Flutter list.
+- Upward swipe succeeds while the app is backgrounded, with no VM dependency.
+  Launch and final describe restore the test app; home widgets are still usable.
+- If another simulator is booted, its foreground UI stays unchanged.
+
+## S47 · native-swipe: Android OS notification shade
+
+**Platform:** Android physical b433094a, portrait 1440x3200 pixels, input
+injection enabled. Test app launched through fdb. Run from `example/test_app`.
+
+```bash
+dart ../../bin/fdb.dart describe
+dart ../../bin/fdb.dart native-swipe --from 360,1 --to 360,2400 --duration 600
+adb -s b433094a exec-out screencap -p > .fdb/s47-notification-shade.png
+dart ../../bin/fdb.dart native-swipe --from 360,3199 --to 360,100 --duration 400
+adb -s b433094a shell input keyevent KEYCODE_BACK
+adb -s b433094a shell monkey -p com.fdb.test.test_app -c android.intent.category.LAUNCHER 1
+dart ../../bin/fdb.dart describe
+```
+
+**What to verify:**
+- Downward swipe prints `NATIVE_SWIPED=android FROM=360.0,1.0 TO=360.0,2400.0
+  DURATION_MS=600`. Screenshot shows Android System UI notifications, not the
+  Flutter list. The OS shade closes and final describe shows the test app home.
+- All adb calls use exactly b433094a. `task test:native-swipe` also verifies
+  real gestures with only device/platform files, no PID/controller/VM metadata.
+- Permission denial must exit 1 with `ERROR: Android blocked input injection
+  (INJECT_EVENTS)` and no success token; it is a device setup blocker.
+
 ## Adding new scenarios
 
 When you add a new fdb command or significantly change an existing one:

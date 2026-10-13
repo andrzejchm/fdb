@@ -24,6 +24,7 @@ void main() {
       'doctor',
       'grant-permission',
       'native-tap',
+      'native-swipe',
       'tap',
       'longpress',
       'double-tap',

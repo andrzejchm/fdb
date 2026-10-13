@@ -10,6 +10,7 @@ UI interaction commands — screenshot, describe, tap, input, scroll, swipe, and
 - Describe the current screen
 - Widget selection
 - Tap native UI (system dialogs)
+- Swipe native OS UI
 - Tap a widget
 - Long-press
 - Double-tap
@@ -57,6 +58,49 @@ Dismissible(
 ```
 
 Add keys to: buttons, text fields, list rows, tabs, cards, bottom-sheet handles, and any container that wraps interactive children you might need to breadcrumb in `fdb describe`.
+
+## Swipe native OS UI
+
+```bash
+# iPhone 17 Pro portrait, 402x874 points: open Notification Center
+fdb native-swipe --from 150,1 --to 150,650 --duration 600
+# NATIVE_SWIPED=ios-simulator FROM=150.0,1.0 TO=150.0,650.0 DURATION_MS=600
+
+# Android example for a 1440x3200 pixel display: open the notification shade
+fdb native-swipe --from 360,1 --to 360,2400 --duration 600
+# NATIVE_SWIPED=android FROM=360.0,1.0 TO=360.0,2400.0 DURATION_MS=600
+```
+
+- Flags: `--from x,y`, `--to x,y`, `--duration <milliseconds>`, all required.
+- Coordinates: finite, non-negative and inside the screen. Endpoints must differ.
+  iOS uses points in the current interface orientation; Android uses physical
+  display pixels, including resolution overrides. There is no `--logical` flag.
+  Use the screen's actual dimensions; screenshot pixels may be downscaled.
+  Convert with `coordinate = screenshot_pixel * screen_width / image_width`.
+- Duration: integer 1-60000 ms, nominal touch-down to touch-up time. iOS sends
+  linear interpolated moves at about 60 Hz using a monotonic schedule; Android
+  delegates timing to `adb input swipe`. IPC and OS scheduling can make delivery
+  longer. Compilation, tool startup and cleanup are outside the requested duration.
+- Target: only `.fdb/device.txt` with `.fdb/platform.txt`, recorded by launch or
+  attach. Missing metadata fails; another booted simulator is never selected.
+  Use global `--session-dir <path>` for an explicit session, including a stale
+  session. No controller, VM or `fdb_helper` connection is made, so backgrounded
+  or unresponsive Flutter apps do not prevent OS gestures.
+- iOS: requires macOS and Xcode; uses the same cached Swift HID helper as
+  native-tap. Orientation is sampled once before down and held for the stroke.
+  Keep the device orientation stable while swiping. Physical iOS and desktop
+  targets fail with `ERROR: native-swipe is not supported ...`.
+- Failure: iOS attempts touch up twice after any uncertain down/move and on
+  timeout cancellation. The process budget includes duration plus 35 seconds;
+  cancellation allows another 12 seconds for release before forced termination.
+  A crash or forced kill cannot guarantee cleanup. Android's input process owns
+  down/move/up; a transport timeout cannot guarantee release. Uncertain delivery
+  returns `ERROR:` and never retries or falls back to a Flutter gesture. Inspect
+  the OS screen before deciding whether to run another swipe.
+- Verification: `NATIVE_SWIPED` confirms injection, not which panel opened.
+  Take a screenshot and check the intended OS panel; OEM edge gestures differ.
+  On Android use `adb -s <session-id> exec-out screencap -p > screen.png` for OS
+  panels: Flutter's screenshot path can still show the app under an OS overlay.
 
 ## Selector priority
 

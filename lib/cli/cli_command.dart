@@ -17,6 +17,7 @@ enum CliCommand {
   describe('describe', runDescribeCli),
   doctor('doctor', runDoctorCli),
   nativeTap('native-tap', runNativeTapCli),
+  nativeSwipe('native-swipe', runNativeSwipeCli),
   tap('tap', runTapCli),
   doubleTap('double-tap', runDoubleTapCli),
   longpress('longpress', runLongpressCli),

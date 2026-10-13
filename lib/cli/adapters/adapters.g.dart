@@ -24,6 +24,7 @@ export 'logs_cli.dart';
 export 'longpress_cli.dart';
 export 'mem_cli.dart';
 export 'native_tap_cli.dart';
+export 'native_swipe_cli.dart';
 export 'reload_cli.dart';
 export 'restart_cli.dart';
 export 'screenshot_cli.dart';

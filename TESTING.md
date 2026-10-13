@@ -67,6 +67,7 @@ task test:native-view-tap
 task test:simulator
 task test:grant-permission
 task test:native-tap
+task test:native-swipe
 task test:app-died
 task test:kill
 task test:mem
