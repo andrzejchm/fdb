@@ -32,7 +32,11 @@ void main() {
         iosSimulatorHidSource.indexOf('typealias MouseMessageFn ='),
         iosSimulatorHidSource.indexOf('var error: NSError?'),
       );
-      await source.writeAsString('$_prefix\n$signature\n$builder\n$_delivery\n$loop');
+      final mouseBuilder = iosSimulatorHidSource.substring(
+        iosSimulatorHidSource.indexOf('guard let mouseMessagePointer ='),
+        iosSimulatorHidSource.indexOf('guard let deviceType ='),
+      );
+      await source.writeAsString('$_prefix\n$signature\n$mouseBuilder\n$builder\n$_delivery\n$loop');
       final compiled = await Process.run('xcrun', ['swiftc', '-swift-version', '5', '-O', source.path, '-o', binary]);
       expect(compiled.exitCode, 0, reason: '${compiled.stdout}\n${compiled.stderr}');
     });

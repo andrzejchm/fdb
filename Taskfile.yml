@@ -3678,6 +3678,124 @@ tasks:
 
         echo "PASS: test:native-longpress"
 
+  test:native-button:
+    desc: "Hardware Home delivery without VM metadata, with OS capture and app restoration"
+    dir: '{{.TEST_APP}}'
+    vars:
+      LOCK_BUTTON: '{{.LOCK_BUTTON | default "false"}}'
+      UNLOCK_FROM: '{{.UNLOCK_FROM | default "150,873"}}'
+      UNLOCK_TO: '{{.UNLOCK_TO | default "150,100"}}'
+    cmds:
+      - |
+        set -eu
+        for ARGS in "" "power" "home lock"; do
+          CODE=0
+          OUTPUT=$({{.FDB}} native-button $ARGS 2>&1) || CODE=$?
+          [ "$CODE" -eq 1 ] && echo "$OUTPUT" | grep -q '^ERROR: Expected one button: home or lock.$' || exit 1
+        done
+        PLATFORM=$(cut -d' ' -f1 .fdb/platform.txt)
+        EMULATOR=$(cut -d' ' -f2 .fdb/platform.txt)
+        case "$PLATFORM $EMULATOR" in
+          android*) EXPECTED=android ;;
+          "ios true") EXPECTED=ios-simulator ;;
+          *)
+            for BUTTON in home lock; do
+              CODE=0
+              OUTPUT=$({{.FDB}} native-button "$BUTTON" 2>&1) || CODE=$?
+              [ "$CODE" -eq 1 ] && echo "$OUTPUT" | grep -q 'native-button is not supported' || exit 1
+            done
+            echo "PASS: fdb native-button unsupported platform ($PLATFORM $EMULATOR)"
+            exit 0 ;;
+        esac
+        DEVICE=$(cat .fdb/device.txt)
+        META=$(mktemp -d)
+        RESTORED=false
+        cleanup() {
+          rm -rf "$META"
+          if [ "$RESTORED" != true ]; then
+            echo "FAIL: native-button test did not restore the app; inspect OS state on $DEVICE before continuing. No automatic button retry or passcode unlocking." >&2
+          fi
+        }
+        trap cleanup EXIT
+        cp .fdb/device.txt .fdb/platform.txt "$META/"
+        APP_ID=$(cat .fdb/app_id.txt)
+        capture() {
+          case "$PLATFORM" in
+            ios) xcrun simctl io "$DEVICE" screenshot ".fdb/native-button-$1.png" ;;
+            android*) adb -s "$DEVICE" exec-out screencap -p > ".fdb/native-button-$1.png" ;;
+          esac
+        }
+        press() {
+          OUTPUT=$({{.FDB}} --session-dir "$META" native-button "$1" 2>&1)
+          echo "$OUTPUT"
+          [ "$OUTPUT" = "NATIVE_BUTTON=$1 PLATFORM=$EXPECTED" ] || exit 1
+          sleep 1
+        }
+        # Start awake/unlocked. Home is never used as universal unlock.
+        case "$PLATFORM" in
+          android*) POLICY=$(adb -s "$DEVICE" shell dumpsys window policy)
+                    if echo "$POLICY" | grep -q 'showing=true'; then
+                      echo "FAIL: unlock Android $DEVICE before testing Home/lock" >&2; exit 1
+                    fi
+                    POWER=$(adb -s "$DEVICE" shell dumpsys power)
+                    if ! echo "$POWER" | grep -q 'mWakefulness=Awake'; then
+                      echo "FAIL: wake Android $DEVICE before testing Home/lock" >&2; exit 1
+                    fi ;;
+        esac
+        press home
+        capture home
+        if [ '{{.LOCK_BUTTON}}' = true ]; then
+          # Already backgrounded; no PID/controller/VM URI in META.
+          press lock
+          capture lock
+          case "$PLATFORM" in
+            android*) adb -s "$DEVICE" shell dumpsys power > .fdb/native-button-lock-power.txt
+                      grep -Eq 'mWakefulness=(Asleep|Dozing)' .fdb/native-button-lock-power.txt || {
+                        echo "FAIL: lock press did not sleep Android (inspect power dump)" >&2; exit 1; } ;;
+          esac
+          # Intentional second press after observation, not a delivery retry.
+          press lock
+          capture wake
+          case "$PLATFORM" in
+            android*) adb -s "$DEVICE" shell dumpsys power > .fdb/native-button-wake-power.txt
+                      grep -q 'mWakefulness=Awake' .fdb/native-button-wake-power.txt || {
+                        echo "FAIL: second observed lock press did not wake Android" >&2; exit 1; } ;;
+          esac
+          case "$PLATFORM" in
+            ios) {{.FDB}} --session-dir "$META" native-swipe --from '{{.UNLOCK_FROM}}' --to '{{.UNLOCK_TO}}' --duration 400 ;;
+            android*) adb -s "$DEVICE" shell wm dismiss-keyguard
+                      POLICY=$(adb -s "$DEVICE" shell dumpsys window policy)
+                      if echo "$POLICY" | grep -q 'showing=true'; then
+                        echo "FAIL: Android keyguard still showing; unlock $DEVICE manually before app restoration (no passcode unlocking). Button delivery and sleep/wake were verified." >&2
+                        exit 1
+                      fi ;;
+          esac
+        else
+          echo "SKIP: native-button lock sleep/wake (run task test:native-button-lock explicitly)"
+        fi
+        case "$PLATFORM" in
+          ios) xcrun simctl launch "$DEVICE" "$APP_ID" ;;
+          android*) adb -s "$DEVICE" shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >/dev/null ;;
+        esac
+        sleep 1
+        {{.FDB}} wait --key increment_button --present --timeout 10000
+        capture restored
+        OUTPUT=$({{.FDB}} describe 2>&1)
+        if echo "$OUTPUT" | grep -Eq 'App is (not in the foreground|inactive|not responding)'; then
+          echo "FAIL: native-button app restoration did not confirm usable foreground Flutter" >&2; exit 1
+        fi
+        RESTORED=true
+        echo "PASS: fdb native-button (inspect captures for OS state; lock tested={{.LOCK_BUTTON}})"
+
+  test:native-button-lock:
+    desc: "Explicit Home/lock sleep/wake test; secure keyguards may require manual restoration"
+    cmds:
+      - task: test:native-button
+        vars:
+          LOCK_BUTTON: 'true'
+          UNLOCK_FROM: '{{.UNLOCK_FROM | default "150,873"}}'
+          UNLOCK_TO: '{{.UNLOCK_TO | default "150,100"}}'
+
   test:native-swipe:
     desc: "Native OS swipe, validation, and metadata-only session (Android / iOS simulator)"
     dir: '{{.TEST_APP}}'
@@ -5208,6 +5326,7 @@ tasks:
         vars:
           DEVICE: '{{.DEVICE}}'
       - task: test:native-swipe
+      - task: test:native-button
       - task: test:grant-permission
       - task: test:simulator
       - task: test:select
